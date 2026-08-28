@@ -77,6 +77,9 @@ export const he = {
 
   detail: {
     back: "חזרה",
+    aiLoading: "קורא את מה שכתבת ומכין טיפים בדיוק על זה...",
+    aiBadge: "נכתב על ההרגל שלך",
+    aiRefresh: "רענן טיפים",
     streakTitle: "רצף",
     streakDays: "{days} ימים ברצף",
     streakNone: "עוד לא התחלת רצף. היום זה יום טוב.",

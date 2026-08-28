@@ -79,6 +79,9 @@ export const en: typeof he = {
 
   detail: {
     back: "Back",
+    aiLoading: "Reading what you wrote and writing tips for exactly that...",
+    aiBadge: "Written for your habit",
+    aiRefresh: "Refresh tips",
     streakTitle: "Streak",
     streakDays: "{days} days running",
     streakNone: "No streak yet. Today is a good day for one.",

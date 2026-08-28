@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -9,6 +9,8 @@ import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import { daysAgo, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
+import { fetchAiSupport } from "@/support/ai";
+import type { SupportContent } from "@/support/types";
 import { useTheme } from "@/theme";
 
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
@@ -66,13 +68,37 @@ export default function HabitDetail() {
 
   const habit = state.habits.find((h) => h.id === id);
   const [customAnchor, setCustomAnchor] = useState("");
+  const [ai, setAi] = useState<SupportContent | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const habitTitle = habit?.title;
+  const habitSlot = habit?.slot;
+
+  // The library content renders instantly; Claude's personalised version —
+  // written for the user's exact sentence — replaces it the moment it lands.
+  // Where sampling cannot run (native app, declined consent) this quietly
+  // resolves null and the library stays.
+  useEffect(() => {
+    if (!habitTitle) return;
+    const ctl = new AbortController();
+    setAi(null);
+    setAiLoading(true);
+    fetchAiSupport(habitTitle, habitSlot, locale, ctl.signal)
+      .then((content) => {
+        if (!ctl.signal.aborted) setAi(content);
+      })
+      .finally(() => {
+        if (!ctl.signal.aborted) setAiLoading(false);
+      });
+    return () => ctl.abort();
+  }, [habitTitle, habitSlot, locale]);
 
   if (!habit) {
     return <Screen title="—"><View /></Screen>;
   }
 
-  const category = detectCategory(habit.title);
-  const support = getSupport(category, locale);
+  const library = getSupport(detectCategory(habit.title), locale);
+  const support = ai ?? library;
   const days = streak(habit.id);
 
   function confirmRemove() {
@@ -114,8 +140,13 @@ export default function HabitDetail() {
           <Text style={[type.bodyStrong, { color: colors.ink }]}>‹ {t.detail.back}</Text>
         </Pressable>
         <Text style={[type.label, { color: colors.accent }]}>
-          {support.label}
+          {ai ? `✦ ${t.detail.aiBadge} · ${support.label}` : support.label}
         </Text>
+        {aiLoading && !ai ? (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: -space.sm }]}>
+            ✦ {t.detail.aiLoading}
+          </Text>
+        ) : null}
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>
           <Text style={[type.title, { color: colors.ink }]}>
