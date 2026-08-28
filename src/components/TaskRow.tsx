@@ -48,7 +48,9 @@ export function TaskRow({ label, done, onToggle }: Props) {
           {
             color: done ? colors.inkFaint : colors.ink,
             textDecorationLine: done ? "line-through" : "none",
-            flexShrink: 1,
+            // flex, not flexShrink: a long habit written by the user must wrap
+            // onto a second line rather than run off the edge of the card.
+            flex: 1,
           },
         ]}
       >

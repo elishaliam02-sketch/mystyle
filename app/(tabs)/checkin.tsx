@@ -1,67 +1,94 @@
-import { Text, TextInput, View } from "react-native";
+import { useState } from "react";
+import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
+import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
+import { today, useStore, type CheckIn } from "@/store";
 import { useTheme } from "@/theme";
 
-function Bubble({ text, from }: { text: string; from: "app" | "user" }) {
-  const { colors, space, radius, type } = useTheme();
-  const mine = from === "user";
-
-  return (
-    <View
-      style={{
-        alignSelf: mine ? "flex-end" : "flex-start",
-        maxWidth: "88%",
-        backgroundColor: mine ? colors.accent : colors.surfaceAlt,
-        borderRadius: radius.lg,
-        paddingVertical: space.md,
-        paddingHorizontal: space.lg,
-      }}
-    >
-      <Text style={[type.body, { color: mine ? colors.onAccent : colors.ink }]}>
-        {text}
-      </Text>
-    </View>
-  );
-}
+const MOODS: CheckIn["mood"][] = ["good", "ok", "hard"];
 
 export default function CheckinScreen() {
   const { t } = useI18n();
-  const { colors, space, radius, type } = useTheme();
+  const { colors, space, type } = useTheme();
+  const { state, addCheckIn } = useStore();
+
+  const existing = state.checkIns.find((c) => c.date === today());
+  const [editing, setEditing] = useState(false);
+  const [mood, setMood] = useState<CheckIn["mood"]>(existing?.mood ?? "ok");
+  const [note, setNote] = useState(existing?.note ?? "");
+
+  const showForm = !existing || editing;
+
+  const moodLabel: Record<CheckIn["mood"], string> = {
+    good: t.checkin.moodGood,
+    ok: t.checkin.moodOk,
+    hard: t.checkin.moodHard,
+  };
+
+  function save() {
+    addCheckIn({ mood, note: note.trim() });
+    setEditing(false);
+  }
 
   return (
-    <Screen title={t.checkin.heading} subtitle={t.checkin.subheading}>
-      <Card label={t.checkin.sampleTitle}>
-        <View style={{ gap: space.sm, marginTop: space.xs }}>
-          <Bubble from="app" text={t.checkin.q1} />
-          <Bubble from="user" text={t.checkin.a1} />
-          <Bubble from="app" text={t.checkin.q2} />
-          <Bubble from="user" text={t.checkin.a2} />
-          <Bubble from="app" text={t.checkin.q3} />
-        </View>
-      </Card>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Screen title={t.checkin.heading} subtitle={t.checkin.body}>
+        {showForm ? (
+          <Card>
+            <View style={{ gap: space.sm }}>
+              <Text style={[type.label, { color: colors.inkFaint }]}>{t.checkin.moodQ}</Text>
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                {MOODS.map((m) => (
+                  <Chip
+                    key={m}
+                    label={moodLabel[m]}
+                    selected={mood === m}
+                    onPress={() => setMood(m)}
+                  />
+                ))}
+              </View>
+            </View>
 
-      <TextInput
-        editable={false}
-        placeholder={t.checkin.inputPlaceholder}
-        placeholderTextColor={colors.inkFaint}
-        style={[
-          type.body,
-          {
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.rule,
-            borderRadius: radius.pill,
-            paddingVertical: space.md,
-            paddingHorizontal: space.lg,
-            color: colors.ink,
-          },
-        ]}
-      />
+            <View style={{ gap: space.sm, marginTop: space.lg }}>
+              <Text style={[type.label, { color: colors.inkFaint }]}>{t.checkin.noteQ}</Text>
+              <TextField
+                value={note}
+                onChangeText={setNote}
+                placeholder={t.checkin.notePlaceholder}
+                multiline
+              />
+            </View>
 
-      <StubNote>{t.checkin.stubNote}</StubNote>
-    </Screen>
+            <Button label={t.checkin.save} onPress={save} style={{ marginTop: space.lg }} />
+          </Card>
+        ) : (
+          <Card label={t.checkin.todayDone} tone="accent">
+            <Text style={[type.title, { color: colors.ink }]}>{moodLabel[existing.mood]}</Text>
+            {existing.note ? (
+              <Text style={[type.body, { color: colors.inkSoft }]}>{existing.note}</Text>
+            ) : null}
+            <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+              {t.checkin.saved}
+            </Text>
+            <Button
+              label={t.checkin.edit}
+              tone="quiet"
+              onPress={() => setEditing(true)}
+              style={{ marginTop: space.md }}
+            />
+          </Card>
+        )}
+
+        <StubNote>{t.checkin.aiNote}</StubNote>
+      </Screen>
+    </KeyboardAvoidingView>
   );
 }
