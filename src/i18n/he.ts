@@ -63,6 +63,7 @@ export const he = {
     tipsBtn: "טיפים",
     tipTitle: "הטיפ של היום · {label}",
     tipMore: "לכל הטיפים ורעיונות הארוחות ←",
+    tipAnother: "טיפ נוסף",
     mealIdea: "רעיון ל{slot}: {idea}",
     doneCount: "{done} מתוך {total} היום",
     allDone: "הכול נעשה היום. יפה.",
@@ -105,9 +106,9 @@ export const he = {
     remove: "הסר הרגל",
     removeConfirm: "להסיר את ״{title}״? ההיסטוריה נשמרת.",
     removeYes: "הסר",
-    previewTitle: "מה יחכה לך",
-    previewBody: "זיהינו: {label}. אחרי שתוסיף, תקבל טיפים להטמעה{meals}.",
-    previewMeals: " ורעיונות ארוחות",
+    previewTitle: "טיפים בשבילך · {label}",
+    previewMealIdea: "רעיון ל{slot}: {idea}",
+    previewMore: "כל הטיפים ורעיונות הארוחות ייפתחו ברגע שתוסיף את ההרגל.",
   },
 
   checkin: {

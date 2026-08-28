@@ -65,6 +65,7 @@ export const en: typeof he = {
     tipsBtn: "Tips",
     tipTitle: "Today's tip · {label}",
     tipMore: "All tips and meal ideas ←",
+    tipAnother: "Another tip",
     mealIdea: "{slot} idea: {idea}",
     doneCount: "{done} of {total} today",
     allDone: "All done today. Nice.",
@@ -107,9 +108,9 @@ export const en: typeof he = {
     remove: "Remove habit",
     removeConfirm: "Remove “{title}”? Your history is kept.",
     removeYes: "Remove",
-    previewTitle: "What you'll get",
-    previewBody: "Detected: {label}. Once you add it, you'll get tips for making it stick{meals}.",
-    previewMeals: " and meal ideas",
+    previewTitle: "Tips for you · {label}",
+    previewMealIdea: "{slot} idea: {idea}",
+    previewMore: "All the tips and meal ideas open the moment you add the habit.",
   },
 
   checkin: {

@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
 import { StepDots } from "@/components/StepDots";
+import { SupportPreview } from "@/components/SupportPreview";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import { useStore, type Habit } from "@/store";
-import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 
 const TOTAL = 3;
@@ -36,11 +36,6 @@ export default function Onboarding() {
   const [slot, setSlot] = useState<Habit["slot"]>();
 
   const ideas = Object.values(t.onboarding.ideas);
-
-  // The payoff is shown before the habit is saved, so writing one feels like
-  // it buys something rather than just filling a field.
-  const support =
-    habit.trim().length >= 3 ? getSupport(detectCategory(habit), locale) : null;
 
   function finish() {
     saveProfile({
@@ -132,26 +127,7 @@ export default function Onboarding() {
               multiline
             />
 
-            {support ? (
-              <View
-                style={{
-                  backgroundColor: colors.accentWash,
-                  borderRadius: radius.lg,
-                  padding: space.lg,
-                  gap: space.xs,
-                }}
-              >
-                <Text style={[type.label, { color: colors.accent }]}>
-                  {t.habit.previewTitle}
-                </Text>
-                <Text style={[type.small, { color: colors.ink }]}>
-                  {fill(t.habit.previewBody, {
-                    label: support.label,
-                    meals: support.meals ? t.habit.previewMeals : "",
-                  })}
-                </Text>
-              </View>
-            ) : null}
+            <SupportPreview title={habit} />
 
             <View style={{ gap: space.sm }}>
               <Text style={[type.label, { color: colors.inkFaint }]}>

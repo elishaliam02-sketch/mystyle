@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -10,15 +11,17 @@ import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 
 /**
- * One tip, chosen by the calendar day, from the support library of one of the
- * user's own habits. It changes every day and sits above the list, so the
- * guidance is the first thing on screen — never hidden behind a tap.
+ * Real guidance on the home screen, above the habit list — never behind a tap.
+ * The starting tip is chosen by the calendar day from the support library of
+ * one of the user's own habits; "another tip" cycles through the rest in
+ * place, and the bottom line opens the habit's full page.
  */
 function TipOfTheDay() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
   const { state } = useStore();
+  const [offset, setOffset] = useState(0);
 
   const habits = state.habits.filter((h) => !h.archived);
   if (habits.length === 0) return null;
@@ -26,26 +29,23 @@ function TipOfTheDay() {
   const dayIndex = Math.floor(Date.parse(today()) / 86_400_000);
   const habit = habits[dayIndex % habits.length];
   const support = getSupport(detectCategory(habit.title), locale);
-  const tip = support.tips[dayIndex % support.tips.length];
+  const tip = support.tips[(dayIndex + offset) % support.tips.length];
 
   let mealLine: string | null = null;
   if (support.meals && support.meals.length > 0) {
-    const meal = support.meals[dayIndex % support.meals.length];
-    const idea = meal.ideas[dayIndex % meal.ideas.length];
+    const meal = support.meals[(dayIndex + offset) % support.meals.length];
+    const idea = meal.ideas[(dayIndex + offset) % meal.ideas.length];
     mealLine = fill(t.today.mealIdea, { slot: meal.slot, idea });
   }
 
   return (
-    <Pressable
-      onPress={() => router.push(`/habit/${habit.id}`)}
-      accessibilityRole="button"
-      style={({ pressed }) => ({
+    <View
+      style={{
         backgroundColor: colors.accentWash,
         borderRadius: radius.lg,
         padding: space.lg,
         gap: space.sm,
-        opacity: pressed ? 0.8 : 1,
-      })}
+      }}
     >
       <Text style={[type.label, { color: colors.accent }]}>
         {fill(t.today.tipTitle, { label: support.label })}
@@ -54,10 +54,42 @@ function TipOfTheDay() {
       {mealLine ? (
         <Text style={[type.small, { color: colors.inkSoft }]}>{mealLine}</Text>
       ) : null}
-      <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
-        {t.today.tipMore}
-      </Text>
-    </Pressable>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: space.xs,
+        }}
+      >
+        <Pressable
+          onPress={() => setOffset((o) => o + 1)}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            backgroundColor: colors.accent,
+            borderRadius: radius.pill,
+            paddingVertical: space.sm,
+            paddingHorizontal: space.lg,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text style={[type.small, { color: colors.onAccent, fontWeight: "700" }]}>
+            {t.today.tipAnother}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push(`/habit/${habit.id}`)}
+          accessibilityRole="button"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: space.xs })}
+        >
+          <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
+            {t.today.tipMore}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 

@@ -10,25 +10,37 @@ const LIBRARIES: Record<string, SupportLibrary> = { he: supportHe, en: supportEn
  * itself, so "להליכה" has to match "הליכ".
  */
 const KEYWORDS: { category: SupportCategory; words: string[] }[] = [
-  // Ordered most specific first: "לאכול נקי" must land on cleanEating, not on
-  // mealStructure, even though both would match the word "לאכול".
-  { category: "snacking", words: ["נשנוש", "לנשנש", "חטיף", "חטיפים", "במבה", "שוקולד", "מתוק", "נשבר", "פיצוח", "snack", "crisps", "sweets", "chocolate", "crav"] },
-  { category: "cleanEating", words: ["נקי", "נקייה", "בריא", "ירק", "ירקות", "פרי", "פירות", "סוכר", "מטוגן", "ג׳אנק", "ג'אנק", "מעובד", "סלט", "clean", "healthy", "veg", "salad", "sugar", "fried", "junk", "processed", "fruit"] },
-  { category: "portions", words: ["כמות", "כמויות", "מנה", "תוספת", "צלחת", "פחות לאכול", "portion", "second helping", "plate size", "smaller plate"] },
+  { category: "snacking", words: ["נשנוש", "לנשנש", "חטיף", "חטיפים", "במבה", "שוקולד", "מתוק", "קינוח", "נשבר", "פיצוח", "snack", "crisps", "sweets", "chocolate", "dessert", "crav"] },
+  { category: "cleanEating", words: ["נקי", "נקייה", "בריא", "ירק", "ירקות", "פרי", "פירות", "סוכר", "מטוגן", "ג׳אנק", "ג'אנק", "מעובד", "סלט", "קולה", "clean", "healthy", "veg", "salad", "sugar", "fried", "junk", "processed", "fruit"] },
+  { category: "portions", words: ["כמות", "כמויות", "מנה", "תוספת", "צלחת", "לאכול פחות", "פחות אוכל", "לאט", "portion", "second helping", "smaller plate", "eat less", "slowly"] },
   { category: "water", words: ["מים", "כוס", "לשתות", "שתייה", "water", "glass", "drink", "hydrat"] },
   { category: "movement", words: ["הליכ", "ללכת", "לצעוד", "צעד", "ריצה", "לרוץ", "כושר", "אימון", "מדרגות", "לזוז", "תנועה", "אופניים", "שחייה", "walk", "run", "gym", "workout", "stairs", "step", "move", "cycl", "swim", "exercis"] },
-  { category: "sleep", words: ["לישון", "שינה", "מיטה", "להירדם", "sleep", "bed", "asleep", "nap"] },
+  { category: "sleep", words: ["לישון", "שינה", "מיטה", "להירדם", "לקום מוקדם", "sleep", "bed", "asleep", "nap", "wake up early"] },
   { category: "screens", words: ["מסך", "מסכים", "טלפון", "טיקטוק", "אינסטגרם", "סקרול", "screen", "phone", "tiktok", "instagram", "scroll"] },
-  { category: "mealStructure", words: ["ארוח", "לאכול", "בוקר", "צהריים", "ערב", "לדלג", "להכין אוכל", "meal", "breakfast", "lunch", "dinner", "eat", "skip"] },
+  { category: "mealStructure", words: ["ארוח", "ארוחת בוקר", "ארוחת צהריים", "ארוחת ערב", "לדלג", "להכין אוכל", "לבשל", "מסודר", "שעות קבועות", "meal", "breakfast", "lunch", "dinner", "skip", "cook", "meal prep"] },
 ];
 
-/** Reads what the user wrote and picks the world it belongs to. */
+/**
+ * Reads what the user wrote and picks the world it belongs to. Every category
+ * is scored — matched keywords add their length, so longer (more specific)
+ * words weigh more — and the best score wins. First-match ordering was wrong
+ * here: one generic word could shadow a habit's real subject.
+ */
 export function detectCategory(title: string): SupportCategory {
   const text = title.toLowerCase();
+  let best: SupportCategory = "general";
+  let bestScore = 0;
   for (const { category, words } of KEYWORDS) {
-    if (words.some((w) => text.includes(w.toLowerCase()))) return category;
+    let score = 0;
+    for (const w of words) {
+      if (text.includes(w.toLowerCase())) score += w.length;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = category;
+    }
   }
-  return "general";
+  return best;
 }
 
 export function getSupport(category: SupportCategory, locale: string): SupportContent {
