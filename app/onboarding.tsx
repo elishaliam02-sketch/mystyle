@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
@@ -19,7 +19,14 @@ export default function Onboarding() {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { saveProfile, addHabit, addWeighIn } = useStore();
+  const { state, saveProfile, addHabit, addWeighIn } = useStore();
+
+  // Arrived here while already onboarded (a stale link, a re-mount): go home.
+  // Checked once at mount, so finish() flipping the flag can never trigger it.
+  useEffect(() => {
+    if (state.profile.onboarded) router.replace("/");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -42,8 +49,11 @@ export default function Onboarding() {
       onboarded: true,
     });
     if (currentKg) addWeighIn(Number(currentKg));
-    addHabit(habit, slot);
-    router.replace("/");
+    const id = addHabit(habit, slot);
+    // One navigation, straight to the habit's tips — the first thing a new
+    // user sees is the guidance. Its back button goes home when there is no
+    // history behind it, so this is not a dead end.
+    router.replace(id ? `/habit/${id}` : "/");
   }
 
   const canContinue = step === 2 ? habit.trim().length > 0 : true;

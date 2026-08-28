@@ -61,7 +61,11 @@ export const en: typeof he = {
     emptyCta: "Add your first habit",
 
     listLabel: "Your habits",
-    openHint: "Tap a habit for tips and ideas",
+    openHint: "Tap a habit for all its tips and ideas",
+    tipsBtn: "Tips",
+    tipTitle: "Today's tip · {label}",
+    tipMore: "All tips and meal ideas ←",
+    mealIdea: "{slot} idea: {idea}",
     doneCount: "{done} of {total} today",
     allDone: "All done today. Nice.",
 
@@ -73,6 +77,7 @@ export const en: typeof he = {
   },
 
   detail: {
+    back: "Back",
     streakTitle: "Streak",
     streakDays: "{days} days running",
     streakNone: "No streak yet. Today is a good day for one.",

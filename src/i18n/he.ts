@@ -59,7 +59,11 @@ export const he = {
     emptyCta: "הוסף את ההרגל הראשון",
 
     listLabel: "ההרגלים שלך",
-    openHint: "לחץ על הרגל לפתוח טיפים ורעיונות",
+    openHint: "לחץ על הרגל לפתוח את כל הטיפים והרעיונות",
+    tipsBtn: "טיפים",
+    tipTitle: "הטיפ של היום · {label}",
+    tipMore: "לכל הטיפים ורעיונות הארוחות ←",
+    mealIdea: "רעיון ל{slot}: {idea}",
     doneCount: "{done} מתוך {total} היום",
     allDone: "הכול נעשה היום. יפה.",
 
@@ -71,6 +75,7 @@ export const he = {
   },
 
   detail: {
+    back: "חזרה",
     streakTitle: "רצף",
     streakDays: "{days} ימים ברצף",
     streakNone: "עוד לא התחלת רצף. היום זה יום טוב.",

@@ -8,9 +8,11 @@ import { StoreProvider, useStore } from "@/store";
 import { ThemeProvider, useTheme } from "@/theme";
 
 /**
- * Sends a first-time user into onboarding, and keeps anyone who has finished it
- * out. Runs after the stored state has loaded, so a slow read never flashes
- * onboarding at a returning user.
+ * Sends a first-time user into onboarding. It deliberately does NOT redirect
+ * in the other direction: the moment onboarding completes, segments still
+ * read "onboarding" for one render, and a leave-redirect here would hijack
+ * finish()'s navigation to the new habit's tips page. Leaving is finish()'s
+ * job; the onboarding screen guards its own accidental-entry case.
  */
 function OnboardingGate() {
   const { state, ready } = useStore();
@@ -19,11 +21,8 @@ function OnboardingGate() {
 
   useEffect(() => {
     if (!ready) return;
-    const onOnboarding = segments[0] === "onboarding";
-    if (!state.profile.onboarded && !onOnboarding) {
+    if (!state.profile.onboarded && segments[0] !== "onboarding") {
       router.replace("/onboarding");
-    } else if (state.profile.onboarded && onOnboarding) {
-      router.replace("/");
     }
   }, [ready, state.profile.onboarded, segments, router]);
 

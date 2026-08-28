@@ -96,7 +96,24 @@ export default function HabitDetail() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={habit.title}>
-        <Text style={[type.label, { color: colors.accent, marginTop: -space.sm }]}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            alignSelf: "flex-start",
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.rule,
+            borderRadius: radius.pill,
+            paddingVertical: space.sm,
+            paddingHorizontal: space.lg,
+            marginTop: -space.sm,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Text style={[type.bodyStrong, { color: colors.ink }]}>‹ {t.detail.back}</Text>
+        </Pressable>
+        <Text style={[type.label, { color: colors.accent }]}>
           {support.label}
         </Text>
 

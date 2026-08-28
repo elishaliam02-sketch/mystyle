@@ -9,9 +9,11 @@ type Props = {
   onToggle: () => void;
   /** Tapping the label opens the habit; tapping the circle only ticks it. */
   onOpen?: () => void;
+  /** Label for the visible open-button pill; the pill renders only with onOpen. */
+  actionLabel?: string;
 };
 
-export function TaskRow({ label, hint, done, onToggle, onOpen }: Props) {
+export function TaskRow({ label, hint, done, onToggle, onOpen, actionLabel }: Props) {
   const { colors, space, radius, type } = useTheme();
 
   return (
@@ -64,6 +66,25 @@ export function TaskRow({ label, hint, done, onToggle, onOpen }: Props) {
           <Text style={[type.small, { color: colors.inkFaint, marginTop: 2 }]}>{hint}</Text>
         ) : null}
       </Pressable>
+
+      {onOpen && actionLabel ? (
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          style={({ pressed }) => ({
+            backgroundColor: colors.accentWash,
+            borderRadius: radius.pill,
+            paddingVertical: space.sm,
+            paddingHorizontal: space.md,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
+            {actionLabel}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -26,7 +26,7 @@ type Store = {
   state: AppState;
   ready: boolean;
   saveProfile: (patch: Partial<Profile>) => void;
-  addHabit: (title: string, slot?: Habit["slot"]) => void;
+  addHabit: (title: string, slot?: Habit["slot"]) => string | null;
   archiveHabit: (id: string) => void;
   updateHabit: (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => void;
   /** Consecutive days completed, counting back from today (or yesterday). */
@@ -75,14 +75,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addHabit = useCallback((title: string, slot?: Habit["slot"]) => {
     const clean = title.trim();
-    if (!clean) return;
+    if (!clean) return null;
+    const id = newId();
     setState((s) => ({
       ...s,
       habits: [
         ...s.habits,
-        { id: newId(), title: clean, slot, createdAt: today(), archived: false },
+        { id, title: clean, slot, createdAt: today(), archived: false },
       ],
     }));
+    return id;
   }, []);
 
   const archiveHabit = useCallback((id: string) => {

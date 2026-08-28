@@ -28,8 +28,14 @@ export default function NewHabit() {
     : null;
 
   function save() {
-    addHabit(title, slot);
-    router.back();
+    const id = addHabit(title, slot);
+    // Swap this modal for the habit's tips page in one navigation; back from
+    // there returns to Today, not to this form.
+    if (id) {
+      router.replace(`/habit/${id}`);
+    } else {
+      router.back();
+    }
   }
 
   return (
