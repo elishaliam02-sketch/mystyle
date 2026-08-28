@@ -8,14 +8,15 @@ import { StepDots } from "@/components/StepDots";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import { useStore, type Habit } from "@/store";
+import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 
 const TOTAL = 3;
 const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
 
 export default function Onboarding() {
-  const { t } = useI18n();
-  const { colors, space, type } = useTheme();
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { saveProfile, addHabit, addWeighIn } = useStore();
@@ -28,6 +29,11 @@ export default function Onboarding() {
   const [slot, setSlot] = useState<Habit["slot"]>();
 
   const ideas = Object.values(t.onboarding.ideas);
+
+  // The payoff is shown before the habit is saved, so writing one feels like
+  // it buys something rather than just filling a field.
+  const support =
+    habit.trim().length >= 3 ? getSupport(detectCategory(habit), locale) : null;
 
   function finish() {
     saveProfile({
@@ -115,6 +121,27 @@ export default function Onboarding() {
               placeholder={t.onboarding.step3Placeholder}
               multiline
             />
+
+            {support ? (
+              <View
+                style={{
+                  backgroundColor: colors.accentWash,
+                  borderRadius: radius.lg,
+                  padding: space.lg,
+                  gap: space.xs,
+                }}
+              >
+                <Text style={[type.label, { color: colors.accent }]}>
+                  {t.habit.previewTitle}
+                </Text>
+                <Text style={[type.small, { color: colors.ink }]}>
+                  {fill(t.habit.previewBody, {
+                    label: support.label,
+                    meals: support.meals ? t.habit.previewMeals : "",
+                  })}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={{ gap: space.sm }}>
               <Text style={[type.label, { color: colors.inkFaint }]}>

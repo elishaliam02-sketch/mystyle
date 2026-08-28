@@ -42,6 +42,7 @@ function Shell() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="habit/new" options={{ presentation: "modal" }} />
+        <Stack.Screen name="habit/[id]" />
       </Stack>
     </View>
   );

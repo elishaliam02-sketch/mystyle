@@ -61,6 +61,7 @@ export const en: typeof he = {
     emptyCta: "Add your first habit",
 
     listLabel: "Your habits",
+    openHint: "Tap a habit for tips and ideas",
     doneCount: "{done} of {total} today",
     allDone: "All done today. Nice.",
 
@@ -69,6 +70,26 @@ export const en: typeof he = {
     holdBody: "What you have hasn't settled yet. Give it a few more days — adding now just spreads you thin. If you want to anyway, the button is right there.",
     readyTitle: "You're holding this well",
     readyBody: "If you feel like it, this is a good moment to add one more habit. No obligation.",
+  },
+
+  detail: {
+    streakTitle: "Streak",
+    streakDays: "{days} days running",
+    streakNone: "No streak yet. Today is a good day for one.",
+    last14: "The last fourteen days",
+    whyTitle: "Why this works",
+    tipsTitle: "How to make it stick",
+    anchorTitle: "If–then",
+    anchorBody: "A habit sticks when it hangs off something that already happens. Pick an anchor, or write your own.",
+    anchorPrefix: "After I...",
+    anchorSet: "Your anchor: {anchor}",
+    anchorClear: "Clear anchor",
+    mealsTitle: "Meal ideas",
+    mealsNote: "General ideas only, not nutritional advice. If you have a medical condition, are pregnant, or have a dietary restriction, speak to a professional.",
+    smallerTitle: "Struggling? Make it smaller",
+    smallerBody: "That isn't failure. A small habit that happens beats a big one that doesn't.",
+    smallerApply: "Switch to this",
+    categoryLabel: "Topic",
   },
 
   habit: {
@@ -81,6 +102,9 @@ export const en: typeof he = {
     remove: "Remove habit",
     removeConfirm: "Remove “{title}”? Your history is kept.",
     removeYes: "Remove",
+    previewTitle: "What you'll get",
+    previewBody: "Detected: {label}. Once you add it, you'll get tips for making it stick{meals}.",
+    previewMeals: " and meal ideas",
   },
 
   checkin: {

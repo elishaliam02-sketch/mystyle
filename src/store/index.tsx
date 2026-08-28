@@ -28,6 +28,9 @@ type Store = {
   saveProfile: (patch: Partial<Profile>) => void;
   addHabit: (title: string, slot?: Habit["slot"]) => void;
   archiveHabit: (id: string) => void;
+  updateHabit: (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => void;
+  /** Consecutive days completed, counting back from today (or yesterday). */
+  streak: (habitId: string) => number;
   toggleCompletion: (habitId: string) => void;
   isDone: (habitId: string, date?: string) => boolean;
   addWeighIn: (kg: number) => void;
@@ -89,6 +92,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const updateHabit = useCallback(
+    (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => {
+      setState((s) => ({
+        ...s,
+        habits: s.habits.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+      }));
+    },
+    [],
+  );
+
   const toggleCompletion = useCallback((habitId: string) => {
     const date = today();
     setState((s) => {
@@ -132,6 +145,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const streak = useCallback(
+    (habitId: string) => {
+      const done = new Set(
+        state.completions.filter((c) => c.habitId === habitId).map((c) => c.date),
+      );
+      // Today not being ticked yet shouldn't read as a broken streak at 09:00,
+      // so an unticked today is skipped rather than counted as a miss.
+      let offset = done.has(daysAgo(0)) ? 0 : 1;
+      let count = 0;
+      while (done.has(daysAgo(offset))) {
+        count += 1;
+        offset += 1;
+      }
+      return count;
+    },
+    [state.completions],
+  );
+
   const weeklyConsistency = useCallback(() => {
     const active = state.habits.filter((h) => !h.archived);
     if (active.length === 0) return 0;
@@ -173,6 +204,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saveProfile,
       addHabit,
       archiveHabit,
+      updateHabit,
+      streak,
       toggleCompletion,
       isDone,
       addWeighIn,
@@ -181,8 +214,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       readyForAnotherHabit,
       reset,
     }),
-    [state, ready, saveProfile, addHabit, archiveHabit, toggleCompletion, isDone,
-     addWeighIn, addCheckIn, weeklyConsistency, readyForAnotherHabit, reset],
+    [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
+     toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
+     readyForAnotherHabit, reset],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

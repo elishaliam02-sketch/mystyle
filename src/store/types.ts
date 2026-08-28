@@ -4,6 +4,8 @@ export type Habit = {
   title: string;
   /** Rough time of day, chosen from chips. Undefined means "whenever". */
   slot?: "morning" | "noon" | "evening";
+  /** The existing routine this habit hangs off — "after I brush my teeth". */
+  anchor?: string;
   createdAt: string;
   archived: boolean;
 };

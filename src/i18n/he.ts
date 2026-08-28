@@ -59,6 +59,7 @@ export const he = {
     emptyCta: "הוסף את ההרגל הראשון",
 
     listLabel: "ההרגלים שלך",
+    openHint: "לחץ על הרגל לפתוח טיפים ורעיונות",
     doneCount: "{done} מתוך {total} היום",
     allDone: "הכול נעשה היום. יפה.",
 
@@ -67,6 +68,26 @@ export const he = {
     holdBody: "מה שיש עדיין לא יושב. תן לו עוד כמה ימים — הוספת עוד עכשיו רק תפזר אותך. אם בכל זאת בא לך, הכפתור פתוח.",
     readyTitle: "אתה מחזיק את זה יפה",
     readyBody: "אם מתחשק לך, זה זמן טוב להוסיף עוד הרגל אחד. אין חובה.",
+  },
+
+  detail: {
+    streakTitle: "רצף",
+    streakDays: "{days} ימים ברצף",
+    streakNone: "עוד לא התחלת רצף. היום זה יום טוב.",
+    last14: "ארבעה עשר הימים האחרונים",
+    whyTitle: "למה זה עובד",
+    tipsTitle: "איך להטמיע את זה",
+    anchorTitle: "אם־אז",
+    anchorBody: "הרגל נתפס כשהוא תלוי במשהו שכבר קורה. בחר עוגן, או כתוב משלך.",
+    anchorPrefix: "אחרי ש...",
+    anchorSet: "העוגן שלך: {anchor}",
+    anchorClear: "הסר עוגן",
+    mealsTitle: "רעיונות ארוחות",
+    mealsNote: "רעיונות כלליים בלבד, לא ייעוץ תזונתי. אם יש לך מצב רפואי, הריון או הגבלה תזונתית — תתייעץ עם איש מקצוע.",
+    smallerTitle: "קשה לך? תקטין",
+    smallerBody: "אין בזה כישלון. הרגל קטן שקורה שווה יותר מהרגל גדול שלא.",
+    smallerApply: "החלף לזה",
+    categoryLabel: "עולם התוכן",
   },
 
   habit: {
@@ -79,6 +100,9 @@ export const he = {
     remove: "הסר הרגל",
     removeConfirm: "להסיר את ״{title}״? ההיסטוריה נשמרת.",
     removeYes: "הסר",
+    previewTitle: "מה יחכה לך",
+    previewBody: "זיהינו: {label}. אחרי שתוסיף, תקבל טיפים להטמעה{meals}.",
+    previewMeals: " ורעיונות ארוחות",
   },
 
   checkin: {

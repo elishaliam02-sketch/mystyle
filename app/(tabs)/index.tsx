@@ -63,11 +63,11 @@ export default function TodayScreen() {
               delayLongPress={500}
             >
               <TaskRow
-                label={
-                  habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title
-                }
+                label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
+                hint={habit.anchor}
                 done={isDone(habit.id)}
                 onToggle={() => toggleCompletion(habit.id)}
+                onOpen={() => router.push(`/habit/${habit.id}`)}
               />
             </Pressable>
           ))}
@@ -76,6 +76,9 @@ export default function TodayScreen() {
           {doneCount === habits.length
             ? t.today.allDone
             : fill(t.today.doneCount, { done: doneCount, total: habits.length })}
+        </Text>
+        <Text style={[type.small, { color: colors.accent, marginTop: space.xs }]}>
+          {t.today.openHint}
         </Text>
       </Card>
 
