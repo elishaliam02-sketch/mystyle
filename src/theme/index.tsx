@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
-import { palette, radius, space, type, type Colors } from "./tokens";
+import { elevation, font, palette, radius, space, type, type Colors } from "./tokens";
 
 type Theme = {
   colors: Colors;
@@ -8,6 +8,9 @@ type Theme = {
   space: typeof space;
   radius: typeof radius;
   type: typeof type;
+  font: typeof font;
+  /** Shadow style for a raised surface, already themed. */
+  elevation: (level?: 1 | 2) => ReturnType<typeof elevation>;
 };
 
 const ThemeContext = createContext<Theme | null>(null);
@@ -16,7 +19,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
 
   const value = useMemo<Theme>(
-    () => ({ colors: palette[scheme], scheme, space, radius, type }),
+    () => ({
+      colors: palette[scheme],
+      scheme,
+      space,
+      radius,
+      type,
+      font,
+      elevation: (level: 1 | 2 = 1) => elevation(palette[scheme], level),
+    }),
     [scheme],
   );
 
@@ -31,5 +42,5 @@ export function useTheme(): Theme {
   return theme;
 }
 
-export { palette, radius, space, type };
+export { elevation, font, palette, radius, space, type };
 export type { Colors };

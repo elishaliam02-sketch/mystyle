@@ -5,56 +5,87 @@ import type { TextStyle } from "react-native";
  * a literal hex anywhere else is a bug, because it will only work in one theme.
  * Typing the record against Colors means a token added to light and forgotten
  * in dark fails the typecheck instead of shipping.
+ *
+ * The ground is warm paper rather than cold grey: this is a page someone
+ * returns to every morning, not a dashboard.
  */
 export type Colors = {
   ground: string;
   surface: string;
   surfaceAlt: string;
+  /** The saturated block behind the top of a screen — the app's one strong
+   * colour. Everything below it is quiet paper, so this is what makes the
+   * page read as designed rather than as a list of boxes. */
+  band: string;
+  bandInk: string;
+  bandInkSoft: string;
+  bandRule: string;
   ink: string;
   inkSoft: string;
   inkFaint: string;
   rule: string;
   ruleStrong: string;
   accent: string;
+  accentDeep: string;
   accentWash: string;
   onAccent: string;
+  /** Streaks, energy, "this is going well". */
+  amber: string;
+  amberWash: string;
   signal: string;
   signalWash: string;
   alert: string;
+  shadow: string;
 };
 
 export const palette: Record<"light" | "dark", Colors> = {
   light: {
-    ground: "#F1F4F1",
+    ground: "#F6F5F0",
     surface: "#FFFFFF",
-    surfaceAlt: "#E8EDE9",
-    ink: "#15201B",
-    inkSoft: "#576A61",
-    inkFaint: "#869890",
-    rule: "#D6DED8",
-    ruleStrong: "#B9C5BD",
-    accent: "#1E5C4B",
-    accentWash: "#E1EDE6",
+    surfaceAlt: "#EDEDE5",
+    band: "#0A4D37",
+    bandInk: "#FFFFFF",
+    bandInkSoft: "#B7D8C7",
+    bandRule: "#1C6B4F",
+    ink: "#14150F",
+    inkSoft: "#585B4E",
+    inkFaint: "#8B8E80",
+    rule: "#E3E2D8",
+    ruleStrong: "#C9C8BB",
+    accent: "#0E6E4E",
+    accentDeep: "#0A5238",
+    accentWash: "#DCEFE4",
     onAccent: "#FFFFFF",
+    amber: "#B9701A",
+    amberWash: "#FAEBD8",
     signal: "#8A5A0E",
-    signalWash: "#F5EBD8",
-    alert: "#8E3A2E",
+    signalWash: "#F7EEDC",
+    alert: "#A63A2B",
+    shadow: "#14150F",
   },
   dark: {
-    ground: "#0E1412",
-    surface: "#161E1A",
-    surfaceAlt: "#1E2823",
-    ink: "#E4EDE7",
-    inkSoft: "#9CADA4",
-    inkFaint: "#71827A",
-    rule: "#28332E",
-    ruleStrong: "#3A4842",
-    accent: "#69C0A1",
-    accentWash: "#1A2C25",
-    onAccent: "#0E1412",
+    ground: "#0E1210",
+    surface: "#171C19",
+    surfaceAlt: "#1F2622",
+    band: "#11362A",
+    bandInk: "#EFF6F1",
+    bandInkSoft: "#93B8A5",
+    bandRule: "#1E4A39",
+    ink: "#ECEEE6",
+    inkSoft: "#9FA79A",
+    inkFaint: "#767E71",
+    rule: "#28312B",
+    ruleStrong: "#3B453E",
+    accent: "#4FD69C",
+    accentDeep: "#7BE7B8",
+    accentWash: "#16302483",
+    onAccent: "#08120D",
+    amber: "#E8A94B",
+    amberWash: "#2C2417",
     signal: "#D5A344",
     signalWash: "#2B2418",
     alert: "#E2857A",
+    shadow: "#000000",
   },
 };
 
@@ -68,17 +99,46 @@ export const space = {
 } as const;
 
 export const radius = {
-  sm: 6,
-  md: 10,
-  lg: 18,
+  sm: 8,
+  md: 14,
+  lg: 22,
+  xl: 28,
   pill: 999,
 } as const;
 
+/**
+ * Font families, not weights. Custom faces are loaded one file per weight, so
+ * `fontWeight` does nothing here — the family name carries it.
+ */
+export const font = {
+  display: "FrankRuhlLibre_800ExtraBold",
+  displayMedium: "FrankRuhlLibre_500Medium",
+  body: "Heebo_400Regular",
+  bodyMedium: "Heebo_500Medium",
+  bodyBold: "Heebo_700Bold",
+  bodyBlack: "Heebo_800ExtraBold",
+} as const;
+
 export const type = {
-  display: { fontSize: 30, lineHeight: 38, fontWeight: "700" },
-  title: { fontSize: 21, lineHeight: 28, fontWeight: "700" },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: "400" },
-  bodyStrong: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
-  small: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
-  label: { fontSize: 11, lineHeight: 14, fontWeight: "700", letterSpacing: 1.1 },
+  hero: { fontFamily: font.display, fontSize: 34, lineHeight: 42 },
+  display: { fontFamily: font.display, fontSize: 26, lineHeight: 34 },
+  title: { fontFamily: font.bodyBold, fontSize: 19, lineHeight: 26 },
+  body: { fontFamily: font.body, fontSize: 16, lineHeight: 25 },
+  bodyStrong: { fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 25 },
+  small: { fontFamily: font.body, fontSize: 14, lineHeight: 21 },
+  smallStrong: { fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 21 },
+  label: { fontFamily: font.bodyBold, fontSize: 11, lineHeight: 15, letterSpacing: 1 },
+  /** Big figures: weights, counts, percentages. */
+  figure: { fontFamily: font.display, fontSize: 40, lineHeight: 46 },
 } satisfies Record<string, TextStyle>;
+
+/** Soft, low elevation. Cards should feel like paper, not like glass panels. */
+export function elevation(colors: Colors, level: 1 | 2 = 1) {
+  return {
+    shadowColor: colors.shadow,
+    shadowOpacity: level === 1 ? 0.06 : 0.1,
+    shadowRadius: level === 1 ? 12 : 22,
+    shadowOffset: { width: 0, height: level === 1 ? 3 : 8 },
+    elevation: level === 1 ? 2 : 5,
+  };
+}

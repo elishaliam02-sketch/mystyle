@@ -59,26 +59,32 @@ export default function Onboarding() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={{
-          paddingTop: insets.top + space.xl,
-          paddingBottom: insets.bottom + space.xxl,
-          paddingHorizontal: space.lg,
-          gap: space.xl,
-          flexGrow: 1,
-        }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl, flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ gap: space.md }}>
-          <StepDots total={TOTAL} current={step} />
-          <Text style={[type.label, { color: colors.inkFaint }]}>
+        <View
+          style={{
+            backgroundColor: colors.band,
+            paddingTop: insets.top + space.xl,
+            paddingBottom: space.xl,
+            paddingHorizontal: space.lg,
+            borderBottomStartRadius: 28,
+            borderBottomEndRadius: 28,
+            gap: space.md,
+          }}
+        >
+          <StepDots total={TOTAL} current={step} onBand />
+          <Text style={[type.label, { color: colors.bandInkSoft }]}>
             {fill(t.onboarding.stepOf, { step: step + 1, total: TOTAL })}
           </Text>
         </View>
 
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.xl, flexGrow: 1 }}>
+
         {step === 0 ? (
           <View style={{ gap: space.lg }}>
             <View style={{ gap: space.xs }}>
-              <Text style={[type.display, { color: colors.ink }]}>{t.onboarding.step1Title}</Text>
+              <Text style={[type.hero, { color: colors.ink }]}>{t.onboarding.step1Title}</Text>
               <Text style={[type.body, { color: colors.inkSoft }]}>{t.onboarding.step1Body}</Text>
             </View>
             <TextField
@@ -93,7 +99,7 @@ export default function Onboarding() {
         {step === 1 ? (
           <View style={{ gap: space.lg }}>
             <View style={{ gap: space.xs }}>
-              <Text style={[type.display, { color: colors.ink }]}>{t.onboarding.step2Title}</Text>
+              <Text style={[type.hero, { color: colors.ink }]}>{t.onboarding.step2Title}</Text>
               <Text style={[type.body, { color: colors.inkSoft }]}>{t.onboarding.step2Body}</Text>
             </View>
             <TextField
@@ -116,7 +122,7 @@ export default function Onboarding() {
         {step === 2 ? (
           <View style={{ gap: space.lg }}>
             <View style={{ gap: space.xs }}>
-              <Text style={[type.display, { color: colors.ink }]}>{t.onboarding.step3Title}</Text>
+              <Text style={[type.hero, { color: colors.ink }]}>{t.onboarding.step3Title}</Text>
               <Text style={[type.body, { color: colors.inkSoft }]}>{t.onboarding.step3Body}</Text>
             </View>
 
@@ -180,6 +186,7 @@ export default function Onboarding() {
             </Text>
           ) : null}
           <Button
+            icon={step === TOTAL - 1 ? "sparkles" : "arrow-back"}
             label={step === TOTAL - 1 ? t.onboarding.finish : t.onboarding.next}
             disabled={!canContinue}
             onPress={() => (step === TOTAL - 1 ? finish() : setStep(step + 1))}
@@ -198,6 +205,7 @@ export default function Onboarding() {
           {step > 0 ? (
             <Button label={t.onboarding.back} tone="quiet" onPress={() => setStep(step - 1)} />
           ) : null}
+        </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

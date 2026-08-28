@@ -125,15 +125,15 @@ export default function ProgressScreen() {
             <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>
               <View>
                 <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.latest}</Text>
-                <Text style={[type.display, { color: colors.ink }]}>{latest.kg} kg</Text>
+                <Text style={[type.figure, { color: colors.ink }]}>{latest.kg}</Text>
               </View>
               {weighIns.length > 1 ? (
                 <View>
                   <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.change}</Text>
                   <Text
                     style={[
-                      type.display,
-                      { color: delta <= 0 ? colors.accent : colors.signal },
+                      type.figure,
+                      { color: delta <= 0 ? colors.accent : colors.amber },
                     ]}
                   >
                     {delta > 0 ? "+" : ""}
@@ -156,7 +156,7 @@ export default function ProgressScreen() {
               keyboardType="numeric"
               onSubmitEditing={save}
             />
-            <Button label={t.progress.weighSave} onPress={save} disabled={!kg.trim()} />
+            <Button icon="add" label={t.progress.weighSave} onPress={save} disabled={!kg.trim()} />
           </View>
         </Card>
 
@@ -172,7 +172,7 @@ export default function ProgressScreen() {
 
         <Card label={t.progress.consistencyTitle}>
           {state.habits.filter((h) => !h.archived).length > 0 ? (
-            <Text style={[type.display, { color: colors.ink }]}>
+            <Text style={[type.figure, { color: colors.ink }]}>
               {fill(t.progress.consistencyValue, { percent: consistency })}
             </Text>
           ) : (

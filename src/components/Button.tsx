@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, type ViewStyle } from "react-native";
 import { useTheme } from "@/theme";
 
@@ -5,17 +6,17 @@ type Props = {
   label: string;
   onPress: () => void;
   tone?: "primary" | "quiet" | "danger";
+  icon?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   style?: ViewStyle;
 };
 
-export function Button({ label, onPress, tone = "primary", disabled, style }: Props) {
-  const { colors, space, radius, type } = useTheme();
+export function Button({ label, onPress, tone = "primary", icon, disabled, style }: Props) {
+  const { colors, space, radius, type, elevation } = useTheme();
 
   const background =
     tone === "primary" ? colors.accent : tone === "danger" ? colors.alert : "transparent";
-  const text =
-    tone === "quiet" ? colors.ink : colors.onAccent;
+  const textColor = tone === "quiet" ? colors.ink : colors.onAccent;
 
   return (
     <Pressable
@@ -25,19 +26,25 @@ export function Button({ label, onPress, tone = "primary", disabled, style }: Pr
       accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         {
-          backgroundColor: background,
-          borderWidth: tone === "quiet" ? 1 : 0,
-          borderColor: colors.rule,
-          borderRadius: radius.pill,
-          paddingVertical: space.md + 2,
-          paddingHorizontal: space.xl,
+          flexDirection: "row",
           alignItems: "center",
-          opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+          justifyContent: "center",
+          gap: space.sm,
+          backgroundColor: background,
+          borderWidth: tone === "quiet" ? 1.5 : 0,
+          borderColor: colors.ruleStrong,
+          borderRadius: radius.pill,
+          paddingVertical: space.lg,
+          paddingHorizontal: space.xl,
+          opacity: disabled ? 0.35 : pressed ? 0.8 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.985 : 1 }],
         },
+        tone === "primary" && !disabled ? elevation(1) : null,
         style,
       ]}
     >
-      <Text style={[type.bodyStrong, { color: text }]}>{label}</Text>
+      {icon ? <Ionicons name={icon} size={18} color={textColor} /> : null}
+      <Text style={[type.bodyStrong, { color: textColor }]}>{label}</Text>
     </Pressable>
   );
 }

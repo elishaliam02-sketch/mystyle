@@ -2,8 +2,19 @@ import { View } from "react-native";
 import { useTheme } from "@/theme";
 
 /** Shows how far through a flow you are, and how much is left. */
-export function StepDots({ total, current }: { total: number; current: number }) {
+export function StepDots({
+  total,
+  current,
+  onBand,
+}: {
+  total: number;
+  current: number;
+  /** Rendered against the dark header band rather than the page. */
+  onBand?: boolean;
+}) {
   const { colors, space } = useTheme();
+  const done = onBand ? colors.bandInk : colors.accent;
+  const todo = onBand ? colors.bandRule : colors.rule;
 
   return (
     <View style={{ flexDirection: "row", gap: space.xs }} accessibilityRole="progressbar">
@@ -11,10 +22,10 @@ export function StepDots({ total, current }: { total: number; current: number })
         <View
           key={i}
           style={{
-            height: 4,
+            height: 5,
             flex: 1,
             borderRadius: 2,
-            backgroundColor: i <= current ? colors.accent : colors.rule,
+            backgroundColor: i <= current ? done : todo,
           }}
         />
       ))}

@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "@/theme";
 
@@ -7,17 +8,25 @@ type Props = {
   hint?: string;
   done: boolean;
   onToggle: () => void;
-  /** Tapping the label opens the habit; tapping the circle only ticks it. */
+  /** Tapping the body opens the habit; tapping the circle only ticks it. */
   onOpen?: () => void;
-  /** Label for the visible open-button pill; the pill renders only with onOpen. */
-  actionLabel?: string;
+  /** Whether a divider is drawn above this row. */
+  first?: boolean;
 };
 
-export function TaskRow({ label, hint, done, onToggle, onOpen, actionLabel }: Props) {
+export function TaskRow({ label, hint, done, onToggle, onOpen, first }: Props) {
   const { colors, space, radius, type } = useTheme();
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        borderTopWidth: first ? 0 : 1,
+        borderTopColor: colors.rule,
+      }}
+    >
       <Pressable
         onPress={onToggle}
         accessibilityRole="checkbox"
@@ -25,12 +34,12 @@ export function TaskRow({ label, hint, done, onToggle, onOpen, actionLabel }: Pr
         accessibilityLabel={label}
         // Padding rather than margin: it grows the tap target without moving
         // the circle away from the text.
-        style={({ pressed }) => ({ paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+        style={({ pressed }) => ({ paddingVertical: space.lg, opacity: pressed ? 0.6 : 1 })}
       >
         <View
           style={{
-            width: 24,
-            height: 24,
+            width: 30,
+            height: 30,
             borderRadius: radius.pill,
             borderWidth: 2,
             borderColor: done ? colors.accent : colors.ruleStrong,
@@ -39,9 +48,7 @@ export function TaskRow({ label, hint, done, onToggle, onOpen, actionLabel }: Pr
             justifyContent: "center",
           }}
         >
-          {done ? (
-            <Text style={{ color: colors.onAccent, fontSize: 13, fontWeight: "700" }}>✓</Text>
-          ) : null}
+          {done ? <Ionicons name="checkmark" size={18} color={colors.onAccent} /> : null}
         </View>
       </Pressable>
 
@@ -49,42 +56,35 @@ export function TaskRow({ label, hint, done, onToggle, onOpen, actionLabel }: Pr
         onPress={onOpen}
         disabled={!onOpen}
         accessibilityRole={onOpen ? "button" : undefined}
-        style={({ pressed }) => ({ flex: 1, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+        style={({ pressed }) => ({
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.sm,
+          paddingVertical: space.lg,
+          opacity: pressed ? 0.6 : 1,
+        })}
       >
-        <Text
-          style={[
-            type.body,
-            {
-              color: done ? colors.inkFaint : colors.ink,
-              textDecorationLine: done ? "line-through" : "none",
-            },
-          ]}
-        >
-          {label}
-        </Text>
-        {hint ? (
-          <Text style={[type.small, { color: colors.inkFaint, marginTop: 2 }]}>{hint}</Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[
+              type.bodyStrong,
+              {
+                color: done ? colors.inkFaint : colors.ink,
+                textDecorationLine: done ? "line-through" : "none",
+              },
+            ]}
+          >
+            {label}
+          </Text>
+          {hint ? (
+            <Text style={[type.small, { color: colors.inkFaint, marginTop: 2 }]}>{hint}</Text>
+          ) : null}
+        </View>
+        {onOpen ? (
+          <Ionicons name="chevron-back" size={18} color={colors.inkFaint} />
         ) : null}
       </Pressable>
-
-      {onOpen && actionLabel ? (
-        <Pressable
-          onPress={onOpen}
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          style={({ pressed }) => ({
-            backgroundColor: colors.accentWash,
-            borderRadius: radius.pill,
-            paddingVertical: space.sm,
-            paddingHorizontal: space.md,
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
-            {actionLabel}
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }

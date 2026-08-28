@@ -49,7 +49,7 @@ export default function NewHabit() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={{ gap: space.xs }}>
-          <Text style={[type.display, { color: colors.ink }]}>{t.habit.newTitle}</Text>
+          <Text style={[type.hero, { color: colors.ink }]}>{t.habit.newTitle}</Text>
           <Text style={[type.body, { color: colors.inkSoft }]}>{t.habit.newBody}</Text>
         </View>
 
@@ -80,7 +80,7 @@ export default function NewHabit() {
         <View style={{ flex: 1 }} />
 
         <View style={{ gap: space.sm }}>
-          <Button label={t.habit.save} onPress={save} disabled={!title.trim()} />
+          <Button icon="checkmark" label={t.habit.save} onPress={save} disabled={!title.trim()} />
           <Button label={t.habit.cancel} tone="quiet" onPress={() => router.back()} />
         </View>
       </ScrollView>

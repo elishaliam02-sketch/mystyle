@@ -6,30 +6,53 @@ import { useTheme } from "@/theme";
 type Props = {
   title: string;
   subtitle?: string;
+  /** Sits inside the tinted band beside the title — a ring, a figure. */
+  aside?: ReactNode;
+  /** Rendered inside the band, under the title. */
+  banner?: ReactNode;
   children: ReactNode;
 };
 
-export function Screen({ title, subtitle, children }: Props) {
-  const { colors, space, type } = useTheme();
+/**
+ * Every screen opens with a tinted band carrying the title. It gives the page
+ * a top edge and a horizon line, which a flat list of cards never has.
+ */
+export function Screen({ title, subtitle, aside, banner, children }: Props) {
+  const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: colors.ground }]}
-      contentContainerStyle={{
-        paddingTop: insets.top + space.lg,
-        paddingBottom: space.xxl,
-        paddingHorizontal: space.lg,
-        gap: space.lg,
-      }}
+      contentContainerStyle={{ paddingBottom: space.xxl }}
+      keyboardShouldPersistTaps="handled"
     >
-      <View style={{ gap: space.xs }}>
-        <Text style={[type.display, { color: colors.ink }]}>{title}</Text>
-        {subtitle ? (
-          <Text style={[type.body, { color: colors.inkSoft }]}>{subtitle}</Text>
-        ) : null}
+      <View
+        style={{
+          backgroundColor: colors.band,
+          paddingTop: insets.top + space.xxl,
+          paddingBottom: space.xxl,
+          paddingHorizontal: space.lg,
+          borderBottomStartRadius: radius.xl,
+          borderBottomEndRadius: radius.xl,
+          gap: space.md,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+          <View style={{ flex: 1, gap: space.xs }}>
+            <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
+            {subtitle ? (
+              <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>
+            ) : null}
+          </View>
+          {aside}
+        </View>
+        {banner}
       </View>
-      {children}
+
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg }}>
+        {children}
+      </View>
     </ScrollView>
   );
 }

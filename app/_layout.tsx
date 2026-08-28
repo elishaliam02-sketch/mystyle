@@ -1,3 +1,14 @@
+import {
+  FrankRuhlLibre_500Medium,
+  FrankRuhlLibre_800ExtraBold,
+} from "@expo-google-fonts/frank-ruhl-libre";
+import {
+  Heebo_400Regular,
+  Heebo_500Medium,
+  Heebo_700Bold,
+  Heebo_800ExtraBold,
+} from "@expo-google-fonts/heebo";
+import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -35,7 +46,7 @@ function Shell() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ground }}>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
       {ready ? <OnboardingGate /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
         <Stack.Screen name="(tabs)" />
@@ -48,6 +59,19 @@ function Shell() {
 }
 
 export default function RootLayout() {
+  // The whole type scale names these families, so rendering before they load
+  // would flash a system-font version of every screen.
+  const [fontsLoaded] = useFonts({
+    Heebo_400Regular,
+    Heebo_500Medium,
+    Heebo_700Bold,
+    Heebo_800ExtraBold,
+    FrankRuhlLibre_500Medium,
+    FrankRuhlLibre_800ExtraBold,
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <SafeAreaProvider>
       <StoreProvider>

@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
@@ -125,7 +126,10 @@ export default function HabitDetail() {
             opacity: pressed ? 0.6 : 1,
           })}
         >
-          <Text style={[type.bodyStrong, { color: colors.ink }]}>‹ {t.detail.back}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+            <Ionicons name="chevron-forward" size={16} color={colors.ink} />
+            <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.detail.back}</Text>
+          </View>
         </Pressable>
         {ai ? (
           <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
@@ -254,7 +258,7 @@ export default function HabitDetail() {
           </View>
         </Card>
 
-        <Button label={t.habit.remove} tone="danger" onPress={confirmRemove} />
+        <Button icon="trash-outline" label={t.habit.remove} tone="danger" onPress={confirmRemove} />
       </Screen>
     </KeyboardAvoidingView>
   );

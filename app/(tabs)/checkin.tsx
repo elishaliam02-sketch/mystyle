@@ -142,7 +142,7 @@ export default function CheckinScreen() {
               />
             </View>
 
-            <Button label={t.checkin.save} onPress={save} style={{ marginTop: space.lg }} />
+            <Button icon="checkmark" label={t.checkin.save} onPress={save} style={{ marginTop: space.lg }} />
           </Card>
         ) : (
           <>
@@ -185,7 +185,7 @@ export default function CheckinScreen() {
                   </Text>
                 ) : null}
                 <View style={{ gap: space.sm, marginTop: space.md }}>
-                  <Button label={t.recap.accept} onPress={() => apply(reply.adjustment)} />
+                  <Button icon="sparkles" label={t.recap.accept} onPress={() => apply(reply.adjustment)} />
                   <Button
                     label={t.recap.dismiss}
                     tone="quiet"

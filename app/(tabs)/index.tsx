@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
@@ -8,6 +9,7 @@ import { TaskRow } from "@/components/TaskRow";
 import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
+import { Ring } from "@/components/Ring";
 import { fill, useI18n } from "@/i18n";
 import { today, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
@@ -171,6 +173,7 @@ export default function TodayScreen() {
         <Card label={t.today.emptyTitle}>
           <Text style={[type.body, { color: colors.inkSoft }]}>{t.today.emptyBody}</Text>
           <Button
+            icon="add"
             label={t.today.emptyCta}
             onPress={() => router.push("/habit/new")}
             style={{ marginTop: space.md }}
@@ -183,53 +186,62 @@ export default function TodayScreen() {
   const ready = readyForAnotherHabit();
 
   return (
-    <Screen title={title}>
+    <Screen
+      title={title}
+      subtitle={
+        doneCount === habits.length
+          ? t.today.allDone
+          : fill(t.today.doneCount, { done: doneCount, total: habits.length })
+      }
+      aside={<Ring done={doneCount} total={habits.length} />}
+    >
       <TipOfTheDay />
 
       <Card label={t.today.listLabel}>
         <View>
-          {habits.map((habit) => (
+          {habits.map((habit, index) => (
             <Pressable
               key={habit.id}
               onLongPress={() => confirmRemove(habit.id, habit.title)}
               delayLongPress={500}
             >
               <TaskRow
+                first={index === 0}
                 label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
                 hint={habit.anchor}
                 done={isDone(habit.id)}
                 onToggle={() => toggleCompletion(habit.id)}
                 onOpen={() => router.push(`/habit/${habit.id}`)}
-                actionLabel={t.today.tipsBtn}
               />
             </Pressable>
           ))}
         </View>
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
-          {doneCount === habits.length
-            ? t.today.allDone
-            : fill(t.today.doneCount, { done: doneCount, total: habits.length })}
-        </Text>
-        <Text style={[type.small, { color: colors.accent, marginTop: space.xs }]}>
-          {t.today.openHint}
-        </Text>
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
       </Card>
 
       <View
         style={{
-          backgroundColor: ready ? colors.accentWash : colors.surfaceAlt,
+          backgroundColor: ready ? colors.accentWash : colors.amberWash,
           borderRadius: radius.lg,
-          padding: space.lg,
+          padding: space.xl,
           gap: space.sm,
         }}
       >
-        <Text style={[type.bodyStrong, { color: colors.ink }]}>
-          {ready ? t.today.readyTitle : t.today.holdTitle}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Ionicons
+            name={ready ? "sparkles" : "hourglass-outline"}
+            size={16}
+            color={ready ? colors.accent : colors.amber}
+          />
+          <Text style={[type.label, { color: ready ? colors.accent : colors.amber }]}>
+            {ready ? t.today.readyTitle : t.today.holdTitle}
+          </Text>
+        </View>
         <Text style={[type.small, { color: colors.inkSoft }]}>
           {ready ? t.today.readyBody : t.today.holdBody}
         </Text>
         <Button
+          icon="add"
           label={t.today.addCta}
           tone={ready ? "primary" : "quiet"}
           onPress={() => router.push("/habit/new")}
