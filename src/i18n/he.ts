@@ -114,6 +114,19 @@ export const he = {
     previewMore: "כל הטיפים ורעיונות הארוחות ייפתחו ברגע שתוסיף את ההרגל.",
   },
 
+  recap: {
+    replyTitle: "מה שאני רואה",
+    thinking: "קורא את מה שכתבת...",
+    adjustTitle: "הצעה למחר",
+    accept: "החל את זה",
+    dismiss: "לא, תשאיר כמו שזה",
+    applied: "מעולה. מחר יחכה לך הלוח המעודכן.",
+    kindSmaller: "להקטין את ״{habit}״ ל: {value}",
+    kindReschedule: "להעביר את ״{habit}״ ל{value}",
+    kindAnchor: "לחבר את ״{habit}״ ל: {value}",
+    nothingToChange: "אין מה לשנות הערב. תמשיך ככה.",
+  },
+
   checkin: {
     heading: "סיכום היום",
     body: "שלושים שניות. זה הכול.",
@@ -132,6 +145,7 @@ export const he = {
 
   progress: {
     heading: "התקדמות",
+    weekTitle: "קריאת השבוע",
     weighTitle: "משקל",
     weighBody: "פעם בשבוע מספיק. משקל יומי קופץ ומבלבל.",
     weighPlaceholder: "קילוגרם",
@@ -163,6 +177,15 @@ export const he = {
     dangerConfirm: "למחוק את כל הנתונים? אי אפשר לבטל.",
     dangerYes: "מחק",
     localNote: "הכול נשמר כרגע רק על המכשיר הזה. חשבון בענן מגיע בשלב 1.",
+  },
+
+  ai: {
+    thinking: "קורא את מה שכתבת...",
+    badge: "נכתב עבורך",
+    retry: "נסה שוב",
+    failed: "לא הצלחתי להביא טיפים אישיים כרגע. מוצגים טיפים כלליים.",
+    declined: "לא אישרת לאפליקציה לפנות לקלוד, אז הטיפים כאן כלליים.",
+    unavailable: "טיפים אישיים יגיעו בגרסה לטלפון. בינתיים אלה טיפים כלליים.",
   },
 
   common: {

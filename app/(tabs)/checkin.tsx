@@ -1,39 +1,114 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { askRecapReply, type Adjustment } from "@/ai/prompts";
+import { useAi } from "@/ai/useAi";
+import { AiBadge, AiNote } from "@/components/AiNote";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
-import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
-import { useI18n } from "@/i18n";
-import { today, useStore, type CheckIn } from "@/store";
+import { fill, useI18n } from "@/i18n";
+import { today, useStore, type CheckIn, type Habit } from "@/store";
 import { useTheme } from "@/theme";
 
 const MOODS: CheckIn["mood"][] = ["good", "ok", "hard"];
+const SLOT_WORDS: Record<string, Habit["slot"]> = {
+  morning: "morning",
+  noon: "noon",
+  evening: "evening",
+};
 
 export default function CheckinScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { colors, space, type } = useTheme();
-  const { state, addCheckIn } = useStore();
+  const { state, addCheckIn, isDone, updateHabit } = useStore();
 
   const existing = state.checkIns.find((c) => c.date === today());
   const [editing, setEditing] = useState(false);
   const [mood, setMood] = useState<CheckIn["mood"]>(existing?.mood ?? "ok");
   const [note, setNote] = useState(existing?.note ?? "");
+  const [applied, setApplied] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const showForm = !existing || editing;
-
   const moodLabel: Record<CheckIn["mood"], string> = {
     good: t.checkin.moodGood,
     ok: t.checkin.moodOk,
     hard: t.checkin.moodHard,
   };
 
+  const habits = state.habits.filter((h) => !h.archived);
+  const habitLines = habits.map((h) => ({
+    title: h.title,
+    slot: h.slot,
+    doneToday: isDone(h.id),
+  }));
+  const recentNotes = state.checkIns
+    .filter((c) => c.date !== today() && c.note)
+    .slice(-5)
+    .reverse()
+    .map((c) => c.note);
+
+  // Only ask Claude once the recap is saved, and re-ask when its content
+  // changes — the key carries everything the answer depends on.
+  const key = existing
+    ? `${existing.date}|${existing.mood}|${existing.note}|${habitLines.map((h) => `${h.title}:${h.doneToday}`).join(",")}`
+    : null;
+
+  const { value: reply, state: aiState, retry } = useAi(key, (signal) =>
+    askRecapReply(
+      {
+        name: state.profile.name,
+        mood: moodLabel[existing?.mood ?? "ok"],
+        note: existing?.note ?? "",
+        habits: habitLines,
+        recentNotes,
+      },
+      locale,
+      signal,
+    ),
+  );
+
   function save() {
     addCheckIn({ mood, note: note.trim() });
     setEditing(false);
+    setApplied(false);
+    setDismissed(false);
   }
+
+  function describe(adj: Adjustment): string | null {
+    const habit = habits.find((h) => h.title === adj.habitTitle);
+    if (!habit) return null;
+    if (adj.kind === "smaller" && adj.newTitle) {
+      return fill(t.recap.kindSmaller, { habit: habit.title, value: adj.newTitle });
+    }
+    if (adj.kind === "reschedule" && adj.slot && SLOT_WORDS[adj.slot]) {
+      return fill(t.recap.kindReschedule, {
+        habit: habit.title,
+        value: t.slots[SLOT_WORDS[adj.slot] as "morning"],
+      });
+    }
+    if (adj.kind === "anchor" && adj.anchor) {
+      return fill(t.recap.kindAnchor, { habit: habit.title, value: adj.anchor });
+    }
+    return null;
+  }
+
+  function apply(adj: Adjustment) {
+    const habit = habits.find((h) => h.title === adj.habitTitle);
+    if (!habit) return;
+    if (adj.kind === "smaller" && adj.newTitle) {
+      updateHabit(habit.id, { title: adj.newTitle });
+    } else if (adj.kind === "reschedule" && adj.slot && SLOT_WORDS[adj.slot]) {
+      updateHabit(habit.id, { slot: SLOT_WORDS[adj.slot] });
+    } else if (adj.kind === "anchor" && adj.anchor) {
+      updateHabit(habit.id, { anchor: adj.anchor });
+    }
+    setApplied(true);
+  }
+
+  const suggestion = reply && reply.adjustment.kind !== "none" ? describe(reply.adjustment) : null;
 
   return (
     <KeyboardAvoidingView
@@ -70,24 +145,69 @@ export default function CheckinScreen() {
             <Button label={t.checkin.save} onPress={save} style={{ marginTop: space.lg }} />
           </Card>
         ) : (
-          <Card label={t.checkin.todayDone} tone="accent">
-            <Text style={[type.title, { color: colors.ink }]}>{moodLabel[existing.mood]}</Text>
-            {existing.note ? (
-              <Text style={[type.body, { color: colors.inkSoft }]}>{existing.note}</Text>
-            ) : null}
-            <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
-              {t.checkin.saved}
-            </Text>
-            <Button
-              label={t.checkin.edit}
-              tone="quiet"
-              onPress={() => setEditing(true)}
-              style={{ marginTop: space.md }}
-            />
-          </Card>
-        )}
+          <>
+            <Card label={t.checkin.todayDone} tone="accent">
+              <Text style={[type.title, { color: colors.ink }]}>{moodLabel[existing.mood]}</Text>
+              {existing.note ? (
+                <Text style={[type.body, { color: colors.inkSoft }]}>{existing.note}</Text>
+              ) : null}
+              <Button
+                label={t.checkin.edit}
+                tone="quiet"
+                onPress={() => setEditing(true)}
+                style={{ marginTop: space.md }}
+              />
+            </Card>
 
-        <StubNote>{t.checkin.aiNote}</StubNote>
+            <Card label={t.recap.replyTitle}>
+              {aiState === "checking" ? (
+                <Text style={[type.body, { color: colors.inkSoft }]}>✦ {t.recap.thinking}</Text>
+              ) : null}
+
+              {reply ? (
+                <View style={{ gap: space.sm }}>
+                  <AiBadge />
+                  <Text style={[type.body, { color: colors.ink }]}>{reply.reply}</Text>
+                </View>
+              ) : null}
+
+              <View style={{ marginTop: reply ? space.md : 0 }}>
+                <AiNote state={aiState} onRetry={retry} />
+              </View>
+            </Card>
+
+            {reply && suggestion && !applied && !dismissed ? (
+              <Card label={t.recap.adjustTitle} tone="accent">
+                <Text style={[type.bodyStrong, { color: colors.ink }]}>{suggestion}</Text>
+                {reply.adjustment.reason ? (
+                  <Text style={[type.small, { color: colors.inkSoft }]}>
+                    {reply.adjustment.reason}
+                  </Text>
+                ) : null}
+                <View style={{ gap: space.sm, marginTop: space.md }}>
+                  <Button label={t.recap.accept} onPress={() => apply(reply.adjustment)} />
+                  <Button
+                    label={t.recap.dismiss}
+                    tone="quiet"
+                    onPress={() => setDismissed(true)}
+                  />
+                </View>
+              </Card>
+            ) : null}
+
+            {applied ? (
+              <Card tone="accent">
+                <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.recap.applied}</Text>
+              </Card>
+            ) : null}
+
+            {reply && !suggestion ? (
+              <Text style={[type.small, { color: colors.inkFaint }]}>
+                {t.recap.nothingToChange}
+              </Text>
+            ) : null}
+          </>
+        )}
       </Screen>
     </KeyboardAvoidingView>
   );

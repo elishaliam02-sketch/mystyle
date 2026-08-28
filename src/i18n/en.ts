@@ -116,6 +116,19 @@ export const en: typeof he = {
     previewMore: "All the tips and meal ideas open the moment you add the habit.",
   },
 
+  recap: {
+    replyTitle: "What I'm seeing",
+    thinking: "Reading what you wrote...",
+    adjustTitle: "A suggestion for tomorrow",
+    accept: "Apply this",
+    dismiss: "No, leave it as is",
+    applied: "Good. Tomorrow's board is updated.",
+    kindSmaller: "Shrink “{habit}” to: {value}",
+    kindReschedule: "Move “{habit}” to {value}",
+    kindAnchor: "Hang “{habit}” on: {value}",
+    nothingToChange: "Nothing to change tonight. Keep going.",
+  },
+
   checkin: {
     heading: "Today's recap",
     body: "Thirty seconds. That's all.",
@@ -134,6 +147,7 @@ export const en: typeof he = {
 
   progress: {
     heading: "Progress",
+    weekTitle: "This week, read",
     weighTitle: "Weight",
     weighBody: "Once a week is enough. A daily number jumps around and misleads.",
     weighPlaceholder: "kg",
@@ -165,6 +179,15 @@ export const en: typeof he = {
     dangerConfirm: "Delete all data? This cannot be undone.",
     dangerYes: "Delete",
     localNote: "Everything is stored on this device only for now. A cloud account arrives in phase 1.",
+  },
+
+  ai: {
+    thinking: "Reading what you wrote...",
+    badge: "Written for you",
+    retry: "Try again",
+    failed: "Couldn't fetch personal tips just now. Showing general ones.",
+    declined: "You haven't allowed the app to reach Claude, so these tips are general.",
+    unavailable: "Personal tips arrive in the phone version. These are general for now.",
   },
 
   common: {

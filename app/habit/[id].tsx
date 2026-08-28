@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -7,10 +7,11 @@ import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
+import { askHabitSupport } from "@/ai/prompts";
+import { useAi } from "@/ai/useAi";
+import { AiBadge, AiNote } from "@/components/AiNote";
 import { daysAgo, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
-import { fetchAiSupport } from "@/support/ai";
-import type { SupportContent } from "@/support/types";
 import { useTheme } from "@/theme";
 
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
@@ -68,30 +69,17 @@ export default function HabitDetail() {
 
   const habit = state.habits.find((h) => h.id === id);
   const [customAnchor, setCustomAnchor] = useState("");
-  const [ai, setAi] = useState<SupportContent | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const habitTitle = habit?.title;
   const habitSlot = habit?.slot;
 
-  // The library content renders instantly; Claude's personalised version —
-  // written for the user's exact sentence — replaces it the moment it lands.
-  // Where sampling cannot run (native app, declined consent) this quietly
-  // resolves null and the library stays.
-  useEffect(() => {
-    if (!habitTitle) return;
-    const ctl = new AbortController();
-    setAi(null);
-    setAiLoading(true);
-    fetchAiSupport(habitTitle, habitSlot, locale, ctl.signal)
-      .then((content) => {
-        if (!ctl.signal.aborted) setAi(content);
-      })
-      .finally(() => {
-        if (!ctl.signal.aborted) setAiLoading(false);
-      });
-    return () => ctl.abort();
-  }, [habitTitle, habitSlot, locale]);
+  // The written library renders instantly; Claude's version — built from the
+  // user's exact sentence — replaces it when it lands, and AiNote says which
+  // of the two is on screen rather than failing silently.
+  const { value: ai, state: aiState, retry } = useAi(
+    habitTitle ? `${habitTitle}|${habitSlot ?? ""}|${locale}` : null,
+    (signal) => askHabitSupport(habitTitle ?? "", habitSlot, locale, signal),
+  );
 
   if (!habit) {
     return <Screen title="—"><View /></Screen>;
@@ -139,14 +127,15 @@ export default function HabitDetail() {
         >
           <Text style={[type.bodyStrong, { color: colors.ink }]}>‹ {t.detail.back}</Text>
         </Pressable>
-        <Text style={[type.label, { color: colors.accent }]}>
-          {ai ? `✦ ${t.detail.aiBadge} · ${support.label}` : support.label}
-        </Text>
-        {aiLoading && !ai ? (
-          <Text style={[type.small, { color: colors.inkSoft, marginTop: -space.sm }]}>
-            ✦ {t.detail.aiLoading}
-          </Text>
-        ) : null}
+        {ai ? (
+          <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+            <AiBadge />
+            <Text style={[type.label, { color: colors.inkFaint }]}>· {support.label}</Text>
+          </View>
+        ) : (
+          <Text style={[type.label, { color: colors.accent }]}>{support.label}</Text>
+        )}
+        <AiNote state={aiState} onRetry={retry} />
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>
           <Text style={[type.title, { color: colors.ink }]}>
