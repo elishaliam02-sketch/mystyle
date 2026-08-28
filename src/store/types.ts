@@ -33,6 +33,8 @@ export type Profile = {
   startKg?: number;
   goalKg?: number;
   onboarded: boolean;
+  /** Whether daily reminders are scheduled on this device. */
+  reminders?: boolean;
 };
 
 export type AppState = {

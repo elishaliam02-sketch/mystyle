@@ -10,6 +10,20 @@ export const en: typeof he = {
     profile: "Profile",
   },
 
+  welcome: {
+    kicker: "Welcome",
+    title: "MyStyle",
+    tagline: "Lose weight without a diet — through a routine you build yourself.",
+    point1Title: "You write the habits",
+    point1Body: "Not us. In your own words, starting with one small one.",
+    point2Title: "Tips written for you",
+    point2Body: "Built from exactly what you wrote — meal ideas too, if it's about food.",
+    point3Title: "A minute at night, and tomorrow changes",
+    point3Body: "Tell me how it went; I spot the patterns and adjust the board.",
+    start: "Let's start",
+    duration: "Setting up takes under a minute.",
+  },
+
   onboarding: {
     stepOf: "Step {step} of {total}",
     next: "Continue",
@@ -173,6 +187,15 @@ export const en: typeof he = {
     languageTitle: "Language",
     languageNote: "Switching language restarts the app to change writing direction.",
     saved: "Saved",
+    notificationsTitle: "Reminders",
+    notificationsBody: "One quiet reminder for each part of the day you have a habit in, and one at night for the recap.",
+    notificationsOn: "Reminders on",
+    notificationsOff: "Reminders off",
+    notificationsEnable: "Turn on reminders",
+    notificationsDisable: "Turn off reminders",
+    notificationsCount: "{count} reminders scheduled",
+    notificationsDenied: "Notifications are blocked at the device level. Allow them in settings.",
+    notificationsWeb: "Reminders only work in the installed app, not in a browser.",
     dangerTitle: "Delete all data",
     dangerBody: "Erases habits, weigh-ins and recaps from this device. No recovery.",
     dangerCta: "Delete everything",
@@ -188,6 +211,12 @@ export const en: typeof he = {
     failed: "Couldn't fetch personal tips just now. Showing general ones.",
     declined: "You haven't allowed the app to reach Claude, so these tips are general.",
     unavailable: "Personal tips arrive in the phone version. These are general for now.",
+  },
+
+  reminders: {
+    slotTitle: "{count} things waiting",
+    recapTitle: "A minute to close the day",
+    recapBody: "How did it go? Under a minute.",
   },
 
   common: {

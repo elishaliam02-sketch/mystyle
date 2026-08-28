@@ -5,7 +5,8 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
-import { useI18n, type Locale } from "@/i18n";
+import { useI18n, type Locale, fill } from "@/i18n";
+import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
   const { t, locale, setLocale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { state, saveProfile, reset } = useStore();
+  const reminders = useReminders();
 
   const [name, setName] = useState(state.profile.name);
   const [goal, setGoal] = useState(state.profile.goalKg ? String(state.profile.goalKg) : "");
@@ -97,6 +99,49 @@ export default function ProfileScreen() {
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
             {t.profile.languageNote}
           </Text>
+        </Card>
+
+        <Card label={t.profile.notificationsTitle}>
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            {t.profile.notificationsBody}
+          </Text>
+          {reminders.supported ? (
+            <>
+              <Text
+                style={[
+                  type.bodyStrong,
+                  { color: reminders.enabled ? colors.accent : colors.inkFaint, marginTop: space.sm },
+                ]}
+              >
+                {reminders.enabled ? t.profile.notificationsOn : t.profile.notificationsOff}
+              </Text>
+              {reminders.enabled && reminders.count > 0 ? (
+                <Text style={[type.small, { color: colors.inkFaint }]}>
+                  {fill(t.profile.notificationsCount, { count: reminders.count })}
+                </Text>
+              ) : null}
+              {reminders.denied ? (
+                <Text style={[type.small, { color: colors.amber, marginTop: space.xs }]}>
+                  {t.profile.notificationsDenied}
+                </Text>
+              ) : null}
+              <Button
+                icon={reminders.enabled ? "notifications-off-outline" : "notifications-outline"}
+                label={
+                  reminders.enabled
+                    ? t.profile.notificationsDisable
+                    : t.profile.notificationsEnable
+                }
+                tone={reminders.enabled ? "quiet" : "primary"}
+                onPress={() => void reminders.toggle()}
+                style={{ marginTop: space.md }}
+              />
+            </>
+          ) : (
+            <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+              {t.profile.notificationsWeb}
+            </Text>
+          )}
         </Card>
 
         <StubNote>{t.profile.localNote}</StubNote>

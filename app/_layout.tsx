@@ -9,6 +9,7 @@ import {
   Heebo_800ExtraBold,
 } from "@expo-google-fonts/heebo";
 import { useFonts } from "expo-font";
+import { configure as configureNotifications } from "@/notifications";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -32,8 +33,9 @@ function OnboardingGate() {
 
   useEffect(() => {
     if (!ready) return;
-    if (!state.profile.onboarded && segments[0] !== "onboarding") {
-      router.replace("/onboarding");
+    const inSetup = segments[0] === "welcome" || segments[0] === "onboarding";
+    if (!state.profile.onboarded && !inSetup) {
+      router.replace("/welcome");
     }
   }, [ready, state.profile.onboarded, segments, router]);
 
@@ -50,6 +52,7 @@ function Shell() {
       {ready ? <OnboardingGate /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="welcome" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="habit/new" options={{ presentation: "modal" }} />
         <Stack.Screen name="habit/[id]" />
@@ -69,6 +72,10 @@ export default function RootLayout() {
     FrankRuhlLibre_500Medium,
     FrankRuhlLibre_800ExtraBold,
   });
+
+  useEffect(() => {
+    configureNotifications();
+  }, []);
 
   if (!fontsLoaded) return null;
 

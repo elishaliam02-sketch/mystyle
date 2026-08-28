@@ -8,6 +8,20 @@ export const he = {
     profile: "פרופיל",
   },
 
+  welcome: {
+    kicker: "ברוך הבא",
+    title: "MyStyle",
+    tagline: "לרדת במשקל בלי דיאטה — דרך שגרה שאתה בונה לעצמך.",
+    point1Title: "אתה כותב את ההרגלים",
+    point1Body: "לא אנחנו. במילים שלך, ומתחילים מאחד קטן.",
+    point2Title: "מקבל טיפים שנכתבו עליך",
+    point2Body: "לפי מה שכתבת בדיוק — כולל רעיונות ארוחות אם זה על אוכל.",
+    point3Title: "דקה בערב, והמחר משתנה",
+    point3Body: "מספר איך היה, ואני מזהה דפוסים ומתאים את הלוח.",
+    start: "בוא נתחיל",
+    duration: "ההרשמה לוקחת פחות מדקה.",
+  },
+
   onboarding: {
     stepOf: "שלב {step} מתוך {total}",
     next: "המשך",
@@ -171,6 +185,15 @@ export const he = {
     languageTitle: "שפה",
     languageNote: "החלפת שפה מפעילה את האפליקציה מחדש כדי להחליף כיוון כתיבה.",
     saved: "נשמר",
+    notificationsTitle: "תזכורות",
+    notificationsBody: "תזכורת שקטה לכל חלק ביום שיש בו הרגל, ואחת בערב לסיכום.",
+    notificationsOn: "תזכורות פעילות",
+    notificationsOff: "תזכורות כבויות",
+    notificationsEnable: "הפעל תזכורות",
+    notificationsDisable: "כבה תזכורות",
+    notificationsCount: "{count} תזכורות מתוזמנות",
+    notificationsDenied: "חסמת התראות ברמת המכשיר. צריך לאשר בהגדרות.",
+    notificationsWeb: "תזכורות עובדות רק באפליקציה המותקנת, לא בדפדפן.",
     dangerTitle: "מחיקת כל הנתונים",
     dangerBody: "מוחק הרגלים, שקילות וסיכומים מהמכשיר הזה. אין שחזור.",
     dangerCta: "מחק הכול",
@@ -186,6 +209,12 @@ export const he = {
     failed: "לא הצלחתי להביא טיפים אישיים כרגע. מוצגים טיפים כלליים.",
     declined: "לא אישרת לאפליקציה לפנות לקלוד, אז הטיפים כאן כלליים.",
     unavailable: "טיפים אישיים יגיעו בגרסה לטלפון. בינתיים אלה טיפים כלליים.",
+  },
+
+  reminders: {
+    slotTitle: "{count} דברים מחכים לך",
+    recapTitle: "דקה לסכם את היום",
+    recapBody: "איך היה? זה לוקח פחות מדקה.",
   },
 
   common: {

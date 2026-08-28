@@ -202,9 +202,11 @@ export default function Onboarding() {
               }}
             />
           ) : null}
-          {step > 0 ? (
-            <Button label={t.onboarding.back} tone="quiet" onPress={() => setStep(step - 1)} />
-          ) : null}
+          <Button
+            label={t.onboarding.back}
+            tone="quiet"
+            onPress={() => (step > 0 ? setStep(step - 1) : router.replace("/welcome"))}
+          />
         </View>
         </View>
       </ScrollView>
