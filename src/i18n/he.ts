@@ -1,6 +1,19 @@
 export const he = {
   meta: { name: "עברית" },
 
+  // Written out rather than left to toLocaleDateString: the JavaScript engine
+  // in a React Native build does not always carry full locale data, and a
+  // date that silently renders as nothing is worse than no date at all.
+  calendar: {
+    weekdays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+    months: [
+      "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+      "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+    ],
+    /** "יום שישי, 29 באוגוסט" */
+    pattern: "יום {weekday}, {day} ב{month}",
+  },
+
   tabs: {
     today: "היום",
     checkin: "סיכום",

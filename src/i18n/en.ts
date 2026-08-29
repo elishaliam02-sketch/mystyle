@@ -3,6 +3,15 @@ import type { he } from "./he";
 export const en: typeof he = {
   meta: { name: "English" },
 
+  calendar: {
+    weekdays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    months: [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ],
+    pattern: "{weekday}, {day} {month}",
+  },
+
   tabs: {
     today: "Today",
     checkin: "Recap",

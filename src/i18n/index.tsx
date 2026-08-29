@@ -14,6 +14,8 @@ import { Alert, I18nManager, Platform } from "react-native";
 import { en } from "./en";
 import { he } from "./he";
 
+export { formatDate } from "./date";
+
 export type Locale = "he" | "en";
 type Dict = typeof he;
 

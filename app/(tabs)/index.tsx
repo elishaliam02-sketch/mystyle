@@ -10,7 +10,7 @@ import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
 import { Ring } from "@/components/Ring";
-import { fill, useI18n } from "@/i18n";
+import { fill, formatDate, useI18n } from "@/i18n";
 import { today, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
@@ -151,11 +151,7 @@ export default function TodayScreen() {
 
   // A daily app should say which day it is; without it every screen looks the
   // same and yesterday's board is indistinguishable from today's.
-  const dateLabel = new Date().toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const dateLabel = formatDate(new Date(), t);
 
   const hour = new Date().getHours();
   const greeting =

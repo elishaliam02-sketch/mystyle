@@ -45,7 +45,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test:sync": "node scripts/run-sync-tests.mjs"
+    "test:sync": "node scripts/run-sync-tests.mjs",
+    "test:date": "node scripts/run-date-tests.mjs"
   },
   "private": true
 }
