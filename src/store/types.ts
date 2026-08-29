@@ -8,6 +8,8 @@ export type Habit = {
   anchor?: string;
   createdAt: string;
   archived: boolean;
+  /** When this habit was last edited on any device, ISO 8601. */
+  updatedAt?: string;
 };
 
 /** One habit ticked off on one day. Keyed by `${habitId}|${date}`. */

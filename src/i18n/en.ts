@@ -201,7 +201,14 @@ export const en: typeof he = {
     dangerCta: "Delete everything",
     dangerConfirm: "Delete all data? This cannot be undone.",
     dangerYes: "Delete",
-    localNote: "Everything is stored on this device only for now. A cloud account arrives in phase 1.",
+    cloudTitle: "Cloud backup",
+    cloudConnecting: "Connecting...",
+    cloudSynced: "Backed up. Your data survives deleting the app.",
+    cloudLocal: "Working on this device only. It will sync once there's a connection.",
+    cloudError: "Couldn't reach the server. Your data is safe on the device.",
+    cloudSyncNow: "Sync now",
+    cloudLastSync: "Last synced: {time}",
+    localNote: "Data is kept on the device, and backed up to the cloud when there's a connection.",
   },
 
   ai: {

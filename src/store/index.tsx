@@ -40,6 +40,8 @@ type Store = {
   /** True once the current habits are holding — the only moment we suggest adding one. */
   readyForAnotherHabit: () => boolean;
   reset: () => void;
+  /** Adopts a merged state wholesale — used after a cloud sync. */
+  replaceAll: (next: AppState) => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -81,7 +83,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       habits: [
         ...s.habits,
-        { id, title: clean, slot, createdAt: today(), archived: false },
+        {
+          id,
+          title: clean,
+          slot,
+          createdAt: today(),
+          archived: false,
+          updatedAt: new Date().toISOString(),
+        },
       ],
     }));
     return id;
@@ -90,7 +99,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const archiveHabit = useCallback((id: string) => {
     setState((s) => ({
       ...s,
-      habits: s.habits.map((h) => (h.id === id ? { ...h, archived: true } : h)),
+      habits: s.habits.map((h) =>
+        h.id === id ? { ...h, archived: true, updatedAt: new Date().toISOString() } : h,
+      ),
     }));
   }, []);
 
@@ -98,7 +109,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => {
       setState((s) => ({
         ...s,
-        habits: s.habits.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+        habits: s.habits.map((h) =>
+          h.id === id ? { ...h, ...patch, updatedAt: new Date().toISOString() } : h,
+        ),
       }));
     },
     [],
@@ -199,6 +212,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => setState(EMPTY_STATE), []);
 
+  const replaceAll = useCallback((next: AppState) => setState(next), []);
+
   const value = useMemo<Store>(
     () => ({
       state,
@@ -215,10 +230,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       reset,
+      replaceAll,
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, reset],
+     readyForAnotherHabit, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

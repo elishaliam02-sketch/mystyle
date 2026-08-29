@@ -5,6 +5,7 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
+import { useCloud } from "@/cloud/useCloud";
 import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
   const { colors, space, radius, type } = useTheme();
   const { state, saveProfile, reset } = useStore();
   const reminders = useReminders();
+  const cloud = useCloud();
 
   const [name, setName] = useState(state.profile.name);
   const [goal, setGoal] = useState(state.profile.goalKg ? String(state.profile.goalKg) : "");
@@ -142,6 +144,47 @@ export default function ProfileScreen() {
               {t.profile.notificationsWeb}
             </Text>
           )}
+        </Card>
+
+        <Card label={t.profile.cloudTitle}>
+          <Text
+            style={[
+              type.bodyStrong,
+              {
+                color:
+                  cloud.status === "synced"
+                    ? colors.accent
+                    : cloud.status === "error"
+                      ? colors.alert
+                      : colors.inkSoft,
+              },
+            ]}
+          >
+            {cloud.status === "connecting"
+              ? t.profile.cloudConnecting
+              : cloud.status === "synced"
+                ? t.profile.cloudSynced
+                : cloud.status === "error"
+                  ? t.profile.cloudError
+                  : t.profile.cloudLocal}
+          </Text>
+          {cloud.lastSync ? (
+            <Text style={[type.small, { color: colors.inkFaint }]}>
+              {fill(t.profile.cloudLastSync, {
+                time: cloud.lastSync.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              })}
+            </Text>
+          ) : null}
+          <Button
+            icon="cloud-upload-outline"
+            label={t.profile.cloudSyncNow}
+            tone="quiet"
+            onPress={() => void cloud.sync()}
+            style={{ marginTop: space.md }}
+          />
         </Card>
 
         <StubNote>{t.profile.localNote}</StubNote>
