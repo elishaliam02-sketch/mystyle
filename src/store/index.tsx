@@ -41,6 +41,8 @@ type Store = {
   weeklyConsistency: () => number;
   /** True once the current habits are holding — the only moment we suggest adding one. */
   readyForAnotherHabit: () => boolean;
+  /** The groceries the person keeps, as free text. */
+  setPantry: (text: string) => void;
   reset: () => void;
   /** Adopts a merged state wholesale — used after a cloud sync. */
   replaceAll: (next: AppState) => void;
@@ -221,6 +223,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return ageInDays >= 4 && weeklyConsistency() >= 0.6;
   }, [state.habits, weeklyConsistency]);
 
+  const setPantry = useCallback((text: string) => {
+    setState((s) => ({ ...s, pantry: text }));
+  }, []);
+
   const reset = useCallback(() => setState(EMPTY_STATE), []);
 
   const replaceAll = useCallback((next: AppState) => setState(next), []);
@@ -240,12 +246,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addCheckIn,
       weeklyConsistency,
       readyForAnotherHabit,
+      setPantry,
       reset,
       replaceAll,
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, reset, replaceAll],
+     readyForAnotherHabit, setPantry, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -68,6 +68,14 @@ export type AppState = {
    * I changed since?".
    */
   lastPushAt?: string;
+  /**
+   * The groceries the person keeps around, as they typed them. One free-text
+   * blob rather than a parsed list: the kitchen reads the whole thing, the way
+   * someone actually writes a shopping list. Device-local for now — it rides
+   * through a sync untouched because mergeState carries local fields it does
+   * not own, but it is never sent to the server.
+   */
+  pantry?: string;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -138,5 +146,6 @@ export function migrateState(raw: unknown): AppState {
     checkIns: (s.checkIns ?? []).map((c) => ({ ...c, updatedAt: c.updatedAt ?? EPOCH })),
     lastSyncAt: s.lastSyncAt,
     lastPushAt: s.lastPushAt,
+    pantry: s.pantry,
   };
 }
