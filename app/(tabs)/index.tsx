@@ -141,13 +141,21 @@ function TipOfTheDay() {
 }
 
 export default function TodayScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
   const { state, isDone, toggleCompletion, archiveHabit, readyForAnotherHabit } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
+
+  // A daily app should say which day it is; without it every screen looks the
+  // same and yesterday's board is indistinguishable from today's.
+  const dateLabel = new Date().toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   const hour = new Date().getHours();
   const greeting =
@@ -169,7 +177,7 @@ export default function TodayScreen() {
 
   if (habits.length === 0) {
     return (
-      <Screen title={title}>
+      <Screen eyebrow={dateLabel} title={title}>
         <Card label={t.today.emptyTitle}>
           <Text style={[type.body, { color: colors.inkSoft }]}>{t.today.emptyBody}</Text>
           <Button
@@ -187,6 +195,7 @@ export default function TodayScreen() {
 
   return (
     <Screen
+      eyebrow={dateLabel}
       title={title}
       subtitle={
         doneCount === habits.length

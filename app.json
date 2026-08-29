@@ -10,7 +10,15 @@
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#0A4D37",
+          "imageWidth": 180
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,
@@ -20,7 +28,7 @@
     "android": {
       "package": "com.mystyle.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E1EDE6",
+        "backgroundColor": "#0A4D37",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

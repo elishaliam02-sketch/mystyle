@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
 
 type Props = {
+  /** Small label above the title — the date, a section name. */
+  eyebrow?: string;
   title: string;
   subtitle?: string;
   /** Sits inside the tinted band beside the title — a ring, a figure. */
@@ -17,7 +19,7 @@ type Props = {
  * Every screen opens with a tinted band carrying the title. It gives the page
  * a top edge and a horizon line, which a flat list of cards never has.
  */
-export function Screen({ title, subtitle, aside, banner, children }: Props) {
+export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Props) {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -40,6 +42,9 @@ export function Screen({ title, subtitle, aside, banner, children }: Props) {
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
           <View style={{ flex: 1, gap: space.xs }}>
+            {eyebrow ? (
+              <Text style={[type.label, { color: colors.bandInkSoft }]}>{eyebrow}</Text>
+            ) : null}
             <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
             {subtitle ? (
               <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>

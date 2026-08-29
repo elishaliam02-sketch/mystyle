@@ -217,7 +217,7 @@ export const en: typeof he = {
     retry: "Try again",
     failed: "Couldn't fetch personal tips just now. Showing general ones.",
     declined: "You haven't allowed the app to reach Claude, so these tips are general.",
-    unavailable: "Personal tips arrive in the phone version. These are general for now.",
+    unavailable: "These are the app's written tips. Tips written for you personally arrive once the server is connected.",
   },
 
   reminders: {
