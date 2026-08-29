@@ -47,6 +47,15 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "owner": "liamjshsh"
+    "owner": "liamjshsh",
+    "extra": {
+      "eas": {
+        "projectId": "e358385f-c11a-4a79-be59-862cede81a5c"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e358385f-c11a-4a79-be59-862cede81a5c",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
