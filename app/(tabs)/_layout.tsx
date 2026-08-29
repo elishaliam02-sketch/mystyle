@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
 
@@ -17,6 +18,10 @@ const ICONS: Record<string, { on: IconName; off: IconName }> = {
 export default function TabsLayout() {
   const { t } = useI18n();
   const { colors, font } = useTheme();
+  // Android draws edge-to-edge, so the system navigation bar sits over the
+  // bottom of the screen. Without this inset the tab labels and icons hide
+  // behind the phone's back/home/recent buttons.
+  const insets = useSafeAreaInsets();
 
   const icon =
     (key: keyof typeof ICONS) =>
@@ -38,9 +43,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.rule,
-          height: 62,
+          height: 62 + insets.bottom,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: 8 + insets.bottom,
         },
       }}
     >
