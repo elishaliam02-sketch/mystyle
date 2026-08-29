@@ -2,7 +2,8 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { askRecapReply, type Adjustment } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
-import { AiBadge, AiNote } from "@/components/AiNote";
+import { AiBadge } from "@/components/AiNote";
+import { recapReply } from "@/insight";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
@@ -56,7 +57,7 @@ export default function CheckinScreen() {
     ? `${existing.date}|${existing.mood}|${existing.note}|${habitLines.map((h) => `${h.title}:${h.doneToday}`).join(",")}`
     : null;
 
-  const { value: reply, state: aiState, retry } = useAi(key, (signal) =>
+  const { value: reply } = useAi(key, (signal) =>
     askRecapReply(
       {
         name: state.profile.name,
@@ -110,6 +111,21 @@ export default function CheckinScreen() {
 
   const suggestion = reply && reply.adjustment.kind !== "none" ? describe(reply.adjustment) : null;
 
+  // The evening reply the device writes itself, from mood and the day's ticks.
+  // It shows the moment a recap is saved, with no server in the loop; Claude's
+  // reply, which also remembers yesterday, replaces it when it arrives.
+  const localReply = existing
+    ? recapReply(
+        {
+          name: state.profile.name,
+          mood: existing.mood,
+          doneCount: habitLines.filter((h) => h.doneToday).length,
+          total: habitLines.length,
+        },
+        t.insight,
+      ).reply
+    : null;
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -159,20 +175,12 @@ export default function CheckinScreen() {
               />
             </Card>
 
-            <Card label={t.recap.replyTitle}>
-              {aiState === "checking" ? (
-                <Text style={[type.body, { color: colors.inkSoft }]}>✦ {t.recap.thinking}</Text>
-              ) : null}
-
-              {reply ? (
-                <View style={{ gap: space.sm }}>
-                  <AiBadge />
-                  <Text style={[type.body, { color: colors.ink }]}>{reply.reply}</Text>
-                </View>
-              ) : null}
-
-              <View style={{ marginTop: reply ? space.md : 0 }}>
-                <AiNote state={aiState} onRetry={retry} />
+            <Card label={t.recap.replyTitle} tone="accent">
+              <View style={{ gap: space.sm }}>
+                {reply ? <AiBadge /> : null}
+                <Text style={[type.body, { color: colors.ink }]}>
+                  {reply ? reply.reply : localReply}
+                </Text>
               </View>
             </Card>
 

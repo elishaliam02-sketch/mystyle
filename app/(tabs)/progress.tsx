@@ -6,8 +6,9 @@ import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
-import { AiBadge, AiNote } from "@/components/AiNote";
+import { AiBadge } from "@/components/AiNote";
 import { fill, useI18n } from "@/i18n";
+import { weekReading } from "@/insight";
 import { daysAgo, today, useStore, type WeighIn } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -81,13 +82,21 @@ export default function ProgressScreen() {
       ? `${dayKey}|${perHabit.map((h) => `${h.title}:${h.doneDays}/${h.totalDays}`).join(",")}|${weighIns.length}|${recentNotes.join("|")}`
       : null;
 
-  const { value: week, state: weekState, retry: retryWeek } = useAi(weekKey, (signal) =>
+  const { value: week } = useAi(weekKey, (signal) =>
     askWeekInsight(
       { consistency, habits: perHabit, weights: weighIns, recentNotes },
       locale,
       dayKey,
       signal,
     ),
+  );
+
+  // The honest baseline, computed here from the same numbers. It shows
+  // instantly and needs no server; when Claude's reading arrives it takes
+  // over. Either way the card is never an apology with no content behind it.
+  const localWeek = weekReading(
+    { consistency, habits: perHabit, weights: weighIns },
+    t.insight,
   );
 
   function save() {
@@ -104,16 +113,15 @@ export default function ProgressScreen() {
     >
       <Screen title={t.progress.heading}>
         {activeHabits.length > 0 ? (
-          <Card label={t.progress.weekTitle} tone={week ? "accent" : "default"}>
-            {week ? (
-              <View style={{ gap: space.sm }}>
-                <AiBadge />
-                <Text style={[type.title, { color: colors.ink }]}>{week.headline}</Text>
-                <Text style={[type.body, { color: colors.ink }]}>{week.body}</Text>
-              </View>
-            ) : null}
-            <View style={{ marginTop: week ? space.md : 0 }}>
-              <AiNote state={weekState} onRetry={retryWeek} />
+          <Card label={t.progress.weekTitle} tone="accent">
+            <View style={{ gap: space.sm }}>
+              {week ? <AiBadge /> : null}
+              <Text style={[type.title, { color: colors.ink }]}>
+                {week ? week.headline : localWeek.headline}
+              </Text>
+              <Text style={[type.body, { color: colors.ink }]}>
+                {week ? week.body : localWeek.body}
+              </Text>
             </View>
           </Card>
         ) : null}

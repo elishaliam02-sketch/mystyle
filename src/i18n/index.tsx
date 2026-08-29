@@ -17,7 +17,7 @@ import { he } from "./he";
 export { formatDate } from "./date";
 
 export type Locale = "he" | "en";
-type Dict = typeof he;
+export type Dict = typeof he;
 
 const DICTS: Record<Locale, Dict> = { he, en };
 const STORAGE_KEY = "mystyle.locale";
@@ -30,14 +30,7 @@ function deviceLocale(): Locale {
  * Fills {placeholders} in a translated string.
  *   fill(t.today.doneCount, { done: 2, total: 3 })
  */
-export function fill(
-  template: string,
-  vars: Record<string, string | number>,
-): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in vars ? String(vars[key]) : match,
-  );
-}
+export { fill } from "./fill";
 
 type I18nValue = {
   t: Dict;

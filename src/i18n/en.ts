@@ -152,6 +152,28 @@ export const en: typeof he = {
     nothingToChange: "Nothing to change tonight. Keep going.",
   },
 
+  insight: {
+    weekStrong: "Strong week.",
+    weekSteady: "Steady week.",
+    weekStart: "A real start.",
+    weekEmpty: "Clean board. Let's go.",
+    weekBest: "Most consistent: “{habit}” — {done} of {total} days.",
+    weekStruggle: "“{habit}” slipped this week. Maybe shrink it to something it's hard to say no to?",
+    weekWeightDown: "Down {kg} kg since you started weighing in. Slow is exactly the pace that lasts.",
+    weekWeightUp: "Up a little since the start — it happens. The routine is what counts over time, not one day.",
+    weekWeightFlat: "Weight's holding since the start. That's not stuck — it's a base to build from.",
+    weekCloseStrong: "Same again next week and you're not starting anymore — you're continuing.",
+    weekCloseSteady: "A little more consistency and next week feels easier than this one.",
+    weekCloseStart: "One habit that survives beats five that vanish. Hold what you've got.",
+    weekCloseEmpty: "Tick one thing today. Everything starts there.",
+    recapGoodAll: "Full day, {name}. You ticked everything — that's how a chain is built.",
+    recapGoodSome: "{name}, good day. {done} of {total} — and it counts.",
+    recapOkSome: "{done} of {total} today. Not perfect, and that's fine — you showed up, which is the hard part.",
+    recapOkNone: "An in-between day with nothing ticked. Tomorrow's a clean board; one small thing is enough to start again.",
+    recapHard: "{name}, a hard day sounds hard. You're here tonight to close it out — that already says something. Tomorrow starts from zero.",
+    recapNudge: "Tip: if one habit keeps stalling, shrink it until it's almost silly. It's easy to say yes to small.",
+  },
+
   checkin: {
     heading: "Today's recap",
     body: "Thirty seconds. That's all.",

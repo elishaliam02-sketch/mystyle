@@ -154,6 +154,31 @@ export const he = {
     nothingToChange: "אין מה לשנות הערב. תמשיך ככה.",
   },
 
+  insight: {
+    // The weekly reading, computed on the device from your own numbers — no
+    // server needed. Claude enriches it later; this is the honest baseline.
+    weekStrong: "שבוע חזק.",
+    weekSteady: "שבוע יציב.",
+    weekStart: "התחלה יפה.",
+    weekEmpty: "לוח נקי. קדימה.",
+    weekBest: "הכי עקבי: ״{habit}״ — {done} מתוך {total} ימים.",
+    weekStruggle: "״{habit}״ פחות נתפס השבוע. אולי להקטין אותו למשהו שקשה לומר עליו לא?",
+    weekWeightDown: "המשקל ירד ב־{kg} ק״ג מאז שהתחלת למדוד. לאט זה בדיוק הקצב שנשאר.",
+    weekWeightUp: "המשקל עלה קצת מאז ההתחלה — קורה. השגרה היא מה שסופר לאורך זמן, לא יום בודד.",
+    weekWeightFlat: "המשקל יציב מאז ההתחלה. זה לא תקוע — זה בסיס לבנות ממנו.",
+    weekCloseStrong: "אותו דבר בשבוע הבא, ואתה כבר לא מתחיל — אתה ממשיך.",
+    weekCloseSteady: "עוד קצת עקביות והשבוע הבא ירגיש קל יותר מהזה.",
+    weekCloseStart: "הרגל אחד שנשאר עדיף על חמישה שנעלמו. תחזיק את מה שיש.",
+    weekCloseEmpty: "סמן דבר אחד היום. משם הכול מתחיל.",
+    // The evening reply, also computed here until the server remembers you.
+    recapGoodAll: "יום מלא, {name}. סימנת את הכול — ככה נבנית שרשרת.",
+    recapGoodSome: "{name}, יום טוב. {done} מתוך {total} — וזה נחשב.",
+    recapOkSome: "{done} מתוך {total} היום. לא מושלם, וזה בסדר גמור — הופעת, וזה החלק הקשה.",
+    recapOkNone: "יום כזה־ככה בלי סימונים. מחר לוח נקי; דבר אחד קטן מספיק כדי להתחיל שוב.",
+    recapHard: "{name}, יום קשה נשמע קשה. אתה פה בערב לסכם — וזה כבר אומר משהו. מחר מתחילים מאפס.",
+    recapNudge: "טיפ: אם הרגל אחד ממשיך להיתקע, הקטן אותו עד שהוא כמעט מגוחך. קל לומר כן לקטן.",
+  },
+
   checkin: {
     heading: "סיכום היום",
     body: "שלושים שניות. זה הכול.",
