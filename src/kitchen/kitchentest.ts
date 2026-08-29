@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { goalFit, readPantry, suggestMeals, slotForHour } from "./index";
+import { goalFit, mealPhotoUrl, readPantry, suggestMeals, slotForHour } from "./index";
 import { MEALS, FOODS } from "./data";
 
 const results: [string, boolean, string?][] = [];
@@ -136,6 +136,21 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   const shapes = new Set(["round","long","leaf","grain","slice","blob","drop"]);
   check("every food has a hex colour", FOODS.every((f) => /^#[0-9A-Fa-f]{6}$/.test(f.color)));
   check("every food has a known shape", FOODS.every((f) => shapes.has(f.shape)));
+}
+
+
+// --- every meal builds a valid, distinct photo URL from its ingredients
+{
+  const urls = MEALS.map((m) => mealPhotoUrl(m, { width: 320, height: 150 }));
+  check("every photo url is https and from the free service",
+    urls.every((u) => u.startsWith("https://image.pollinations.ai/prompt/")));
+  check("every photo url carries size and a seed",
+    urls.every((u) => /width=\d+/.test(u) && /height=\d+/.test(u) && /seed=\d+/.test(u)));
+  check("photo urls are per-meal distinct", new Set(urls).size === urls.length);
+  check("a meal's url mentions its own ingredients",
+    mealPhotoUrl(MEALS.find((m) => m.id === "tuna-salad")!, { width: 10, height: 10 })
+      .includes(encodeURIComponent("tuna")));
+  check("the url is properly encoded (no raw spaces)", urls.every((u) => !u.includes(" ")));
 }
 
 const failed = results.filter(([, ok]) => !ok);

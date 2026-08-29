@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { MealImage } from "@/components/MealImage";
+import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
@@ -245,7 +245,7 @@ function MealCard({ meal, match, have, foodsById }: MealCardProps) {
   return (
     <Card>
       <View style={{ borderRadius: radius.lg, overflow: "hidden", marginBottom: space.sm }}>
-        <MealImage foods={foods} haveIds={have} width={320} height={150} />
+        <MealPhoto meal={m} foods={foods} haveIds={have} width={320} height={150} />
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
