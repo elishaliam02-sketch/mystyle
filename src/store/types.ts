@@ -1,4 +1,3 @@
-/** A habit the user wrote for themselves. Nothing here is generated for them. */
 export type Habit = {
   id: string;
   title: string;
@@ -12,22 +11,32 @@ export type Habit = {
   updatedAt?: string;
 };
 
-/** One habit ticked off on one day. Keyed by `${habitId}|${date}`. */
+/**
+ * One habit on one day, with its state written down rather than implied by the
+ * row existing. Presence-as-truth could not express "I unticked this": the row
+ * simply vanished locally and the server's copy brought it back on the next
+ * sync. An explicit `done`, with a timestamp, makes unticking a change like
+ * any other.
+ */
 export type Completion = {
   habitId: string;
   /** Local date, YYYY-MM-DD. */
   date: string;
+  done: boolean;
+  updatedAt: string;
 };
 
 export type WeighIn = {
   date: string;
   kg: number;
+  updatedAt: string;
 };
 
 export type CheckIn = {
   date: string;
   mood: "good" | "ok" | "hard";
   note: string;
+  updatedAt: string;
 };
 
 export type Profile = {
@@ -37,6 +46,7 @@ export type Profile = {
   onboarded: boolean;
   /** Whether daily reminders are scheduled on this device. */
   reminders?: boolean;
+  updatedAt?: string;
 };
 
 export type AppState = {
@@ -45,10 +55,26 @@ export type AppState = {
   completions: Completion[];
   weighIns: WeighIn[];
   checkIns: CheckIn[];
+  /**
+   * How far the server had got, in *its* clock, when this device last pulled.
+   * The next pull asks for everything after it. Server time, not ours: a
+   * device that was offline for a week writes rows stamped a week ago, and a
+   * device filtering by its own clock would never see them.
+   */
+  lastSyncAt?: string;
+  /**
+   * When this device last pushed, in *its own* clock — the stamps on its rows
+   * come from the same clock, so this is the only honest way to ask "what have
+   * I changed since?".
+   */
+  lastPushAt?: string;
 };
 
 export const EMPTY_STATE: AppState = {
-  profile: { name: "", onboarded: false },
+  // Stamped at the epoch rather than left blank: an undefined timestamp reads
+  // as "newer than anything", which would make a fresh install's blank profile
+  // outrank the real one waiting on the server.
+  profile: { name: "", onboarded: false, updatedAt: "1970-01-01T00:00:00.000Z" },
   habits: [],
   completions: [],
   weighIns: [],
@@ -71,4 +97,46 @@ export function daysAgo(n: number): string {
 
 export function newId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+export function now(): string {
+  return new Date().toISOString();
+}
+
+/**
+ * Brings a stored state up to the current shape. Data written by an earlier
+ * build has completions with no `done` (their presence meant done) and rows
+ * with no timestamp; without this they would be dropped or, worse, treated as
+ * newer than everything on the server.
+ */
+export function migrateState(raw: unknown): AppState {
+  if (typeof raw !== "object" || raw === null) return EMPTY_STATE;
+  const s = raw as Partial<AppState> & { completions?: unknown[] };
+  const EPOCH = "1970-01-01T00:00:00.000Z";
+
+  return {
+    // Untimed rows are stamped at the epoch rather than left blank: an
+    // undefined timestamp reads as "newer than anything", so it would both
+    // beat a real edit from another device and re-upload on every sync.
+    profile: {
+      ...EMPTY_STATE.profile,
+      ...(s.profile ?? {}),
+      updatedAt: s.profile?.updatedAt ?? EPOCH,
+    },
+    habits: (s.habits ?? []).map((h) => ({ ...h, updatedAt: h.updatedAt ?? EPOCH })),
+    completions: (s.completions ?? []).map((c) => {
+      const row = c as Partial<Completion>;
+      return {
+        habitId: String(row.habitId ?? ""),
+        date: String(row.date ?? ""),
+        // A row written by the old build existed only when it was done.
+        done: row.done ?? true,
+        updatedAt: row.updatedAt ?? EPOCH,
+      };
+    }).filter((c) => c.habitId && c.date),
+    weighIns: (s.weighIns ?? []).map((w) => ({ ...w, updatedAt: w.updatedAt ?? EPOCH })),
+    checkIns: (s.checkIns ?? []).map((c) => ({ ...c, updatedAt: c.updatedAt ?? EPOCH })),
+    lastSyncAt: s.lastSyncAt,
+    lastPushAt: s.lastPushAt,
+  };
 }

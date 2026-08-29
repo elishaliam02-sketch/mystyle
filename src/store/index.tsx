@@ -12,7 +12,9 @@ import {
 import {
   EMPTY_STATE,
   daysAgo,
+  migrateState,
   newId,
+  now,
   today,
   type AppState,
   type CheckIn,
@@ -34,7 +36,7 @@ type Store = {
   toggleCompletion: (habitId: string) => void;
   isDone: (habitId: string, date?: string) => boolean;
   addWeighIn: (kg: number) => void;
-  addCheckIn: (entry: Omit<CheckIn, "date">) => void;
+  addCheckIn: (entry: Omit<CheckIn, "date" | "updatedAt">) => void;
   /** Completions of active habits over the last 7 days, as a 0–1 ratio. */
   weeklyConsistency: () => number;
   /** True once the current habits are holding — the only moment we suggest adding one. */
@@ -55,7 +57,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setState({ ...EMPTY_STATE, ...(JSON.parse(raw) as AppState) });
+        // Anything written by an earlier build is brought up to the current
+        // shape here, so no screen has to cope with a row missing a field.
+        if (raw) setState(migrateState(JSON.parse(raw)));
       } catch {
         // Unreadable or corrupt storage: start clean rather than crash on launch.
       }
@@ -72,7 +76,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const saveProfile = useCallback((patch: Partial<Profile>) => {
-    setState((s) => ({ ...s, profile: { ...s.profile, ...patch } }));
+    setState((s) => ({ ...s, profile: { ...s.profile, ...patch, updatedAt: now() } }));
   }, []);
 
   const addHabit = useCallback((title: string, slot?: Habit["slot"]) => {
@@ -89,7 +93,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           slot,
           createdAt: today(),
           archived: false,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now(),
         },
       ],
     }));
@@ -100,7 +104,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({
       ...s,
       habits: s.habits.map((h) =>
-        h.id === id ? { ...h, archived: true, updatedAt: new Date().toISOString() } : h,
+        h.id === id ? { ...h, archived: true, updatedAt: now() } : h,
       ),
     }));
   }, []);
@@ -110,33 +114,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         habits: s.habits.map((h) =>
-          h.id === id ? { ...h, ...patch, updatedAt: new Date().toISOString() } : h,
+          h.id === id ? { ...h, ...patch, updatedAt: now() } : h,
         ),
       }));
     },
     [],
   );
 
+  // Unticking rewrites the row as `done: false` instead of deleting it. A
+  // deleted row is indistinguishable from one this device never had, so the
+  // server's copy used to bring the tick straight back on the next sync.
   const toggleCompletion = useCallback((habitId: string) => {
     const date = today();
     setState((s) => {
-      const has = s.completions.some(
-        (c) => c.habitId === habitId && c.date === date,
-      );
+      const current = s.completions.find((c) => c.habitId === habitId && c.date === date);
+      const row = { habitId, date, done: !current?.done, updatedAt: now() };
       return {
         ...s,
-        completions: has
-          ? s.completions.filter(
-              (c) => !(c.habitId === habitId && c.date === date),
-            )
-          : [...s.completions, { habitId, date }],
+        completions: [
+          ...s.completions.filter((c) => !(c.habitId === habitId && c.date === date)),
+          row,
+        ],
       };
     });
   }, []);
 
   const isDone = useCallback(
     (habitId: string, date = today()) =>
-      state.completions.some((c) => c.habitId === habitId && c.date === date),
+      state.completions.some((c) => c.habitId === habitId && c.date === date && c.done),
     [state.completions],
   );
 
@@ -145,25 +150,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const date = today();
     setState((s) => ({
       ...s,
-      weighIns: [...s.weighIns.filter((w) => w.date !== date), { date, kg }].sort(
-        (a, b) => a.date.localeCompare(b.date),
-      ),
+      weighIns: [
+        ...s.weighIns.filter((w) => w.date !== date),
+        { date, kg, updatedAt: now() },
+      ].sort((a, b) => a.date.localeCompare(b.date)),
       profile: s.profile.startKg ? s.profile : { ...s.profile, startKg: kg },
     }));
   }, []);
 
-  const addCheckIn = useCallback((entry: Omit<CheckIn, "date">) => {
+  const addCheckIn = useCallback((entry: Omit<CheckIn, "date" | "updatedAt">) => {
     const date = today();
     setState((s) => ({
       ...s,
-      checkIns: [...s.checkIns.filter((c) => c.date !== date), { ...entry, date }],
+      checkIns: [
+        ...s.checkIns.filter((c) => c.date !== date),
+        { ...entry, date, updatedAt: now() },
+      ],
     }));
   }, []);
 
   const streak = useCallback(
     (habitId: string) => {
       const done = new Set(
-        state.completions.filter((c) => c.habitId === habitId).map((c) => c.date),
+        state.completions
+          .filter((c) => c.habitId === habitId && c.done)
+          .map((c) => c.date),
       );
       // Today not being ticked yet shouldn't read as a broken streak at 09:00,
       // so an unticked today is skipped rather than counted as a miss.
@@ -191,7 +202,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const date of window) {
         if (date < habit.createdAt) continue;
         possible += 1;
-        if (state.completions.some((c) => c.habitId === habit.id && c.date === date)) {
+        if (state.completions.some((c) => c.habitId === habit.id && c.date === date && c.done)) {
           done += 1;
         }
       }
