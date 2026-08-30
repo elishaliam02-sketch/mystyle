@@ -40,6 +40,12 @@ export default function KitchenScreen() {
     () => suggestMeals(pantryText, { goal, slot }),
     [pantryText, goal, slot],
   );
+  // Show only a handful of the best picks. Each card fetches its own photo,
+  // and a photo is generated on demand — a dozen at once load slowly and half
+  // stay as placeholders. A short, curated list means every picture is a real
+  // one, and it reads as chosen rather than dumped.
+  const ready = useMemo(() => result.ready.slice(0, 4), [result.ready]);
+  const almost = useMemo(() => result.almost.slice(0, 3), [result.almost]);
   const haveIds = useMemo(() => new Set(result.pantry.map((f) => f.id)), [result.pantry]);
   const foodsById = useMemo(() => new Map(FOODS.map((f) => [f.id, f])), []);
 
@@ -55,7 +61,7 @@ export default function KitchenScreen() {
   };
 
   const hasList = pantryText.trim().length > 0;
-  const showAny = result.ready.length > 0 || result.almost.length > 0;
+  const showAny = ready.length > 0 || almost.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -175,17 +181,13 @@ export default function KitchenScreen() {
           </Card>
         ) : (
           <>
-            {result.ready.length > 0 ? (
-              <SectionLabel text={t.kitchen.readyTitle} />
-            ) : null}
-            {result.ready.map((m) => (
+            {ready.length > 0 ? <SectionLabel text={t.kitchen.readyTitle} /> : null}
+            {ready.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} />
             ))}
 
-            {result.almost.length > 0 ? (
-              <SectionLabel text={t.kitchen.almostTitle} />
-            ) : null}
-            {result.almost.map((m) => (
+            {almost.length > 0 ? <SectionLabel text={t.kitchen.almostTitle} /> : null}
+            {almost.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} />
             ))}
           </>
