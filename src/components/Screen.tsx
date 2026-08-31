@@ -16,12 +16,25 @@ type Props = {
 };
 
 /**
+ * The comfortable reading width for a column of cards. On a phone the content
+ * fills the screen; on a tablet, a foldable, or the web it stops here and
+ * centres, instead of stretching a single column across a metre of glass.
+ */
+export const MAX_CONTENT = 620;
+
+/**
  * Every screen opens with a tinted band carrying the title. It gives the page
  * a top edge and a horizon line, which a flat list of cards never has.
+ *
+ * The band paints full-bleed for its colour, but its text and the body below
+ * are both held to one centred column, so the layout reads the same on a phone
+ * and on a desktop browser.
  */
 export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Props) {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
 
   return (
     <ScrollView
@@ -40,22 +53,29 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
           gap: space.md,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-          <View style={{ flex: 1, gap: space.xs }}>
-            {eyebrow ? (
-              <Text style={[type.label, { color: colors.bandInkSoft }]}>{eyebrow}</Text>
-            ) : null}
-            <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
-            {subtitle ? (
-              <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>
-            ) : null}
+        <View style={[centered, { gap: space.md }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+            <View style={{ flex: 1, gap: space.xs }}>
+              {eyebrow ? (
+                <Text style={[type.label, { color: colors.bandInkSoft }]}>{eyebrow}</Text>
+              ) : null}
+              <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
+              {subtitle ? (
+                <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>
+              ) : null}
+            </View>
+            {aside}
           </View>
-          {aside}
+          {banner}
         </View>
-        {banner}
       </View>
 
-      <View style={{ paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg }}>
+      <View
+        style={[
+          centered,
+          { paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg },
+        ]}
+      >
         {children}
       </View>
     </ScrollView>

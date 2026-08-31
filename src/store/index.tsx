@@ -56,6 +56,8 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
+  /** Advances the clock guard from a trusted server timestamp. */
+  noteServerTime: (iso: string) => void;
   reset: () => void;
   /** Adopts a merged state wholesale — used after a cloud sync. */
   replaceAll: (next: AppState) => void;
@@ -267,6 +269,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
+  // The server's clock, learned at each sync, pushes the high-water mark
+  // forward. This is what makes the clock guard trustworthy rather than merely
+  // monotonic: a device whose clock was set back is snapped up to real time the
+  // next time it reaches the server, so a rewound day cannot survive a sync.
+  const noteServerTime = useCallback((iso: string) => {
+    const serverMs = Date.parse(iso);
+    if (!Number.isFinite(serverMs)) return;
+    setState((s) => ({
+      ...s,
+      clockHighWaterMs: advanceHighWater(s.clockHighWaterMs ?? 0, serverMs),
+    }));
+  }, []);
+
   const reset = useCallback(() => setState(EMPTY_STATE), []);
 
   const replaceAll = useCallback((next: AppState) => setState(next), []);
@@ -287,12 +302,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       setPantry,
+      noteServerTime,
       reset,
       replaceAll,
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, reset, replaceAll],
+     readyForAnotherHabit, setPantry, noteServerTime, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

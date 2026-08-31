@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "@/components/BrandLogo";
+import { MAX_CONTENT } from "@/components/Screen";
 import { Button } from "@/components/Button";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
@@ -35,6 +36,11 @@ export default function Welcome() {
           paddingBottom: insets.bottom + space.xl,
           paddingHorizontal: space.xl,
           gap: space.xxl,
+          // Hold the intro to a phone-width column and centre it, so on a
+          // tablet or a browser it does not stretch across the whole screen.
+          width: "100%",
+          maxWidth: MAX_CONTENT,
+          alignSelf: "center",
         }}
       >
         <View style={{ gap: space.lg }}>

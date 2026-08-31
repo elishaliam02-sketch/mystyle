@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, cloudConfigured } from "./config";
+import { secureStorage } from "./secureStorage";
 
 /**
  * One client for the app. Created lazily so a build that never signs in pays
@@ -17,8 +17,9 @@ export function supabase(): SupabaseClient | null {
   client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       // The session has to outlive the process, or every launch is a new user
-      // and the data on the server becomes unreachable.
-      storage: AsyncStorage,
+      // and the data on the server becomes unreachable. It lives in the device
+      // keystore (encrypted), not plain storage — see secureStorage.
+      storage: secureStorage,
       persistSession: true,
       autoRefreshToken: true,
       // Only the web has a URL to read a session out of.

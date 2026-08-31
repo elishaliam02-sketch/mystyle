@@ -11,7 +11,7 @@ import { syncOnce } from "./sync";
  * a failed sync just leaves the state exactly as it was.
  */
 export function useCloud() {
-  const { state, replaceAll, ready } = useStore();
+  const { state, replaceAll, ready, noteServerTime } = useStore();
   const [status, setStatus] = useState<CloudState>("connecting");
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const running = useRef(false);
@@ -38,6 +38,9 @@ export function useCloud() {
       const merged = await syncOnce(supabasePort, session.userId, latest.current);
       ourOwnWrite.current = merged;
       replaceAll(merged);
+      // lastSyncAt is the server's own clock (server_now), so it is the trusted
+      // time that hardens the anti-cheat clock guard.
+      if (merged.lastSyncAt) noteServerTime(merged.lastSyncAt);
       setLastSync(new Date());
       setStatus("synced");
     } catch {
