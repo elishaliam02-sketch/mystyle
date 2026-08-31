@@ -256,6 +256,11 @@ export const he = {
     noteHearty: "משביע",
     nothing: "לא מצאתי מנה מהרשימה הזו. הוסף עוד מצרך־שניים ואנסה שוב.",
     grams: "ג'",
+    gram: "גרם",
+    ingredients: "מה צריך",
+    unitsGrams: "גרמים",
+    unitsHousehold: "יחידות",
+    perPortion: "למנה",
   },
 
   profile: {

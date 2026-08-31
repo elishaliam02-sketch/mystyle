@@ -251,6 +251,11 @@ export const en: typeof he = {
     noteHearty: "filling",
     nothing: "No meal from this list yet. Add an ingredient or two and I'll try again.",
     grams: "g",
+    gram: "g",
+    ingredients: "What you need",
+    unitsGrams: "Grams",
+    unitsHousehold: "Units",
+    perPortion: "per serving",
   },
 
   profile: {

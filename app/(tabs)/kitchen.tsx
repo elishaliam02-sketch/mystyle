@@ -8,6 +8,7 @@ import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import {
   FOODS,
+  portion,
   primaryNote,
   slotForHour,
   starterMeals,
@@ -32,6 +33,9 @@ export default function KitchenScreen() {
   const [draft, setDraft] = useState(state.pantry ?? "");
   const [editing, setEditing] = useState(!state.pantry);
   const [goal, setGoal] = useState<Goal>("cut");
+  // How amounts read: everyday household units, or exact grams for anyone who
+  // weighs their food.
+  const [units, setUnits] = useState<"household" | "grams">("household");
 
   const slot = slotForHour(new Date().getHours());
   const pantryText = state.pantry ?? "";
@@ -162,6 +166,31 @@ export default function KitchenScreen() {
           </View>
         </Card>
 
+        {/* how amounts are shown */}
+        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+          {(["household", "grams"] as const).map((u) => {
+            const on = units === u;
+            return (
+              <Pressable
+                key={u}
+                onPress={() => setUnits(u)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: space.lg,
+                  borderRadius: radius.pill,
+                  backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                }}
+              >
+                <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                  {u === "grams" ? t.kitchen.unitsGrams : t.kitchen.unitsHousehold}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* meals */}
         {!hasList ? (
           <View style={{ gap: space.md }}>
@@ -174,6 +203,7 @@ export default function KitchenScreen() {
                 meal={meal}
                 have={new Set<string>()}
                 foodsById={foodsById}
+                units={units}
               />
             ))}
           </View>
@@ -185,12 +215,12 @@ export default function KitchenScreen() {
           <>
             {ready.length > 0 ? <SectionLabel text={t.kitchen.readyTitle} /> : null}
             {ready.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
             ))}
 
             {almost.length > 0 ? <SectionLabel text={t.kitchen.almostTitle} /> : null}
             {almost.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
             ))}
           </>
         )}
@@ -222,9 +252,10 @@ type MealCardProps = {
   match?: MealMatch;
   have: Set<string>;
   foodsById: Map<string, Food>;
+  units: "household" | "grams";
 };
 
-function MealCard({ meal, match, have, foodsById }: MealCardProps) {
+function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const m = match?.meal ?? meal!;
@@ -269,6 +300,29 @@ function MealCard({ meal, match, have, foodsById }: MealCardProps) {
       </View>
 
       <Text style={[type.body, { color: colors.inkSoft, marginTop: 4 }]}>{copy.how}</Text>
+
+      {/* ingredients with amounts — grams for those who weigh, or units */}
+      <View style={{ marginTop: space.md, gap: 4 }}>
+        <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+          {t.kitchen.ingredients}
+        </Text>
+        {foods.map((f) => {
+          const p = portion(f.id);
+          const amount = units === "grams" ? `${p.g} ${t.kitchen.gram}` : (locale === "he" ? p.he : p.en);
+          return (
+            <View
+              key={f.id}
+              style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+            >
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: f.color }} />
+              <Text style={[type.small, { color: colors.ink, flex: 1 }]}>
+                {locale === "he" ? f.he : f.en}
+              </Text>
+              <Text style={[type.smallStrong, { color: colors.inkSoft }]}>{amount}</Text>
+            </View>
+          );
+        })}
+      </View>
 
       {/* nutrition */}
       <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>

@@ -24,7 +24,12 @@ type Props = {
 
 export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
-  const uri = mealPhotoUrl(meal, { width: Math.round(width * 2), height: Math.round(height * 2) });
+  // A smaller image generates faster on the free service; 1.4x the display size
+  // is still crisp on a phone. Speed matters more than a retina-perfect photo.
+  const uri = mealPhotoUrl(meal, {
+    width: Math.round(width * 1.4),
+    height: Math.round(height * 1.4),
+  });
 
   return (
     <View style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#ECE0CC" }}>

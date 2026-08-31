@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
@@ -46,6 +47,9 @@ export default function ProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.profile.heading}>
+        <View style={{ alignItems: "center", paddingVertical: space.md }}>
+          <BrandLogo size={72} onBand={false} />
+        </View>
         <Card>
           <View style={{ gap: space.lg }}>
             <TextField

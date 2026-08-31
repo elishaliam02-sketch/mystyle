@@ -1,7 +1,8 @@
 import { FOODS, MEALS, type Food, type Meal, type MealNote, type MealSlot } from "./data";
 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
-export { FOODS, MEALS } from "./data";
+export { FOODS, MEALS, portion } from "./data";
+export type { Portion } from "./data";
 
 /**
  * The kitchen engine: read a shopping list the way a person wrote it, and rank
@@ -242,9 +243,9 @@ export function mealPhotoUrl(meal: Meal, size: { width: number; height: number }
     .filter((f): f is Food => !!f);
   const ingredients = foods.map((f) => f.en).join(", ");
   const prompt =
-    `top-down professional food photography of ${meal.en.title}, ` +
-    `made with ${ingredients}, on a plate, natural daylight, fresh, appetizing, ` +
-    `sharp focus, high detail, no text`;
+    `professional food photography of a full plate of ${meal.en.title}, ` +
+    `made with ${ingredients}, the whole dish centred and fully in frame, ` +
+    `wide overhead shot, natural daylight, fresh, appetizing, sharp focus, no text`;
   const seed = stableSeed(meal.id);
   const q = `width=${size.width}&height=${size.height}&nologo=true&seed=${seed}`;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${q}`;
