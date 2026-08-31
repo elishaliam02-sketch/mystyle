@@ -15,15 +15,15 @@ export const en: typeof he = {
   tabs: {
     today: "Today",
     kitchen: "Kitchen",
-    checkin: "Recap",
+    checkin: "Summary",
     progress: "Progress",
     profile: "Profile",
   },
 
   welcome: {
-    kicker: "Welcome",
-    title: "MyStyle",
-    tagline: "Lose weight without a diet — through a routine you build yourself.",
+    kicker: "Welcome to APEX",
+    title: "APEX",
+    tagline: "The power to build yourself — one day at a time. Habits, food and movement, in one place.",
     point1Title: "You write the habits",
     point1Body: "Not us. In your own words, starting with one small one.",
     point2Title: "Tips written for you",
@@ -176,7 +176,7 @@ export const en: typeof he = {
   },
 
   checkin: {
-    heading: "Today's recap",
+    heading: "Daily summary",
     body: "Thirty seconds. That's all.",
     moodQ: "How was it?",
     moodGood: "Good",
@@ -199,6 +199,8 @@ export const en: typeof he = {
     weighPlaceholder: "kg",
     weighSave: "Save weight",
     weighEmpty: "No weight logged yet.",
+    weighRange: "Weight should be between {min} and {max} kg. Check again.",
+    weighJump: "Hold on — that's a {delta} kg jump from last time. If it's a typo, fix it; if it's real, tap again to confirm.",
     latest: "Latest",
     change: "Since the start",
     trendTitle: "Trend",
@@ -220,6 +222,8 @@ export const en: typeof he = {
     goalTitle: "What's the goal right now?",
     goalCut: "Cut",
     goalCutHint: "Most protein, fewer calories",
+    goalRecomp: "Recomp",
+    goalRecompHint: "Build muscle, drop fat at once",
     goalMaintain: "Maintain",
     goalMaintainHint: "Balanced, nothing extreme",
     goalBulk: "Bulk",

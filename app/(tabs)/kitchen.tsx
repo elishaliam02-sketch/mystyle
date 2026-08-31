@@ -22,7 +22,7 @@ import {
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 
-const GOALS: Goal[] = ["cut", "maintain", "bulk"];
+const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
@@ -56,6 +56,7 @@ export default function KitchenScreen() {
 
   const goalLabel: Record<Goal, { label: string; hint: string }> = {
     cut: { label: t.kitchen.goalCut, hint: t.kitchen.goalCutHint },
+    recomp: { label: t.kitchen.goalRecomp, hint: t.kitchen.goalRecompHint },
     maintain: { label: t.kitchen.goalMaintain, hint: t.kitchen.goalMaintainHint },
     bulk: { label: t.kitchen.goalBulk, hint: t.kitchen.goalBulkHint },
   };
@@ -124,7 +125,7 @@ export default function KitchenScreen() {
 
         {/* goal picker */}
         <Card label={t.kitchen.goalTitle}>
-          <View style={{ flexDirection: "row", gap: space.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
             {GOALS.map((g) => {
               const on = goal === g;
               return (
@@ -134,7 +135,8 @@ export default function KitchenScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   style={{
-                    flex: 1,
+                    flexGrow: 1,
+                    flexBasis: "47%",
                     alignItems: "center",
                     gap: 2,
                     paddingVertical: space.md,

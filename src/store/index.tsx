@@ -11,7 +11,6 @@ import {
 } from "react";
 import {
   EMPTY_STATE,
-  daysAgo,
   migrateState,
   newId,
   now,
@@ -21,6 +20,20 @@ import {
   type Habit,
   type Profile,
 } from "./types";
+import { isStorableWeight } from "./weight";
+import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
+
+/**
+ * "Today" that a rewound phone clock cannot fake, together with the advanced
+ * high-water mark to store alongside it. Anything that feeds a streak stamps
+ * itself through here, so the date is never earlier than the furthest instant
+ * the app has already seen.
+ */
+function trustedStamp(s: AppState): { date: string; highWater: number } {
+  const nowMs = Date.now();
+  const eff = trustedNowMs(nowMs, s.clockHighWaterMs ?? 0);
+  return { date: toLocalDate(eff), highWater: advanceHighWater(s.clockHighWaterMs ?? 0, nowMs) };
+}
 
 const STORAGE_KEY = "mystyle.state.v1";
 
@@ -127,12 +140,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // deleted row is indistinguishable from one this device never had, so the
   // server's copy used to bring the tick straight back on the next sync.
   const toggleCompletion = useCallback((habitId: string) => {
-    const date = today();
     setState((s) => {
+      const { date, highWater } = trustedStamp(s);
       const current = s.completions.find((c) => c.habitId === habitId && c.date === date);
       const row = { habitId, date, done: !current?.done, updatedAt: now() };
       return {
         ...s,
+        clockHighWaterMs: highWater,
         completions: [
           ...s.completions.filter((c) => !(c.habitId === habitId && c.date === date)),
           row,
@@ -141,34 +155,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const trustedToday = useCallback(
+    () => toLocalDate(trustedNowMs(Date.now(), state.clockHighWaterMs ?? 0)),
+    [state.clockHighWaterMs],
+  );
+
+  // The same anchor, n calendar days back — so streak windows count from the
+  // clock-safe today, not from whatever the device says.
+  const trustedDaysAgo = useCallback(
+    (n: number) => {
+      const d = new Date(trustedNowMs(Date.now(), state.clockHighWaterMs ?? 0));
+      d.setDate(d.getDate() - n);
+      const pad = (x: number) => String(x).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    },
+    [state.clockHighWaterMs],
+  );
+
   const isDone = useCallback(
-    (habitId: string, date = today()) =>
-      state.completions.some((c) => c.habitId === habitId && c.date === date && c.done),
-    [state.completions],
+    (habitId: string, date?: string) => {
+      const d = date ?? trustedToday();
+      return state.completions.some((c) => c.habitId === habitId && c.date === d && c.done);
+    },
+    [state.completions, trustedToday],
   );
 
   const addWeighIn = useCallback((kg: number) => {
-    if (!Number.isFinite(kg) || kg <= 0) return;
-    const date = today();
-    setState((s) => ({
-      ...s,
-      weighIns: [
-        ...s.weighIns.filter((w) => w.date !== date),
-        { date, kg, updatedAt: now() },
-      ].sort((a, b) => a.date.localeCompare(b.date)),
-      profile: s.profile.startKg ? s.profile : { ...s.profile, startKg: kg },
-    }));
+    // The store is the last gate: a value outside the human range never lands,
+    // whatever a screen or a future caller passes.
+    if (!isStorableWeight(kg)) return;
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        weighIns: [
+          ...s.weighIns.filter((w) => w.date !== date),
+          { date, kg, updatedAt: now() },
+        ].sort((a, b) => a.date.localeCompare(b.date)),
+        profile: s.profile.startKg ? s.profile : { ...s.profile, startKg: kg },
+      };
+    });
   }, []);
 
   const addCheckIn = useCallback((entry: Omit<CheckIn, "date" | "updatedAt">) => {
-    const date = today();
-    setState((s) => ({
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      return {
       ...s,
+      clockHighWaterMs: highWater,
       checkIns: [
         ...s.checkIns.filter((c) => c.date !== date),
         { ...entry, date, updatedAt: now() },
       ],
-    }));
+      };
+    });
   }, []);
 
   const streak = useCallback(
@@ -180,22 +221,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       // Today not being ticked yet shouldn't read as a broken streak at 09:00,
       // so an unticked today is skipped rather than counted as a miss.
-      let offset = done.has(daysAgo(0)) ? 0 : 1;
+      let offset = done.has(trustedDaysAgo(0)) ? 0 : 1;
       let count = 0;
-      while (done.has(daysAgo(offset))) {
+      while (done.has(trustedDaysAgo(offset))) {
         count += 1;
         offset += 1;
       }
       return count;
     },
-    [state.completions],
+    [state.completions, trustedDaysAgo],
   );
 
   const weeklyConsistency = useCallback(() => {
     const active = state.habits.filter((h) => !h.archived);
     if (active.length === 0) return 0;
 
-    const window = Array.from({ length: 7 }, (_, i) => daysAgo(i));
+    const window = Array.from({ length: 7 }, (_, i) => trustedDaysAgo(i));
     // Only count days a habit already existed, so a habit added yesterday
     // is not scored against the six days before it was created.
     let possible = 0;
@@ -210,18 +251,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
     return possible === 0 ? 0 : done / possible;
-  }, [state.habits, state.completions]);
+  }, [state.habits, state.completions, trustedDaysAgo]);
 
   const readyForAnotherHabit = useCallback(() => {
     const active = state.habits.filter((h) => !h.archived);
     if (active.length === 0) return true;
     // A habit needs to have been around long enough to have a track record.
-    const oldest = active.reduce((a, h) => (h.createdAt < a ? h.createdAt : a), today());
-    const ageInDays = Math.round(
-      (Date.parse(today()) - Date.parse(oldest)) / 86_400_000,
-    );
+    const anchor = trustedToday();
+    const oldest = active.reduce((a, h) => (h.createdAt < a ? h.createdAt : a), anchor);
+    const ageInDays = Math.round((Date.parse(anchor) - Date.parse(oldest)) / 86_400_000);
     return ageInDays >= 4 && weeklyConsistency() >= 0.6;
-  }, [state.habits, weeklyConsistency]);
+  }, [state.habits, weeklyConsistency, trustedToday]);
 
   const setPantry = useCallback((text: string) => {
     setState((s) => ({ ...s, pantry: text }));

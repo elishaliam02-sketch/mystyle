@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
@@ -36,24 +37,19 @@ export default function Welcome() {
           gap: space.xxl,
         }}
       >
-        <View style={{ gap: space.sm }}>
-          <Text style={[type.label, { color: colors.bandInkSoft }]}>{t.welcome.kicker}</Text>
+        <View style={{ gap: space.lg }}>
+          <View style={{ alignItems: "center", gap: space.sm }}>
+            <BrandLogo size={92} onBand />
+            <Text style={[type.label, { color: colors.bandInkSoft }]}>{t.welcome.kicker}</Text>
+          </View>
           <Text
             style={[
-              type.hero,
-              {
-                color: colors.bandInk,
-                fontSize: 44,
-                lineHeight: 52,
-                // A Latin-only string takes its own direction, so it would sit
-                // on the left of an RTL page unless told otherwise.
-                textAlign: isRTL ? "right" : "left",
-              },
+              type.body,
+              { color: colors.bandInkSoft, textAlign: isRTL ? "right" : "left" },
             ]}
           >
-            {t.welcome.title}
+            {t.welcome.tagline}
           </Text>
-          <Text style={[type.body, { color: colors.bandInkSoft }]}>{t.welcome.tagline}</Text>
         </View>
 
         <View style={{ gap: space.xl }}>

@@ -9,6 +9,7 @@ import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
 import { fill, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
+import { checkWeight } from "@/store/weight";
 import { daysAgo, today, useStore, type WeighIn } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -52,6 +53,9 @@ export default function ProgressScreen() {
   const { state, addWeighIn, weeklyConsistency, isDone } = useStore();
 
   const [kg, setKg] = useState("");
+  // A range error blocks the save; a jump warning asks for one confirming tap.
+  const [weighNote, setWeighNote] = useState<string | null>(null);
+  const [jumpArmed, setJumpArmed] = useState(false);
 
   const weighIns = state.weighIns;
   const latest = weighIns[weighIns.length - 1];
@@ -101,9 +105,23 @@ export default function ProgressScreen() {
 
   function save() {
     const value = Number(kg.replace(",", "."));
-    if (!Number.isFinite(value) || value <= 0) return;
+    const check = checkWeight(value, latest?.kg);
+
+    if (check.status === "out-of-range") {
+      setWeighNote(fill(t.progress.weighRange, { min: check.min, max: check.max }));
+      return;
+    }
+    // A big jump is allowed, but only once the person has seen the warning and
+    // tapped again — a typo like 96 → 69 gets a chance to be caught.
+    if (check.status === "big-jump" && !jumpArmed) {
+      setWeighNote(fill(t.progress.weighJump, { delta: Math.abs(check.delta) }));
+      setJumpArmed(true);
+      return;
+    }
     addWeighIn(value);
     setKg("");
+    setWeighNote(null);
+    setJumpArmed(false);
   }
 
   return (
@@ -159,12 +177,26 @@ export default function ProgressScreen() {
           <View style={{ gap: space.sm, marginTop: space.lg }}>
             <TextField
               value={kg}
-              onChangeText={setKg}
+              onChangeText={(v) => {
+                setKg(v);
+                // Any edit clears a standing warning and disarms the confirm,
+                // so a corrected number is re-checked from scratch.
+                if (weighNote) setWeighNote(null);
+                if (jumpArmed) setJumpArmed(false);
+              }}
               placeholder={t.progress.weighPlaceholder}
               keyboardType="numeric"
               onSubmitEditing={save}
             />
-            <Button icon="add" label={t.progress.weighSave} onPress={save} disabled={!kg.trim()} />
+            {weighNote ? (
+              <Text style={[type.small, { color: colors.alert }]}>{weighNote}</Text>
+            ) : null}
+            <Button
+              icon={jumpArmed ? "checkmark" : "add"}
+              label={t.progress.weighSave}
+              onPress={save}
+              disabled={!kg.trim()}
+            />
           </View>
         </Card>
 

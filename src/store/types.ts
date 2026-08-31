@@ -76,6 +76,13 @@ export type AppState = {
    * not own, but it is never sent to the server.
    */
   pantry?: string;
+  /**
+   * The furthest instant in time the app has ever observed, in device-clock
+   * milliseconds. "Today" for anything that feeds a streak is read as never
+   * before this, so winding the phone's clock back cannot manufacture a fresh
+   * day. Device-local; the server holds the real record.
+   */
+  clockHighWaterMs?: number;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -147,5 +154,6 @@ export function migrateState(raw: unknown): AppState {
     lastSyncAt: s.lastSyncAt,
     lastPushAt: s.lastPushAt,
     pantry: s.pantry,
+    clockHighWaterMs: s.clockHighWaterMs,
   };
 }

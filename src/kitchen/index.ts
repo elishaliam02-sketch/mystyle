@@ -87,8 +87,12 @@ export function readPantry(text: string): Food[] {
  *  - maintain (שמירה): balance — enough protein, nothing extreme either way.
  *  - bulk (מסה): protein still matters, but so does eating enough; a light
  *    300-calorie plate is the wrong answer here even if its protein is dense.
+ *  - recomp (מיצוק): build muscle while dropping fat at once — the hardest
+ *    ask, and the one protein matters most for. It wants dense protein like a
+ *    cut, and real protein grams like a bulk, while holding calories moderate
+ *    rather than high. Neither the tiny plate nor the heavy one is the answer.
  */
-export type Goal = "cut" | "maintain" | "bulk";
+export type Goal = "cut" | "maintain" | "bulk" | "recomp";
 
 export type MealMatch = {
   meal: Meal;
@@ -123,6 +127,11 @@ export function goalFit(meal: Meal, goal: Goal = "cut"): number {
     // Reward real protein grams and enough energy to grow on; a tiny plate,
     // however lean, does little here.
     raw = meal.protein / 45 + Math.min(meal.kcal, 600) / 1500 + hearty * 0.1;
+  } else if (goal === "recomp") {
+    // Both at once: dense protein like a cut, real grams like a bulk, calories
+    // held moderate. A heavy plate is docked, a tiny one is not rewarded for
+    // being tiny — the sweet spot is protein-rich and mid-weight.
+    raw = density / 10 + meal.protein / 70 + light * 0.05 - (meal.kcal > 550 ? 0.12 : 0);
   } else {
     // Maintenance sits in the middle: decent density, no calorie agenda.
     raw = density / 10 + 0.35 + light * 0.05;
@@ -134,6 +143,7 @@ export function goalFit(meal: Meal, goal: Goal = "cut"): number {
 export function slotFitsGoal(meal: Meal, goal: Goal): boolean {
   if (goal === "cut") return meal.kcal <= 430;
   if (goal === "bulk") return meal.kcal >= 380;
+  if (goal === "recomp") return meal.kcal >= 280 && meal.kcal <= 560;
   return true;
 }
 

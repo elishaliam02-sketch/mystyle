@@ -48,7 +48,8 @@
     "test:sync": "node scripts/run-sync-tests.mjs",
     "test:date": "node scripts/run-date-tests.mjs",
     "test:insight": "node scripts/run-insight-tests.mjs",
-    "test:kitchen": "node scripts/run-kitchen-tests.mjs"
+    "test:kitchen": "node scripts/run-kitchen-tests.mjs",
+    "test:clock": "node scripts/run-clock-tests.mjs"
   },
   "private": true
 }

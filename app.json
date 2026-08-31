@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "MyStyle",
+    "name": "APEX",
     "slug": "mystyle",
     "scheme": "mystyle",
     "version": "0.1.0",
@@ -15,7 +15,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0A4D37",
+          "backgroundColor": "#0E1622",
           "imageWidth": 180
         }
       ]
@@ -28,7 +28,7 @@
     "android": {
       "package": "com.mystyle.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0A4D37",
+        "backgroundColor": "#0E1622",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
