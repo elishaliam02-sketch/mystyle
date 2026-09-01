@@ -8,11 +8,14 @@ import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import {
   FOODS,
+  adhocFood,
   portion,
   primaryNote,
+  readPantryFull,
   slotForHour,
   starterMeals,
   suggestMeals,
+  yourPlate,
   type Food,
   type Goal,
   type Meal,
@@ -44,14 +47,25 @@ export default function KitchenScreen() {
     () => suggestMeals(pantryText, { goal, slot }),
     [pantryText, goal, slot],
   );
-  // Show only a handful of the best picks. Each card fetches its own photo,
-  // and a photo is generated on demand — a dozen at once load slowly and half
-  // stay as placeholders. A short, curated list means every picture is a real
-  // one, and it reads as chosen rather than dumped.
-  const ready = useMemo(() => result.ready.slice(0, 4), [result.ready]);
+  // Everything the list named — recognised foods, plus anything unknown turned
+  // into an ad-hoc ingredient — so nothing the person typed is dropped.
+  const full = useMemo(() => readPantryFull(pantryText), [pantryText]);
+  const adhocs = useMemo(() => full.extras.map(adhocFood), [full.extras]);
+  const allItems = useMemo(() => [...full.known, ...adhocs], [full.known, adhocs]);
+  // A plate built from exactly what the person has, so any list yields a meal.
+  const plate = useMemo(
+    () => (allItems.length >= 2 ? yourPlate(allItems, slot) : null),
+    [allItems, slot],
+  );
+  // Show only a handful of the best curated picks. Each card fetches its own
+  // photo on demand — a dozen at once load slowly and half stay placeholders.
+  const ready = useMemo(() => result.ready.slice(0, 3), [result.ready]);
   const almost = useMemo(() => result.almost.slice(0, 3), [result.almost]);
-  const haveIds = useMemo(() => new Set(result.pantry.map((f) => f.id)), [result.pantry]);
-  const foodsById = useMemo(() => new Map(FOODS.map((f) => [f.id, f])), []);
+  const haveIds = useMemo(() => new Set(allItems.map((f) => f.id)), [allItems]);
+  const foodsById = useMemo(
+    () => new Map([...FOODS, ...adhocs].map((f) => [f.id, f])),
+    [adhocs],
+  );
 
   function build() {
     setPantry(draft.trim());
@@ -66,7 +80,7 @@ export default function KitchenScreen() {
   };
 
   const hasList = pantryText.trim().length > 0;
-  const showAny = ready.length > 0 || almost.length > 0;
+  const showAny = Boolean(plate) || ready.length > 0 || almost.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -92,9 +106,9 @@ export default function KitchenScreen() {
           </Card>
         ) : (
           <Card label={t.kitchen.understood}>
-            {result.pantry.length > 0 ? (
+            {allItems.length > 0 ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                {result.pantry.map((f) => (
+                {allItems.map((f) => (
                   <View
                     key={f.id}
                     style={{
@@ -213,6 +227,13 @@ export default function KitchenScreen() {
           </Card>
         ) : (
           <>
+            {plate ? (
+              <>
+                <SectionLabel text={t.kitchen.yourPlate} />
+                <MealCard meal={plate} have={haveIds} foodsById={foodsById} units={units} />
+              </>
+            ) : null}
+
             {ready.length > 0 ? <SectionLabel text={t.kitchen.readyTitle} /> : null}
             {ready.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />

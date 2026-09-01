@@ -3,8 +3,8 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { goalFit, mealPhotoUrl, readPantry, suggestMeals, slotForHour } from "./index";
-import { MEALS, FOODS } from "./data";
+import { goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -151,6 +151,35 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     mealPhotoUrl(MEALS.find((m) => m.id === "tuna-salad")!, { width: 10, height: 10 })
       .includes(encodeURIComponent("tuna")));
   check("the url is properly encoded (no raw spaces)", urls.every((u) => !u.includes(" ")));
+}
+
+
+// --- an unknown food is captured as an extra, not dropped
+{
+  const full = readPantryFull("שניצל, אורז, קטע מוזר12");
+  check("known foods still recognised alongside unknowns", full.known.some((f) => f.id === "rice"));
+  check("an unknown food (שניצל) becomes an extra", full.extras.includes("שניצל"));
+}
+
+// --- stopwords never become ingredients
+{
+  const full = readPantryFull("קניתי היום עם קצת אורז");
+  check("stopwords are not extras", !full.extras.includes("קניתי") && !full.extras.includes("עם"));
+}
+
+// --- your-plate builds a meal from any items, with a nutrition estimate
+{
+  const items = [FOODS.find((f) => f.id === "chicken")!, adhocFood("שניצל")];
+  const plate = yourPlate(items, "lunch");
+  check("your-plate uses every item", plate.uses.length === 2);
+  check("your-plate estimates calories", plate.kcal > 0 && plate.protein > 0);
+  check("your-plate leaves no unfilled token in its text", !/\{[a-z]+\}/.test(plate.he.how));
+}
+
+// --- category nutrition gives any food a sane estimate
+{
+  const n = foodNutrition(adhocFood("משהו"));
+  check("an unknown food gets a sane calorie estimate", n.kcal > 0 && n.kcal < 900);
 }
 
 const failed = results.filter(([, ok]) => !ok);

@@ -378,3 +378,44 @@ const PORTIONS: Record<string, Portion> = {
 export function portion(foodId: string): Portion {
   return PORTIONS[foodId] ?? DEFAULT_PORTION;
 }
+
+/**
+ * Rough nutrition per 100 g by food category. This is the free workaround for
+ * "recognise any food without an API": we cannot know the exact calories of a
+ * word we have never seen, but we can place it in a category and estimate from
+ * there. Real per-food data would be better; these are honest ballparks, and
+ * the UI labels every figure built from them as an estimate.
+ */
+export const CATEGORY_NUTRITION: Record<FoodTag, { kcal: number; protein: number }> = {
+  protein: { kcal: 165, protein: 22 },
+  dairy: { kcal: 95, protein: 7 },
+  carb: { kcal: 130, protein: 4 },
+  veg: { kcal: 35, protein: 2 },
+  fruit: { kcal: 58, protein: 1 },
+  fat: { kcal: 600, protein: 3 },
+};
+
+/** Estimated calories and protein for one portion of a food. */
+export function foodNutrition(food: Food): { kcal: number; protein: number } {
+  const tag = food.tags[0] ?? "carb";
+  const d = CATEGORY_NUTRITION[tag];
+  const g = portion(food.id).g;
+  return { kcal: Math.round((d.kcal * g) / 100), protein: Math.round((d.protein * g) / 100) };
+}
+
+/**
+ * A food the app does not know, typed by the user. It gets a neutral identity
+ * so it can still be listed, drawn and counted — nothing the person writes is
+ * simply ignored. Its id is prefixed so it never collides with a real food.
+ */
+export function adhocFood(word: string): Food {
+  return {
+    id: `x:${word}`,
+    tags: ["carb"],
+    he: word,
+    en: word,
+    match: [],
+    shape: "blob",
+    color: "#8AA0B4",
+  };
+}

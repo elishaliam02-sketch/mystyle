@@ -232,6 +232,7 @@ export const en: typeof he = {
     understoodEmpty: "No ingredients spotted yet. Try writing them separated by commas.",
     readyTitle: "You can make now",
     almostTitle: "Almost — a little missing",
+    yourPlate: "Your plate",
     starterTitle: "Ideas to start",
     starterBody: "A few meals that fit the goal. Write your ingredients and I'll fit them to you.",
     missingLabel: "To get:",

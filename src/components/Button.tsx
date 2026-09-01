@@ -12,11 +12,25 @@ type Props = {
 };
 
 export function Button({ label, onPress, tone = "primary", icon, disabled, style }: Props) {
-  const { colors, space, radius, type, elevation } = useTheme();
+  const { colors, space, radius, font } = useTheme();
 
   const background =
     tone === "primary" ? colors.accent : tone === "danger" ? colors.alert : "transparent";
   const textColor = tone === "quiet" ? colors.ink : colors.onAccent;
+
+  // A primary button should feel like the obvious thing to press: a solid,
+  // slightly larger pill that carries a coloured glow, so it lifts off the
+  // page rather than sitting flat in it.
+  const solid = tone !== "quiet";
+  const glow = solid && !disabled
+    ? {
+        shadowColor: background,
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+      }
+    : null;
 
   return (
     <Pressable
@@ -34,17 +48,17 @@ export function Button({ label, onPress, tone = "primary", icon, disabled, style
           borderWidth: tone === "quiet" ? 1.5 : 0,
           borderColor: colors.ruleStrong,
           borderRadius: radius.pill,
-          paddingVertical: space.lg,
+          paddingVertical: 18,
           paddingHorizontal: space.xl,
-          opacity: disabled ? 0.35 : pressed ? 0.8 : 1,
-          transform: [{ scale: pressed && !disabled ? 0.985 : 1 }],
+          opacity: disabled ? 0.4 : pressed ? 0.9 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.97 : 1 }],
         },
-        tone === "primary" && !disabled ? elevation(1) : null,
+        glow,
         style,
       ]}
     >
-      {icon ? <Ionicons name={icon} size={18} color={textColor} /> : null}
-      <Text style={[type.bodyStrong, { color: textColor }]}>{label}</Text>
+      {icon ? <Ionicons name={icon} size={20} color={textColor} /> : null}
+      <Text style={{ fontFamily: font.bodyBold, fontSize: 17, color: textColor }}>{label}</Text>
     </Pressable>
   );
 }

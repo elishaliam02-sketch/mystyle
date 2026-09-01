@@ -237,6 +237,7 @@ export const he = {
     understoodEmpty: "עוד לא זיהיתי מצרכים. נסה לכתוב אותם מופרדים בפסיקים.",
     readyTitle: "אפשר להכין עכשיו",
     almostTitle: "כמעט — חסר מעט",
+    yourPlate: "המנה שלך",
     starterTitle: "רעיונות להתחלה",
     starterBody: "כמה מנות שמתאימות למטרה. כתוב את המצרכים שלך ואתאים אותן אליך.",
     missingLabel: "להשלים:",

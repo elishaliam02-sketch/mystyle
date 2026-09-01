@@ -1,7 +1,7 @@
-import { FOODS, MEALS, type Food, type Meal, type MealNote, type MealSlot } from "./data";
+import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type MealSlot } from "./data";
 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
-export { FOODS, MEALS, portion } from "./data";
+export { FOODS, MEALS, portion, adhocFood, foodNutrition } from "./data";
 export type { Portion } from "./data";
 
 /**
@@ -79,6 +79,83 @@ export function readPantry(text: string): Food[] {
   }
 
   return [...found.values()];
+}
+
+/** Words that are not foods, so they never become a phantom ingredient. */
+const STOPWORDS = new Set([
+  "עם", "קצת", "גם", "וגם", "של", "קניתי", "יש", "לי", "היום", "עוד", "טרי", "טרייה",
+  "טריים", "קצוץ", "קצוצה", "חצי", "כמה", "מעט", "וחצי", "בבית", "אוכל", "ארוחה",
+  "the", "and", "with", "some", "of", "to", "fresh", "bought", "have", "today",
+  "little", "bit", "half", "few", "food", "meal", "for",
+]);
+
+/**
+ * Reads the list and returns both what it recognised and what it did not — so
+ * nothing the person typed is silently dropped. Unknown words become ad-hoc
+ * ingredients elsewhere, which is how the kitchen "recognises anything" without
+ * a food API: a word it has never seen is still treated as something on the
+ * plate, estimated by category.
+ */
+export function readPantryFull(text: string): { known: Food[]; extras: string[] } {
+  const known = readPantry(text);
+
+  // Every word any recognised food answers to, so we do not re-list it.
+  const covered = new Set<string>();
+  for (const f of known) {
+    for (const term of f.match) for (const w of term.toLowerCase().split(/\s+/)) covered.add(w);
+  }
+  const stripPrefix = (w: string) => (w.length > 2 && HE_PREFIX.has(w[0]) ? w.slice(1) : w);
+
+  const extras: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.toLowerCase().split(BREAK)) {
+    if (!raw) continue;
+    const w = stripPrefix(raw);
+    if (w.length < 2) continue;
+    if (STOPWORDS.has(w) || STOPWORDS.has(raw)) continue;
+    if (covered.has(w) || covered.has(raw)) continue;
+    if (!/[a-z\u05d0-\u05ea]/.test(w)) continue; // must hold a real letter
+    if (seen.has(w)) continue;
+    seen.add(w);
+    extras.push(raw.trim());
+    if (extras.length >= 8) break;
+  }
+  return { known, extras };
+}
+
+/**
+ * A meal made of exactly what the person has — known foods and unknown ones
+ * alike. This is what guarantees every list yields something to cook: even a
+ * bag of groceries the recipe book has never met becomes "your plate", with a
+ * calorie and protein estimate summed from each item's category.
+ */
+export function yourPlate(items: Food[], slot: MealSlot): Meal {
+  let kcal = 0;
+  let protein = 0;
+  for (const f of items) {
+    const n = foodNutrition(f);
+    kcal += n.kcal;
+    protein += n.protein;
+  }
+  const density = kcal > 0 ? protein / (kcal / 100) : 0;
+  const hasVeg = items.some((f) => f.tags.includes("veg"));
+  const notes: MealNote[] = [];
+  if (density >= 6) notes.push("protein");
+  if (kcal <= 400) notes.push("light");
+  if (hasVeg) notes.push("veg");
+  if (notes.length === 0) notes.push("balanced");
+
+  const names = (lang: "he" | "en") => items.map((f) => (lang === "he" ? f.he : f.en)).join(", ");
+  return {
+    id: "your-plate",
+    he: { title: "המנה שלך", how: `שילוב מהמצרכים שלך: ${names("he")}.` },
+    en: { title: "Your plate", how: `Built from what you have: ${names("en")}.` },
+    uses: items.map((f) => f.id),
+    slot,
+    notes,
+    kcal,
+    protein,
+  };
 }
 
 /**
