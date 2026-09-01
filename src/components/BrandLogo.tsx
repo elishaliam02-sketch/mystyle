@@ -1,15 +1,16 @@
 import { Text, View } from "react-native";
-import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import Svg, { Circle, G, Path, Rect } from "react-native-svg";
 import { useTheme } from "@/theme";
 
 /**
  * APEX — the brand mark, drawn in code so it is crisp at any size and themed
- * with the palette rather than a flat asset.
+ * with the palette.
  *
- * The emblem is a figure mid-flex: broad shoulders, a raised double-biceps
- * pose, standing on the wordmark like a peak on its base — apex. Strength and
- * height in one shape. The wordmark is set in the display face with wide
- * tracking so it reads as a logotype, not a heading.
+ * A muscular figure mid double-biceps flex — the classic strongman pose: head,
+ * flexed arms with biceps, a V-taper torso lined with pec and ab definition.
+ * It stands over the wordmark, presenting the name. Red on black, the brand's
+ * two colours. Built from thick round-capped limbs, a traps mass and a tapered
+ * torso so the joints connect and it reads as a body, not an abstract shape.
  */
 export function BrandLogo({
   size = 84,
@@ -22,50 +23,43 @@ export function BrandLogo({
 }) {
   const { colors, font } = useTheme();
   const ink = onBand ? colors.bandInk : colors.ink;
+  const red = colors.accent;
+  const line = "rgba(0,0,0,0.34)"; // muscle definition — a sketched shadow
+
+  const arm = (sx: number, sy: number, ex: number, ey: number, fx: number, fy: number) => (
+    <G>
+      <Path d={`M${sx} ${sy} L${ex} ${ey}`} stroke={red} strokeWidth={20} strokeLinecap="round" />
+      <Path d={`M${ex} ${ey} L${fx} ${fy}`} stroke={red} strokeWidth={16} strokeLinecap="round" />
+      <Circle cx={ex} cy={ey} r={10} fill={red} />
+      <Circle cx={sx * 0.35 + ex * 0.65} cy={sy * 0.35 + ey * 0.65 - 7} r={10.5} fill={red} />
+      <Circle cx={fx} cy={fy} r={8.5} fill={red} />
+    </G>
+  );
 
   return (
-    <View style={{ alignItems: "center", gap: size * 0.16 }}>
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Defs>
-          <LinearGradient id="apexFig" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors.accentDeep} />
-            <Stop offset="1" stopColor={colors.accent} />
-          </LinearGradient>
-        </Defs>
-
-        {/* head */}
-        <Circle cx="50" cy="20" r="9" fill="url(#apexFig)" />
-
-        {/* shoulders, torso and both flexing arms, one symmetric silhouette */}
+    <View style={{ alignItems: "center", gap: size * 0.14 }}>
+      <Svg width={size} height={size} viewBox="0 0 140 122">
+        {/* traps + shoulders */}
         <Path
-          fill="url(#apexFig)"
-          d="
-            M50 31
-            C41 31 34 34 30 40
-            C24 34 16 33 11 37
-            C6 41 6 49 11 53
-            C15 49 21 48 26 51
-            C24 57 23 63 24 69
-            L34 66
-            C35 58 39 52 50 52
-            C61 52 65 58 66 66
-            L76 69
-            C77 63 76 57 74 51
-            C79 48 85 49 89 53
-            C94 49 94 41 89 37
-            C84 33 76 34 70 40
-            C66 34 59 31 50 31
-            Z"
+          d="M46 60 C48 50 60 46 70 46 C80 46 92 50 94 60 C96 68 92 72 84 72 L56 72 C48 72 44 68 46 60 Z"
+          fill={red}
         />
-
-        {/* the base line the figure stands on — the peak's ground */}
+        {/* torso */}
         <Path
-          d="M22 80 L78 80"
-          stroke={ink}
-          strokeWidth="4"
-          strokeLinecap="round"
-          opacity={0.85}
+          d="M50 58 C48 74 52 90 63 104 L77 104 C88 90 92 74 90 58 C80 52 60 52 50 58 Z"
+          fill={red}
         />
+        {arm(84, 58, 114, 46, 95, 22)}
+        <G transform="translate(140,0) scale(-1,1)">{arm(84, 58, 114, 46, 95, 22)}</G>
+        <Rect x={63} y={32} width={14} height={14} rx={5} fill={red} />
+        <Circle cx={70} cy={23} r={12.5} fill={red} />
+        {/* definition */}
+        <G stroke={line} strokeWidth={2.6} fill="none" strokeLinecap="round">
+          <Path d="M70 54 L70 100" />
+          <Path d="M70 62 C62 64 57 67 55 73" />
+          <Path d="M70 62 C78 64 83 67 85 73" />
+          <Path d="M61 82 L79 82 M62 90 L78 90 M64 98 L76 98" />
+        </G>
       </Svg>
 
       {showWordmark ? (
