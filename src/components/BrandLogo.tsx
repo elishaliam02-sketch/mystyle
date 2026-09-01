@@ -5,10 +5,10 @@ import { useTheme } from "@/theme";
 /**
  * APEX — the brand mark, drawn in code so it is crisp at any size and themed.
  *
- * An athletic figure pressing a barbell overhead, and the barbell IS the word
- * APEX: the name is the weight he lifts. Proportional, naturally muscular
- * (a V-taper torso with pec and ab definition), red on black — the brand's two
- * colours. The name lives inside the mark, so there is no separate wordmark.
+ * An athletic figure in a double-biceps flex, pressing the word APEX overhead —
+ * the name is the weight he lifts, and the fists grip its ends so every letter
+ * stays visible. Proportional, naturally muscular; red on black, the brand's
+ * two colours. The name is inside the mark, so there is no separate wordmark.
  */
 export function BrandLogo({ size = 120, onBand = true }: { size?: number; onBand?: boolean }) {
   const { colors } = useTheme();
@@ -17,59 +17,60 @@ export function BrandLogo({ size = 120, onBand = true }: { size?: number; onBand
   void onBand;
 
   const width = size * 1.7;
-  const height = (width * 184) / 200;
+  const height = (width * 186) / 200;
 
-  const limb = (
-    ax: number, ay: number, bx: number, by: number, cx: number, cy: number, w1: number, w2: number,
-  ) => (
+  // A flexed arm: upper arm (shoulder→elbow) with a bicep bump, forearm to fist.
+  const arm = (sx: number, sy: number, ex: number, ey: number, fx: number, fy: number) => {
+    const bx = sx * 0.45 + ex * 0.55;
+    const by = sy * 0.45 + ey * 0.55 - 8;
+    return (
+      <G>
+        <Path d={`M${sx} ${sy} L${ex} ${ey}`} stroke={red} strokeWidth={20} strokeLinecap="round" />
+        <Path d={`M${ex} ${ey} L${fx} ${fy}`} stroke={red} strokeWidth={15} strokeLinecap="round" />
+        <Circle cx={bx} cy={by} r={11.5} fill={red} />
+        <Circle cx={ex} cy={ey} r={10} fill={red} />
+        <Circle cx={fx} cy={fy} r={8} fill={red} />
+      </G>
+    );
+  };
+
+  const leg = (hx: number, hy: number, kx: number, ky: number, ax: number, ay: number) => (
     <G>
-      <Path d={`M${ax} ${ay} L${bx} ${by}`} stroke={red} strokeWidth={w1} strokeLinecap="round" />
-      <Path d={`M${bx} ${by} L${cx} ${cy}`} stroke={red} strokeWidth={w2} strokeLinecap="round" />
-      <Circle cx={bx} cy={by} r={w1 / 2} fill={red} />
+      <Path d={`M${hx} ${hy} L${kx} ${ky}`} stroke={red} strokeWidth={15} strokeLinecap="round" />
+      <Path d={`M${kx} ${ky} L${ax} ${ay}`} stroke={red} strokeWidth={11} strokeLinecap="round" />
+      <Circle cx={kx} cy={ky} r={7} fill={red} />
     </G>
   );
 
   return (
     <View style={{ alignItems: "center" }}>
-      <Svg width={width} height={height} viewBox="0 0 200 184">
-        {/* arms up to grip the ends of the word */}
-        {limb(85, 80, 76, 56, 63, 37, 12, 10)}
-        <G transform="translate(200,0) scale(-1,1)">{limb(85, 80, 76, 56, 63, 37, 12, 10)}</G>
-        <Circle cx={85} cy={80} r={8} fill={red} />
-        <Circle cx={115} cy={80} r={8} fill={red} />
-        {/* weight plates hugging the ends of the word */}
-        <Rect x={52} y={24} width={10} height={24} rx={4} fill={red} />
-        <Rect x={138} y={24} width={10} height={24} rx={4} fill={red} />
-        {/* THE BARBELL = the word APEX */}
-        <SvgText
-          x={100}
-          y={45}
-          textAnchor="middle"
-          fontSize={34}
-          fontWeight="900"
-          fill={red}
-        >
+      <Svg width={width} height={height} viewBox="0 0 200 186">
+        {/* the weight = APEX, fully visible between the fists */}
+        <SvgText x={100} y={47} textAnchor="middle" fontSize={31} fontWeight="900" fill={red}>
           APEX
         </SvgText>
+        {/* flexed arms */}
+        {arm(84, 84, 118, 70, 143, 45)}
+        <G transform="translate(200,0) scale(-1,1)">{arm(84, 84, 118, 70, 143, 45)}</G>
         {/* head + neck */}
-        <Rect x={95} y={70} width={10} height={10} rx={4} fill={red} />
+        <Rect x={95} y={70} width={10} height={12} rx={4} fill={red} />
         <Circle cx={100} cy={62} r={11.5} fill={red} />
         {/* torso */}
         <Path
-          d="M83 80 C82 92 84 104 90 116 C92 120 95 122 100 122 C105 122 108 120 110 116 C116 104 118 92 117 80 C107 76 93 76 83 80 Z"
+          d="M82 84 C81 96 84 108 90 118 C92 122 95 124 100 124 C105 124 108 122 110 118 C116 108 119 96 118 84 C108 79 92 79 82 84 Z"
           fill={red}
         />
         {/* legs + feet */}
-        {limb(94, 120, 91, 144, 89, 170, 15, 11)}
-        {limb(106, 120, 109, 144, 111, 170, 15, 11)}
-        <Rect x={82} y={168} width={16} height={7} rx={3} fill={red} />
-        <Rect x={102} y={168} width={16} height={7} rx={3} fill={red} />
+        {leg(94, 122, 91, 146, 89, 172)}
+        {leg(106, 122, 109, 146, 111, 172)}
+        <Rect x={82} y={170} width={16} height={7} rx={3} fill={red} />
+        <Rect x={102} y={170} width={16} height={7} rx={3} fill={red} />
         {/* definition */}
         <G stroke={line} strokeWidth={2.2} fill="none" strokeLinecap="round">
-          <Path d="M100 82 L100 120" />
-          <Path d="M100 88 C94 90 90 93 88 98" />
-          <Path d="M100 88 C106 90 110 93 112 98" />
-          <Path d="M93 105 L107 105 M94 113 L106 113" />
+          <Path d="M100 86 L100 122" />
+          <Path d="M100 92 C94 94 90 97 88 102" />
+          <Path d="M100 92 C106 94 110 97 112 102" />
+          <Path d="M93 109 L107 109 M94 117 L106 117" />
         </G>
       </Svg>
     </View>
