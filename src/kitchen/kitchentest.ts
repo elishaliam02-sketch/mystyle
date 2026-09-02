@@ -3,7 +3,8 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
 const results: [string, boolean, string?][] = [];
@@ -192,6 +193,23 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a cut sets higher protein per kilo than a bulk", cut.protein > bulk.protein);
   check("no weight still yields a usable target", dailyTarget(undefined, "maintain").kcal >= 1200);
   check("targets never drop below a floor", dailyTarget(30, "cut").kcal >= 1200);
+}
+
+// --- dietary filters (kosher / vegetarian)
+{
+  const mk = (uses: string[]): Meal => ({
+    id: "t", he: { title: "", how: "" }, en: { title: "", how: "" },
+    uses, slot: "lunch", notes: [], kcal: 0, protein: 0,
+  });
+  check("everything passes the 'all' filter", dietOk(mk(["pork", "milk"]), "all"));
+  check("pork is not kosher", !dietOk(mk(["pork", "rice"]), "kosher"));
+  check("meat + dairy is not kosher", !dietOk(mk(["chicken", "yellowCheese"]), "kosher"));
+  check("chicken + rice is kosher", dietOk(mk(["chicken", "rice"]), "kosher"));
+  check("fish + cheese stays kosher (fish is pareve)", dietOk(mk(["salmon", "feta"]), "kosher"));
+  check("chicken is not vegetarian", !dietOk(mk(["chicken", "rice"]), "vegetarian"));
+  check("eggs + veg is vegetarian", dietOk(mk(["egg", "tomato", "cheese"]), "vegetarian"));
+  check("shrimp is neither kosher nor vegetarian",
+    !dietOk(mk(["shrimp"]), "kosher") && !dietOk(mk(["shrimp"]), "vegetarian"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

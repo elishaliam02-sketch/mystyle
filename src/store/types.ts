@@ -9,6 +9,8 @@ export type Training = {
   /** How long one session runs, in minutes. Undefined for plans built before
    * duration was a criterion — the plan then falls back to a goal-based size. */
   minutes?: number;
+  /** Which equipment the plan is built for: "gym" | "home" | "bodyweight". */
+  equipment?: string;
   /** Local date (YYYY-MM-DD) → ids of exercises ticked that day. */
   log: Record<string, string[]>;
   /** The person's own manually-added moves. */
@@ -123,6 +125,8 @@ export type AppState = {
   /** The nutrition goal the kitchen was last set to, so it is remembered
    * across opens and the Today hub can read a calorie target from it. */
   nutritionGoal?: Goal;
+  /** The kitchen's dietary filter ("all" | "kosher" | "vegetarian"), remembered. */
+  dietFilter?: string;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -200,5 +204,6 @@ export function migrateState(raw: unknown): AppState {
     water: s.water,
     measurements: s.measurements,
     nutritionGoal: s.nutritionGoal,
+    dietFilter: s.dietFilter,
   };
 }

@@ -20,6 +20,7 @@ import { buildPlan, type DayType } from "@/workout/plan";
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75, 90];
+const EQUIP = ["gym", "home", "bodyweight"] as const;
 
 export default function WorkoutScreen() {
   const { t } = useI18n();
@@ -31,6 +32,7 @@ export default function WorkoutScreen() {
   const [goal, setGoal] = useState<Goal>(training?.goal ?? "recomp");
   const [days, setDays] = useState<number>(training?.days ?? 3);
   const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
+  const [equipment, setEquipment] = useState<string>(training?.equipment ?? "gym");
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -66,12 +68,15 @@ export default function WorkoutScreen() {
   };
 
   const plan = useMemo(
-    () => (training ? buildPlan(training.goal, training.days, training.minutes) : null),
+    () =>
+      training
+        ? buildPlan(training.goal, training.days, training.minutes, training.equipment)
+        : null,
     [training],
   );
 
   function build() {
-    configureTraining(goal, days, minutes);
+    configureTraining(goal, days, minutes, equipment);
     setForceSetup(false);
   }
 
@@ -80,6 +85,7 @@ export default function WorkoutScreen() {
       setGoal(training.goal);
       setDays(training.days);
       setMinutes(training.minutes ?? 45);
+      setEquipment(training.equipment ?? "gym");
     }
     setForceSetup(true);
   }
@@ -174,6 +180,39 @@ export default function WorkoutScreen() {
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
             {t.workout.timeUnit}
           </Text>
+        </Card>
+
+        <Card label={t.workout.equipTitle}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {EQUIP.map((e) => {
+              const on = equipment === e;
+              const label =
+                e === "gym" ? t.workout.equipGym : e === "home" ? t.workout.equipHome : t.workout.equipBody;
+              return (
+                <Pressable
+                  key={e}
+                  onPress={() => setEquipment(e)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={{
+                    flexGrow: 1,
+                    flexBasis: "30%",
+                    alignItems: "center",
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.xs,
+                    borderRadius: radius.lg,
+                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                  }}
+                >
+                  <Text
+                    style={[type.smallStrong, { color: on ? colors.onAccent : colors.ink, textAlign: "center" }]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </Card>
 
         <Button icon="barbell" label={t.workout.build} onPress={build} />

@@ -63,6 +63,8 @@ type Store = {
   setPantry: (text: string) => void;
   /** Remembers the kitchen's nutrition goal across opens. */
   setNutritionGoal: (goal: Goal) => void;
+  /** Remembers the kitchen's dietary filter across opens. */
+  setDietFilter: (diet: string) => void;
   /** Logs a meal against today's food diary. */
   logMeal: (label: string, kcal: number, protein: number) => void;
   /** Removes one logged item from today. */
@@ -77,9 +79,9 @@ type Store = {
   addMeasurement: (part: string, cm: number) => void;
   /** All readings for a body part, oldest first. */
   measurementSeries: (part: string) => Reading[];
-  /** Sets up (or re-tunes) the training plan for a goal, weekly frequency and
-   * session length. */
-  configureTraining: (goal: Goal, days: number, minutes?: number) => void;
+  /** Sets up (or re-tunes) the training plan for a goal, weekly frequency,
+   * session length and available equipment. */
+  configureTraining: (goal: Goal, days: number, minutes?: number, equipment?: string) => void;
   /** Ticks or unticks an exercise as done for the clock-safe today. */
   toggleExerciseDone: (id: string) => void;
   /** True if that exercise is ticked done today. */
@@ -303,6 +305,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, nutritionGoal: goal }));
   }, []);
 
+  const setDietFilter = useCallback((diet: string) => {
+    setState((s) => ({ ...s, dietFilter: diet }));
+  }, []);
+
   const logMeal = useCallback((label: string, kcal: number, protein: number) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
@@ -370,19 +376,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.measurements],
   );
 
-  const configureTraining = useCallback((goal: Goal, days: number, minutes?: number) => {
-    setState((s) => ({
-      ...s,
-      training: {
-        goal,
-        days,
-        minutes,
-        // Keep the log and the person's own moves through a re-tune.
-        log: s.training?.log ?? {},
-        custom: s.training?.custom ?? [],
-      },
-    }));
-  }, []);
+  const configureTraining = useCallback(
+    (goal: Goal, days: number, minutes?: number, equipment?: string) => {
+      setState((s) => ({
+        ...s,
+        training: {
+          goal,
+          days,
+          minutes,
+          equipment,
+          // Keep the log and the person's own moves through a re-tune.
+          log: s.training?.log ?? {},
+          custom: s.training?.custom ?? [],
+        },
+      }));
+    },
+    [],
+  );
 
   // Ticking a workout done feeds a streak, so it stamps through the clock guard
   // for the same reason a habit does — a rewound phone can't manufacture a day.
@@ -453,6 +463,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       readyForAnotherHabit,
       setPantry,
       setNutritionGoal,
+      setDietFilter,
       logMeal,
       removeMeal,
       todayIntake,
@@ -470,7 +481,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, setNutritionGoal, logMeal, removeMeal, todayIntake,
+     readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, logMeal, removeMeal, todayIntake,
      addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      reset, replaceAll],

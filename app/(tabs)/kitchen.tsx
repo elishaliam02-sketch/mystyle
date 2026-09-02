@@ -11,6 +11,7 @@ import {
   FOODS,
   adhocFood,
   dailyTarget,
+  dietOk,
   portion,
   primaryNote,
   readPantryFull,
@@ -18,6 +19,7 @@ import {
   starterMeals,
   suggestMeals,
   yourPlate,
+  type Diet,
   type Food,
   type Goal,
   type Meal,
@@ -33,13 +35,14 @@ const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry, setNutritionGoal } = useStore();
+  const { state, setPantry, setNutritionGoal, setDietFilter } = useStore();
 
   const [draft, setDraft] = useState(state.pantry ?? "");
   const [editing, setEditing] = useState(!state.pantry);
-  // The goal is remembered across opens rather than reset each time.
+  // The goal and diet are remembered across opens rather than reset each time.
   const goal: Goal = state.nutritionGoal ?? "cut";
   const setGoal = setNutritionGoal;
+  const diet = (state.dietFilter as Diet) ?? "all";
   // How amounts read: everyday household units, or exact grams for anyone who
   // weighs their food.
   const [units, setUnits] = useState<"household" | "grams">("household");
@@ -57,14 +60,25 @@ export default function KitchenScreen() {
   const adhocs = useMemo(() => full.extras.map(adhocFood), [full.extras]);
   const allItems = useMemo(() => [...full.known, ...adhocs], [full.known, adhocs]);
   // A plate built from exactly what the person has, so any list yields a meal.
-  const plate = useMemo(
+  const rawPlate = useMemo(
     () => (allItems.length >= 2 ? yourPlate(allItems, slot) : null),
     [allItems, slot],
   );
-  // Show only a handful of the best curated picks. Each card fetches its own
-  // photo on demand — a dozen at once load slowly and half stay placeholders.
-  const ready = useMemo(() => result.ready.slice(0, 3), [result.ready]);
-  const almost = useMemo(() => result.almost.slice(0, 3), [result.almost]);
+  // The plate is only offered when it also passes the dietary filter.
+  const plate = useMemo(
+    () => (rawPlate && dietOk(rawPlate, diet) ? rawPlate : null),
+    [rawPlate, diet],
+  );
+  // Show only a handful of the best curated picks that pass the diet filter.
+  // Each card fetches its own photo on demand — a dozen at once load slowly.
+  const ready = useMemo(
+    () => result.ready.filter((m) => dietOk(m.meal, diet)).slice(0, 3),
+    [result.ready, diet],
+  );
+  const almost = useMemo(
+    () => result.almost.filter((m) => dietOk(m.meal, diet)).slice(0, 3),
+    [result.almost, diet],
+  );
   const haveIds = useMemo(() => new Set(allItems.map((f) => f.id)), [allItems]);
   const foodsById = useMemo(
     () => new Map([...FOODS, ...adhocs].map((f) => [f.id, f])),
@@ -209,6 +223,33 @@ export default function KitchenScreen() {
           })}
         </View>
 
+        {/* dietary filter */}
+        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+          {(["all", "kosher", "vegetarian"] as const).map((d) => {
+            const on = diet === d;
+            const label =
+              d === "all" ? t.kitchen.dietAll : d === "kosher" ? t.kitchen.dietKosher : t.kitchen.dietVeg;
+            return (
+              <Pressable
+                key={d}
+                onPress={() => setDietFilter(d)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: space.lg,
+                  borderRadius: radius.pill,
+                  backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                }}
+              >
+                <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
 
@@ -218,15 +259,17 @@ export default function KitchenScreen() {
             <Card label={t.kitchen.starterTitle} tone="accent">
               <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.starterBody}</Text>
             </Card>
-            {starterMeals(goal).map((meal) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                have={new Set<string>()}
-                foodsById={foodsById}
-                units={units}
-              />
-            ))}
+            {starterMeals(goal)
+              .filter((meal) => dietOk(meal, diet))
+              .map((meal) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  have={new Set<string>()}
+                  foodsById={foodsById}
+                  units={units}
+                />
+              ))}
           </View>
         ) : !showAny ? (
           <Card tone="amber">

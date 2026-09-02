@@ -1,4 +1,4 @@
-import { buildPlan } from "./plan";
+import { buildPlan, EQUIP_SETS } from "./plan";
 import { EXERCISES } from "./exercises";
 
 const results: [string, boolean, string?][] = [];
@@ -34,6 +34,26 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("the chosen minutes are carried on the plan", long.minutes === 90);
   check("even a long session never repeats an exercise",
     long.sessions.every((s) => new Set(s.exercises.map((e) => e.id)).size === s.exercises.length));
+}
+
+// equipment filters which moves a plan uses
+{
+  const bw = buildPlan("recomp", 3, 45, "bodyweight");
+  const all = bw.sessions.flatMap((s) => s.exercises);
+  check("a bodyweight plan uses only bodyweight moves",
+    all.every((e) => e.equipment === "bodyweight"), all.map((e) => e.equipment).join());
+  check("a bodyweight plan still fills every day",
+    bw.sessions.every((s) => s.exercises.length >= 3), bw.sessions.map((s) => s.exercises.length).join());
+  check("the chosen equipment is carried on the plan", bw.equipment === "bodyweight");
+
+  const home = buildPlan("recomp", 3, 45, "home");
+  const allowedHome = new Set(EQUIP_SETS.home);
+  check("a home plan avoids barbell/machine/cable",
+    home.sessions.flatMap((s) => s.exercises).every((e) => allowedHome.has(e.equipment)));
+
+  const gym = buildPlan("recomp", 3, 45, "gym");
+  const usesBarbell = gym.sessions.flatMap((s) => s.exercises).some((e) => e.equipment === "barbell");
+  check("a full-gym plan can use a barbell", usesBarbell);
 }
 
 // a repeated split day is not identical
