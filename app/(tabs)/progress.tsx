@@ -16,6 +16,46 @@ import { checkWeight } from "@/store/weight";
 import { daysAgo, today, useStore, type WeighIn } from "@/store";
 import { useTheme } from "@/theme";
 
+function Heatmap() {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const { state } = useStore();
+
+  // How many habits were completed on each of the last 30 days — the grid is
+  // read newest-last, so the bottom-right is today.
+  const counts = new Map<string, number>();
+  for (const c of state.completions) {
+    if (c.done) counts.set(c.date, (counts.get(c.date) ?? 0) + 1);
+  }
+  const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
+
+  const shade = (n: number) =>
+    n === 0 ? colors.surfaceAlt : n === 1 ? colors.accentWash : colors.accent;
+
+  return (
+    <Card label={t.heatmap.title}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: space.xs }}>
+        {days.map((d) => (
+          <View
+            key={d}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              backgroundColor: shade(counts.get(d) ?? 0),
+              borderWidth: 1,
+              borderColor: colors.rule,
+            }}
+          />
+        ))}
+      </View>
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+        {t.heatmap.subtitle}
+      </Text>
+    </Card>
+  );
+}
+
 function TrendChart({ values }: { values: WeighIn[] }) {
   const { colors, space, radius } = useTheme();
   const kgs = values.map((v) => v.kg);
@@ -254,6 +294,8 @@ export default function ProgressScreen() {
             </Text>
           )}
         </Card>
+
+        <Heatmap />
 
         <Card label={t.progress.checkinsTitle}>
           <Text style={[type.title, { color: colors.ink }]}>

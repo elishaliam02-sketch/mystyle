@@ -18,8 +18,9 @@ export const he = {
     today: "היום",
     kitchen: "מטבח",
     workout: "אימון",
-    checkin: "סיכום יום",
-    progress: "התקדמות",
+    body: "גוף",
+    checkin: "סיכום",
+    progress: "נתונים",
     profile: "פרופיל",
   },
 
@@ -334,6 +335,33 @@ export const he = {
     muscleFullbody: "כל הגוף",
     muscleCardio: "אירובי",
     doneCount: "{done}/{total} הושלמו",
+  },
+
+  body: {
+    heading: "מדידות גוף",
+    body: "הסרט מודד מה שהמשקל לא מראה. מדוד אחת לשבוע־שבועיים.",
+    add: "הוסף",
+    save: "שמור מדידה",
+    latest: "אחרון",
+    change: "מאז ההתחלה",
+    empty: "עוד לא מדדת. הוסף מדידה ראשונה כדי להתחיל לעקוב.",
+    cmPlaceholder: "ס\"מ",
+    cm: "ס\"מ",
+    rangeError: "המדידה צריכה להיות בין {min} ל־{max} ס\"מ.",
+    readings: "{count} מדידות",
+    parts: {
+      waist: "מותניים",
+      chest: "חזה",
+      arm: "יד (ביצפס)",
+      thigh: "ירך",
+      hips: "אגן",
+      shoulders: "כתפיים",
+    },
+  },
+
+  heatmap: {
+    title: "30 הימים האחרונים",
+    subtitle: "כל ריבוע = יום. מלא = השלמת הרגל.",
   },
 
   achievements: {

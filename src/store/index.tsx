@@ -23,6 +23,7 @@ import {
   type Training,
 } from "./types";
 import { isStorableWeight } from "./weight";
+import { isStorableCm, type Reading } from "@/body";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -70,6 +71,10 @@ type Store = {
   addWater: (delta: number) => void;
   /** Glasses of water logged today. */
   todayWater: () => number;
+  /** Records a tape-measure reading for a body part (today). */
+  addMeasurement: (part: string, cm: number) => void;
+  /** All readings for a body part, oldest first. */
+  measurementSeries: (part: string) => Reading[];
   /** Sets up (or re-tunes) the training plan for a goal, weekly frequency and
    * session length. */
   configureTraining: (goal: Goal, days: number, minutes?: number) => void;
@@ -340,6 +345,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.water, trustedToday],
   );
 
+  const addMeasurement = useCallback((part: string, cm: number) => {
+    if (!isStorableCm(cm)) return;
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      const prior = (s.measurements?.[part] ?? []).filter((r) => r.date !== date);
+      const next = [...prior, { date, cm }].sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        measurements: { ...s.measurements, [part]: next },
+      };
+    });
+  }, []);
+
+  const measurementSeries = useCallback(
+    (part: string) => state.measurements?.[part] ?? [],
+    [state.measurements],
+  );
+
   const configureTraining = useCallback((goal: Goal, days: number, minutes?: number) => {
     setState((s) => ({
       ...s,
@@ -427,6 +451,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       todayIntake,
       addWater,
       todayWater,
+      addMeasurement,
+      measurementSeries,
       configureTraining,
       toggleExerciseDone,
       isExerciseDone,
@@ -438,8 +464,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, configureTraining, toggleExerciseDone,
-     isExerciseDone, addCustomExercise, noteServerTime, reset, replaceAll],
+     addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
+     toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
+     reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

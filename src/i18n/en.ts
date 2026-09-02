@@ -16,8 +16,9 @@ export const en: typeof he = {
     today: "Today",
     kitchen: "Kitchen",
     workout: "Train",
-    checkin: "Summary",
-    progress: "Progress",
+    body: "Body",
+    checkin: "Recap",
+    progress: "Stats",
     profile: "Profile",
   },
 
@@ -329,6 +330,33 @@ export const en: typeof he = {
     muscleFullbody: "Full body",
     muscleCardio: "Cardio",
     doneCount: "{done}/{total} done",
+  },
+
+  body: {
+    heading: "Body measurements",
+    body: "The tape shows what the scale hides. Measure once a week or two.",
+    add: "Add",
+    save: "Save measurement",
+    latest: "Latest",
+    change: "Since the start",
+    empty: "No measurements yet. Add your first to start tracking.",
+    cmPlaceholder: "cm",
+    cm: "cm",
+    rangeError: "The measurement should be between {min} and {max} cm.",
+    readings: "{count} readings",
+    parts: {
+      waist: "Waist",
+      chest: "Chest",
+      arm: "Arm (biceps)",
+      thigh: "Thigh",
+      hips: "Hips",
+      shoulders: "Shoulders",
+    },
+  },
+
+  heatmap: {
+    title: "The last 30 days",
+    subtitle: "Each square = a day. Filled = a habit completed.",
   },
 
   achievements: {

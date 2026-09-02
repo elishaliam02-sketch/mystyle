@@ -52,7 +52,8 @@
     "test:kitchen": "node scripts/run-kitchen-tests.mjs",
     "test:clock": "node scripts/run-clock-tests.mjs",
     "test:workout": "node scripts/run-workout-tests.mjs",
-    "test:achievements": "node scripts/run-achievements-tests.mjs"
+    "test:achievements": "node scripts/run-achievements-tests.mjs",
+    "test:body": "node scripts/run-body-tests.mjs"
   },
   "private": true
 }

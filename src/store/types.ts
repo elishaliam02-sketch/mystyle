@@ -118,6 +118,8 @@ export type AppState = {
   intake?: Record<string, IntakeItem[]>;
   /** Glasses of water logged each day (YYYY-MM-DD → count). */
   water?: Record<string, number>;
+  /** Tape-measure readings per body part (part id → readings over time). */
+  measurements?: Record<string, { date: string; cm: number }[]>;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -193,5 +195,6 @@ export function migrateState(raw: unknown): AppState {
     training: s.training,
     intake: s.intake,
     water: s.water,
+    measurements: s.measurements,
   };
 }
