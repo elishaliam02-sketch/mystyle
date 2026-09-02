@@ -16,7 +16,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0E1622",
+          "backgroundColor": "#0E0E10",
           "imageWidth": 180
         }
       ]
@@ -29,7 +29,7 @@
     "android": {
       "package": "com.mystyle.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0E1622",
+        "backgroundColor": "#0E0E10",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
