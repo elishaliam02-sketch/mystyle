@@ -19,9 +19,12 @@ import {
   type CheckIn,
   type Habit,
   type Profile,
+  type Training,
 } from "./types";
 import { isStorableWeight } from "./weight";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
+import type { Goal } from "@/kitchen";
+import type { Exercise } from "@/workout/exercises";
 
 /**
  * "Today" that a rewound phone clock cannot fake, together with the advanced
@@ -56,6 +59,14 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
+  /** Sets up (or re-tunes) the training plan for a goal and weekly frequency. */
+  configureTraining: (goal: Goal, days: number) => void;
+  /** Ticks or unticks an exercise as done for the clock-safe today. */
+  toggleExerciseDone: (id: string) => void;
+  /** True if that exercise is ticked done today. */
+  isExerciseDone: (id: string) => boolean;
+  /** Adds the person's own move to the library, kept device-local. */
+  addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
   /** Advances the clock guard from a trusted server timestamp. */
   noteServerTime: (iso: string) => void;
   reset: () => void;
@@ -269,6 +280,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
+  const configureTraining = useCallback((goal: Goal, days: number) => {
+    setState((s) => ({
+      ...s,
+      training: {
+        goal,
+        days,
+        // Keep the log and the person's own moves through a re-tune.
+        log: s.training?.log ?? {},
+        custom: s.training?.custom ?? [],
+      },
+    }));
+  }, []);
+
+  // Ticking a workout done feeds a streak, so it stamps through the clock guard
+  // for the same reason a habit does — a rewound phone can't manufacture a day.
+  const toggleExerciseDone = useCallback((id: string) => {
+    setState((s) => {
+      if (!s.training) return s;
+      const { date, highWater } = trustedStamp(s);
+      const doneToday = s.training.log[date] ?? [];
+      const next = doneToday.includes(id)
+        ? doneToday.filter((x) => x !== id)
+        : [...doneToday, id];
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...s.training, log: { ...s.training.log, [date]: next } },
+      };
+    });
+  }, []);
+
+  const isExerciseDone = useCallback(
+    (id: string) => {
+      const d = trustedToday();
+      return (state.training?.log[d] ?? []).includes(id);
+    },
+    [state.training, trustedToday],
+  );
+
+  const addCustomExercise = useCallback((ex: Omit<Exercise, "custom">) => {
+    setState((s) => {
+      const base: Training = s.training ?? { goal: "maintain", days: 3, log: {}, custom: [] };
+      // Skip a duplicate id so re-adding the same move is a no-op.
+      if (base.custom.some((c) => c.id === ex.id)) return s;
+      return { ...s, training: { ...base, custom: [...base.custom, { ...ex, custom: true }] } };
+    });
+  }, []);
+
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
   // monotonic: a device whose clock was set back is snapped up to real time the
@@ -302,13 +361,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       setPantry,
+      configureTraining,
+      toggleExerciseDone,
+      isExerciseDone,
+      addCustomExercise,
       noteServerTime,
       reset,
       replaceAll,
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, noteServerTime, reset, replaceAll],
+     readyForAnotherHabit, setPantry, configureTraining, toggleExerciseDone,
+     isExerciseDone, addCustomExercise, noteServerTime, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

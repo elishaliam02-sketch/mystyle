@@ -1,3 +1,17 @@
+import type { Goal } from "@/kitchen";
+import type { Exercise } from "@/workout/exercises";
+
+/** The training plan config and log, device-local like the pantry. */
+export type Training = {
+  goal: Goal;
+  /** How many days a week the plan spans. */
+  days: number;
+  /** Local date (YYYY-MM-DD) → ids of exercises ticked that day. */
+  log: Record<string, string[]>;
+  /** The person's own manually-added moves. */
+  custom: Exercise[];
+};
+
 export type Habit = {
   id: string;
   title: string;
@@ -83,6 +97,12 @@ export type AppState = {
    * day. Device-local; the server holds the real record.
    */
   clockHighWaterMs?: number;
+  /**
+   * The training plan and its day-by-day log. Device-local like the pantry —
+   * it rides through a sync untouched (mergeState keeps local fields) and is
+   * never sent to the server.
+   */
+  training?: Training;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -155,5 +175,6 @@ export function migrateState(raw: unknown): AppState {
     lastPushAt: s.lastPushAt,
     pantry: s.pantry,
     clockHighWaterMs: s.clockHighWaterMs,
+    training: s.training,
   };
 }
