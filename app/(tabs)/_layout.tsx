@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
-import type { ColorValue } from "react-native";
+import { View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
@@ -10,6 +10,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const ICONS: Record<string, { on: IconName; off: IconName }> = {
   today: { on: "sunny", off: "sunny-outline" },
   kitchen: { on: "restaurant", off: "restaurant-outline" },
+  workout: { on: "barbell", off: "barbell-outline" },
   checkin: { on: "chatbubble-ellipses", off: "chatbubble-ellipses-outline" },
   progress: { on: "stats-chart", off: "stats-chart-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
@@ -17,7 +18,7 @@ const ICONS: Record<string, { on: IconName; off: IconName }> = {
 
 export default function TabsLayout() {
   const { t } = useI18n();
-  const { colors, font } = useTheme();
+  const { colors, font, radius } = useTheme();
   // Android draws edge-to-edge, so the system navigation bar sits over the
   // bottom of the screen. Without this inset the tab labels and icons hide
   // behind the phone's back/home/recent buttons.
@@ -26,11 +27,24 @@ export default function TabsLayout() {
   const icon =
     (key: keyof typeof ICONS) =>
     ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-      <Ionicons
-        name={focused ? ICONS[key].on : ICONS[key].off}
-        size={23}
-        color={String(color)}
-      />
+      <View
+        style={{
+          width: 46,
+          height: 30,
+          borderRadius: radius.pill,
+          alignItems: "center",
+          justifyContent: "center",
+          // The active tab sits in a soft red pill, so the current place in the
+          // app is obvious at a glance rather than a colour difference alone.
+          backgroundColor: focused ? colors.accentWash : "transparent",
+        }}
+      >
+        <Ionicons
+          name={focused ? ICONS[key].on : ICONS[key].off}
+          size={22}
+          color={String(color)}
+        />
+      </View>
     );
 
   return (
@@ -51,6 +65,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: t.tabs.today, tabBarIcon: icon("today") }} />
       <Tabs.Screen name="kitchen" options={{ title: t.tabs.kitchen, tabBarIcon: icon("kitchen") }} />
+      <Tabs.Screen name="workout" options={{ title: t.tabs.workout, tabBarIcon: icon("workout") }} />
       <Tabs.Screen name="checkin" options={{ title: t.tabs.checkin, tabBarIcon: icon("checkin") }} />
       <Tabs.Screen
         name="progress"

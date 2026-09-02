@@ -17,6 +17,10 @@ export type Colors = {
    * colour. Everything below it is quiet paper, so this is what makes the
    * page read as designed rather than as a list of boxes. */
   band: string;
+  /** The two ends of the band's gradient — a crimson-black that bleeds into
+   * near-black, so the header reads as lit rather than flat. */
+  bandTop: string;
+  bandBottom: string;
   bandInk: string;
   bandInkSoft: string;
   bandRule: string;
@@ -50,6 +54,8 @@ export const palette: Record<"light" | "dark", Colors> = {
     surface: "#FFFFFF",
     surfaceAlt: "#ECECEE",
     band: "#141416",
+    bandTop: "#3A0E15",
+    bandBottom: "#0E0E10",
     bandInk: "#FFFFFF",
     bandInkSoft: "#B6A9AB",
     bandRule: "#2C2A2E",
@@ -74,6 +80,8 @@ export const palette: Record<"light" | "dark", Colors> = {
     surface: "#161618",
     surfaceAlt: "#202023",
     band: "#0E0E10",
+    bandTop: "#320B12",
+    bandBottom: "#08080A",
     bandInk: "#F4F2F2",
     bandInkSoft: "#B49CA0",
     bandRule: "#2A2126",

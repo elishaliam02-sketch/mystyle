@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
 const results: [string, boolean, string?][] = [];
@@ -180,6 +180,18 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 {
   const n = foodNutrition(adhocFood("משהו"));
   check("an unknown food gets a sane calorie estimate", n.kcal > 0 && n.kcal < 900);
+}
+
+// --- daily targets shift with the goal
+{
+  const cut = dailyTarget(80, "cut");
+  const bulk = dailyTarget(80, "bulk");
+  const maintain = dailyTarget(80, "maintain");
+  check("a cut targets fewer calories than maintenance", cut.kcal < maintain.kcal);
+  check("a bulk targets more calories than maintenance", bulk.kcal > maintain.kcal);
+  check("a cut sets higher protein per kilo than a bulk", cut.protein > bulk.protein);
+  check("no weight still yields a usable target", dailyTarget(undefined, "maintain").kcal >= 1200);
+  check("targets never drop below a floor", dailyTarget(30, "cut").kcal >= 1200);
 }
 
 const failed = results.filter(([, ok]) => !ok);

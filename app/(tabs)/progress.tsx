@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
@@ -7,6 +9,7 @@ import { TextField } from "@/components/TextField";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
+import { computeAchievements, unlockedCount } from "@/achievements";
 import { fill, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
 import { checkWeight } from "@/store/weight";
@@ -49,8 +52,12 @@ function TrendChart({ values }: { values: WeighIn[] }) {
 
 export default function ProgressScreen() {
   const { t, locale } = useI18n();
-  const { colors, space, type } = useTheme();
+  const { colors, space, radius, type } = useTheme();
   const { state, addWeighIn, weeklyConsistency, isDone } = useStore();
+  const router = useRouter();
+
+  const achievements = useMemo(() => computeAchievements(state), [state]);
+  const unlocked = unlockedCount(achievements);
 
   const [kg, setKg] = useState("");
   // A range error blocks the save; a jump warning asks for one confirming tap.
@@ -130,6 +137,32 @@ export default function ProgressScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.progress.heading}>
+        <Pressable onPress={() => router.push("/achievements")} accessibilityRole="button">
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <View
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.accent,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="trophy" size={24} color={colors.onAccent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type.title, { color: colors.ink }]}>{t.achievements.entry}</Text>
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {fill(t.achievements.entryHint, { done: unlocked, total: achievements.length })}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+            </View>
+          </Card>
+        </Pressable>
+
         {activeHabits.length > 0 ? (
           <Card label={t.progress.weekTitle} tone="accent">
             <View style={{ gap: space.sm }}>

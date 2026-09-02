@@ -6,9 +6,11 @@ import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   FOODS,
   adhocFood,
+  dailyTarget,
   portion,
   primaryNote,
   readPantryFull,
@@ -205,6 +207,9 @@ export default function KitchenScreen() {
           })}
         </View>
 
+        {/* today: targets, water and the food log */}
+        <TodayCard goal={goal} />
+
         {/* meals */}
         {!hasList ? (
           <View style={{ gap: space.md }}>
@@ -254,6 +259,160 @@ export default function KitchenScreen() {
   );
 }
 
+const WATER_GOAL = 8;
+
+function Bar({ pct, over }: { pct: number; over: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.surfaceAlt,
+        overflow: "hidden",
+        marginTop: 6,
+      }}
+    >
+      <View
+        style={{
+          width: `${pct}%`,
+          height: "100%",
+          borderRadius: 4,
+          backgroundColor: over ? colors.amber : colors.accent,
+        }}
+      />
+    </View>
+  );
+}
+
+function TodayCard({ goal }: { goal: Goal }) {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, todayIntake, removeMeal, addWater, todayWater } = useStore();
+
+  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
+  const target = dailyTarget(weightKg, goal);
+  const eaten = todayIntake();
+  const water = todayWater();
+
+  const kcalLeft = target.kcal - eaten.kcal;
+  const proLeft = target.protein - eaten.protein;
+  const kcalPct = Math.min(100, Math.round((eaten.kcal / target.kcal) * 100));
+  const proPct = Math.min(100, Math.round((eaten.protein / target.protein) * 100));
+
+  return (
+    <Card label={t.kitchen.todayTitle}>
+      {/* calories */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetKcal}</Text>
+        <Text style={[type.small, { color: colors.inkSoft }]}>
+          {eaten.kcal} / {target.kcal} {t.kitchen.kcal}
+        </Text>
+      </View>
+      <Bar pct={kcalPct} over={kcalLeft < 0} />
+      <Text style={[type.small, { color: kcalLeft < 0 ? colors.amber : colors.inkFaint, marginTop: 4 }]}>
+        {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining}: ${kcalLeft} ${t.kitchen.kcal}`}
+      </Text>
+
+      {/* protein */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginTop: space.md,
+        }}
+      >
+        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetProtein}</Text>
+        <Text style={[type.small, { color: colors.inkSoft }]}>
+          {eaten.protein} / {target.protein} {t.kitchen.grams}
+        </Text>
+      </View>
+      <Bar pct={proPct} over={false} />
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
+        {proLeft > 0 ? `${t.kitchen.remaining}: ${proLeft} ${t.kitchen.grams}` : t.kitchen.over}
+      </Text>
+
+      {/* water */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: space.lg,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="water" size={18} color={colors.accent} />
+          <Text style={[type.smallStrong, { color: colors.ink }]}>
+            {water} / {WATER_GOAL} {t.kitchen.cups}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Pressable
+            onPress={() => addWater(-1)}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: radius.pill,
+              backgroundColor: colors.surfaceAlt,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="remove" size={20} color={colors.ink} />
+          </Pressable>
+          <Pressable
+            onPress={() => addWater(1)}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="add" size={20} color={colors.onAccent} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* logged today */}
+      <View style={{ marginTop: space.lg, gap: 6 }}>
+        <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+          {t.kitchen.loggedTitle}
+        </Text>
+        {eaten.items.length === 0 ? (
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.logEmpty}</Text>
+        ) : (
+          eaten.items.map((it) => (
+            <View
+              key={it.id}
+              style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+            >
+              <Text style={[type.small, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                {it.label}
+              </Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>
+                ≈{it.kcal} {t.kitchen.kcal} · {it.protein}
+                {t.kitchen.grams}
+              </Text>
+              <Pressable onPress={() => removeMeal(it.id)} accessibilityRole="button" hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={colors.inkFaint} />
+              </Pressable>
+            </View>
+          ))
+        )}
+      </View>
+    </Card>
+  );
+}
+
 function SectionLabel({ text }: { text: string }) {
   const { colors, space, type } = useTheme();
   return (
@@ -279,6 +438,7 @@ type MealCardProps = {
 function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const { logMeal } = useStore();
   const m = match?.meal ?? meal!;
   const copy = locale === "he" ? m.he : m.en;
   const foods = m.uses.map((id) => foodsById.get(id)).filter((f): f is Food => !!f);
@@ -359,6 +519,15 @@ function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
           <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.protein}</Text>
         </View>
       </View>
+
+      {/* log it to today's diary */}
+      <Button
+        icon="add-circle"
+        label={t.kitchen.logMeal}
+        tone="quiet"
+        onPress={() => logMeal(copy.title, m.kcal, m.protein)}
+        style={{ marginTop: space.md }}
+      />
 
       {/* what to buy */}
       {match && match.missing.length > 0 ? (
