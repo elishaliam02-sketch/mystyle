@@ -221,6 +221,28 @@ export function dietOk(meal: Meal, diet: Diet): boolean {
   return !(hasMeat && hasDairy);
 }
 
+/** One thing to buy, and how many of the near-miss meals it would unlock. */
+export type ShoppingItem = { food: Food; count: number };
+
+/**
+ * The one shopping list behind a set of near-miss meals. Each missing
+ * ingredient appears once, carrying how many of those meals it would unlock, so
+ * the item that opens the most dishes sits at the top — buy that first.
+ */
+export function shoppingList(matches: MealMatch[]): ShoppingItem[] {
+  const byId = new Map<string, ShoppingItem>();
+  for (const m of matches) {
+    for (const food of m.missing) {
+      const seen = byId.get(food.id);
+      if (seen) seen.count += 1;
+      else byId.set(food.id, { food, count: 1 });
+    }
+  }
+  return [...byId.values()].sort(
+    (a, b) => b.count - a.count || a.food.he.localeCompare(b.food.he),
+  );
+}
+
 export type MealMatch = {
   meal: Meal;
   have: Food[];

@@ -24,6 +24,7 @@ import {
 } from "./types";
 import { isStorableWeight } from "./weight";
 import { isStorableCm, type Reading } from "@/body";
+import { isStorableKg, type Lift } from "@/workout/lifts";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -88,6 +89,10 @@ type Store = {
   isExerciseDone: (id: string) => boolean;
   /** Adds the person's own move to the library, kept device-local. */
   addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
+  /** Records the weight lifted on an exercise today. */
+  logExerciseWeight: (id: string, kg: number) => void;
+  /** Every weight logged for an exercise, oldest first. */
+  exerciseLifts: (id: string) => Lift[];
   /** Advances the clock guard from a trusted server timestamp. */
   noteServerTime: (iso: string) => void;
   reset: () => void;
@@ -385,9 +390,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           days,
           minutes,
           equipment,
-          // Keep the log and the person's own moves through a re-tune.
+          // Keep the log, lifted weights and the person's own moves through a re-tune.
           log: s.training?.log ?? {},
           custom: s.training?.custom ?? [],
+          weights: s.training?.weights ?? {},
         },
       }));
     },
@@ -428,6 +434,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ...s, training: { ...base, custom: [...base.custom, { ...ex, custom: true }] } };
     });
   }, []);
+
+  const logExerciseWeight = useCallback((id: string, kg: number) => {
+    if (!isStorableKg(kg)) return;
+    setState((s) => {
+      const base: Training = s.training ?? { goal: "maintain", days: 3, log: {}, custom: [] };
+      const { date, highWater } = trustedStamp(s);
+      const prior = (base.weights?.[id] ?? []).filter((l) => l.date !== date);
+      const next = [...prior, { date, kg }].sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...base, weights: { ...base.weights, [id]: next } },
+      };
+    });
+  }, []);
+
+  const exerciseLifts = useCallback(
+    (id: string) => state.training?.weights?.[id] ?? [],
+    [state.training],
+  );
 
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
@@ -475,6 +501,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleExerciseDone,
       isExerciseDone,
       addCustomExercise,
+      logExerciseWeight,
+      exerciseLifts,
       noteServerTime,
       reset,
       replaceAll,

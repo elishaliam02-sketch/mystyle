@@ -16,6 +16,7 @@ import {
   type Muscle,
 } from "@/workout/exercises";
 import { buildPlan, type DayType } from "@/workout/plan";
+import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 const DAYS = [2, 3, 4, 5, 6];
@@ -452,9 +453,23 @@ type RowProps = {
 function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const { exerciseLifts, logExerciseWeight } = useStore();
   const [open, setOpen] = useState(false);
+  const [kg, setKg] = useState("");
   const name = locale === "he" ? ex.he : ex.en;
   const how = locale === "he" ? ex.howHe : ex.howEn;
+
+  // What was moved on this exercise before — the number that decides today's.
+  const lifts = exerciseLifts(ex.id);
+  const last = lastLift(lifts);
+  const best = bestLift(lifts);
+
+  function saveWeight() {
+    const value = Number(kg.replace(",", "."));
+    if (!Number.isFinite(value) || value < MIN_KG || value > MAX_KG) return;
+    logExerciseWeight(ex.id, value);
+    setKg("");
+  }
 
   return (
     <View
@@ -497,6 +512,11 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) 
           <Text style={[type.small, { color: colors.inkFaint }]}>
             {muscleLabel[ex.muscle]} · {sets}×{reps}
           </Text>
+          {last ? (
+            <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
+              {fill(t.workout.lastWeight, { kg: last.kg })}
+            </Text>
+          ) : null}
         </Pressable>
 
         <Pressable
@@ -530,6 +550,48 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) 
               {i + 1}. {step}
             </Text>
           ))}
+
+          {/* progressive overload: what you lifted, and today's entry */}
+          <Text
+            style={[
+              type.label,
+              { color: colors.inkFaint, textTransform: "uppercase", marginTop: space.sm },
+            ]}
+          >
+            {t.workout.weightTitle}
+          </Text>
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            {last
+              ? `${fill(t.workout.lastWeight, { kg: last.kg })} · ${fill(t.workout.bestWeight, { kg: best })}`
+              : t.workout.noWeight}
+          </Text>
+          <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center", marginTop: 4 }}>
+            <View style={{ flex: 1 }}>
+              <TextField
+                value={kg}
+                onChangeText={setKg}
+                placeholder={t.workout.weightPlaceholder}
+                keyboardType="numeric"
+                onSubmitEditing={saveWeight}
+              />
+            </View>
+            <Pressable
+              onPress={saveWeight}
+              disabled={!kg.trim()}
+              accessibilityRole="button"
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: space.lg,
+                borderRadius: radius.pill,
+                backgroundColor: colors.accent,
+                opacity: kg.trim() ? 1 : 0.4,
+              }}
+            >
+              <Text style={[type.smallStrong, { color: colors.onAccent }]}>
+                {t.workout.logWeight}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>

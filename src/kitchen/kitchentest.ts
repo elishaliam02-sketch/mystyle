@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
 import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
@@ -212,6 +212,22 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     !dietOk(mk(["shrimp"]), "kosher") && !dietOk(mk(["shrimp"]), "vegetarian"));
   check("bread is not gluten-free", !dietOk(mk(["bread", "egg"]), "glutenFree"));
   check("rice + chicken is gluten-free", dietOk(mk(["rice", "chicken"]), "glutenFree"));
+}
+
+// --- the shopping list behind the near-miss meals
+{
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  const match = (missing: string[]) => ({
+    meal: { id: "m", he: { title: "", how: "" }, en: { title: "", how: "" }, uses: [], slot: "lunch" as const, notes: [], kcal: 0, protein: 0 },
+    have: [], missing: missing.map(f), ready: false, fit: 0,
+  });
+  const list = shoppingList([match(["rice", "egg"]), match(["rice"]), match(["tuna"])]);
+  check("each missing item appears once", list.length === 3, String(list.length));
+  check("the most-needed item leads", list[0].food.id === "rice", list[0].food.id);
+  check("its count is how many meals need it", list[0].count === 2, String(list[0].count));
+  check("a one-meal item counts once", list.every((i) => i.food.id === "rice" || i.count === 1));
+  check("no missing items yields an empty list", shoppingList([]).length === 0);
+  check("a fully-ready meal adds nothing", shoppingList([match([])]).length === 0);
 }
 
 const failed = results.filter(([, ok]) => !ok);

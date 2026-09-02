@@ -11,6 +11,9 @@ export type Training = {
   minutes?: number;
   /** Which equipment the plan is built for: "gym" | "home" | "bodyweight". */
   equipment?: string;
+  /** Weight lifted per exercise over time (exercise id → readings), so each
+   * session can show what was moved last time — progressive overload. */
+  weights?: Record<string, { date: string; kg: number }[]>;
   /** Local date (YYYY-MM-DD) → ids of exercises ticked that day. */
   log: Record<string, string[]>;
   /** The person's own manually-added moves. */

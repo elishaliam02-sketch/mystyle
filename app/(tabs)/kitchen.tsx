@@ -5,7 +5,7 @@ import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
-import { useI18n } from "@/i18n";
+import { fill, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   FOODS,
@@ -15,6 +15,7 @@ import {
   portion,
   primaryNote,
   readPantryFull,
+  shoppingList,
   slotForHour,
   starterMeals,
   suggestMeals,
@@ -26,6 +27,7 @@ import {
   type MealMatch,
   type MealNote,
   type MealSlot,
+  type ShoppingItem,
 } from "@/kitchen";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -299,6 +301,8 @@ export default function KitchenScreen() {
             {almost.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
             ))}
+
+            {almost.length > 0 ? <ShoppingCard items={shoppingList(almost)} /> : null}
           </>
         )}
 
@@ -459,6 +463,50 @@ function TodayCard({ goal }: { goal: Goal }) {
             </View>
           ))
         )}
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * One shopping list behind the near-miss meals: each missing ingredient once,
+ * with how many of those dishes it would unlock, most useful first — so the
+ * top item is the single best thing to put in the basket.
+ */
+function ShoppingCard({ items }: { items: ShoppingItem[] }) {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  if (items.length === 0) return null;
+
+  return (
+    <Card label={t.kitchen.shoppingTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.shoppingHint}</Text>
+      <View style={{ gap: 6, marginTop: space.sm }}>
+        {items.map(({ food, count }) => (
+          <View
+            key={food.id}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+          >
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: food.color }} />
+            <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+              {locale === "he" ? food.he : food.en}
+            </Text>
+            {count > 1 ? (
+              <View
+                style={{
+                  backgroundColor: colors.accentWash,
+                  borderRadius: radius.pill,
+                  paddingVertical: 2,
+                  paddingHorizontal: 9,
+                }}
+              >
+                <Text style={[type.label, { color: colors.accent }]}>
+                  {fill(t.kitchen.shoppingCount, { count })}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ))}
       </View>
     </Card>
   );
