@@ -172,6 +172,24 @@ export function yourPlate(items: Food[], slot: MealSlot): Meal {
  */
 export type Goal = "cut" | "maintain" | "bulk" | "recomp";
 
+export type DailyTarget = { kcal: number; protein: number };
+
+/**
+ * A day's calorie and protein target from the person's weight and goal. A rough
+ * coach's rule, not a clinical figure: maintenance is about 30 kcal per kilo,
+ * a cut trims it, a bulk adds to it; protein is set per kilo, higher when the
+ * aim is to hold muscle while losing fat. With no weight yet, a sane default
+ * keeps the ring meaningful rather than blank.
+ */
+export function dailyTarget(weightKg: number | undefined, goal: Goal): DailyTarget {
+  const w = weightKg && weightKg > 0 ? weightKg : 70;
+  const maintenance = Math.round(w * 30);
+  const kcal =
+    goal === "cut" ? maintenance - 400 : goal === "bulk" ? maintenance + 350 : maintenance;
+  const proteinPerKg = goal === "cut" || goal === "recomp" ? 2.0 : 1.8;
+  return { kcal: Math.max(1200, kcal), protein: Math.round(w * proteinPerKg) };
+}
+
 export type MealMatch = {
   meal: Meal;
   have: Food[];

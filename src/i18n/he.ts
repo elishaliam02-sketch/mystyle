@@ -263,6 +263,18 @@ export const he = {
     unitsGrams: "גרמים",
     unitsHousehold: "יחידות",
     perPortion: "למנה",
+    todayTitle: "היום שלך",
+    targetKcal: "יעד קלוריות",
+    targetProtein: "יעד חלבון",
+    eaten: "נאכל",
+    remaining: "נשאר",
+    over: "מעל היעד",
+    logMeal: "אכלתי את זה",
+    loggedTitle: "נרשם היום",
+    logEmpty: "עוד לא רשמת ארוחות היום. לחץ \"אכלתי את זה\" על מנה.",
+    waterTitle: "מים היום",
+    waterHint: "יעד: {goal} כוסות",
+    cups: "כוסות",
   },
 
   workout: {

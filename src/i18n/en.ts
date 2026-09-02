@@ -258,6 +258,18 @@ export const en: typeof he = {
     unitsGrams: "Grams",
     unitsHousehold: "Units",
     perPortion: "per serving",
+    todayTitle: "Your day",
+    targetKcal: "Calorie target",
+    targetProtein: "Protein target",
+    eaten: "Eaten",
+    remaining: "Left",
+    over: "Over target",
+    logMeal: "I ate this",
+    loggedTitle: "Logged today",
+    logEmpty: "No meals logged yet today. Tap \"I ate this\" on a meal.",
+    waterTitle: "Water today",
+    waterHint: "Goal: {goal} glasses",
+    cups: "glasses",
   },
 
   workout: {

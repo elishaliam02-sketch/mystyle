@@ -15,6 +15,14 @@ export type Training = {
   custom: Exercise[];
 };
 
+/** One thing eaten and logged against the day's target. */
+export type IntakeItem = {
+  id: string;
+  label: string;
+  kcal: number;
+  protein: number;
+};
+
 export type Habit = {
   id: string;
   title: string;
@@ -106,6 +114,10 @@ export type AppState = {
    * never sent to the server.
    */
   training?: Training;
+  /** What was eaten each day (YYYY-MM-DD → items), for the daily food log. */
+  intake?: Record<string, IntakeItem[]>;
+  /** Glasses of water logged each day (YYYY-MM-DD → count). */
+  water?: Record<string, number>;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -179,5 +191,7 @@ export function migrateState(raw: unknown): AppState {
     pantry: s.pantry,
     clockHighWaterMs: s.clockHighWaterMs,
     training: s.training,
+    intake: s.intake,
+    water: s.water,
   };
 }
