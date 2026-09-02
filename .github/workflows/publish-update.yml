@@ -1,0 +1,46 @@
+name: Publish OTA update
+
+# Publishes an over-the-air (JS/asset) update to the "preview" channel so the
+# installed APEX app picks up the change the next time it opens. Runs on every
+# push to main (i.e. when a pull request is merged), and can also be started by
+# hand from the GitHub app: Actions -> Publish OTA update -> Run workflow.
+#
+# One-time setup: add a repository secret named EXPO_TOKEN (an Expo access
+# token from expo.dev -> account settings -> Access tokens).
+#
+# Note: this ships JS/asset changes only. Native changes (new native modules,
+# a new icon, an SDK or app-version bump) still need a fresh EAS build.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish the update
+        env:
+          # Passed through the environment (not interpolated into the shell) so
+          # a commit message with quotes or newlines can't break the command.
+          COMMIT_MSG: ${{ github.event.head_commit.message || 'Manual update' }}
+        run: eas update --branch preview --message "$COMMIT_MSG"
