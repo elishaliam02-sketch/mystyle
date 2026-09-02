@@ -120,6 +120,9 @@ export type AppState = {
   water?: Record<string, number>;
   /** Tape-measure readings per body part (part id → readings over time). */
   measurements?: Record<string, { date: string; cm: number }[]>;
+  /** The nutrition goal the kitchen was last set to, so it is remembered
+   * across opens and the Today hub can read a calorie target from it. */
+  nutritionGoal?: Goal;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -196,5 +199,6 @@ export function migrateState(raw: unknown): AppState {
     intake: s.intake,
     water: s.water,
     measurements: s.measurements,
+    nutritionGoal: s.nutritionGoal,
   };
 }

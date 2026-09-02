@@ -33,11 +33,13 @@ const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry } = useStore();
+  const { state, setPantry, setNutritionGoal } = useStore();
 
   const [draft, setDraft] = useState(state.pantry ?? "");
   const [editing, setEditing] = useState(!state.pantry);
-  const [goal, setGoal] = useState<Goal>("cut");
+  // The goal is remembered across opens rather than reset each time.
+  const goal: Goal = state.nutritionGoal ?? "cut";
+  const setGoal = setNutritionGoal;
   // How amounts read: everyday household units, or exact grams for anyone who
   // weighs their food.
   const [units, setUnits] = useState<"household" | "grams">("household");

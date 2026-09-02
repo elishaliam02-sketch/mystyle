@@ -61,6 +61,8 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
+  /** Remembers the kitchen's nutrition goal across opens. */
+  setNutritionGoal: (goal: Goal) => void;
   /** Logs a meal against today's food diary. */
   logMeal: (label: string, kcal: number, protein: number) => void;
   /** Removes one logged item from today. */
@@ -297,6 +299,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
+  const setNutritionGoal = useCallback((goal: Goal) => {
+    setState((s) => ({ ...s, nutritionGoal: goal }));
+  }, []);
+
   const logMeal = useCallback((label: string, kcal: number, protein: number) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
@@ -446,6 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       setPantry,
+      setNutritionGoal,
       logMeal,
       removeMeal,
       todayIntake,
@@ -463,7 +470,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, logMeal, removeMeal, todayIntake,
+     readyForAnotherHabit, setPantry, setNutritionGoal, logMeal, removeMeal, todayIntake,
      addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      reset, replaceAll],

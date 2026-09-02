@@ -96,6 +96,16 @@ export const en: typeof he = {
     doneCount: "{done} of {total} today",
     allDone: "All done today. Nice.",
 
+    hubTitle: "Your day at a glance",
+    hubStreak: "{days}-day streak 🔥",
+    hubStreakNone: "Start a new streak today",
+    hubHabits: "Habits",
+    hubKcal: "Calories",
+    hubWater: "Water",
+    hubWorkout: "Workout",
+    hubDone: "Done",
+    hubStart: "Start",
+
     addCta: "Add a habit",
     holdTitle: "Not the moment to add",
     holdBody: "What you have hasn't settled yet. Give it a few more days — adding now just spreads you thin. If you want to anyway, the button is right there.",

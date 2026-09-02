@@ -98,6 +98,16 @@ export const he = {
     doneCount: "{done} מתוך {total} היום",
     allDone: "הכול נעשה היום. יפה.",
 
+    hubTitle: "היום שלך במבט אחד",
+    hubStreak: "{days} ימים ברצף 🔥",
+    hubStreakNone: "מתחילים רצף חדש היום",
+    hubHabits: "הרגלים",
+    hubKcal: "קלוריות",
+    hubWater: "מים",
+    hubWorkout: "אימון",
+    hubDone: "בוצע",
+    hubStart: "להתחיל",
+
     addCta: "הוסף הרגל",
     holdTitle: "עוד לא כדאי להוסיף",
     holdBody: "מה שיש עדיין לא יושב. תן לו עוד כמה ימים — הוספת עוד עכשיו רק תפזר אותך. אם בכל זאת בא לך, הכפתור פתוח.",
