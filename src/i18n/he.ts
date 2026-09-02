@@ -276,6 +276,7 @@ export const he = {
     dietAll: "הכל",
     dietKosher: "כשר",
     dietVeg: "צמחוני",
+    dietGf: "ללא גלוטן",
     perPortion: "למנה",
     todayTitle: "היום שלך",
     targetKcal: "יעד קלוריות",

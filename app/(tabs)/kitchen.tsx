@@ -224,11 +224,17 @@ export default function KitchenScreen() {
         </View>
 
         {/* dietary filter */}
-        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
-          {(["all", "kosher", "vegetarian"] as const).map((d) => {
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, alignItems: "center" }}>
+          {(["all", "kosher", "vegetarian", "glutenFree"] as const).map((d) => {
             const on = diet === d;
             const label =
-              d === "all" ? t.kitchen.dietAll : d === "kosher" ? t.kitchen.dietKosher : t.kitchen.dietVeg;
+              d === "all"
+                ? t.kitchen.dietAll
+                : d === "kosher"
+                  ? t.kitchen.dietKosher
+                  : d === "vegetarian"
+                    ? t.kitchen.dietVeg
+                    : t.kitchen.dietGf;
             return (
               <Pressable
                 key={d}

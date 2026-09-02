@@ -210,6 +210,8 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("eggs + veg is vegetarian", dietOk(mk(["egg", "tomato", "cheese"]), "vegetarian"));
   check("shrimp is neither kosher nor vegetarian",
     !dietOk(mk(["shrimp"]), "kosher") && !dietOk(mk(["shrimp"]), "vegetarian"));
+  check("bread is not gluten-free", !dietOk(mk(["bread", "egg"]), "glutenFree"));
+  check("rice + chicken is gluten-free", dietOk(mk(["rice", "chicken"]), "glutenFree"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

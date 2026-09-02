@@ -271,6 +271,7 @@ export const en: typeof he = {
     dietAll: "All",
     dietKosher: "Kosher",
     dietVeg: "Vegetarian",
+    dietGf: "Gluten-free",
     perPortion: "per serving",
     todayTitle: "Your day",
     targetKcal: "Calorie target",

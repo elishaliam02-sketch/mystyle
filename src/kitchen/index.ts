@@ -191,23 +191,26 @@ export function dailyTarget(weightKg: number | undefined, goal: Goal): DailyTarg
 }
 
 /** Dietary filters the kitchen can apply to what it suggests. */
-export type Diet = "all" | "kosher" | "vegetarian";
+export type Diet = "all" | "kosher" | "vegetarian" | "glutenFree";
 
 // Foods that are never kosher, the meats that may not share a plate with dairy,
-// and every animal flesh (for the vegetarian filter). Fish and eggs are pareve,
-// so fish-with-dairy stays kosher and eggs stay vegetarian.
+// every animal flesh (for the vegetarian filter), and the gluten grains. Fish
+// and eggs are pareve, so fish-with-dairy stays kosher and eggs stay vegetarian.
 const NON_KOSHER = new Set(["pork", "shrimp"]);
 const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage"]);
 const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp"]);
+const GLUTEN = new Set(["bread", "wholeBread", "pasta", "couscous", "tortilla", "oats"]);
 
 /**
  * Whether a meal passes a dietary filter. Kosher is a practical simplification:
  * no non-kosher animal, and no meat sharing the plate with dairy (fish counts
  * as neither). Vegetarian excludes any animal flesh but keeps dairy and eggs.
+ * Gluten-free excludes the wheat/oat grains.
  */
 export function dietOk(meal: Meal, diet: Diet): boolean {
   if (diet === "all") return true;
   if (diet === "vegetarian") return !meal.uses.some((id) => FLESH.has(id));
+  if (diet === "glutenFree") return !meal.uses.some((id) => GLUTEN.has(id));
   // kosher
   if (meal.uses.some((id) => NON_KOSHER.has(id))) return false;
   const hasMeat = meal.uses.some((id) => MEAT.has(id));
