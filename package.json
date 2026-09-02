@@ -51,7 +51,8 @@
     "test:insight": "node scripts/run-insight-tests.mjs",
     "test:kitchen": "node scripts/run-kitchen-tests.mjs",
     "test:clock": "node scripts/run-clock-tests.mjs",
-    "test:workout": "node scripts/run-workout-tests.mjs"
+    "test:workout": "node scripts/run-workout-tests.mjs",
+    "test:achievements": "node scripts/run-achievements-tests.mjs"
   },
   "private": true
 }

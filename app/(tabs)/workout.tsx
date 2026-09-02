@@ -183,6 +183,15 @@ export default function WorkoutScreen() {
   // ---- the built plan ----
   const custom = training.custom;
 
+  // Lifetime and this-week training figures, straight from the log.
+  const log = training.log;
+  const workoutDays = Object.values(log).filter((ids) => ids.length > 0).length;
+  const exercisesDone = Object.values(log).reduce((n, ids) => n + ids.length, 0);
+  const weekCutoff = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const thisWeek = Object.entries(log)
+    .filter(([date]) => date >= weekCutoff)
+    .reduce((n, [, ids]) => n + ids.length, 0);
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -228,6 +237,25 @@ export default function WorkoutScreen() {
             style={{ marginTop: space.md }}
           />
         </Card>
+
+        {workoutDays > 0 ? (
+          <Card>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              {(
+                [
+                  [workoutDays, t.workout.statsDays],
+                  [exercisesDone, t.workout.statsExercises],
+                  [thisWeek, t.workout.statsThisWeek],
+                ] as const
+              ).map(([value, label], i) => (
+                <View key={i} style={{ alignItems: "center", flex: 1 }}>
+                  <Text style={[type.figure, { color: colors.ink }]}>{value}</Text>
+                  <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : null}
 
         {plan.sessions.map((session, i) => {
           const done = session.exercises.filter((e) => isExerciseDone(e.id)).length;
