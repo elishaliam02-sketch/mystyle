@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -31,7 +31,12 @@ export default function WorkoutScreen() {
   const [goal, setGoal] = useState<Goal>(training?.goal ?? "recomp");
   const [days, setDays] = useState<number>(training?.days ?? 3);
   const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
-  const [setup, setSetup] = useState(!training);
+  // Show the setup form whenever there is no plan yet, or when the person
+  // explicitly reopened it. Deriving from `training` rather than a snapshot
+  // taken at mount means a plan loaded from storage after the first render
+  // still lands on the plan view, not stuck on setup.
+  const [forceSetup, setForceSetup] = useState(false);
+  const setup = !training || forceSetup;
 
   const goalLabel: Record<Goal, string> = {
     cut: t.workout.goalCut,
@@ -67,7 +72,7 @@ export default function WorkoutScreen() {
 
   function build() {
     configureTraining(goal, days, minutes);
-    setSetup(false);
+    setForceSetup(false);
   }
 
   function reopenSetup() {
@@ -76,7 +81,7 @@ export default function WorkoutScreen() {
       setDays(training.days);
       setMinutes(training.minutes ?? 45);
     }
-    setSetup(true);
+    setForceSetup(true);
   }
 
   // ---- setup form: pick a goal and weekly frequency ----
@@ -257,6 +262,8 @@ export default function WorkoutScreen() {
           </Card>
         ) : null}
 
+        <RestTimer />
+
         {plan.sessions.map((session, i) => {
           const done = session.exercises.filter((e) => isExerciseDone(e.id)).length;
           return (
@@ -312,6 +319,85 @@ export default function WorkoutScreen() {
         </Text>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+const REST_PRESETS = [60, 90, 120];
+
+function RestTimer() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const [total, setTotal] = useState(0);
+  const [left, setLeft] = useState(0);
+  const running = left > 0;
+
+  // One ticking interval lives only while the clock is counting; it tears down
+  // the moment it hits zero or the screen leaves.
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const mm = String(Math.floor(left / 60)).padStart(1, "0");
+  const ss = String(left % 60).padStart(2, "0");
+  const pct = total > 0 ? Math.round((left / total) * 100) : 0;
+
+  return (
+    <Card label={t.workout.rest}>
+      {running ? (
+        <View style={{ gap: space.sm }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={[type.figure, { color: colors.accent }]}>
+              {mm}:{ss}
+            </Text>
+            <Pressable
+              onPress={() => setLeft(0)}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                backgroundColor: colors.surfaceAlt,
+                borderRadius: radius.pill,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+              }}
+            >
+              <Ionicons name="play-skip-forward" size={16} color={colors.ink} />
+              <Text style={[type.smallStrong, { color: colors.ink }]}>{t.workout.restSkip}</Text>
+            </Pressable>
+          </View>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceAlt, overflow: "hidden" }}>
+            <View style={{ width: `${pct}%`, height: "100%", borderRadius: 4, backgroundColor: colors.accent }} />
+          </View>
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          {REST_PRESETS.map((sec) => (
+            <Pressable
+              key={sec}
+              onPress={() => {
+                setTotal(sec);
+                setLeft(sec);
+              }}
+              accessibilityRole="button"
+              style={{
+                flex: 1,
+                alignItems: "center",
+                paddingVertical: space.md,
+                borderRadius: radius.md,
+                backgroundColor: colors.surfaceAlt,
+              }}
+            >
+              <Text style={[type.title, { color: colors.ink }]}>{sec}</Text>
+              <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.restSec}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </Card>
   );
 }
 

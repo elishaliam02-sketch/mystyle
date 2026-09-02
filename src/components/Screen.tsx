@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -42,9 +43,11 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
       contentContainerStyle={{ paddingBottom: space.xxl }}
       keyboardShouldPersistTaps="handled"
     >
-      <View
+      <LinearGradient
+        colors={[colors.bandTop, colors.bandBottom]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={{
-          backgroundColor: colors.band,
           paddingTop: insets.top + space.xxl,
           paddingBottom: space.xxl,
           paddingHorizontal: space.lg,
@@ -68,7 +71,7 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
           </View>
           {banner}
         </View>
-      </View>
+      </LinearGradient>
 
       <View
         style={[

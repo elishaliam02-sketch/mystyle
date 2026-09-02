@@ -15,6 +15,8 @@ export function Card({ label, title, children, tone = "default" }: Props) {
   const background =
     tone === "accent" ? colors.accentWash : tone === "amber" ? colors.amberWash : colors.surface;
   const labelColor = tone === "amber" ? colors.amber : colors.accent;
+  const borderColor =
+    tone === "accent" ? colors.accent : tone === "amber" ? colors.amber : colors.rule;
 
   return (
     <View
@@ -24,6 +26,10 @@ export function Card({ label, title, children, tone = "default" }: Props) {
           borderRadius: radius.lg,
           padding: space.xl,
           gap: space.sm,
+          // A hairline keeps every card crisp against the paper; the coloured
+          // tones wear a slightly stronger edge so they read as highlighted.
+          borderWidth: tone === "default" ? 1 : 1.5,
+          borderColor,
         },
         tone === "default" ? elevation(1) : null,
       ]}
