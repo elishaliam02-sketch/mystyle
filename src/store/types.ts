@@ -6,6 +6,9 @@ export type Training = {
   goal: Goal;
   /** How many days a week the plan spans. */
   days: number;
+  /** How long one session runs, in minutes. Undefined for plans built before
+   * duration was a criterion — the plan then falls back to a goal-based size. */
+  minutes?: number;
   /** Local date (YYYY-MM-DD) → ids of exercises ticked that day. */
   log: Record<string, string[]>;
   /** The person's own manually-added moves. */

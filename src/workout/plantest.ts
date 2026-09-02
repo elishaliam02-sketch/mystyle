@@ -21,6 +21,21 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("bulk packs more exercises per day", bulk.sessions[0].exercises.length > cut.sessions[0].exercises.length || bulk.sessions[0].exercises.length === 6);
 }
 
+// session length drives how many exercises a day holds
+{
+  const short = buildPlan("recomp", 3, 30);
+  const long = buildPlan("recomp", 3, 90);
+  check("30-min sessions hold 4 exercises", short.sessions.every((s) => s.exercises.length === 4),
+    String(short.sessions[0].exercises.length));
+  check("90-min sessions hold 8 exercises", long.sessions.every((s) => s.exercises.length === 8),
+    String(long.sessions[0].exercises.length));
+  check("longer sessions hold more than shorter ones",
+    long.sessions[0].exercises.length > short.sessions[0].exercises.length);
+  check("the chosen minutes are carried on the plan", long.minutes === 90);
+  check("even a long session never repeats an exercise",
+    long.sessions.every((s) => new Set(s.exercises.map((e) => e.id)).size === s.exercises.length));
+}
+
 // a repeated split day is not identical
 {
   const plan = buildPlan("recomp", 6); // push,pull,legs,push,pull,legs

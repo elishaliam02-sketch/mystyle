@@ -59,8 +59,9 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
-  /** Sets up (or re-tunes) the training plan for a goal and weekly frequency. */
-  configureTraining: (goal: Goal, days: number) => void;
+  /** Sets up (or re-tunes) the training plan for a goal, weekly frequency and
+   * session length. */
+  configureTraining: (goal: Goal, days: number, minutes?: number) => void;
   /** Ticks or unticks an exercise as done for the clock-safe today. */
   toggleExerciseDone: (id: string) => void;
   /** True if that exercise is ticked done today. */
@@ -280,12 +281,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
-  const configureTraining = useCallback((goal: Goal, days: number) => {
+  const configureTraining = useCallback((goal: Goal, days: number, minutes?: number) => {
     setState((s) => ({
       ...s,
       training: {
         goal,
         days,
+        minutes,
         // Keep the log and the person's own moves through a re-tune.
         log: s.training?.log ?? {},
         custom: s.training?.custom ?? [],

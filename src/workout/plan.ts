@@ -15,6 +15,8 @@ export type PlanDay = { type: DayType; muscles: Muscle[]; exercises: Exercise[] 
 export type Plan = {
   goal: Goal;
   days: number;
+  /** How long one session runs, in minutes — governs how many moves it holds. */
+  minutes?: number;
   /** Working sets per exercise, and the rep range — set by the goal. */
   sets: number;
   reps: string;
@@ -49,6 +51,20 @@ function volume(goal: Goal): { sets: number; reps: string } {
   if (goal === "cut") return { sets: 3, reps: "12–15" };
   if (goal === "recomp") return { sets: 3, reps: "8–12" };
   return { sets: 3, reps: "10–12" };
+}
+
+/**
+ * How many exercises fit in a session of a given length — roughly one working
+ * exercise per ten to twelve minutes once warm-up and rest are accounted for.
+ * Kept between four and eight so even a short session trains the whole day's
+ * muscles and a long one doesn't sprawl past what recovers.
+ */
+export function exercisesForTime(minutes: number): number {
+  if (minutes <= 30) return 4;
+  if (minutes <= 45) return 5;
+  if (minutes <= 60) return 6;
+  if (minutes <= 75) return 7;
+  return 8;
 }
 
 /**
@@ -88,14 +104,16 @@ function pick(muscles: Muscle[], count: number, offset: number): Exercise[] {
   return chosen.slice(0, count);
 }
 
-export function buildPlan(goal: Goal, days: number): Plan {
+export function buildPlan(goal: Goal, days: number, minutes?: number): Plan {
   const { sets, reps } = volume(goal);
-  const perDay = goal === "bulk" ? 6 : 5;
+  // Time drives the count when the person told us how long they have; otherwise
+  // fall back to a goal-based default (bulk runs a little longer).
+  const perDay = minutes ? exercisesForTime(minutes) : goal === "bulk" ? 6 : 5;
   const types = split(days);
   const sessions = types.map((type, i) => ({
     type,
     muscles: DAY_MUSCLES[type],
     exercises: pick(DAY_MUSCLES[type], perDay, i),
   }));
-  return { goal, days: types.length, sets, reps, sessions };
+  return { goal, days: types.length, minutes, sets, reps, sessions };
 }

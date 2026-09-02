@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -18,6 +19,7 @@ import { buildPlan, type DayType } from "@/workout/plan";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 const DAYS = [2, 3, 4, 5, 6];
+const MINUTES = [30, 45, 60, 75, 90];
 
 export default function WorkoutScreen() {
   const { t } = useI18n();
@@ -28,6 +30,7 @@ export default function WorkoutScreen() {
   const training = state.training;
   const [goal, setGoal] = useState<Goal>(training?.goal ?? "recomp");
   const [days, setDays] = useState<number>(training?.days ?? 3);
+  const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
   const [setup, setSetup] = useState(!training);
 
   const goalLabel: Record<Goal, string> = {
@@ -58,19 +61,32 @@ export default function WorkoutScreen() {
   };
 
   const plan = useMemo(
-    () => (training ? buildPlan(training.goal, training.days) : null),
+    () => (training ? buildPlan(training.goal, training.days, training.minutes) : null),
     [training],
   );
 
   function build() {
-    configureTraining(goal, days);
+    configureTraining(goal, days, minutes);
     setSetup(false);
+  }
+
+  function reopenSetup() {
+    if (training) {
+      setGoal(training.goal);
+      setDays(training.days);
+      setMinutes(training.minutes ?? 45);
+    }
+    setSetup(true);
   }
 
   // ---- setup form: pick a goal and weekly frequency ----
   if (setup || !training || !plan) {
     return (
       <Screen title={t.workout.heading} subtitle={t.workout.body}>
+        <Card tone="accent">
+          <Text style={[type.body, { color: colors.ink }]}>{t.workout.intro}</Text>
+        </Card>
+
         <Card label={t.workout.goalTitle}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
             {GOALS.map((g) => {
@@ -127,6 +143,34 @@ export default function WorkoutScreen() {
           </Text>
         </Card>
 
+        <Card label={t.workout.timeTitle}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            {MINUTES.map((m) => {
+              const on = minutes === m;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => setMinutes(m)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    paddingVertical: space.md,
+                    borderRadius: radius.md,
+                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                  }}
+                >
+                  <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>{m}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+            {t.workout.timeUnit}
+          </Text>
+        </Card>
+
         <Button icon="barbell" label={t.workout.build} onPress={build} />
 
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
@@ -144,22 +188,43 @@ export default function WorkoutScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Screen title={t.workout.heading} subtitle={t.workout.body}>
+      <Screen
+        title={t.workout.heading}
+        subtitle={t.workout.body}
+        aside={
+          <Pressable
+            onPress={reopenSetup}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: colors.accent,
+              borderRadius: radius.pill,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+            }}
+          >
+            <Ionicons name="barbell" size={16} color={colors.onAccent} />
+            <Text style={[type.smallStrong, { color: colors.onAccent }]}>
+              {t.workout.buildShort}
+            </Text>
+          </Pressable>
+        }
+      >
         <Card tone="accent">
           <Text style={[type.title, { color: colors.ink }]}>
             {goalLabel[plan.goal]} · {fill(t.workout.planFor, { days: plan.days })}
           </Text>
           <Text style={[type.body, { color: colors.inkSoft, marginTop: 2 }]}>
             {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
+            {plan.minutes ? ` · ${fill(t.workout.session, { min: plan.minutes })}` : ""}
           </Text>
           <Button
             label={t.workout.change}
             tone="quiet"
-            onPress={() => {
-              setGoal(plan.goal);
-              setDays(plan.days);
-              setSetup(true);
-            }}
+            onPress={reopenSetup}
             style={{ marginTop: space.md }}
           />
         </Card>
