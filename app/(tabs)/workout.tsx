@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
@@ -64,6 +65,7 @@ export default function WorkoutScreen() {
     legs: t.workout.muscleLegs,
     glutes: t.workout.muscleGlutes,
     arms: t.workout.muscleArms,
+    forearms: t.workout.muscleForearms,
     core: t.workout.muscleCore,
     fullbody: t.workout.muscleFullbody,
     cardio: t.workout.muscleCardio,
@@ -717,7 +719,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
 }
 
 /**
- * Pull any move out of the 74-exercise library into today's session — the
+ * Pull any move out of the exercise library into today's session — the
  * everyday case the plan cannot predict ("the squat rack is taken, I'll do leg
  * press"). Searching by name or muscle keeps it to a couple of taps.
  */
@@ -732,6 +734,7 @@ function LibraryPicker({
 }) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const router = useRouter();
   const [q, setQ] = useState("");
 
   const hits = useMemo(() => {
@@ -746,6 +749,13 @@ function LibraryPicker({
   return (
     <Card label={t.workout.libraryTitle}>
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.workout.libraryHint}</Text>
+      <Button
+        icon="list"
+        label={t.workout.libraryBrowse}
+        tone="quiet"
+        onPress={() => router.push("/library")}
+        style={{ marginTop: space.sm }}
+      />
       <View style={{ marginTop: space.sm }}>
         <TextField value={q} onChangeText={setQ} placeholder={t.workout.librarySearch} />
       </View>

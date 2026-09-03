@@ -77,6 +77,9 @@ export type Profile = {
   name: string;
   startKg?: number;
   goalKg?: number;
+  /** Height in centimetres. Without it the app cannot tell a healthy target
+   * weight from a dangerous one, so it is asked for and guarded. */
+  heightCm?: number;
   onboarded: boolean;
   /** Whether daily reminders are scheduled on this device. */
   reminders?: boolean;
@@ -136,6 +139,18 @@ export type AppState = {
   dietFilter?: string;
   /** Meal ids the person starred, so a dish they love is one tap away. */
   favorites?: string[];
+  /** Steps walked each day (YYYY-MM-DD → count). Device-local. */
+  steps?: Record<string, number>;
+  /** The daily step target, when the person set one of their own. */
+  stepGoal?: number;
+  /**
+   * A random string minted once on this device. It seeds the kitchen's meal
+   * rotation, so two people with the same fridge and the same goal are not
+   * handed the same three dishes — the suggestions feel like theirs.
+   */
+  salt?: string;
+  /** Bumped by the shuffle button, to re-roll today's picks on demand. */
+  mealShuffle?: number;
   /** Exercise id → the YouTube id resolved for its form demo, so the exact
    * video opens instantly on every tap after the first, and offline too. */
   videoIds?: Record<string, string>;
@@ -219,5 +234,9 @@ export function migrateState(raw: unknown): AppState {
     dietFilter: s.dietFilter,
     favorites: s.favorites,
     videoIds: s.videoIds,
+    steps: s.steps,
+    stepGoal: s.stepGoal,
+    salt: s.salt,
+    mealShuffle: s.mealShuffle,
   };
 }

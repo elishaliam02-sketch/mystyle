@@ -3,8 +3,8 @@ import type { Goal } from "@/kitchen";
 
 /** What equipment the person can train with — drives which moves a plan uses. */
 export const EQUIP_SETS: Record<string, Equipment[]> = {
-  gym: ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell"],
-  home: ["dumbbell", "kettlebell", "bodyweight"],
+  gym: ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "smith", "band"],
+  home: ["dumbbell", "kettlebell", "bodyweight", "band"],
   bodyweight: ["bodyweight"],
 };
 

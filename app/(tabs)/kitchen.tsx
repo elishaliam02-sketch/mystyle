@@ -43,7 +43,7 @@ const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry, setNutritionGoal, setDietFilter } = useStore();
+  const { state, setPantry, setNutritionGoal, setDietFilter, mealSeed, shuffleMeals } = useStore();
   const favorites = state.favorites ?? [];
 
   // The store hydrates from disk a tick after this screen first renders, so
@@ -69,9 +69,12 @@ export default function KitchenScreen() {
   const slot = slotForHour(new Date().getHours());
   const pantryText = state.pantry ?? "";
 
+  // The seed is what stops the kitchen feeling stuck: this device, this day,
+  // and however many times the person has pressed shuffle.
+  const seed = mealSeed();
   const result = useMemo(
-    () => suggestMeals(pantryText, { goal, slot }),
-    [pantryText, goal, slot],
+    () => suggestMeals(pantryText, { goal, slot, seed }),
+    [pantryText, goal, slot, seed],
   );
   // Everything the list named — recognised foods, plus anything unknown turned
   // into an ad-hoc ingredient — so nothing the person typed is dropped.
@@ -316,7 +319,7 @@ export default function KitchenScreen() {
             <Card label={t.kitchen.starterTitle} tone="accent">
               <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.starterBody}</Text>
             </Card>
-            {starterMeals(goal)
+            {starterMeals(goal, seed)
               .filter((meal) => dietOk(meal, diet))
               .map((meal) => (
                 <MealCard
@@ -342,7 +345,36 @@ export default function KitchenScreen() {
               </>
             ) : null}
 
-            {ready.length > 0 ? <SectionLabel text={t.kitchen.readyTitle} /> : null}
+            {ready.length > 0 ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: space.sm,
+                }}
+              >
+                <SectionLabel text={t.kitchen.readyTitle} />
+                <Pressable
+                  onPress={shuffleMeals}
+                  accessibilityRole="button"
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                    paddingVertical: 7,
+                    paddingHorizontal: space.md,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.accentWash,
+                  }}
+                >
+                  <Ionicons name="shuffle" size={15} color={colors.accent} />
+                  <Text style={[type.smallStrong, { color: colors.accent }]}>
+                    {t.kitchen.shuffle}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
             {ready.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
             ))}

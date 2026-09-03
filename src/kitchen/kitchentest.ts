@@ -3,9 +3,9 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
 import type { Meal } from "./data";
-import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
+import { MEALS, FOODS, adhocFood, foodNutrition, portion } from "./data";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -330,6 +330,101 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("hidden plus shown is the whole menu", dietHidden(all, "vegetarian") + all.filter((m) => dietOk(m.meal, "vegetarian")).length === all.length);
 }
 
+
+// --- the menu itself holds together
+{
+  const foodIds = new Set(FOODS.map((f) => f.id));
+  check("the menu is deep enough to rotate", MEALS.length >= 55, String(MEALS.length));
+  check("every meal id is unique", new Set(MEALS.map((m) => m.id)).size === MEALS.length);
+  check("every Hebrew title is unique", new Set(MEALS.map((m) => m.he.title)).size === MEALS.length, (() => {
+    const seen = new Set<string>(); const d: string[] = [];
+    for (const m of MEALS) { if (seen.has(m.he.title)) d.push(m.he.title); seen.add(m.he.title); }
+    return d.join(",");
+  })());
+  check("every English title is unique", new Set(MEALS.map((m) => m.en.title)).size === MEALS.length, (() => {
+    const seen = new Set<string>(); const d: string[] = [];
+    for (const m of MEALS) { if (seen.has(m.en.title)) d.push(m.en.title); seen.add(m.en.title); }
+    return d.join(",");
+  })());
+  check("every ingredient is a real food", MEALS.every((m) => m.uses.every((id) => foodIds.has(id))),
+    MEALS.flatMap((m) => m.uses.filter((id) => !foodIds.has(id))).join(","));
+  check("no meal repeats an ingredient",
+    MEALS.every((m) => new Set(m.uses).size === m.uses.length),
+    MEALS.filter((m) => new Set(m.uses).size !== m.uses.length).map((m) => m.id).join(","));
+  check("every meal has at least two ingredients", MEALS.every((m) => m.uses.length >= 2));
+  check("every meal has a note", MEALS.every((m) => m.notes.length >= 1));
+  check("calories are plausible", MEALS.every((m) => m.kcal >= 100 && m.kcal <= 900),
+    MEALS.filter((m) => m.kcal < 100 || m.kcal > 900).map((m) => `${m.id}:${m.kcal}`).join(","));
+  check("protein never exceeds what the calories allow",
+    MEALS.every((m) => m.protein * 4 <= m.kcal),
+    MEALS.filter((m) => m.protein * 4 > m.kcal).map((m) => m.id).join(","));
+  check("every slot has real choice", (["breakfast", "lunch", "dinner", "snack"] as const).every(
+    (slot) => MEALS.filter((m) => m.slot === slot).length >= 8),
+    (["breakfast", "lunch", "dinner", "snack"] as const)
+      .map((s) => `${s}:${MEALS.filter((m) => m.slot === s).length}`).join(" "));
+  check("every meal has a portion for each of its foods",
+    MEALS.every((m) => m.uses.every((id) => portion(id).g > 0)));
+}
+
+// --- the same fridge does not serve the same plate for ever
+{
+  // a well-stocked kitchen, so there is genuinely something to rotate between
+  const list = "ביצים, עגבנייה, מלפפון, לחם, לחם מלא, יוגורט יווני, קוטג', בננה, אורז, " +
+    "חזה עוף, הודו, גבינה לבנה, גבינה צהובה, שמן זית, טונה, חסה, פלפל, בצל, שיבולת שועל, " +
+    "חמאת בוטנים, אגוזים, אבוקדו, תפוח, בטטה, ברוקולי, קינואה, טחינה, חומוס, פטריות, תרד";
+  const top = (seed: string) =>
+    suggestMeals(list, { goal: "cut", slot: "lunch", seed }).ready.slice(0, 3).map((m) => m.meal.id).join(",");
+
+  check("no seed is still deterministic", top("") === top(""));
+  const days = new Set(["d1", "d2", "d3", "d4", "d5", "d6", "d7"].map(top));
+  check("a week of seeds gives more than one line-up", days.size > 1, [...days].join(" | "));
+  check("a week of seeds gives at least three different line-ups", days.size >= 3, String(days.size));
+  check("two people with the same fridge get different plates",
+    top("salt-a|2026-03-10") !== top("salt-b|2026-03-10"), top("salt-a|2026-03-10"));
+  check("the same person on the same day gets the same plate",
+    top("salt-a|2026-03-10") === top("salt-a|2026-03-10"));
+  check("rotation never surfaces a dish that does not serve the goal", (() => {
+    // whatever the seed, the three dishes on screen are all within a fifth of
+    // the best available fit — variety must never cost quality
+    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      const rows = suggestMeals(list, { goal: "cut", slot: "lunch", seed }).ready;
+      const best = rows.reduce((n, m) => Math.max(n, m.fit), 0);
+      for (const m of rows.slice(0, 3)) if (m.fit < best * 0.8) return false;
+    }
+    return true;
+  })());
+  check("the right time of day still leads", (() => {
+    for (const seed of ["a", "b", "c", "d"]) {
+      const rows = suggestMeals(list, { goal: "cut", slot: "lunch", seed }).ready;
+      if (!rows.slice(0, 3).every((m) => m.meal.slot === "lunch")) return false;
+    }
+    return true;
+  })());
+  check("over a fortnight the kitchen serves a real variety of dishes", (() => {
+    const seen = new Set<string>();
+    for (let d = 0; d < 14; d++) {
+      for (const m of suggestMeals(list, { goal: "cut", slot: "lunch", seed: `s|${d}` }).ready.slice(0, 3)) {
+        seen.add(m.meal.id);
+      }
+    }
+    return seen.size >= 4;
+  })(), "");
+  check("starter meals rotate too", (() => {
+    const a = starterMeals("cut", "s1").map((m) => m.id).join();
+    const b = starterMeals("cut", "s2").map((m) => m.id).join();
+    return a !== b;
+  })());
+  check("starter meals still fit the goal", (() => {
+    for (const seed of ["s1", "s2", "s3", "s4"]) {
+      for (const m of starterMeals("cut", seed)) if (goalFit(m, "cut") < 0.5) return false;
+    }
+    return true;
+  })());
+  check("every ready meal is genuinely cookable from the list", (() => {
+    const rows = suggestMeals(list, { goal: "bulk", slot: "dinner", seed: "x" }).ready;
+    return rows.every((m) => m.missing.length === 0);
+  })());
+}
 
 const failed = results.filter(([, ok]) => !ok);
 for (const [name, ok, detail] of results) {

@@ -1,5 +1,6 @@
 import { buildPlan, EQUIP_SETS } from "./plan";
-import { EXERCISES } from "./exercises";
+import { EXERCISES, MUSCLES } from "./exercises";
+import { allExercises, countByMuscle, equipmentKinds, filterExercises, matches } from "./library";
 import { bestLift, isStorableKg, lastLift } from "./lifts";
 
 const results: [string, boolean, string?][] = [];
@@ -87,6 +88,122 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("a normal working weight is storable", isStorableKg(80));
   check("zero and absurd weights are rejected", !isStorableKg(0) && !isStorableKg(9000));
   check("NaN is rejected", !isStorableKg(Number.NaN));
+}
+
+// --- the library is big enough, clean, and every plan can still be built
+{
+  check("the library is Hevy-sized", EXERCISES.length >= 180, String(EXERCISES.length));
+  check("every id is unique", new Set(EXERCISES.map((e) => e.id)).size === EXERCISES.length, (() => {
+    const seen = new Set<string>(); const dupes: string[] = [];
+    for (const e of EXERCISES) { if (seen.has(e.id)) dupes.push(e.id); seen.add(e.id); }
+    return dupes.join(",");
+  })());
+  check("every Hebrew name is unique", new Set(EXERCISES.map((e) => e.he)).size === EXERCISES.length, (() => {
+    const seen = new Set<string>(); const dupes: string[] = [];
+    for (const e of EXERCISES) { if (seen.has(e.he)) dupes.push(e.he); seen.add(e.he); }
+    return dupes.join(",");
+  })());
+  check("every English name is unique", new Set(EXERCISES.map((e) => e.en)).size === EXERCISES.length, (() => {
+    const seen = new Set<string>(); const dupes: string[] = [];
+    for (const e of EXERCISES) { if (seen.has(e.en)) dupes.push(e.en); seen.add(e.en); }
+    return dupes.join(",");
+  })());
+  check("nothing is missing a name", EXERCISES.every((e) => e.he.length > 1 && e.en.length > 1));
+  check("nothing is missing instructions",
+    EXERCISES.every((e) => e.howHe.length >= 1 && e.howEn.length >= 1));
+  check("Hebrew and English instructions have the same number of steps",
+    EXERCISES.every((e) => e.howHe.length === e.howEn.length),
+    EXERCISES.filter((e) => e.howHe.length !== e.howEn.length).map((e) => e.id).join(","));
+  check("every step says something", EXERCISES.every((e) => [...e.howHe, ...e.howEn].every((x) => x.trim().length > 3)));
+  check("every exercise has a search term", EXERCISES.every((e) => e.yt.trim().length > 3));
+  check("search terms are English, for YouTube", EXERCISES.every((e) => !/[\u0590-\u05FF]/.test(e.yt)),
+    EXERCISES.filter((e) => /[\u0590-\u05FF]/.test(e.yt)).map((e) => e.id).join(","));
+  check("every exercise names a muscle in the list",
+    EXERCISES.every((e) => MUSCLES.includes(e.muscle)),
+    EXERCISES.filter((e) => !MUSCLES.includes(e.muscle)).map((e) => e.id).join(","));
+  check("every muscle has at least six moves", MUSCLES.every((m) =>
+    EXERCISES.filter((e) => e.muscle === m).length >= 6),
+    MUSCLES.map((m) => `${m}:${EXERCISES.filter((e) => e.muscle === m).length}`).join(" "));
+  check("every equipment kind is covered by the gym set",
+    EXERCISES.every((e) => EQUIP_SETS.gym.includes(e.equipment)),
+    [...new Set(EXERCISES.filter((e) => !EQUIP_SETS.gym.includes(e.equipment)).map((e) => e.equipment))].join(","));
+
+  // the plan builder must still fill a session for every combination
+  check("a full session is built for every goal, day count and kit", (() => {
+    for (const goal of ["cut", "recomp", "maintain", "bulk"] as const) {
+      for (const days of [2, 3, 4, 5, 6]) {
+        for (const mins of [30, 45, 60, 90]) {
+          for (const kit of ["gym", "home", "bodyweight"]) {
+            const plan = buildPlan(goal, days, mins, kit);
+            if (plan.sessions.length !== days) return false;
+            for (const day of plan.sessions) {
+              if (day.exercises.length === 0) return false;
+              if (new Set(day.exercises.map((e) => e.id)).size !== day.exercises.length) return false;
+              const allowed = new Set(EQUIP_SETS[kit]!);
+              if (!day.exercises.every((e) => allowed.has(e.equipment))) return false;
+            }
+          }
+        }
+      }
+    }
+    return true;
+  })());
+}
+
+// --- browsing and searching the catalogue
+{
+  const one = EXERCISES.find((e) => e.id === "bench-press")!;
+  check("an empty query matches everything", matches(one, ""));
+  check("a Hebrew name is found", matches(one, "לחיצת חזה"));
+  check("a partial Hebrew word is found", matches(one, "לחיצ"));
+  check("an English name is found", matches(one, "bench"));
+  check("word order does not matter", matches(one, "press bench"));
+  check("gershayim do not break a search", matches(EXERCISES.find((e) => e.id === "t-bar-row")!, "t bar"));
+  check("the equipment is searchable", matches(one, "barbell"));
+  check("nonsense matches nothing", !matches(one, "קשקושבלבל"));
+
+  check("filtering by muscle only returns that muscle",
+    filterExercises({ muscle: "chest" }).every((e) => e.muscle === "chest"));
+  check("filtering by kit only returns that kit",
+    filterExercises({ equipment: "bodyweight" }).every((e) => e.equipment === "bodyweight"));
+  check("filters compose", (() => {
+    const rows = filterExercises({ muscle: "legs", equipment: "barbell", query: "סקוואט" });
+    return rows.length > 0 && rows.every((e) => e.muscle === "legs" && e.equipment === "barbell");
+  })());
+  check("no filter returns the whole catalogue", filterExercises({}).length === EXERCISES.length);
+  check("an impossible combination returns nothing, not everything",
+    filterExercises({ muscle: "cardio", equipment: "smith" }).length === 0);
+
+  const mine = [{ id: "mine-1", he: "תרגיל שלי", en: "My move", muscle: "core" as const,
+    equipment: "bodyweight" as const, compound: false, howHe: ["ככה"], howEn: ["like this"],
+    yt: "core exercise", custom: true }];
+  check("a personal move is in the library", filterExercises({ custom: mine, query: "תרגיל שלי" }).length === 1);
+  check("a personal move is filtered like any other",
+    filterExercises({ custom: mine, muscle: "chest", query: "תרגיל שלי" }).length === 0);
+  check("personal moves come after the built-in ones",
+    allExercises(mine).at(-1)!.id === "mine-1");
+
+  check("every muscle chip leads somewhere", MUSCLES.every((m) => filterExercises({ muscle: m }).length > 0));
+  check("every kit chip leads somewhere",
+    equipmentKinds().every((k) => filterExercises({ equipment: k }).length > 0));
+  check("the muscle counts add up to the catalogue",
+    Object.values(countByMuscle()).reduce((a, b) => a + b, 0) === EXERCISES.length);
+
+  // the searches a real person types
+  for (const [term, wanted] of [
+    ["סקוואט", "squat"], ["חזה", "bench-press"], ["בטן", "crunch"], ["ביצפס", "biceps-curl"], ["טרייספס", "triceps-pushdown"], ["בטן", "crunch"],
+    ["squat", "squat"], ["deadlift", "deadlift"], ["curl", "biceps-curl"],
+    ["פולי", "lat-pulldown"], ["מקבילים", "dips"], ["הליכון", "treadmill-run"],
+    ["קטלבל", "kb-swing"], ["גומייה", "band-curl"], ["סמית", "smith-bench"],
+  ] as const) {
+    const rows = filterExercises({ query: term });
+    if (wanted) {
+      check(`searching "${term}" finds ${wanted}`, rows.some((e) => e.id === wanted),
+        rows.slice(0, 3).map((e) => e.id).join(","));
+    } else {
+      check(`searching "${term}" finds something`, rows.length > 0);
+    }
+  }
 }
 
 const failed = results.filter(([, ok]) => !ok);

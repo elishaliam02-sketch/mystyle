@@ -4,9 +4,11 @@ import { useStore } from "@/store";
 import { available, hasPermission, requestPermission, reschedule, scheduledCount } from ".";
 
 /**
- * Keeps the device's reminder schedule in step with the habits. Any change to
- * a habit rebuilds the schedule, so a removed habit stops reminding straight
- * away rather than at the end of the week.
+ * Keeps the device's reminder schedule in step with what the person actually
+ * uses. Any change to a habit — or the first time they log water, food, steps,
+ * a measurement or a training plan — rebuilds the schedule, so a removed habit
+ * stops reminding straight away rather than at the end of the week, and a
+ * feature nobody touches never sends anything at all.
  */
 export function useReminders() {
   const { t } = useI18n();
@@ -21,6 +23,18 @@ export function useReminders() {
     slotTitle: t.reminders.slotTitle,
     recapTitle: t.reminders.recapTitle,
     recapBody: t.reminders.recapBody,
+    trainTitle: t.reminders.trainTitle,
+    trainBody: t.reminders.trainBody,
+    waterTitle: t.reminders.waterTitle,
+    waterBody: t.reminders.waterBody,
+    foodTitle: t.reminders.foodTitle,
+    foodBody: t.reminders.foodBody,
+    stepsTitle: t.reminders.stepsTitle,
+    stepsBody: t.reminders.stepsBody,
+    weighTitle: t.reminders.weighTitle,
+    weighBody: t.reminders.weighBody,
+    measureTitle: t.reminders.measureTitle,
+    measureBody: t.reminders.measureBody,
   };
 
   const refresh = useCallback(async () => {
@@ -28,10 +42,18 @@ export function useReminders() {
   }, []);
 
   // The habit signature — not the array identity — is what should rebuild it.
-  const signature = habits
-    .filter((h) => !h.archived)
-    .map((h) => `${h.id}:${h.slot ?? ""}:${h.title}`)
-    .join("|");
+  // What the schedule actually depends on: the habits, and whether each of the
+  // other features has been used at all. Rebuilding on every state change would
+  // re-register the whole schedule after every tick of a checkbox.
+  const signature = [
+    habits.filter((h) => !h.archived).map((h) => `${h.id}:${h.slot ?? ""}:${h.title}`).join("|"),
+    Object.keys(state.intake ?? {}).length > 0 ? "food" : "",
+    Object.keys(state.water ?? {}).length > 0 ? "water" : "",
+    state.training ? "train" : "",
+    Object.keys(state.steps ?? {}).length > 0 ? "steps" : "",
+    Object.keys(state.measurements ?? {}).length > 0 ? "measure" : "",
+    state.weighIns.length > 0 || state.profile.goalKg ? "weigh" : "",
+  ].join("#");
 
   useEffect(() => {
     if (!available()) return;
@@ -45,7 +67,7 @@ export function useReminders() {
         }
         return;
       }
-      await reschedule(habits, copy, enabled);
+      await reschedule(state, copy, enabled);
       if (!cancelled) await refresh();
     })();
     return () => {

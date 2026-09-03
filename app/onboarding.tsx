@@ -8,6 +8,8 @@ import { StepDots } from "@/components/StepDots";
 import { SupportPreview } from "@/components/SupportPreview";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
+import { checkGoalWeight, isHeightCm, MAX_HEIGHT_CM, MIN_HEIGHT_CM } from "@/health";
+import { isStorableWeight, MAX_KG, MIN_KG } from "@/store/weight";
 import { useStore, type Habit } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -31,16 +33,49 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [currentKg, setCurrentKg] = useState("");
+  const [heightCm, setHeightCm] = useState("");
   const [goalKg, setGoalKg] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   const [habit, setHabit] = useState("");
   const [slot, setSlot] = useState<Habit["slot"]>();
 
   const ideas = Object.values(t.onboarding.ideas);
 
+  const num = (v: string) => (v.trim() ? Number(v.replace(",", ".")) : undefined);
+
+  /**
+   * The same refusal as the profile screen, applied at the very first screen a
+   * person sees. Onboarding was the easiest door to walk an unhealthy target
+   * through, because nothing here used to check anything.
+   */
+  function goalProblem(): string | null {
+    const cm = num(heightCm);
+    if (cm !== undefined && !isHeightCm(cm)) {
+      return fill(t.profile.heightRange, { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM });
+    }
+    const kg = num(currentKg);
+    if (kg !== undefined && !isStorableWeight(kg)) {
+      return fill(t.progress.weighRange, { min: MIN_KG, max: MAX_KG });
+    }
+    const target = num(goalKg);
+    if (target === undefined) return null;
+    const verdict = checkGoalWeight(target, kg, cm);
+    if (verdict.status === "out-of-range") {
+      return fill(t.profile.goalRange, { min: verdict.min, max: verdict.max });
+    }
+    if (verdict.status === "needs-height") return t.profile.goalNeedsHeight;
+    if (verdict.status === "too-low") return fill(t.profile.goalTooLow, { floor: verdict.floor });
+    if (verdict.status === "too-high") {
+      return fill(t.profile.goalTooHigh, { ceiling: verdict.ceiling });
+    }
+    return null;
+  }
+
   function finish() {
     saveProfile({
       name: name.trim(),
-      goalKg: goalKg ? Number(goalKg) : undefined,
+      goalKg: num(goalKg),
+      heightCm: num(heightCm),
       onboarded: true,
     });
     if (currentKg) addWeighIn(Number(currentKg));
@@ -110,12 +145,22 @@ export default function Onboarding() {
               keyboardType="numeric"
             />
             <TextField
+              value={heightCm}
+              onChangeText={setHeightCm}
+              label={t.profile.heightTitle}
+              placeholder={t.profile.heightPlaceholder}
+              keyboardType="numeric"
+            />
+            <TextField
               value={goalKg}
               onChangeText={setGoalKg}
               label={t.onboarding.step2Goal}
               placeholder="0"
               keyboardType="numeric"
             />
+            {note ? (
+              <Text style={[type.small, { color: colors.amber, fontWeight: "700" }]}>{note}</Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -189,7 +234,20 @@ export default function Onboarding() {
             icon={step === TOTAL - 1 ? "sparkles" : "arrow-back"}
             label={step === TOTAL - 1 ? t.onboarding.finish : t.onboarding.next}
             disabled={!canContinue}
-            onPress={() => (step === TOTAL - 1 ? finish() : setStep(step + 1))}
+            onPress={() => {
+              // Leaving the weight step is where the goal is judged: it must
+              // not be possible to walk past it and land on a stored target.
+              if (step === 1) {
+                const problem = goalProblem();
+                if (problem) {
+                  setNote(problem);
+                  return;
+                }
+                setNote(null);
+              }
+              if (step === TOTAL - 1) finish();
+              else setStep(step + 1);
+            }}
           />
           {step === 1 ? (
             <Button
@@ -198,6 +256,8 @@ export default function Onboarding() {
               onPress={() => {
                 setCurrentKg("");
                 setGoalKg("");
+                setHeightCm("");
+                setNote(null);
                 setStep(2);
               }}
             />

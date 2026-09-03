@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { Habit } from "@/store/types";
+import type { AppState } from "@/store/types";
+import { planReminders, type ReminderCopy } from "./plan";
 
 /**
  * Local reminders. Not push: everything is scheduled on the device from the
@@ -11,17 +12,6 @@ import type { Habit } from "@/store/types";
  */
 
 export const available = () => Platform.OS !== "web";
-
-/** When each part of the day fires, in local time. */
-const SLOT_HOUR: Record<NonNullable<Habit["slot"]>, number> = {
-  morning: 8,
-  noon: 13,
-  evening: 19,
-};
-/** Habits with no time of day ride with the morning group. */
-const DEFAULT_HOUR = 9;
-const RECAP_HOUR = 21;
-const RECAP_MINUTE = 30;
 
 export function configure() {
   if (!available()) return;
@@ -57,56 +47,35 @@ export async function hasPermission(): Promise<boolean> {
   }
 }
 
-type Copy = {
-  slotTitle: string;
-  recapTitle: string;
-  recapBody: string;
-};
-
 /**
- * Rebuilds the whole schedule from the current habits. Called after any change
+ * Rebuilds the whole schedule from the current state. Called after any change
  * to habits or the setting — cancelling everything first is what stops a
- * removed habit from going on firing for a week.
+ * removed habit, or a feature someone stopped using, from going on firing.
  */
-export async function reschedule(habits: Habit[], copy: Copy, enabled: boolean) {
+export async function reschedule(state: AppState, copy: ReminderCopy, enabled: boolean) {
   if (!available()) return;
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     if (!enabled) return;
 
-    const active = habits.filter((h) => !h.archived);
-    if (active.length === 0) return;
-
-    // One reminder per part of the day, naming that part's habits. Three quiet
-    // nudges beat one per habit, which is how an app gets muted.
-    const groups = new Map<number, Habit[]>();
-    for (const habit of active) {
-      const hour = habit.slot ? SLOT_HOUR[habit.slot] : DEFAULT_HOUR;
-      groups.set(hour, [...(groups.get(hour) ?? []), habit]);
-    }
-
-    for (const [hour, list] of groups) {
+    for (const r of planReminders(state, copy)) {
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: copy.slotTitle.replace("{count}", String(list.length)),
-          body: list.map((h) => h.title).join(" · ").slice(0, 140),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour,
-          minute: 0,
-        },
+        content: { title: r.title, body: r.body },
+        trigger:
+          r.weekday === undefined
+            ? {
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
+                hour: r.hour,
+                minute: r.minute,
+              }
+            : {
+                type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+                weekday: r.weekday,
+                hour: r.hour,
+                minute: r.minute,
+              },
       });
     }
-
-    await Notifications.scheduleNotificationAsync({
-      content: { title: copy.recapTitle, body: copy.recapBody },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: RECAP_HOUR,
-        minute: RECAP_MINUTE,
-      },
-    });
   } catch {
     // A device that refuses to schedule is not a reason to break the screen.
   }

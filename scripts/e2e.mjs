@@ -14,14 +14,17 @@ const server = http.createServer((req,res)=>{let url=decodeURIComponent(req.url.
 await new Promise(r=>server.listen(PORT,r));
 
 const results = []; const check=(n,p,d)=>results.push([n,p,d]);
+// A failing selector rejects the top-level await; report what ran, then stop.
+process.on("unhandledRejection", (e) => { try { report(e); } catch {} process.exit(1); });
 const pad=n=>String(n).padStart(2,"0"); const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const now=new Date(); const today=iso(now); const dayAgo=n=>{const d=new Date(now);d.setDate(d.getDate()-n);return iso(d);};
 
 const seed = {
-  profile:{name:"טסט",onboarded:true,startKg:85,updatedAt:"1970-01-01T00:00:00.000Z"},
+  profile:{name:"טסט",onboarded:true,startKg:85,heightCm:180,updatedAt:"1970-01-01T00:00:00.000Z"},
   habits:[{id:"h1",title:"לשתות מים",slot:"morning",createdAt:dayAgo(10),archived:false,updatedAt:now.toISOString()}],
   completions:[],weighIns:[],checkIns:[],
-  pantry:"חזה עוף, אורז, ביצים, עגבנייה, יוגורט יווני, בננה",
+  pantry:"חזה עוף, אורז, ביצים, עגבנייה, מלפפון, יוגורט יווני, בננה, לחם, טונה, חסה, גבינה לבנה, שמן זית, בטטה, ברוקולי, שיבולת שועל, אגוזים",
+  salt:"e2e-salt",
   nutritionGoal:"cut", dietFilter:"all",
   training:{goal:"recomp",days:3,minutes:60,equipment:"gym",log:{},custom:[],weights:{},
     // last time this person benched, two days ago — the set table must show it back
@@ -37,6 +40,11 @@ const crashes=[]; page.on("pageerror",e=>crashes.push(String(e).slice(0,160)));
 const go = async (route)=>{ await page.goto(`http://localhost:${PORT}${route}`,{waitUntil:"networkidle"}); await page.waitForTimeout(1600); };
 const st = async ()=> JSON.parse(await page.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
 const settle = ()=>page.waitForTimeout(700);
+// Tab screens stay mounted behind a pushed screen, and several of them reuse a
+// placeholder ("קילוגרם", "ס״מ", the custom-exercise box). Matching on the
+// visible one is the difference between driving the screen under test and
+// silently typing into a hidden copy of it.
+const box = (placeholder)=>page.locator(`input[placeholder="${placeholder}"]:visible, textarea[placeholder="${placeholder}"]:visible`).first();
 
 // 1) every tab renders its heading
 for (const [route,heading] of [["/","היום שלך במבט אחד"],["/kitchen","המטבח"],["/workout","האימון"],["/body","מדידות גוף"],["/checkin","סיכום היום"],["/progress","התקדמות"],["/profile","פרופיל"]]) {
@@ -70,9 +78,9 @@ check("a saved pantry is shown back, not re-asked for",
 check("the edit box is not what greets a returning user",
   (await page.getByRole("button",{name:"בנה לי מנות"}).count())===0);
 await page.getByRole("button",{name:"שנה את הרשימה"}).first().click(); await settle();
-{ const box = page.getByPlaceholder(/לדוגמה: ביצים/).first();
+{ const listBox = page.getByPlaceholder(/לדוגמה: ביצים/).first();
   check("editing re-opens with the saved list already in the box",
-    (await box.inputValue()).includes("חזה עוף"), await box.inputValue()); }
+    (await listBox.inputValue()).includes("חזה עוף"), await listBox.inputValue()); }
 await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); await settle();
 
 // 4) KITCHEN — the goal chips visibly re-plate, not just re-sort
@@ -240,10 +248,148 @@ await go("/profile");
 await page.getByRole("button",{name:"נשמר",exact:true}).first().click(); await settle();
 { const s=await st(); check("saving without editing keeps the name", s.profile.name==="טסט", s.profile.name); }
 
+// 16) KITCHEN — grams vs household units really change the amounts
+await go("/kitchen");
+{ // read the whole ingredient block of the first card, whatever its shape
+  const readAmounts = async () => (await page.getByText("מה צריך").first()
+    .locator("xpath=..").innerText().catch(()=>"")) ?? "";
+  const household = await readAmounts();
+  await page.getByText("גרמים",{exact:true}).first().click(); await settle();
+  const grams = await readAmounts();
+  check("switching to grams changes the amounts shown", grams !== household, `${household.slice(0,60)} → ${grams.slice(0,60)}`);
+  check("grams are actually shown in grams", /\d+\s*גרם/.test(grams), grams.slice(0,120));
+  await page.getByText("יחידות",{exact:true}).first().click(); await settle();
+  check("switching back restores household units", (await readAmounts()) === household); }
+
+// 17) KITCHEN — the kosher filter removes a named non-kosher dish
+await page.getByText("הכל",{exact:true}).click(); await settle();
+await page.getByText("מסה",{exact:true}).first().click(); await settle();
+{ const seeBurger = async () => (await page.getByText("בורגר עם צהובה").count()) > 0;
+  const seeShrimp = async () => (await page.getByText("שרימפס מוקפץ עם ירקות").count()) > 0;
+  await page.getByText("כשר",{exact:true}).click(); await settle();
+  check("no non-kosher dish is on screen under the kosher filter",
+    !(await seeBurger()) && !(await seeShrimp()));
+  check("the kosher filter says how many it hid",
+    await page.getByText(/מנות בתפריט לא עומדות בסינון/).first().isVisible().catch(()=>false));
+  await page.getByText("צמחוני",{exact:true}).click(); await settle();
+  { const s=await st(); check("the vegetarian filter persists", s.dietFilter==="vegetarian", s.dietFilter); }
+  check("no meat dish under the vegetarian filter",
+    (await page.getByText("עוף עם אורז וברוקולי").count())===0);
+  await page.getByText("הכל",{exact:true}).click(); await settle();
+  await page.getByText("חיטוב",{exact:true}).first().click(); await settle(); }
+
+// 18) KITCHEN — asking for other dishes really changes them
+{ // the whole page's text: nothing else on this screen changes when the
+  // suggestions are re-rolled, so a difference here is a difference in dishes
+  const shown = async () => await page.evaluate(()=>document.body.innerText);
+  const before = await shown();
+  let changed = false;
+  for (let i = 0; i < 6 && !changed; i++) {
+    await page.getByRole("button",{name:"החלף מנות"}).first().click(); await settle();
+    if ((await shown()) !== before) changed = true;
+  }
+  check("shuffling eventually serves different dishes", changed);
+  { const s=await st(); check("the shuffle is remembered", (s.mealShuffle??0) > 0, String(s.mealShuffle)); } }
+
+// 19) PROGRESS — steps
+await go("/progress");
+await page.getByRole("button",{name:"+1000"}).first().click(); await settle();
+{ const s=await st(); check("a step nudge is stored", (s.steps?.[today]??0)===1000, String(s.steps?.[today])); }
+await page.getByRole("button",{name:"+2000"}).first().click(); await settle();
+{ const s=await st(); check("step nudges add up", (s.steps?.[today]??0)===3000, String(s.steps?.[today])); }
+await box("כמה צעדים סה״כ היום?").fill("9500"); await page.waitForTimeout(200);
+await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
+{ const s=await st(); check("an exact count replaces the running total", (s.steps?.[today]??0)===9500, String(s.steps?.[today])); }
+check("hitting the goal is shown", await page.getByText(/ימים ברצף/).first().isVisible().catch(()=>false));
+await box("כמה צעדים סה״כ היום?").fill("999999"); await page.waitForTimeout(200);
+await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
+{ const s=await st(); check("an absurd step count is refused", (s.steps?.[today]??0)===9500, String(s.steps?.[today])); }
+await page.getByRole("button",{name:"שנה יעד יומי"}).first().click(); await settle();
+await box("יעד צעדים ליום").fill("12000"); await page.waitForTimeout(200);
+await page.getByRole("button",{name:"שמור",exact:true}).last().click(); await settle();
+{ const s=await st(); check("a new step goal is stored", s.stepGoal===12000, String(s.stepGoal)); }
+
+// 20) PROFILE — an unhealthy goal weight cannot be stored, however it is tried
+await go("/profile");
+{ const goalBox = box("קילוגרם");
+  const save = page.getByRole("button",{name:"נשמר",exact:true}).first();
+
+  await goalBox.fill("20"); await page.waitForTimeout(200);
+  await save.click(); await settle();
+  { const s=await st(); check("a 20 kg target is refused", s.profile.goalKg !== 20, String(s.profile.goalKg)); }
+  check("the refusal is explained on screen",
+    await page.getByText(/נמוך מדי ולא בריא|חייב להיות בין/).first().isVisible().catch(()=>false));
+
+  await goalBox.fill("45"); await page.waitForTimeout(200);
+  await save.click(); await settle();
+  { const s=await st(); check("45 kg at 180 cm is refused too", s.profile.goalKg !== 45, String(s.profile.goalKg)); }
+
+  // clearing the height must not open a back door
+  await box("ס״מ").fill(""); await page.waitForTimeout(200);
+  await goalBox.fill("20"); await page.waitForTimeout(200);
+  await save.click(); await settle();
+  { const s=await st(); check("deleting the height does not let 20 kg through", s.profile.goalKg !== 20, String(s.profile.goalKg)); }
+
+  await box("ס״מ").fill("999"); await page.waitForTimeout(200);
+  await save.click(); await settle();
+  { const s=await st(); check("an absurd height is refused", s.profile.heightCm !== 999, String(s.profile.heightCm)); }
+
+  await box("ס״מ").fill("180"); await page.waitForTimeout(200);
+  await goalBox.fill("78"); await page.waitForTimeout(200);
+  await save.click(); await settle();
+  { const s=await st(); check("a sane target is accepted", s.profile.goalKg===78, String(s.profile.goalKg));
+    check("the height is stored with it", s.profile.heightCm===180, String(s.profile.heightCm)); }
+  check("the healthy range is shown to aim at",
+    await page.getByText(/טווח בריא לגובה שלך/).first().isVisible().catch(()=>false)); }
+
+// 21) LIBRARY — browse the whole catalogue, filter it, and add from it
+await go("/workout");
+await page.getByRole("button",{name:"פתח את כל המאגר"}).first().click(); await settle();
+check("the library opens", await page.getByText("מאגר התרגילים").first().isVisible().catch(()=>false));
+check("the catalogue is Hevy-sized",
+  await page.getByText(/1[0-9][0-9] תרגילים|[2-9][0-9][0-9] תרגילים/).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"חזה",exact:false}).first().click(); await settle();
+check("a muscle filter narrows the list",
+  await page.getByText(/^מוצגים \d+$/).first().isVisible().catch(()=>false));
+check("filtering by chest hides a leg move", (await page.getByRole("button",{name:"סקוואט",exact:true}).count())===0);
+await page.getByRole("button",{name:"כל השרירים"}).first().click(); await settle();
+await box("חפש תרגיל, שריר או ציוד").fill("ביצפס"); await settle();
+check("Hebrew gym slang finds the right muscle's moves",
+  await page.getByRole("button",{name:"כפיפת מרפק",exact:true}).first().isVisible().catch(()=>false));
+check("and the slang search is not just returning everything",
+  (await page.getByRole("button",{name:"סקוואט",exact:true}).count())===0);
+await box("חפש תרגיל, שריר או ציוד").fill("סמית"); await settle();
+{ const hit = page.getByRole("button",{name:"לחיצת חזה בסמית'",exact:true}).first();
+  check("a Smith machine move is in the library", await hit.isVisible().catch(()=>false));
+  await hit.click(); await settle();
+  const s=await st();
+  check("a library move joins today's session",
+    (s.training?.extra?.[today]??[]).includes("smith-bench"), JSON.stringify(s.training?.extra)); }
+await box("חפש תרגיל, שריר או ציוד").fill("קשקושבלבל"); await settle();
+check("an empty result offers to add it yourself",
+  await page.getByText(/אפשר להוסיף אותו בעצמך/).first().isVisible().catch(()=>false));
+await box("לדוגמה: כפיפת בטן צדדית").fill("סחיבת מזוודה"); await settle();
+await page.getByRole("button",{name:"הוסף לאימון של היום"}).first().click(); await settle();
+{ const s=await st();
+  check("a move of your own is saved to the library",
+    (s.training?.custom??[]).some(c=>c.he==="סחיבת מזוודה"), JSON.stringify((s.training?.custom??[]).map(c=>c.he)));
+  check("and joins today's session",
+    (s.training?.extra?.[today]??[]).some(id=>id.startsWith("own-"))); }
+
 check("no uncaught page errors during the whole run", crashes.length===0, crashes.join(" | "));
 
 await browser.close(); server.close();
-const failed = results.filter(([,ok])=>!ok);
-for (const [n,ok,d] of results) console.log(`${ok?"PASS":"FAIL"}  ${n}${ok?"":`  ← ${d??""}`}`);
-console.log(`\n${results.length-failed.length}/${results.length} passed`);
-if (failed.length) process.exitCode = 1;
+report();
+
+// Printing lives in a function so a thrown selector error still reports every
+// check that ran before it — a suite that prints nothing when it falls over
+// tells you only that something broke, not what had already passed.
+function report(err) {
+  const failed = results.filter(([,ok])=>!ok);
+  for (const [n,ok,d] of results) console.log(`${ok?"PASS":"FAIL"}  ${n}${ok?"":`  ← ${d??""}`}`);
+  if (err) console.log(`\nCRASH after ${results.length} checks: ${String(err).slice(0,300)}`);
+  console.log(`\n${results.length-failed.length}/${results.length} passed`);
+  if (failed.length || err) process.exitCode = 1;
+}
+
+

@@ -347,7 +347,59 @@ export type SuggestOptions = {
   slot?: MealSlot;
   /** How many missing ingredients still counts as "almost". */
   almostGap?: number;
+  /**
+   * What makes this person's list *theirs*, and today's list different from
+   * yesterday's. Two dishes whose goal fit is within a few percent are equally
+   * good advice, so which one leads is arbitrary — and an arbitrary choice
+   * that never changes is what makes a kitchen feel like it is stuck. The seed
+   * decides those ties: fold in a per-device salt and the date and the same
+   * fridge serves a different plate each morning, and a different one to your
+   * flatmate.
+   */
+  seed?: string;
 };
+
+/**
+ * A small stable number from a string — same input, same answer, every run.
+ *
+ * The final avalanche is not decoration. Without it, FNV's last multiply leaves
+ * a one-character difference sitting in the low bits, so `id|seed` values stay
+ * in the same relative order for every seed and the "rotation" rotates nothing.
+ * The seed also goes first, so it is mixed through the whole hash.
+ */
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+
+/**
+ * How good a meal is *relative to the best one available right now*, as a
+ * coarse tier. Everything within a fifth of the best is tier 2 — all of it is
+ * sound advice for this goal, so which one leads is arbitrary and the seed may
+ * decide. That arbitrary choice is where the variety comes from: rotate inside
+ * a tier and the menu genuinely changes day to day without ever promoting a
+ * dish that does not serve the goal.
+ *
+ * Absolute bands were the first attempt and rotated almost nothing: with three
+ * dishes at 0.94–1.00 fit and the next at 0.68, only the top three ever moved,
+ * and they moved among themselves.
+ */
+function fitTier(fit: number, best: number): number {
+  if (best <= 0) return 0;
+  const share = fit / best;
+  if (share >= 0.8) return 2;
+  if (share >= 0.55) return 1;
+  return 0;
+}
 
 /**
  * The whole thing: from a list to ranked meals, for a goal and a time of day.
@@ -377,8 +429,16 @@ export function suggestMeals(pantryText: string, opts: SuggestOptions = {}): Kit
   });
 
   const rightTime = (m: MealMatch) => (opts.slot && m.meal.slot === opts.slot ? 1 : 0);
+  const seed = opts.seed ?? "";
+  const jitter = (m: MealMatch) => (seed ? hash(`${seed}|${m.meal.id}`) : 0);
+  const bestFit = matches.reduce((n, m) => Math.max(n, m.fit), 0);
   const byGoalThenTime = (a: MealMatch, b: MealMatch) =>
-    rightTime(b) - rightTime(a) || b.fit - a.fit;
+    rightTime(b) - rightTime(a) ||
+    // Equally-good dishes are ordered by the seed rather than by whichever one
+    // happens to sit earlier in the file.
+    fitTier(b.fit, bestFit) - fitTier(a.fit, bestFit) ||
+    jitter(a) - jitter(b) ||
+    b.fit - a.fit;
 
   const ready = matches.filter((m) => m.ready).sort(byGoalThenTime);
 
@@ -391,8 +451,16 @@ export function suggestMeals(pantryText: string, opts: SuggestOptions = {}): Kit
 }
 
 /** A few meals that fit the goal, to show before any list exists. */
-export function starterMeals(goal: Goal = "cut"): Meal[] {
-  return [...MEALS].sort((a, b) => goalFit(b, goal) - goalFit(a, goal)).slice(0, 4);
+export function starterMeals(goal: Goal = "cut", seed = ""): Meal[] {
+  const best = MEALS.reduce((n, m) => Math.max(n, goalFit(m, goal)), 0);
+  return [...MEALS]
+    .sort(
+      (a, b) =>
+        fitTier(goalFit(b, goal), best) - fitTier(goalFit(a, goal), best) ||
+        (seed ? hash(`${seed}|${a.id}`) - hash(`${seed}|${b.id}`) : 0) ||
+        goalFit(b, goal) - goalFit(a, goal),
+    )
+    .slice(0, 4);
 }
 
 /** Label a meal leads with, most goal-relevant first. */

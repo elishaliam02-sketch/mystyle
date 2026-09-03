@@ -21,12 +21,19 @@ import {
   type IntakeItem,
   type Profile,
   type Training,
+  type WeighIn,
 } from "./types";
 import { isStorableWeight } from "./weight";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
 import { demoLink } from "@/workout/video";
+import { isHeightCm, isStorableGoal } from "@/health";
+import {
+  clampSteps,
+  DEFAULT_STEP_GOAL,
+  isStorableGoal as isStorableStepGoal,
+} from "@/health/steps";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -114,6 +121,20 @@ type Store = {
   /** The URL to open for an exercise's form demo: the exact video when it can
    * be resolved, the search page when it cannot. Remembers what it resolves. */
   demoFor: (ex: Exercise) => Promise<string>;
+  /** The seed behind the kitchen's meal rotation: this device, this day, and
+   * however many times the person has asked for another set. */
+  mealSeed: () => string;
+  /** Re-rolls today's suggestions. */
+  shuffleMeals: () => void;
+  /** Sets today's step count outright (from the phone's own counter). */
+  setSteps: (n: number) => void;
+  /** Adds to today's step count — the +1000 buttons. */
+  addSteps: (n: number) => void;
+  /** Steps logged today. */
+  todaySteps: () => number;
+  /** The daily step target, the person's own or the default. */
+  stepGoal: () => number;
+  setStepGoal: (n: number) => void;
   /** Records the weight lifted on an exercise today. */
   logExerciseWeight: (id: string, kg: number) => void;
   /** Every weight logged for an exercise, oldest first. */
@@ -139,6 +160,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Anything written by an earlier build is brought up to the current
         // shape here, so no screen has to cope with a row missing a field.
         if (raw) setState(migrateState(JSON.parse(raw)));
+        // Every device gets its own salt on first load, so the kitchen's
+        // rotation differs between two people with identical fridges.
+        setState((s) => (s.salt ? s : { ...s, salt: newId() }));
       } catch {
         // Unreadable or corrupt storage: start clean rather than crash on launch.
       }
@@ -154,8 +178,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
   }, [state]);
 
+  /** The most recent weigh-in by date, for judging a goal against reality. */
+  function latestWeighIn(s: AppState): WeighIn | null {
+    if (s.weighIns.length === 0) return null;
+    return [...s.weighIns].sort((a, b) => a.date.localeCompare(b.date))[s.weighIns.length - 1]!;
+  }
+
+  /**
+   * The last line of defence on the profile's numbers.
+   *
+   * The screens check too, and say something useful when they refuse — but the
+   * check lives here as well, because a screen can be forgotten, deep-linked
+   * past, or added later. A goal weight below the healthy floor for this
+   * person's height is dropped from the patch rather than stored: everything
+   * else in the patch still saves, so a bad goal never costs someone their
+   * name or their height.
+   */
   const saveProfile = useCallback((patch: Partial<Profile>) => {
-    setState((s) => ({ ...s, profile: { ...s.profile, ...patch, updatedAt: now() } }));
+    setState((s) => {
+      const next = { ...s.profile, ...patch };
+      if (next.heightCm !== undefined && !isHeightCm(next.heightCm)) {
+        next.heightCm = s.profile.heightCm;
+      }
+      if (next.goalKg !== undefined) {
+        const currentKg = latestWeighIn(s)?.kg ?? s.profile.startKg;
+        if (!isStorableGoal(next.goalKg, currentKg, next.heightCm)) {
+          next.goalKg = s.profile.goalKg;
+        }
+      }
+      return { ...s, profile: { ...next, updatedAt: now() } };
+    });
   }, []);
 
   const addHabit = useCallback((title: string, slot?: Habit["slot"]) => {
@@ -594,6 +646,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.training, trustedToday],
   );
 
+  // Minted lazily rather than at install: an existing user gets one the first
+  // time the kitchen asks, without a migration.
+  const mealSeed = useCallback(() => {
+    const salt = state.salt ?? "";
+    return `${salt}|${trustedToday()}|${state.mealShuffle ?? 0}`;
+  }, [state.salt, state.mealShuffle, trustedToday]);
+
+  const shuffleMeals = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      salt: s.salt ?? newId(),
+      mealShuffle: (s.mealShuffle ?? 0) + 1,
+    }));
+  }, []);
+
+  const setSteps = useCallback((n: number) => {
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      return { ...s, clockHighWaterMs: highWater, steps: { ...s.steps, [date]: clampSteps(n) } };
+    });
+  }, []);
+
+  const addSteps = useCallback((n: number) => {
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      const now = s.steps?.[date] ?? 0;
+      return { ...s, clockHighWaterMs: highWater, steps: { ...s.steps, [date]: clampSteps(now + n) } };
+    });
+  }, []);
+
+  const todaySteps = useCallback(
+    () => state.steps?.[trustedToday()] ?? 0,
+    [state.steps, trustedToday],
+  );
+
+  const stepGoal = useCallback(
+    () => state.stepGoal ?? DEFAULT_STEP_GOAL,
+    [state.stepGoal],
+  );
+
+  const setStepGoal = useCallback((n: number) => {
+    if (!isStorableStepGoal(n)) return;
+    setState((s) => ({ ...s, stepGoal: n }));
+  }, []);
+
   const exerciseLifts = useCallback(
     (id: string) => state.training?.weights?.[id] ?? [],
     [state.training],
@@ -673,6 +770,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       lastSession,
       addExerciseToday,
       todayExtras,
+      mealSeed,
+      shuffleMeals,
+      setSteps,
+      addSteps,
+      todaySteps,
+      stepGoal,
+      setStepGoal,
       demoFor,
       logExerciseWeight,
       exerciseLifts,
@@ -685,7 +789,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
      addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
-     demoFor, reset, replaceAll],
+     demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

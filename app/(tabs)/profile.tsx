@@ -7,6 +7,14 @@ import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
+import {
+  bmi,
+  checkGoalWeight,
+  healthyRange,
+  isHeightCm,
+  MAX_HEIGHT_CM,
+  MIN_HEIGHT_CM,
+} from "@/health";
 import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
@@ -29,16 +37,53 @@ export default function ProfileScreen() {
   // showed blank — and pressing save then wrote that blank over a real name.
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
+  const [height, setHeight] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
-  }, [state.profile.name, state.profile.goalKg]);
+    if (state.profile.heightCm) setHeight(String(state.profile.heightCm));
+  }, [state.profile.name, state.profile.goalKg, state.profile.heightCm]);
+
+  // The weight the goal is judged against: the last time they stepped on a
+  // scale, or the figure they started with.
+  const currentKg =
+    [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
+    state.profile.startKg;
+  const heightCm = height.trim() ? Number(height.replace(",", ".")) : undefined;
+  const nowBmi = currentKg ? bmi(currentKg, heightCm) : null;
+  const band = heightCm && isHeightCm(heightCm) ? healthyRange(heightCm) : null;
 
   function persist() {
-    saveProfile({
-      name: name.trim(),
-      goalKg: goal.trim() ? Number(goal.replace(",", ".")) : undefined,
-    });
+    const cm = height.trim() ? Number(height.replace(",", ".")) : undefined;
+    if (cm !== undefined && !isHeightCm(cm)) {
+      setNote(fill(t.profile.heightRange, { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM }));
+      return;
+    }
+    const kg = goal.trim() ? Number(goal.replace(",", ".")) : undefined;
+    if (kg !== undefined) {
+      // A target under the healthy floor is refused outright — there is no
+      // "tap again to confirm" for a number that would make someone ill.
+      const verdict = checkGoalWeight(kg, currentKg, cm);
+      if (verdict.status === "out-of-range") {
+        setNote(fill(t.profile.goalRange, { min: verdict.min, max: verdict.max }));
+        return;
+      }
+      if (verdict.status === "needs-height") {
+        setNote(t.profile.goalNeedsHeight);
+        return;
+      }
+      if (verdict.status === "too-low") {
+        setNote(fill(t.profile.goalTooLow, { floor: verdict.floor }));
+        return;
+      }
+      if (verdict.status === "too-high") {
+        setNote(fill(t.profile.goalTooHigh, { ceiling: verdict.ceiling }));
+        return;
+      }
+    }
+    saveProfile({ name: name.trim(), goalKg: kg, heightCm: cm });
+    setNote(null);
   }
 
   function confirmReset() {
@@ -66,12 +111,28 @@ export default function ProfileScreen() {
               placeholder={t.profile.namePlaceholder}
             />
             <TextField
+              value={height}
+              onChangeText={setHeight}
+              label={t.profile.heightTitle}
+              placeholder={t.profile.heightPlaceholder}
+              keyboardType="numeric"
+            />
+            <TextField
               value={goal}
               onChangeText={setGoal}
               label={t.profile.goalTitle}
               placeholder={t.profile.goalPlaceholder}
               keyboardType="numeric"
             />
+            {band ? (
+              <Text style={[type.small, { color: colors.inkSoft }]}>
+                {fill(t.profile.healthyBand, { min: band.min, max: band.max })}
+                {nowBmi ? ` · ${fill(t.profile.bmiNow, { bmi: nowBmi })}` : ""}
+              </Text>
+            ) : null}
+            {note ? (
+              <Text style={[type.small, { color: colors.amber, fontWeight: "700" }]}>{note}</Text>
+            ) : null}
             <Button label={t.profile.saved} onPress={persist} tone="quiet" />
           </View>
         </Card>

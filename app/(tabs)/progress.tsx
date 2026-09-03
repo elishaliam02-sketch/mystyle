@@ -13,6 +13,17 @@ import { computeAchievements, unlockedCount } from "@/achievements";
 import { fill, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
 import { checkWeight } from "@/store/weight";
+import {
+  averageSteps,
+  isStorableGoal as isStorableStepGoal,
+  MAX_STEP_GOAL,
+  MAX_STEPS,
+  MIN_STEP_GOAL,
+  recentSteps,
+  stepStreak,
+  stepsKcal,
+  stepsKm,
+} from "@/health/steps";
 import { daysAgo, today, useStore, type WeighIn } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -273,6 +284,8 @@ export default function ProgressScreen() {
           </View>
         </Card>
 
+        <StepsCard />
+
         <Card label={t.progress.trendTitle}>
           {weighIns.length >= 2 ? (
             <TrendChart values={weighIns} />
@@ -304,5 +317,195 @@ export default function ProgressScreen() {
         </Card>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+
+/**
+ * The day's walking, next to the scale — because for someone trying to lose
+ * weight the steps are the half of the equation the gym does not cover, and a
+ * day with 11,000 steps and no session is not a failed day.
+ *
+ * The count is typed in (or nudged with the buttons) from whatever the phone
+ * or watch already counts. Reading the motion sensor directly would need a
+ * native module and a fresh store build; this works today, over the air.
+ */
+function StepsCard() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, setSteps, addSteps, todaySteps, stepGoal, setStepGoal } = useStore();
+  const [draft, setDraft] = useState("");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+
+  const log = state.steps ?? {};
+  const day = todaySteps();
+  const goal = stepGoal();
+  const pct = Math.min(100, Math.round((day / goal) * 100));
+  const week = useMemo(() => recentSteps(log, today(), 7), [log]);
+  const avg = averageSteps(log, today(), 7);
+  const streak = stepStreak(log, today(), goal);
+  const weightKg = [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg;
+  const peak = Math.max(goal, ...week.map((d) => d.steps), 1);
+
+  function saveCount() {
+    const n = Number(draft.replace(/[,\s]/g, ""));
+    if (!Number.isFinite(n) || n < 0 || n > MAX_STEPS) {
+      setNote(fill(t.steps.range, { max: MAX_STEPS }));
+      return;
+    }
+    setSteps(Math.round(n));
+    setDraft("");
+    setNote(null);
+  }
+
+  function saveGoal() {
+    const n = Number(goalDraft.replace(/[,\s]/g, ""));
+    if (!isStorableStepGoal(n)) {
+      setNote(fill(t.steps.goalRange, { min: MIN_STEP_GOAL, max: MAX_STEP_GOAL }));
+      return;
+    }
+    setStepGoal(Math.round(n));
+    setEditingGoal(false);
+    setNote(null);
+  }
+
+  return (
+    <Card label={t.steps.title}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
+        <Text style={[type.figure, { color: colors.ink }]}>{day.toLocaleString()}</Text>
+        <Text style={[type.small, { color: colors.inkSoft, paddingBottom: 6 }]}>
+          {fill(t.steps.ofGoal, { goal: goal.toLocaleString() })}
+        </Text>
+      </View>
+
+      <View
+        style={{
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: colors.surfaceAlt,
+          overflow: "hidden",
+          marginTop: 6,
+        }}
+      >
+        <View
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            backgroundColor: day >= goal ? colors.accent : colors.amber,
+          }}
+        />
+      </View>
+
+      <Text style={[type.small, { color: colors.inkSoft, marginTop: 6 }]}>
+        {fill(t.steps.summary, {
+          km: stepsKm(day),
+          kcal: stepsKcal(day, weightKg),
+        })}
+        {streak > 0 ? ` · ${fill(t.steps.streak, { days: streak })}` : ""}
+      </Text>
+
+      {/* the last seven days, zeros included */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-end",
+          gap: 5,
+          height: 54,
+          marginTop: space.md,
+        }}
+      >
+        {week.map((d) => (
+          <View key={d.date} style={{ flex: 1, alignItems: "center", gap: 3 }}>
+            <View
+              style={{
+                width: "100%",
+                height: Math.max(3, Math.round((d.steps / peak) * 40)),
+                borderRadius: 3,
+                backgroundColor: d.steps >= goal ? colors.accent : colors.rule,
+              }}
+            />
+          </View>
+        ))}
+      </View>
+      <Text style={[type.small, { color: colors.inkFaint }]}>
+        {fill(t.steps.weekAverage, { avg: avg.toLocaleString() })}
+      </Text>
+
+      {/* quick nudges, for logging as you go */}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+        {[500, 1000, 2000].map((n) => (
+          <Pressable
+            key={n}
+            onPress={() => addSteps(n)}
+            accessibilityRole="button"
+            accessibilityLabel={fill(t.steps.add, { n })}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              paddingVertical: 9,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accentWash,
+            }}
+          >
+            <Text style={[type.smallStrong, { color: colors.accent }]}>
+              {fill(t.steps.add, { n })}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* or the exact number off the phone */}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <TextField
+            value={draft}
+            onChangeText={(v) => {
+              setDraft(v);
+              if (note) setNote(null);
+            }}
+            placeholder={t.steps.placeholder}
+            keyboardType="numeric"
+            onSubmitEditing={saveCount}
+          />
+        </View>
+        <Button label={t.steps.save} onPress={saveCount} disabled={!draft.trim()} tone="quiet" />
+      </View>
+
+      {editingGoal ? (
+        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
+          <View style={{ flex: 1 }}>
+            <TextField
+              value={goalDraft}
+              onChangeText={setGoalDraft}
+              placeholder={t.steps.goalPlaceholder}
+              keyboardType="numeric"
+              onSubmitEditing={saveGoal}
+            />
+          </View>
+          <Button label={t.steps.save} onPress={saveGoal} tone="quiet" />
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => {
+            setGoalDraft(String(goal));
+            setEditingGoal(true);
+          }}
+          accessibilityRole="button"
+          style={{ marginTop: space.sm }}
+        >
+          <Text style={[type.smallStrong, { color: colors.accent }]}>{t.steps.changeGoal}</Text>
+        </Pressable>
+      )}
+
+      {note ? (
+        <Text style={[type.small, { color: colors.alert, marginTop: 6 }]}>{note}</Text>
+      ) : null}
+
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+        {t.steps.note}
+      </Text>
+    </Card>
   );
 }
