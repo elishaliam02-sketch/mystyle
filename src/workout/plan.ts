@@ -1,5 +1,12 @@
-import { EXERCISES, type Exercise, type Muscle } from "./exercises";
+import { EXERCISES, type Equipment, type Exercise, type Muscle } from "./exercises";
 import type { Goal } from "@/kitchen";
+
+/** What equipment the person can train with — drives which moves a plan uses. */
+export const EQUIP_SETS: Record<string, Equipment[]> = {
+  gym: ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell"],
+  home: ["dumbbell", "kettlebell", "bodyweight"],
+  bodyweight: ["bodyweight"],
+};
 
 /**
  * Builds a weekly training plan from a goal and how many days a week the person
@@ -15,6 +22,8 @@ export type PlanDay = { type: DayType; muscles: Muscle[]; exercises: Exercise[] 
 export type Plan = {
   goal: Goal;
   days: number;
+  /** Which equipment set the plan was built for. */
+  equipment?: string;
   /** How long one session runs, in minutes — governs how many moves it holds. */
   minutes?: number;
   /** Working sets per exercise, and the rep range — set by the goal. */
@@ -73,9 +82,11 @@ export function exercisesForTime(minutes: number): number {
  * that repeats (push on day 1 and day 4) does not prescribe the identical
  * session twice.
  */
-function pick(muscles: Muscle[], count: number, offset: number): Exercise[] {
+function pick(muscles: Muscle[], count: number, offset: number, allowed: Set<Equipment>): Exercise[] {
   const pool = (m: Muscle, compound: boolean) =>
-    EXERCISES.filter((e) => e.muscle === m && e.compound === compound && !e.custom);
+    EXERCISES.filter(
+      (e) => e.muscle === m && e.compound === compound && !e.custom && allowed.has(e.equipment),
+    );
 
   const chosen: Exercise[] = [];
   const used = new Set<string>();
@@ -104,16 +115,17 @@ function pick(muscles: Muscle[], count: number, offset: number): Exercise[] {
   return chosen.slice(0, count);
 }
 
-export function buildPlan(goal: Goal, days: number, minutes?: number): Plan {
+export function buildPlan(goal: Goal, days: number, minutes?: number, equipment?: string): Plan {
   const { sets, reps } = volume(goal);
   // Time drives the count when the person told us how long they have; otherwise
   // fall back to a goal-based default (bulk runs a little longer).
   const perDay = minutes ? exercisesForTime(minutes) : goal === "bulk" ? 6 : 5;
+  const allowed = new Set(EQUIP_SETS[equipment ?? "gym"] ?? EQUIP_SETS.gym);
   const types = split(days);
   const sessions = types.map((type, i) => ({
     type,
     muscles: DAY_MUSCLES[type],
-    exercises: pick(DAY_MUSCLES[type], perDay, i),
+    exercises: pick(DAY_MUSCLES[type], perDay, i, allowed),
   }));
-  return { goal, days: types.length, minutes, sets, reps, sessions };
+  return { goal, days: types.length, equipment, minutes, sets, reps, sessions };
 }

@@ -190,6 +190,89 @@ export function dailyTarget(weightKg: number | undefined, goal: Goal): DailyTarg
   return { kcal: Math.max(1200, kcal), protein: Math.round(w * proteinPerKg) };
 }
 
+/** Dietary filters the kitchen can apply to what it suggests. */
+export type Diet = "all" | "kosher" | "vegetarian" | "glutenFree";
+
+// Foods that are never kosher, the meats that may not share a plate with dairy,
+// every animal flesh (for the vegetarian filter), and the gluten grains. Fish
+// and eggs are pareve, so fish-with-dairy stays kosher and eggs stay vegetarian.
+const NON_KOSHER = new Set(["pork", "shrimp"]);
+const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage"]);
+const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp"]);
+const GLUTEN = new Set(["bread", "wholeBread", "pasta", "couscous", "tortilla", "oats"]);
+
+/**
+ * Whether a meal passes a dietary filter. Kosher is a practical simplification:
+ * no non-kosher animal, and no meat sharing the plate with dairy (fish counts
+ * as neither). Vegetarian excludes any animal flesh but keeps dairy and eggs.
+ * Gluten-free excludes the wheat/oat grains.
+ */
+export function dietOk(meal: Meal, diet: Diet): boolean {
+  if (diet === "all") return true;
+  if (diet === "vegetarian") return !meal.uses.some((id) => FLESH.has(id));
+  if (diet === "glutenFree") return !meal.uses.some((id) => GLUTEN.has(id));
+  // kosher
+  if (meal.uses.some((id) => NON_KOSHER.has(id))) return false;
+  const hasMeat = meal.uses.some((id) => MEAT.has(id));
+  const hasDairy = meal.uses.some((id) => {
+    const f = FOODS.find((x) => x.id === id);
+    return f ? f.tags.includes("dairy") : false;
+  });
+  return !(hasMeat && hasDairy);
+}
+
+/**
+ * Free-text search across the food library, for logging what you actually ate
+ * rather than only the curated dishes. Matches any of a food's names, ranks an
+ * exact/prefix hit above a mid-word one, and never returns the whole library.
+ *
+ * This is the piece that makes the diary usable for someone who eats a
+ * schnitzel and a pita, not a recipe.
+ */
+export function searchFoods(query: string, limit = 12): Food[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 1) return [];
+  const scored: { food: Food; score: number }[] = [];
+  for (const food of FOODS) {
+    let best = -1;
+    for (const term of [food.he, food.en, ...food.match]) {
+      const t = term.toLowerCase();
+      const at = t.indexOf(q);
+      if (at === -1) continue;
+      // an exact name beats a prefix, a prefix beats a mid-word hit
+      const score = t === q ? 3 : at === 0 ? 2 : 1;
+      if (score > best) best = score;
+    }
+    if (best > 0) scored.push({ food, score: best });
+  }
+  return scored
+    .sort((a, b) => b.score - a.score || a.food.he.localeCompare(b.food.he))
+    .slice(0, limit)
+    .map((x) => x.food);
+}
+
+/** One thing to buy, and how many of the near-miss meals it would unlock. */
+export type ShoppingItem = { food: Food; count: number };
+
+/**
+ * The one shopping list behind a set of near-miss meals. Each missing
+ * ingredient appears once, carrying how many of those meals it would unlock, so
+ * the item that opens the most dishes sits at the top — buy that first.
+ */
+export function shoppingList(matches: MealMatch[]): ShoppingItem[] {
+  const byId = new Map<string, ShoppingItem>();
+  for (const m of matches) {
+    for (const food of m.missing) {
+      const seen = byId.get(food.id);
+      if (seen) seen.count += 1;
+      else byId.set(food.id, { food, count: 1 });
+    }
+  }
+  return [...byId.values()].sort(
+    (a, b) => b.count - a.count || a.food.he.localeCompare(b.food.he),
+  );
+}
+
 export type MealMatch = {
   meal: Meal;
   have: Food[];

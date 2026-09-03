@@ -5,27 +5,35 @@ import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
-import { useI18n } from "@/i18n";
+import { fill, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   FOODS,
+  MEALS,
   adhocFood,
   dailyTarget,
+  dietOk,
+  foodNutrition,
   portion,
   primaryNote,
   readPantryFull,
+  searchFoods,
+  shoppingList,
   slotForHour,
   starterMeals,
   suggestMeals,
   yourPlate,
+  type Diet,
   type Food,
   type Goal,
   type Meal,
   type MealMatch,
   type MealNote,
   type MealSlot,
+  type ShoppingItem,
 } from "@/kitchen";
 import { useStore } from "@/store";
+import { projectGoal } from "@/store/projection";
 import { useTheme } from "@/theme";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
@@ -33,11 +41,15 @@ const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry } = useStore();
+  const { state, setPantry, setNutritionGoal, setDietFilter } = useStore();
+  const favorites = state.favorites ?? [];
 
   const [draft, setDraft] = useState(state.pantry ?? "");
   const [editing, setEditing] = useState(!state.pantry);
-  const [goal, setGoal] = useState<Goal>("cut");
+  // The goal and diet are remembered across opens rather than reset each time.
+  const goal: Goal = state.nutritionGoal ?? "cut";
+  const setGoal = setNutritionGoal;
+  const diet = (state.dietFilter as Diet) ?? "all";
   // How amounts read: everyday household units, or exact grams for anyone who
   // weighs their food.
   const [units, setUnits] = useState<"household" | "grams">("household");
@@ -55,14 +67,25 @@ export default function KitchenScreen() {
   const adhocs = useMemo(() => full.extras.map(adhocFood), [full.extras]);
   const allItems = useMemo(() => [...full.known, ...adhocs], [full.known, adhocs]);
   // A plate built from exactly what the person has, so any list yields a meal.
-  const plate = useMemo(
+  const rawPlate = useMemo(
     () => (allItems.length >= 2 ? yourPlate(allItems, slot) : null),
     [allItems, slot],
   );
-  // Show only a handful of the best curated picks. Each card fetches its own
-  // photo on demand — a dozen at once load slowly and half stay placeholders.
-  const ready = useMemo(() => result.ready.slice(0, 3), [result.ready]);
-  const almost = useMemo(() => result.almost.slice(0, 3), [result.almost]);
+  // The plate is only offered when it also passes the dietary filter.
+  const plate = useMemo(
+    () => (rawPlate && dietOk(rawPlate, diet) ? rawPlate : null),
+    [rawPlate, diet],
+  );
+  // Show only a handful of the best curated picks that pass the diet filter.
+  // Each card fetches its own photo on demand — a dozen at once load slowly.
+  const ready = useMemo(
+    () => result.ready.filter((m) => dietOk(m.meal, diet)).slice(0, 3),
+    [result.ready, diet],
+  );
+  const almost = useMemo(
+    () => result.almost.filter((m) => dietOk(m.meal, diet)).slice(0, 3),
+    [result.almost, diet],
+  );
   const haveIds = useMemo(() => new Set(allItems.map((f) => f.id)), [allItems]);
   const foodsById = useMemo(
     () => new Map([...FOODS, ...adhocs].map((f) => [f.id, f])),
@@ -207,8 +230,62 @@ export default function KitchenScreen() {
           })}
         </View>
 
+        {/* dietary filter */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, alignItems: "center" }}>
+          {(["all", "kosher", "vegetarian", "glutenFree"] as const).map((d) => {
+            const on = diet === d;
+            const label =
+              d === "all"
+                ? t.kitchen.dietAll
+                : d === "kosher"
+                  ? t.kitchen.dietKosher
+                  : d === "vegetarian"
+                    ? t.kitchen.dietVeg
+                    : t.kitchen.dietGf;
+            return (
+              <Pressable
+                key={d}
+                onPress={() => setDietFilter(d)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: space.lg,
+                  borderRadius: radius.pill,
+                  backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                }}
+              >
+                <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
+
+        {/* log anything you ate, not just the curated dishes */}
+        <QuickLog />
+
+        {/* where this pace lands you */}
+        <ProjectionCard />
+
+        {/* how to size a plate with no scale in the house */}
+        <Card label={t.kitchen.portionTitle}>
+          <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.portionBody}</Text>
+        </Card>
+
+        {/* meals you starred */}
+        {favorites.length > 0 ? (
+          <>
+            <SectionLabel text={t.kitchen.favTitle} />
+            {MEALS.filter((m) => favorites.includes(m.id)).map((m) => (
+              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} />
+            ))}
+          </>
+        ) : null}
 
         {/* meals */}
         {!hasList ? (
@@ -216,15 +293,17 @@ export default function KitchenScreen() {
             <Card label={t.kitchen.starterTitle} tone="accent">
               <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.starterBody}</Text>
             </Card>
-            {starterMeals(goal).map((meal) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                have={new Set<string>()}
-                foodsById={foodsById}
-                units={units}
-              />
-            ))}
+            {starterMeals(goal)
+              .filter((meal) => dietOk(meal, diet))
+              .map((meal) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  have={new Set<string>()}
+                  foodsById={foodsById}
+                  units={units}
+                />
+              ))}
           </View>
         ) : !showAny ? (
           <Card tone="amber">
@@ -248,6 +327,8 @@ export default function KitchenScreen() {
             {almost.map((m) => (
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
             ))}
+
+            {almost.length > 0 ? <ShoppingCard items={shoppingList(almost)} /> : null}
           </>
         )}
 
@@ -352,6 +433,7 @@ function TodayCard({ goal }: { goal: Goal }) {
           <Pressable
             onPress={() => addWater(-1)}
             accessibilityRole="button"
+            accessibilityLabel={t.kitchen.a11yWaterRemove}
             hitSlop={8}
             style={{
               width: 36,
@@ -367,6 +449,7 @@ function TodayCard({ goal }: { goal: Goal }) {
           <Pressable
             onPress={() => addWater(1)}
             accessibilityRole="button"
+            accessibilityLabel={t.kitchen.a11yWaterAdd}
             hitSlop={8}
             style={{
               width: 36,
@@ -402,13 +485,151 @@ function TodayCard({ goal }: { goal: Goal }) {
                 ≈{it.kcal} {t.kitchen.kcal} · {it.protein}
                 {t.kitchen.grams}
               </Text>
-              <Pressable onPress={() => removeMeal(it.id)} accessibilityRole="button" hitSlop={8}>
+              <Pressable
+                onPress={() => removeMeal(it.id)}
+                accessibilityRole="button"
+                accessibilityLabel={t.kitchen.a11yRemoveItem}
+                hitSlop={8}
+              >
                 <Ionicons name="close-circle" size={18} color={colors.inkFaint} />
               </Pressable>
             </View>
           ))
         )}
       </View>
+    </Card>
+  );
+}
+
+/**
+ * One shopping list behind the near-miss meals: each missing ingredient once,
+ * with how many of those dishes it would unlock, most useful first — so the
+ * top item is the single best thing to put in the basket.
+ */
+function ShoppingCard({ items }: { items: ShoppingItem[] }) {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  if (items.length === 0) return null;
+
+  return (
+    <Card label={t.kitchen.shoppingTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.shoppingHint}</Text>
+      <View style={{ gap: 6, marginTop: space.sm }}>
+        {items.map(({ food, count }) => (
+          <View
+            key={food.id}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+          >
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: food.color }} />
+            <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+              {locale === "he" ? food.he : food.en}
+            </Text>
+            {count > 1 ? (
+              <View
+                style={{
+                  backgroundColor: colors.accentWash,
+                  borderRadius: radius.pill,
+                  paddingVertical: 2,
+                  paddingHorizontal: 9,
+                }}
+              >
+                <Text style={[type.label, { color: colors.accent }]}>
+                  {fill(t.kitchen.shoppingCount, { count })}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * Quick log — search the food library and tap to add it to today's diary.
+ * Someone eating a schnitzel and a pita will never build a recipe first; this
+ * is the path that keeps the diary honest for a real day.
+ */
+function QuickLog() {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { logMeal } = useStore();
+  const [q, setQ] = useState("");
+
+  const hits = useMemo(() => searchFoods(q, 8), [q]);
+
+  return (
+    <Card label={t.kitchen.quickTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.quickHint}</Text>
+      <View style={{ marginTop: space.sm }}>
+        <TextField value={q} onChangeText={setQ} placeholder={t.kitchen.quickPlaceholder} />
+      </View>
+      {q.trim().length > 0 ? (
+        hits.length === 0 ? (
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+            {t.kitchen.quickNone}
+          </Text>
+        ) : (
+          <View style={{ gap: 6, marginTop: space.sm }}>
+            {hits.map((f) => {
+              const n = foodNutrition(f);
+              const p = portion(f.id);
+              const name = locale === "he" ? f.he : f.en;
+              return (
+                <Pressable
+                  key={f.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={name}
+                  onPress={() => {
+                    logMeal(name, n.kcal, n.protein);
+                    setQ("");
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.sm,
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    borderRadius: radius.md,
+                    backgroundColor: colors.surfaceAlt,
+                  }}
+                >
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color }} />
+                  <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                    {name}
+                  </Text>
+                  <Text style={[type.small, { color: colors.inkFaint }]}>
+                    {locale === "he" ? p.he : p.en}
+                  </Text>
+                  <Text style={[type.smallStrong, { color: colors.accent }]}>
+                    ≈{n.kcal} {t.kitchen.kcal}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )
+      ) : null}
+    </Card>
+  );
+}
+
+/** Where the current pace lands you — the answer to "when do I get there?". */
+function ProjectionCard() {
+  const { t } = useI18n();
+  const { colors, type } = useTheme();
+  const { state } = useStore();
+
+  const p = projectGoal(state.weighIns, state.profile.goalKg);
+  if (!p) return null;
+
+  const losing = p.perWeek < 0;
+  const line = losing ? t.kitchen.projBody : t.kitchen.projGain;
+  return (
+    <Card label={t.kitchen.projTitle} tone="accent">
+      <Text style={[type.body, { color: colors.ink }]}>
+        {fill(line, { rate: Math.abs(p.perWeek), togo: p.toGo, weeks: p.weeksLeft })}
+      </Text>
     </Card>
   );
 }
@@ -438,8 +659,9 @@ type MealCardProps = {
 function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal } = useStore();
+  const { logMeal, toggleFavorite, isFavorite } = useStore();
   const m = match?.meal ?? meal!;
+  const starred = isFavorite(m.id);
   const copy = locale === "he" ? m.he : m.en;
   const foods = m.uses.map((id) => foodsById.get(id)).filter((f): f is Food => !!f);
 
@@ -465,6 +687,19 @@ function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
+        <Pressable
+          onPress={() => toggleFavorite(m.id)}
+          accessibilityRole="button"
+          accessibilityLabel={t.kitchen.a11yFavorite}
+          accessibilityState={{ selected: starred }}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={starred ? "star" : "star-outline"}
+            size={22}
+            color={starred ? colors.amber : colors.inkFaint}
+          />
+        </Pressable>
         <Text style={[type.title, { color: colors.ink }]}>{copy.title}</Text>
         <View
           style={{

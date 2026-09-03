@@ -64,7 +64,6 @@ export function Button({ label, onPress, tone = "primary", icon, disabled, style
         />
       ) : null}
       <View
-        pointerEvents="none"
         style={{
           flexDirection: "row",
           alignItems: "center",

@@ -1,11 +1,13 @@
-import { View } from "react-native";
-import Svg, { G, Path, Text as SvgText } from "react-native-svg";
+import { Text, View } from "react-native";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { useTheme } from "@/theme";
 
 /**
- * APEX — a clean, minimal strength mark: a flexed arm (bicep), the universal
- * symbol for strong, over the APEX wordmark. Red on black. Deliberately simple
- * so it reads as designed at any size, never as a distorted figure.
+ * APEX — the mark is a summit: a bold "A" whose sharp peak reads as the top of
+ * a mountain, with a level crossbar. Built from three clean strokes with a
+ * vertical red gradient (lit at the peak, deep at the base), so it stays crisp
+ * and premium at any size and never depends on rendered anatomy. The wordmark
+ * is set in the app's display face with wide tracking for a confident lockup.
  */
 export function BrandLogo({
   size = 120,
@@ -16,40 +18,60 @@ export function BrandLogo({
   onBand?: boolean;
   withWordmark?: boolean;
 }) {
-  const { colors } = useTheme();
-  const red = colors.accent;
-  const line = "rgba(0,0,0,0.24)";
-  void onBand;
-
-  const vbH = withWordmark ? 132 : 96;
-  const width = size;
-  const height = (size * vbH) / 108;
+  const { colors, font } = useTheme();
+  const mark = size;
 
   return (
-    <View style={{ alignItems: "center" }}>
-      <Svg width={width} height={height} viewBox={`0 0 108 ${vbH}`}>
-        {/* flexed arm */}
-        <Path d="M28 70 L66 70" stroke={red} strokeWidth={30} strokeLinecap="round" />
-        <Path d="M69 68 L69 26" stroke={red} strokeWidth={26} strokeLinecap="round" />
-        <Path d="M32 58 C40 40 58 38 66 52 C58 60 44 62 32 58 Z" fill={red} />
-        {/* definition */}
-        <G stroke={line} strokeWidth={2.5} fill="none" strokeLinecap="round">
-          <Path d="M58 24 L80 24" />
-          <Path d="M38 55 C46 45 56 45 62 52" />
-        </G>
-        {withWordmark ? (
-          <SvgText
-            x={54}
-            y={120}
-            textAnchor="middle"
-            fontSize={25}
-            fontWeight="900"
-            fill={red}
+    <View style={{ alignItems: "center", gap: size * 0.11 }}>
+      <Svg width={mark} height={mark} viewBox="0 0 100 100">
+        <Defs>
+          {/* userSpaceOnUse so the vertical gradient is defined over the whole
+              mark — a horizontal stroke has a zero-height box and would lose an
+              objectBoundingBox gradient entirely (the crossbar would vanish). */}
+          <LinearGradient
+            id="apexGrad"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="15"
+            x2="0"
+            y2="87"
           >
-            APEX
-          </SvgText>
-        ) : null}
+            <Stop offset="0" stopColor={colors.accent} />
+            <Stop offset="1" stopColor={colors.accentDeep} />
+          </LinearGradient>
+        </Defs>
+        {/* the peak: two legs meeting at a sharp apex */}
+        <Path
+          d="M13 87 L50 15 L87 87"
+          fill="none"
+          stroke="url(#apexGrad)"
+          strokeWidth={15}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* the crossbar of the A */}
+        <Path
+          d="M33 60 L67 60"
+          fill="none"
+          stroke="url(#apexGrad)"
+          strokeWidth={13}
+          strokeLinecap="round"
+        />
       </Svg>
+      {withWordmark ? (
+        <Text
+          style={{
+            fontFamily: font.display,
+            fontSize: size * 0.3,
+            letterSpacing: size * 0.055,
+            color: onBand ? colors.bandInk : colors.ink,
+            // The tracking adds trailing space; nudge back so it stays centred.
+            marginRight: -size * 0.055,
+          }}
+        >
+          APEX
+        </Text>
+      ) : null}
     </View>
   );
 }

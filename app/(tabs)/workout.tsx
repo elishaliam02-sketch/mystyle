@@ -16,21 +16,24 @@ import {
   type Muscle,
 } from "@/workout/exercises";
 import { buildPlan, type DayType } from "@/workout/plan";
+import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75, 90];
+const EQUIP = ["gym", "home", "bodyweight"] as const;
 
 export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, configureTraining, toggleExerciseDone, isExerciseDone, addCustomExercise } =
+  const { state, configureTraining, toggleExerciseDone, isExerciseDone, addCustomExercise, completeSession } =
     useStore();
 
   const training = state.training;
   const [goal, setGoal] = useState<Goal>(training?.goal ?? "recomp");
   const [days, setDays] = useState<number>(training?.days ?? 3);
   const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
+  const [equipment, setEquipment] = useState<string>(training?.equipment ?? "gym");
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -66,12 +69,15 @@ export default function WorkoutScreen() {
   };
 
   const plan = useMemo(
-    () => (training ? buildPlan(training.goal, training.days, training.minutes) : null),
+    () =>
+      training
+        ? buildPlan(training.goal, training.days, training.minutes, training.equipment)
+        : null,
     [training],
   );
 
   function build() {
-    configureTraining(goal, days, minutes);
+    configureTraining(goal, days, minutes, equipment);
     setForceSetup(false);
   }
 
@@ -80,6 +86,7 @@ export default function WorkoutScreen() {
       setGoal(training.goal);
       setDays(training.days);
       setMinutes(training.minutes ?? 45);
+      setEquipment(training.equipment ?? "gym");
     }
     setForceSetup(true);
   }
@@ -174,6 +181,39 @@ export default function WorkoutScreen() {
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
             {t.workout.timeUnit}
           </Text>
+        </Card>
+
+        <Card label={t.workout.equipTitle}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {EQUIP.map((e) => {
+              const on = equipment === e;
+              const label =
+                e === "gym" ? t.workout.equipGym : e === "home" ? t.workout.equipHome : t.workout.equipBody;
+              return (
+                <Pressable
+                  key={e}
+                  onPress={() => setEquipment(e)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={{
+                    flexGrow: 1,
+                    flexBasis: "30%",
+                    alignItems: "center",
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.xs,
+                    borderRadius: radius.lg,
+                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
+                  }}
+                >
+                  <Text
+                    style={[type.smallStrong, { color: on ? colors.onAccent : colors.ink, textAlign: "center" }]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </Card>
 
         <Button icon="barbell" label={t.workout.build} onPress={build} />
@@ -292,6 +332,14 @@ export default function WorkoutScreen() {
                   onToggle={() => toggleExerciseDone(ex.id)}
                 />
               ))}
+              <Button
+                icon={done === session.exercises.length ? "checkmark-done" : "checkmark"}
+                label={done === session.exercises.length ? t.workout.dayDone : t.workout.finishDay}
+                tone="quiet"
+                disabled={done === session.exercises.length}
+                onPress={() => completeSession(session.exercises.map((e) => e.id))}
+                style={{ marginTop: space.md }}
+              />
             </Card>
           );
         })}
@@ -413,9 +461,23 @@ type RowProps = {
 function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const { exerciseLifts, logExerciseWeight } = useStore();
   const [open, setOpen] = useState(false);
+  const [kg, setKg] = useState("");
   const name = locale === "he" ? ex.he : ex.en;
   const how = locale === "he" ? ex.howHe : ex.howEn;
+
+  // What was moved on this exercise before — the number that decides today's.
+  const lifts = exerciseLifts(ex.id);
+  const last = lastLift(lifts);
+  const best = bestLift(lifts);
+
+  function saveWeight() {
+    const value = Number(kg.replace(",", "."));
+    if (!Number.isFinite(value) || value < MIN_KG || value > MAX_KG) return;
+    logExerciseWeight(ex.id, value);
+    setKg("");
+  }
 
   return (
     <View
@@ -458,6 +520,11 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) 
           <Text style={[type.small, { color: colors.inkFaint }]}>
             {muscleLabel[ex.muscle]} · {sets}×{reps}
           </Text>
+          {last ? (
+            <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
+              {fill(t.workout.lastWeight, { kg: last.kg })}
+            </Text>
+          ) : null}
         </Pressable>
 
         <Pressable
@@ -491,6 +558,48 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, done, onToggle }: RowProps) 
               {i + 1}. {step}
             </Text>
           ))}
+
+          {/* progressive overload: what you lifted, and today's entry */}
+          <Text
+            style={[
+              type.label,
+              { color: colors.inkFaint, textTransform: "uppercase", marginTop: space.sm },
+            ]}
+          >
+            {t.workout.weightTitle}
+          </Text>
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            {last
+              ? `${fill(t.workout.lastWeight, { kg: last.kg })} · ${fill(t.workout.bestWeight, { kg: best })}`
+              : t.workout.noWeight}
+          </Text>
+          <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center", marginTop: 4 }}>
+            <View style={{ flex: 1 }}>
+              <TextField
+                value={kg}
+                onChangeText={setKg}
+                placeholder={t.workout.weightPlaceholder}
+                keyboardType="numeric"
+                onSubmitEditing={saveWeight}
+              />
+            </View>
+            <Pressable
+              onPress={saveWeight}
+              disabled={!kg.trim()}
+              accessibilityRole="button"
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: space.lg,
+                borderRadius: radius.pill,
+                backgroundColor: colors.accent,
+                opacity: kg.trim() ? 1 : 0.4,
+              }}
+            >
+              <Text style={[type.smallStrong, { color: colors.onAccent }]}>
+                {t.workout.logWeight}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>

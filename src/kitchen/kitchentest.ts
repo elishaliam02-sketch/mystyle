@@ -3,7 +3,8 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
 const results: [string, boolean, string?][] = [];
@@ -192,6 +193,56 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a cut sets higher protein per kilo than a bulk", cut.protein > bulk.protein);
   check("no weight still yields a usable target", dailyTarget(undefined, "maintain").kcal >= 1200);
   check("targets never drop below a floor", dailyTarget(30, "cut").kcal >= 1200);
+}
+
+// --- dietary filters (kosher / vegetarian)
+{
+  const mk = (uses: string[]): Meal => ({
+    id: "t", he: { title: "", how: "" }, en: { title: "", how: "" },
+    uses, slot: "lunch", notes: [], kcal: 0, protein: 0,
+  });
+  check("everything passes the 'all' filter", dietOk(mk(["pork", "milk"]), "all"));
+  check("pork is not kosher", !dietOk(mk(["pork", "rice"]), "kosher"));
+  check("meat + dairy is not kosher", !dietOk(mk(["chicken", "yellowCheese"]), "kosher"));
+  check("chicken + rice is kosher", dietOk(mk(["chicken", "rice"]), "kosher"));
+  check("fish + cheese stays kosher (fish is pareve)", dietOk(mk(["salmon", "feta"]), "kosher"));
+  check("chicken is not vegetarian", !dietOk(mk(["chicken", "rice"]), "vegetarian"));
+  check("eggs + veg is vegetarian", dietOk(mk(["egg", "tomato", "cheese"]), "vegetarian"));
+  check("shrimp is neither kosher nor vegetarian",
+    !dietOk(mk(["shrimp"]), "kosher") && !dietOk(mk(["shrimp"]), "vegetarian"));
+  check("bread is not gluten-free", !dietOk(mk(["bread", "egg"]), "glutenFree"));
+  check("rice + chicken is gluten-free", dietOk(mk(["rice", "chicken"]), "glutenFree"));
+}
+
+// --- the shopping list behind the near-miss meals
+{
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  const match = (missing: string[]) => ({
+    meal: { id: "m", he: { title: "", how: "" }, en: { title: "", how: "" }, uses: [], slot: "lunch" as const, notes: [], kcal: 0, protein: 0 },
+    have: [], missing: missing.map(f), ready: false, fit: 0,
+  });
+  const list = shoppingList([match(["rice", "egg"]), match(["rice"]), match(["tuna"])]);
+  check("each missing item appears once", list.length === 3, String(list.length));
+  check("the most-needed item leads", list[0].food.id === "rice", list[0].food.id);
+  check("its count is how many meals need it", list[0].count === 2, String(list[0].count));
+  check("a one-meal item counts once", list.every((i) => i.food.id === "rice" || i.count === 1));
+  check("no missing items yields an empty list", shoppingList([]).length === 0);
+  check("a fully-ready meal adds nothing", shoppingList([match([])]).length === 0);
+}
+
+// --- searching the food library, for logging what you actually ate
+{
+  check("an empty query returns nothing", searchFoods("").length === 0);
+  check("a Hebrew name is found", searchFoods("אורז").some((f) => f.id === "rice"));
+  check("an English name is found", searchFoods("rice").some((f) => f.id === "rice"));
+  check("a partial word still matches", searchFoods("עגבנ").some((f) => f.id === "tomato"));
+  check("an exact name ranks first", searchFoods("ביצים")[0]?.id === "egg", searchFoods("ביצים")[0]?.id);
+  check("nonsense finds nothing", searchFoods("קשקושבלבל").length === 0);
+  check("results are capped", searchFoods("a", 5).length <= 5);
+  check("no duplicate foods in results", (() => {
+    const r = searchFoods("ג");
+    return new Set(r.map((f) => f.id)).size === r.length;
+  })());
 }
 
 const failed = results.filter(([, ok]) => !ok);

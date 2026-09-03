@@ -52,7 +52,10 @@
     "test:kitchen": "node scripts/run-kitchen-tests.mjs",
     "test:clock": "node scripts/run-clock-tests.mjs",
     "test:workout": "node scripts/run-workout-tests.mjs",
-    "test:achievements": "node scripts/run-achievements-tests.mjs"
+    "test:achievements": "node scripts/run-achievements-tests.mjs",
+    "test:body": "node scripts/run-body-tests.mjs",
+    "test:e2e": "node scripts/e2e.mjs",
+    "test:projection": "node scripts/run-projection-tests.mjs"
   },
   "private": true
 }

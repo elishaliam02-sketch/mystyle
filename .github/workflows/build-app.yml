@@ -1,0 +1,41 @@
+name: Build the app (APK)
+
+# Builds a fresh installable Android app on Expo's servers. Run it by hand from
+# the GitHub app: Actions -> "Build the app (APK)" -> Run workflow.
+#
+# Use this (rather than the OTA update) when something native changed — a new
+# icon or splash, an app-version bump, or a new native module. Everyday JS and
+# UI changes reach the installed app through "Publish OTA update" instead.
+#
+# When it finishes, the APK is on expo.dev under this project's Builds, with a
+# QR code and an install link you can open straight from the phone.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # --no-wait queues the build on Expo and returns; the job does not sit
+      # burning CI minutes while Expo's free queue works through it.
+      - name: Queue the Android build
+        run: eas build --platform android --profile preview --non-interactive --no-wait

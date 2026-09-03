@@ -11,6 +11,7 @@ const ICONS: Record<string, { on: IconName; off: IconName }> = {
   today: { on: "sunny", off: "sunny-outline" },
   kitchen: { on: "restaurant", off: "restaurant-outline" },
   workout: { on: "barbell", off: "barbell-outline" },
+  body: { on: "body", off: "body-outline" },
   checkin: { on: "chatbubble-ellipses", off: "chatbubble-ellipses-outline" },
   progress: { on: "stats-chart", off: "stats-chart-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
@@ -29,8 +30,8 @@ export default function TabsLayout() {
     ({ color, focused }: { color: ColorValue; focused: boolean }) => (
       <View
         style={{
-          width: 46,
-          height: 30,
+          width: 34,
+          height: 28,
           borderRadius: radius.pill,
           alignItems: "center",
           justifyContent: "center",
@@ -41,7 +42,7 @@ export default function TabsLayout() {
       >
         <Ionicons
           name={focused ? ICONS[key].on : ICONS[key].off}
-          size={22}
+          size={20}
           color={String(color)}
         />
       </View>
@@ -53,19 +54,25 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.inkFaint,
-        tabBarLabelStyle: { fontFamily: font.bodyMedium, fontSize: 11 },
+        // Seven tabs share the width, so the label is small and never truncated,
+        // and each item gives up its side padding to the text.
+        tabBarLabelStyle: { fontFamily: font.bodyMedium, fontSize: 9.5 },
+        tabBarItemStyle: { paddingHorizontal: 0, paddingBottom: 2 },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.rule,
-          height: 62 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: 8 + insets.bottom,
+          // Roomy enough that the label never clips, even on a device with no
+          // gesture-bar inset (worst case: insets.bottom === 0).
+          height: 70 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: Math.max(12, insets.bottom + 8),
         },
       }}
     >
       <Tabs.Screen name="index" options={{ title: t.tabs.today, tabBarIcon: icon("today") }} />
       <Tabs.Screen name="kitchen" options={{ title: t.tabs.kitchen, tabBarIcon: icon("kitchen") }} />
       <Tabs.Screen name="workout" options={{ title: t.tabs.workout, tabBarIcon: icon("workout") }} />
+      <Tabs.Screen name="body" options={{ title: t.tabs.body, tabBarIcon: icon("body") }} />
       <Tabs.Screen name="checkin" options={{ title: t.tabs.checkin, tabBarIcon: icon("checkin") }} />
       <Tabs.Screen
         name="progress"

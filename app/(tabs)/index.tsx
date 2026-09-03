@@ -10,6 +10,7 @@ import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
 import { Ring } from "@/components/Ring";
+import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
 import { today, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
@@ -140,6 +141,94 @@ function TipOfTheDay() {
   );
 }
 
+/**
+ * The daily hub — one card that ties the app's pillars together, so opening
+ * APEX shows the whole day at a glance (streak, habits, nutrition, water,
+ * workout) instead of only the habit list. Each tile is a shortcut into its
+ * tab. Everything is read straight from the stored state; no extra work.
+ */
+function TodayHub() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const router = useRouter();
+  const { state, isDone, streak, todayIntake, todayWater } = useStore();
+
+  const habits = state.habits.filter((h) => !h.archived);
+  const doneCount = habits.filter((h) => isDone(h.id)).length;
+  const bestStreak = habits.reduce((m, h) => Math.max(m, streak(h.id)), 0);
+
+  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
+  const target = dailyTarget(weightKg, state.nutritionGoal ?? "maintain");
+  const eaten = todayIntake().kcal;
+  const water = todayWater();
+  const workoutDone = (state.training?.log[today()]?.length ?? 0) > 0;
+
+  type Tile = {
+    icon: keyof typeof Ionicons.glyphMap;
+    value: string;
+    label: string;
+    onPress?: () => void;
+  };
+  const tiles: Tile[] = [
+    { icon: "checkbox", value: `${doneCount}/${habits.length}`, label: t.today.hubHabits },
+    {
+      icon: "restaurant",
+      value: `${eaten}/${target.kcal}`,
+      label: t.today.hubKcal,
+      onPress: () => router.push("/kitchen"),
+    },
+    {
+      icon: "water",
+      value: `${water}`,
+      label: t.today.hubWater,
+      onPress: () => router.push("/kitchen"),
+    },
+    {
+      icon: workoutDone ? "checkmark-circle" : "barbell",
+      value: workoutDone ? t.today.hubDone : t.today.hubStart,
+      label: t.today.hubWorkout,
+      onPress: () => router.push("/workout"),
+    },
+  ];
+
+  return (
+    <Card label={t.today.hubTitle}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: space.sm }}>
+        <Ionicons name="flame" size={18} color={colors.accent} />
+        <Text style={[type.bodyStrong, { color: colors.ink }]}>
+          {bestStreak > 0 ? fill(t.today.hubStreak, { days: bestStreak }) : t.today.hubStreakNone}
+        </Text>
+      </View>
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        {tiles.map((tile) => (
+          <Pressable
+            key={tile.label}
+            onPress={tile.onPress}
+            disabled={!tile.onPress}
+            accessibilityRole={tile.onPress ? "button" : undefined}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              gap: 3,
+              paddingVertical: space.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surfaceAlt,
+            }}
+          >
+            <Ionicons name={tile.icon} size={20} color={colors.accent} />
+            <Text style={[type.smallStrong, { color: colors.ink }]} numberOfLines={1}>
+              {tile.value}
+            </Text>
+            <Text style={[type.label, { color: colors.inkFaint }]} numberOfLines={1}>
+              {tile.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </Card>
+  );
+}
+
 export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
@@ -200,6 +289,8 @@ export default function TodayScreen() {
       }
       aside={<Ring done={doneCount} total={habits.length} />}
     >
+      <TodayHub />
+
       <TipOfTheDay />
 
       <Card label={t.today.listLabel}>

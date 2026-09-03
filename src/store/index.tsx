@@ -23,6 +23,8 @@ import {
   type Training,
 } from "./types";
 import { isStorableWeight } from "./weight";
+import { isStorableCm, type Reading } from "@/body";
+import { isStorableKg, type Lift } from "@/workout/lifts";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -60,6 +62,14 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
+  /** Remembers the kitchen's nutrition goal across opens. */
+  setNutritionGoal: (goal: Goal) => void;
+  /** Remembers the kitchen's dietary filter across opens. */
+  setDietFilter: (diet: string) => void;
+  /** Stars or unstars a meal. */
+  toggleFavorite: (mealId: string) => void;
+  /** True when the meal is starred. */
+  isFavorite: (mealId: string) => boolean;
   /** Logs a meal against today's food diary. */
   logMeal: (label: string, kcal: number, protein: number) => void;
   /** Removes one logged item from today. */
@@ -70,15 +80,25 @@ type Store = {
   addWater: (delta: number) => void;
   /** Glasses of water logged today. */
   todayWater: () => number;
-  /** Sets up (or re-tunes) the training plan for a goal, weekly frequency and
-   * session length. */
-  configureTraining: (goal: Goal, days: number, minutes?: number) => void;
+  /** Records a tape-measure reading for a body part (today). */
+  addMeasurement: (part: string, cm: number) => void;
+  /** All readings for a body part, oldest first. */
+  measurementSeries: (part: string) => Reading[];
+  /** Sets up (or re-tunes) the training plan for a goal, weekly frequency,
+   * session length and available equipment. */
+  configureTraining: (goal: Goal, days: number, minutes?: number, equipment?: string) => void;
   /** Ticks or unticks an exercise as done for the clock-safe today. */
   toggleExerciseDone: (id: string) => void;
   /** True if that exercise is ticked done today. */
   isExerciseDone: (id: string) => boolean;
   /** Adds the person's own move to the library, kept device-local. */
   addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
+  /** Ticks every exercise of a session done in one go. */
+  completeSession: (ids: string[]) => void;
+  /** Records the weight lifted on an exercise today. */
+  logExerciseWeight: (id: string, kg: number) => void;
+  /** Every weight logged for an exercise, oldest first. */
+  exerciseLifts: (id: string) => Lift[];
   /** Advances the clock guard from a trusted server timestamp. */
   noteServerTime: (iso: string) => void;
   reset: () => void;
@@ -292,6 +312,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
+  const setNutritionGoal = useCallback((goal: Goal) => {
+    setState((s) => ({ ...s, nutritionGoal: goal }));
+  }, []);
+
+  const setDietFilter = useCallback((diet: string) => {
+    setState((s) => ({ ...s, dietFilter: diet }));
+  }, []);
+
+  const toggleFavorite = useCallback((mealId: string) => {
+    setState((s) => {
+      const list = s.favorites ?? [];
+      return {
+        ...s,
+        favorites: list.includes(mealId) ? list.filter((m) => m !== mealId) : [...list, mealId],
+      };
+    });
+  }, []);
+
+  const isFavorite = useCallback(
+    (mealId: string) => (state.favorites ?? []).includes(mealId),
+    [state.favorites],
+  );
+
   const logMeal = useCallback((label: string, kcal: number, protein: number) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
@@ -340,19 +383,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.water, trustedToday],
   );
 
-  const configureTraining = useCallback((goal: Goal, days: number, minutes?: number) => {
-    setState((s) => ({
-      ...s,
-      training: {
-        goal,
-        days,
-        minutes,
-        // Keep the log and the person's own moves through a re-tune.
-        log: s.training?.log ?? {},
-        custom: s.training?.custom ?? [],
-      },
-    }));
+  const addMeasurement = useCallback((part: string, cm: number) => {
+    if (!isStorableCm(cm)) return;
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      const prior = (s.measurements?.[part] ?? []).filter((r) => r.date !== date);
+      const next = [...prior, { date, cm }].sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        measurements: { ...s.measurements, [part]: next },
+      };
+    });
   }, []);
+
+  const measurementSeries = useCallback(
+    (part: string) => state.measurements?.[part] ?? [],
+    [state.measurements],
+  );
+
+  const configureTraining = useCallback(
+    (goal: Goal, days: number, minutes?: number, equipment?: string) => {
+      setState((s) => ({
+        ...s,
+        training: {
+          goal,
+          days,
+          minutes,
+          equipment,
+          // Keep the log, lifted weights and the person's own moves through a re-tune.
+          log: s.training?.log ?? {},
+          custom: s.training?.custom ?? [],
+          weights: s.training?.weights ?? {},
+        },
+      }));
+    },
+    [],
+  );
 
   // Ticking a workout done feeds a streak, so it stamps through the clock guard
   // for the same reason a habit does — a rewound phone can't manufacture a day.
@@ -389,6 +456,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const logExerciseWeight = useCallback((id: string, kg: number) => {
+    if (!isStorableKg(kg)) return;
+    setState((s) => {
+      const base: Training = s.training ?? { goal: "maintain", days: 3, log: {}, custom: [] };
+      const { date, highWater } = trustedStamp(s);
+      const prior = (base.weights?.[id] ?? []).filter((l) => l.date !== date);
+      const next = [...prior, { date, kg }].sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...base, weights: { ...base.weights, [id]: next } },
+      };
+    });
+  }, []);
+
+  // One state write for a whole session: ticking six exercises one by one
+  // would queue six renders and six storage writes.
+  const completeSession = useCallback((ids: string[]) => {
+    setState((s) => {
+      if (!s.training || ids.length === 0) return s;
+      const { date, highWater } = trustedStamp(s);
+      const doneToday = s.training.log[date] ?? [];
+      const merged = [...new Set([...doneToday, ...ids])];
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...s.training, log: { ...s.training.log, [date]: merged } },
+      };
+    });
+  }, []);
+
+  const exerciseLifts = useCallback(
+    (id: string) => state.training?.weights?.[id] ?? [],
+    [state.training],
+  );
+
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
   // monotonic: a device whose clock was set back is snapped up to real time the
@@ -422,24 +525,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       setPantry,
+      setNutritionGoal,
+      setDietFilter,
+      toggleFavorite,
+      isFavorite,
       logMeal,
       removeMeal,
       todayIntake,
       addWater,
       todayWater,
+      addMeasurement,
+      measurementSeries,
       configureTraining,
       toggleExerciseDone,
       isExerciseDone,
       addCustomExercise,
+      completeSession,
+      logExerciseWeight,
+      exerciseLifts,
       noteServerTime,
       reset,
       replaceAll,
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, configureTraining, toggleExerciseDone,
-     isExerciseDone, addCustomExercise, noteServerTime, reset, replaceAll],
+     readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
+     addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
+     toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
+     reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
