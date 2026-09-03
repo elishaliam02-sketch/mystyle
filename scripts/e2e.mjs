@@ -74,6 +74,23 @@ await page.getByRole("button",{name:"אכלתי את זה"}).first().click(); aw
 await page.getByLabel("הסר מהיומן").first().click(); await settle();
 { const s=await st(); check("removing a logged meal empties the diary", (s.intake?.[today]??[]).length===0); }
 
+// 5b) KITCHEN — quick-log: search a food and tap it into the diary
+await page.getByPlaceholder(/מה אכלת/).first().fill("אורז"); await settle();
+check("search shows a result", await page.getByRole("button",{name:"אורז"}).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"אורז"}).first().click(); await settle();
+{ const s=await st(); const items=s.intake?.[today]??[];
+  check("quick-log adds the searched food to the diary",
+    items.some(i=>i.label==="אורז"&&i.kcal>0), JSON.stringify(items)); }
+{ const cleared = await page.getByPlaceholder(/מה אכלת/).first().inputValue();
+  check("the search box clears after logging", cleared==="", cleared); }
+await page.getByPlaceholder(/מה אכלת/).first().fill("קשקושבלבל"); await settle();
+check("a nonsense search says so rather than listing everything",
+  await page.getByText("לא מצאתי. נסה שם אחר או חלק מהמילה.").first().isVisible().catch(()=>false));
+await page.getByPlaceholder(/מה אכלת/).first().fill(""); await settle();
+// tidy up so later assertions start clean
+for (let i=0;i<3;i++){ const b=page.getByLabel("הסר מהיומן").first();
+  if (await b.count()===0) break; await b.click(); await page.waitForTimeout(500); }
+
 // 6) KITCHEN — star a meal
 await page.getByLabel("סמן מנה אהובה").first().click(); await settle();
 { const s=await st(); check("starring a meal stores a favourite", (s.favorites??[]).length===1, JSON.stringify(s.favorites)); }

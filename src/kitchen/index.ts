@@ -221,6 +221,36 @@ export function dietOk(meal: Meal, diet: Diet): boolean {
   return !(hasMeat && hasDairy);
 }
 
+/**
+ * Free-text search across the food library, for logging what you actually ate
+ * rather than only the curated dishes. Matches any of a food's names, ranks an
+ * exact/prefix hit above a mid-word one, and never returns the whole library.
+ *
+ * This is the piece that makes the diary usable for someone who eats a
+ * schnitzel and a pita, not a recipe.
+ */
+export function searchFoods(query: string, limit = 12): Food[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 1) return [];
+  const scored: { food: Food; score: number }[] = [];
+  for (const food of FOODS) {
+    let best = -1;
+    for (const term of [food.he, food.en, ...food.match]) {
+      const t = term.toLowerCase();
+      const at = t.indexOf(q);
+      if (at === -1) continue;
+      // an exact name beats a prefix, a prefix beats a mid-word hit
+      const score = t === q ? 3 : at === 0 ? 2 : 1;
+      if (score > best) best = score;
+    }
+    if (best > 0) scored.push({ food, score: best });
+  }
+  return scored
+    .sort((a, b) => b.score - a.score || a.food.he.localeCompare(b.food.he))
+    .slice(0, limit)
+    .map((x) => x.food);
+}
+
 /** One thing to buy, and how many of the near-miss meals it would unlock. */
 export type ShoppingItem = { food: Food; count: number };
 

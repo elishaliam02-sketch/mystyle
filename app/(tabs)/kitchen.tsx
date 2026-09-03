@@ -13,9 +13,11 @@ import {
   adhocFood,
   dailyTarget,
   dietOk,
+  foodNutrition,
   portion,
   primaryNote,
   readPantryFull,
+  searchFoods,
   shoppingList,
   slotForHour,
   starterMeals,
@@ -31,6 +33,7 @@ import {
   type ShoppingItem,
 } from "@/kitchen";
 import { useStore } from "@/store";
+import { projectGoal } from "@/store/projection";
 import { useTheme } from "@/theme";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
@@ -262,6 +265,17 @@ export default function KitchenScreen() {
 
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
+
+        {/* log anything you ate, not just the curated dishes */}
+        <QuickLog />
+
+        {/* where this pace lands you */}
+        <ProjectionCard />
+
+        {/* how to size a plate with no scale in the house */}
+        <Card label={t.kitchen.portionTitle}>
+          <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.portionBody}</Text>
+        </Card>
 
         {/* meals you starred */}
         {favorites.length > 0 ? (
@@ -527,6 +541,95 @@ function ShoppingCard({ items }: { items: ShoppingItem[] }) {
           </View>
         ))}
       </View>
+    </Card>
+  );
+}
+
+/**
+ * Quick log — search the food library and tap to add it to today's diary.
+ * Someone eating a schnitzel and a pita will never build a recipe first; this
+ * is the path that keeps the diary honest for a real day.
+ */
+function QuickLog() {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { logMeal } = useStore();
+  const [q, setQ] = useState("");
+
+  const hits = useMemo(() => searchFoods(q, 8), [q]);
+
+  return (
+    <Card label={t.kitchen.quickTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.quickHint}</Text>
+      <View style={{ marginTop: space.sm }}>
+        <TextField value={q} onChangeText={setQ} placeholder={t.kitchen.quickPlaceholder} />
+      </View>
+      {q.trim().length > 0 ? (
+        hits.length === 0 ? (
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+            {t.kitchen.quickNone}
+          </Text>
+        ) : (
+          <View style={{ gap: 6, marginTop: space.sm }}>
+            {hits.map((f) => {
+              const n = foodNutrition(f);
+              const p = portion(f.id);
+              const name = locale === "he" ? f.he : f.en;
+              return (
+                <Pressable
+                  key={f.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={name}
+                  onPress={() => {
+                    logMeal(name, n.kcal, n.protein);
+                    setQ("");
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.sm,
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    borderRadius: radius.md,
+                    backgroundColor: colors.surfaceAlt,
+                  }}
+                >
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color }} />
+                  <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                    {name}
+                  </Text>
+                  <Text style={[type.small, { color: colors.inkFaint }]}>
+                    {locale === "he" ? p.he : p.en}
+                  </Text>
+                  <Text style={[type.smallStrong, { color: colors.accent }]}>
+                    ≈{n.kcal} {t.kitchen.kcal}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )
+      ) : null}
+    </Card>
+  );
+}
+
+/** Where the current pace lands you — the answer to "when do I get there?". */
+function ProjectionCard() {
+  const { t } = useI18n();
+  const { colors, type } = useTheme();
+  const { state } = useStore();
+
+  const p = projectGoal(state.weighIns, state.profile.goalKg);
+  if (!p) return null;
+
+  const losing = p.perWeek < 0;
+  const line = losing ? t.kitchen.projBody : t.kitchen.projGain;
+  return (
+    <Card label={t.kitchen.projTitle} tone="accent">
+      <Text style={[type.body, { color: colors.ink }]}>
+        {fill(line, { rate: Math.abs(p.perWeek), togo: p.toGo, weeks: p.weeksLeft })}
+      </Text>
     </Card>
   );
 }

@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
 import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
@@ -228,6 +228,21 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a one-meal item counts once", list.every((i) => i.food.id === "rice" || i.count === 1));
   check("no missing items yields an empty list", shoppingList([]).length === 0);
   check("a fully-ready meal adds nothing", shoppingList([match([])]).length === 0);
+}
+
+// --- searching the food library, for logging what you actually ate
+{
+  check("an empty query returns nothing", searchFoods("").length === 0);
+  check("a Hebrew name is found", searchFoods("אורז").some((f) => f.id === "rice"));
+  check("an English name is found", searchFoods("rice").some((f) => f.id === "rice"));
+  check("a partial word still matches", searchFoods("עגבנ").some((f) => f.id === "tomato"));
+  check("an exact name ranks first", searchFoods("ביצים")[0]?.id === "egg", searchFoods("ביצים")[0]?.id);
+  check("nonsense finds nothing", searchFoods("קשקושבלבל").length === 0);
+  check("results are capped", searchFoods("a", 5).length <= 5);
+  check("no duplicate foods in results", (() => {
+    const r = searchFoods("ג");
+    return new Set(r.map((f) => f.id)).size === r.length;
+  })());
 }
 
 const failed = results.filter(([, ok]) => !ok);
