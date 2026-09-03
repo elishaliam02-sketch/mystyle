@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
@@ -24,8 +24,15 @@ export default function ProfileScreen() {
   const reminders = useReminders();
   const cloud = useCloud();
 
-  const [name, setName] = useState(state.profile.name);
-  const [goal, setGoal] = useState(state.profile.goalKg ? String(state.profile.goalKg) : "");
+  // Seeded empty and filled once the store has loaded from disk: reading state
+  // on the first render caught the profile before it hydrated, so the fields
+  // showed blank — and pressing save then wrote that blank over a real name.
+  const [name, setName] = useState("");
+  const [goal, setGoal] = useState("");
+  useEffect(() => {
+    if (state.profile.name) setName(state.profile.name);
+    if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
+  }, [state.profile.name, state.profile.goalKg]);
 
   function persist() {
     saveProfile({

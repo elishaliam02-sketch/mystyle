@@ -23,7 +23,9 @@ const seed = {
   completions:[],weighIns:[],checkIns:[],
   pantry:"חזה עוף, אורז, ביצים, עגבנייה, יוגורט יווני, בננה",
   nutritionGoal:"cut", dietFilter:"all",
-  training:{goal:"recomp",days:3,minutes:60,equipment:"gym",log:{},custom:[],weights:{}},
+  training:{goal:"recomp",days:3,minutes:60,equipment:"gym",log:{},custom:[],weights:{},
+    // last time this person benched, two days ago — the set table must show it back
+    setLog:{[dayAgo(2)]:{"bench-press":[{kg:70,reps:8,done:true},{kg:70,reps:7,done:true},{kg:65,reps:8,done:true}]}}},
 };
 
 const browser = await chromium.launch({headless:true});
@@ -62,10 +64,39 @@ await page.getByLabel("הורד כוס מים").click(); await page.waitForTimeo
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
 
-// 4) KITCHEN — diet filter persists
+// 3b) KITCHEN — a saved list comes back as a list, not an empty box
+check("a saved pantry is shown back, not re-asked for",
+  await page.getByText("חזה עוף",{exact:true}).first().isVisible().catch(()=>false));
+check("the edit box is not what greets a returning user",
+  (await page.getByRole("button",{name:"בנה לי מנות"}).count())===0);
+await page.getByRole("button",{name:"שנה את הרשימה"}).first().click(); await settle();
+{ const box = page.getByPlaceholder(/לדוגמה: ביצים/).first();
+  check("editing re-opens with the saved list already in the box",
+    (await box.inputValue()).includes("חזה עוף"), await box.inputValue()); }
+await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); await settle();
+
+// 4) KITCHEN — the goal chips visibly re-plate, not just re-sort
+{ const plateText = async () => (await page.getByText(/^שילוב מהמצרכים שלך/).first().textContent().catch(()=>""))??"";
+  await page.getByText("חיטוב",{exact:true}).first().click(); await settle();
+  const cut = await plateText();
+  { const s=await st(); check("the goal chip persists", s.nutritionGoal==="cut", s.nutritionGoal); }
+  check("the cut plate says what it did to the portions", cut.includes("לחיטוב"), cut.slice(0,90));
+  await page.getByText("מסה",{exact:true}).first().click(); await settle();
+  const bulk = await plateText();
+  { const s=await st(); check("switching to bulk persists", s.nutritionGoal==="bulk", s.nutritionGoal); }
+  check("the bulk plate is a different plate", bulk!==cut && bulk.includes("למסה"), bulk.slice(0,90));
+  check("a goal-fit score is shown on the dishes",
+    await page.getByText(/% ל/).first().isVisible().catch(()=>false));
+  await page.getByText("חיטוב",{exact:true}).first().click(); await settle(); }
+
+// 4b) KITCHEN — the diet filter visibly removes dishes
 await page.getByText("כשר",{exact:true}).click(); await settle();
 { const s=await st(); check("diet filter persists", s.dietFilter==="kosher", s.dietFilter); }
+check("the kosher filter reports what it hid",
+  await page.getByText(/מנות בתפריט לא עומדות בסינון/).first().isVisible().catch(()=>false));
 await page.getByText("הכל",{exact:true}).click(); await settle();
+check("the open filter hides nothing",
+  (await page.getByText(/מנות בתפריט לא עומדות בסינון/).count())===0);
 
 // 5) KITCHEN — log a meal, then remove it
 await page.getByRole("button",{name:"אכלתי את זה"}).first().click(); await settle();
@@ -110,19 +141,67 @@ await page.getByRole("button",{name:"הוסף"}).first().click(); await settle()
 { const s=await st(); check("an out-of-range measurement is refused",
    (s.measurements?.waist??[]).every(r=>r.cm!==9999)); }
 
-// 9) WORKOUT — log a weight on an exercise
+// 9) WORKOUT — fill one set at a time, Hevy style
 await go("/workout");
-const ex = page.getByText("לחיצת חזה במוט",{exact:true}).first();
-await ex.click(); await settle();
-await page.getByPlaceholder(/משקל/).first().fill("72.5"); await page.waitForTimeout(200);
-await page.getByRole("button",{name:"רשום"}).first().click(); await settle();
-{ const s=await st(); check("a lifted weight is stored for the exercise",
-   (s.training?.weights?.["bench-press"]??[]).some(l=>l.kg===72.5), JSON.stringify(s.training?.weights)); }
+const kg1 = page.getByLabel(/ק.ג 1$/).first();
+const reps1 = page.getByLabel(/חזרות 1$/).first();
+check("the set table is on screen, not a single weight box", await kg1.isVisible().catch(()=>false));
+check("last session's set is shown in the previous column",
+  await page.getByText("70×8",{exact:true}).first().isVisible().catch(()=>false));
+check("last session's second set is shown too",
+  await page.getByText("70×7",{exact:true}).first().isVisible().catch(()=>false));
+check("the previous weight is offered as the placeholder",
+  (await kg1.getAttribute("placeholder"))==="70", await kg1.getAttribute("placeholder"));
+check("the previous reps are offered too",
+  (await reps1.getAttribute("placeholder"))==="8", await reps1.getAttribute("placeholder"));
+await kg1.fill("72.5"); await page.waitForTimeout(250);
+await reps1.fill("8"); await settle();
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("set 1 stores its own weight and reps", sets[0]?.kg===72.5&&sets[0]?.reps===8, JSON.stringify(sets)); }
+await page.getByLabel(/ק.ג 2$/).first().fill("75"); await page.waitForTimeout(250);
+await page.getByLabel(/חזרות 2$/).first().fill("6"); await settle();
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("set 2 is a separate row, not an overwrite",
+    sets[0]?.kg===72.5&&sets[1]?.kg===75&&sets[1]?.reps===6, JSON.stringify(sets)); }
+
+// 9b) ticking one set marks the exercise done for the day
+await page.getByRole("checkbox",{name:/לחיצת חזה במוט סט 1$/}).first().click(); await settle();
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("ticking a set stores done on that set", sets[0]?.done===true, JSON.stringify(sets));
+  check("a ticked set marks the exercise done for the day",
+    (s.training?.log?.[today]??[]).includes("bench-press"), JSON.stringify(s.training?.log?.[today])); }
+
+// 9b2) progression against last time is shown once a set is ticked
+check("today's volume is shown", await page.getByText(/^נפח: /).first().isVisible().catch(()=>false));
+check("the change against last time is shown",
+  await page.getByText(/% מהפעם הקודמת/).first().isVisible().catch(()=>false));
+
+// 9c) adding and removing a set
+{ const before=(await st()).training?.setLog?.[today]?.["bench-press"]?.length??0;
+  await page.getByRole("button",{name:"+ הוסף סט"}).first().click(); await settle();
+  const after=(await st()).training?.setLog?.[today]?.["bench-press"]?.length??0;
+  check("adding a set grows the table", after===before+1, `${before}→${after}`);
+  await page.getByRole("button",{name:"הסר סט"}).first().click(); await settle();
+  const back=(await st()).training?.setLog?.[today]?.["bench-press"]?.length??0;
+  check("removing a set shrinks it again", back===before, `${after}→${back}`); }
+
+// 9d) the library picker adds an exercise from the 74-move catalogue
+await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill("סקוואט"); await settle();
+{ const hit = page.getByRole("button",{name:"סקוואט",exact:true}).first();
+  check("the library finds a move by name", await hit.isVisible().catch(()=>false));
+  await hit.click(); await settle();
+  const s=await st();
+  check("a library exercise joins today's session",
+    (s.training?.extra?.[today]??[]).includes("squat"), JSON.stringify(s.training?.extra)); }
+await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill("קשקושבלבל"); await settle();
+check("a nonsense exercise search says so",
+  await page.getByText("לא מצאתי תרגיל כזה.").first().isVisible().catch(()=>false));
+await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill(""); await settle();
 
 // 10) WORKOUT — finish the whole session in one press
 await page.getByRole("button",{name:"סמן את כל האימון כבוצע"}).first().click(); await settle();
 { const s=await st(); const done=(s.training?.log?.[today]??[]);
-  check("finishing a session ticks all six of its exercises", done.length===6, String(done.length)); }
+  check("finishing a session ticks every exercise in it", done.length>=6, String(done.length)); }
 
 // 11) WORKOUT — rest timer counts down
 await page.getByText("60",{exact:true}).first().click(); await page.waitForTimeout(1500);
@@ -152,6 +231,14 @@ await go("/progress");
 await page.getByText("ההישגים שלך").first().click(); await settle();
 check("achievements open from the stats card",
   await page.getByText("הישגים",{exact:true}).first().isVisible().catch(()=>false));
+
+// 15) PROFILE — a saved name is shown back, and saving does not blank it
+await go("/profile");
+{ const box = page.getByPlaceholder(/השם שלך|Your name/).first();
+  const shown = await box.inputValue().catch(()=>"");
+  check("the saved name is in the field on open", shown==="טסט", shown); }
+await page.getByRole("button",{name:"נשמר",exact:true}).first().click(); await settle();
+{ const s=await st(); check("saving without editing keeps the name", s.profile.name==="טסט", s.profile.name); }
 
 check("no uncaught page errors during the whole run", crashes.length===0, crashes.join(" | "));
 

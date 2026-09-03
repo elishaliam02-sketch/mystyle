@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -12,8 +12,11 @@ import {
   MEALS,
   adhocFood,
   dailyTarget,
+  dietHidden,
   dietOk,
   foodNutrition,
+  goalFit,
+  plateForGoal,
   portion,
   primaryNote,
   readPantryFull,
@@ -22,7 +25,6 @@ import {
   slotForHour,
   starterMeals,
   suggestMeals,
-  yourPlate,
   type Diet,
   type Food,
   type Goal,
@@ -44,8 +46,18 @@ export default function KitchenScreen() {
   const { state, setPantry, setNutritionGoal, setDietFilter } = useStore();
   const favorites = state.favorites ?? [];
 
-  const [draft, setDraft] = useState(state.pantry ?? "");
-  const [editing, setEditing] = useState(!state.pantry);
+  // The store hydrates from disk a tick after this screen first renders, so
+  // neither of these may be seeded from state: doing so snapshotted an empty
+  // pantry and left someone with a saved list staring at a blank box. The
+  // draft is filled the moment the real list arrives, and the editor is a
+  // derived state — open only while there is nothing saved, or on request.
+  const [draft, setDraft] = useState("");
+  const [forceEdit, setForceEdit] = useState(false);
+  const editing = forceEdit || !state.pantry;
+  const setEditing = (on: boolean) => setForceEdit(on);
+  useEffect(() => {
+    if (state.pantry) setDraft(state.pantry);
+  }, [state.pantry]);
   // The goal and diet are remembered across opens rather than reset each time.
   const goal: Goal = state.nutritionGoal ?? "cut";
   const setGoal = setNutritionGoal;
@@ -66,15 +78,13 @@ export default function KitchenScreen() {
   const full = useMemo(() => readPantryFull(pantryText), [pantryText]);
   const adhocs = useMemo(() => full.extras.map(adhocFood), [full.extras]);
   const allItems = useMemo(() => [...full.known, ...adhocs], [full.known, adhocs]);
-  // A plate built from exactly what the person has, so any list yields a meal.
-  const rawPlate = useMemo(
-    () => (allItems.length >= 2 ? yourPlate(allItems, slot) : null),
-    [allItems, slot],
-  );
-  // The plate is only offered when it also passes the dietary filter.
+  // A plate built from exactly what the person has — but sized and stocked for
+  // the goal they chose, and with anything their diet rules out left off it.
+  // Switching goal or diet visibly rewrites this card; it used to be the same
+  // pile of groceries every time, which is why both controls felt dead.
   const plate = useMemo(
-    () => (rawPlate && dietOk(rawPlate, diet) ? rawPlate : null),
-    [rawPlate, diet],
+    () => plateForGoal(allItems, slot, goal, diet),
+    [allItems, slot, goal, diet],
   );
   // Show only a handful of the best curated picks that pass the diet filter.
   // Each card fetches its own photo on demand — a dozen at once load slowly.
@@ -103,6 +113,12 @@ export default function KitchenScreen() {
     maintain: { label: t.kitchen.goalMaintain, hint: t.kitchen.goalMaintainHint },
     bulk: { label: t.kitchen.goalBulk, hint: t.kitchen.goalBulkHint },
   };
+
+  // How many dishes the dietary filter is holding back, across the whole menu.
+  const hidden = useMemo(
+    () => dietHidden(MEALS.map((meal) => ({ meal, have: [], missing: [], ready: true, fit: 0 })), diet),
+    [diet],
+  );
 
   const hasList = pantryText.trim().length > 0;
   const showAny = Boolean(plate) || ready.length > 0 || almost.length > 0;
@@ -263,6 +279,13 @@ export default function KitchenScreen() {
           })}
         </View>
 
+        {/* proof the filter did something: what it just took off the menu */}
+        {hidden > 0 ? (
+          <Text style={[type.small, { color: colors.inkFaint }]}>
+            {fill(t.kitchen.dietHidden, { n: hidden })}
+          </Text>
+        ) : null}
+
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
 
@@ -282,7 +305,7 @@ export default function KitchenScreen() {
           <>
             <SectionLabel text={t.kitchen.favTitle} />
             {MEALS.filter((m) => favorites.includes(m.id)).map((m) => (
-              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} />
+              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
             ))}
           </>
         ) : null}
@@ -302,6 +325,7 @@ export default function KitchenScreen() {
                   have={new Set<string>()}
                   foodsById={foodsById}
                   units={units}
+                  goal={goal}
                 />
               ))}
           </View>
@@ -314,18 +338,18 @@ export default function KitchenScreen() {
             {plate ? (
               <>
                 <SectionLabel text={t.kitchen.yourPlate} />
-                <MealCard meal={plate} have={haveIds} foodsById={foodsById} units={units} />
+                <MealCard meal={plate} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
               </>
             ) : null}
 
             {ready.length > 0 ? <SectionLabel text={t.kitchen.readyTitle} /> : null}
             {ready.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
             ))}
 
             {almost.length > 0 ? <SectionLabel text={t.kitchen.almostTitle} /> : null}
             {almost.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
             ))}
 
             {almost.length > 0 ? <ShoppingCard items={shoppingList(almost)} /> : null}
@@ -654,9 +678,11 @@ type MealCardProps = {
   have: Set<string>;
   foodsById: Map<string, Food>;
   units: "household" | "grams";
+  /** The goal in force, so each card can say how well it serves it. */
+  goal: Goal;
 };
 
-function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
+function MealCard({ meal, match, have, foodsById, units, goal }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { logMeal, toggleFavorite, isFavorite } = useStore();
@@ -679,6 +705,17 @@ function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
     snack: t.kitchen.slotSnack,
   };
   const note = primaryNote(m);
+  // How well this dish serves the chosen goal. This is the number that makes
+  // the goal chips visible: it is on every card and it moves the moment the
+  // goal changes, rather than only quietly re-sorting the list.
+  const fit = Math.round(goalFit(m, goal) * 100);
+  const goalName: Record<Goal, string> = {
+    cut: t.kitchen.goalCut,
+    recomp: t.kitchen.goalRecomp,
+    maintain: t.kitchen.goalMaintain,
+    bulk: t.kitchen.goalBulk,
+  };
+  const fitColor = fit >= 70 ? colors.accent : fit >= 45 ? colors.amber : colors.inkFaint;
 
   return (
     <Card>
@@ -713,6 +750,24 @@ function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
             {noteLabel[note]} · {slotLabel[m.slot]}
           </Text>
         </View>
+      </View>
+
+      {/* how well this dish serves the goal that is switched on right now */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 6 }}>
+        <View
+          style={{
+            flex: 1,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: colors.surfaceAlt,
+            overflow: "hidden",
+          }}
+        >
+          <View style={{ width: `${fit}%`, height: "100%", backgroundColor: fitColor }} />
+        </View>
+        <Text style={[type.small, { color: fitColor, fontWeight: "700" }]}>
+          {fill(t.kitchen.fitFor, { goal: goalName[goal], pct: fit })}
+        </Text>
       </View>
 
       <Text style={[type.body, { color: colors.inkSoft, marginTop: 4 }]}>{copy.how}</Text>

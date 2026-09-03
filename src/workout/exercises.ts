@@ -369,7 +369,5 @@ export const MUSCLES: Muscle[] = [
   "chest", "back", "shoulders", "legs", "glutes", "arms", "core", "fullbody",
 ];
 
-/** A YouTube search URL that opens a real form demo for an exercise. */
-export function demoUrl(ex: Exercise): string {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.yt)}`;
-}
+// Opening a demo lives in ./video: what the app opens is the exact clip when
+// it can be resolved, and only then the search page — see that file.

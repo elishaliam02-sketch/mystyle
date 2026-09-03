@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
+import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, yourPlate } from "./index";
 import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition } from "./data";
 
@@ -244,6 +244,92 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     return new Set(r.map((f) => f.id)).size === r.length;
   })());
 }
+
+// --- the plate is built for the goal, not just re-sorted
+{
+  const food = (id: string) => FOODS.find((f) => f.id === id)!;
+  const fridge = ["chicken", "rice", "broccoli", "oliveOil", "banana", "yellowCheese"].map(food);
+  const cut = plateForGoal(fridge, "lunch", "cut");
+  const bulk = plateForGoal(fridge, "lunch", "bulk");
+  const recomp = plateForGoal(fridge, "lunch", "recomp");
+  const maintain = plateForGoal(fridge, "lunch", "maintain");
+
+  check("a cut plate exists", !!cut);
+  check("a bulk plate exists", !!bulk);
+  check("cutting drops the carbs", !cut!.uses.includes("rice"), cut!.uses.join());
+  check("cutting drops the oil", !cut!.uses.includes("oliveOil"), cut!.uses.join());
+  check("bulking keeps the carbs", bulk!.uses.includes("rice"), bulk!.uses.join());
+  check("bulking keeps the fats", bulk!.uses.includes("oliveOil"), bulk!.uses.join());
+  check("a bulk plate outweighs a cut plate", bulk!.kcal > cut!.kcal, `${cut!.kcal} vs ${bulk!.kcal}`);
+  check("every goal builds a different plate", new Set([cut, bulk, recomp, maintain].map((m) => `${m!.uses.join()}|${m!.kcal}|${m!.protein}`)).size === 4);
+  check("a cut plate carries more protein per calorie than a bulk one", cut!.protein / cut!.kcal > bulk!.protein / bulk!.kcal);
+  check("the goal is written on the plate", cut!.he.how.includes("לחיטוב") && bulk!.he.how.includes("למסה"));
+  check("lamb is meat", !foodDietOk(food("lamb"), "vegetarian"));
+  check("a bagel is not gluten-free", !foodDietOk(food("bagel"), "glutenFree"));
+  check("the protein survives every goal", [cut, bulk, recomp, maintain].every((m) => m!.uses.includes("chicken")));
+  check("plate items keep the order they were written in", (() => {
+    const order = fridge.map((f) => f.id);
+    const at = maintain!.uses.map((id) => order.indexOf(id));
+    return at.every((n, i) => i === 0 || n > at[i - 1]!);
+  })());
+
+  // the dietary filter rewrites the plate rather than removing it
+  const withPork = ["pork", "rice", "broccoli", "tomato"].map(food);
+  const kosherPlate = plateForGoal(withPork, "lunch", "maintain", "kosher");
+  check("kosher takes the pork off the plate", !!kosherPlate && !kosherPlate.uses.includes("pork"), kosherPlate?.uses.join());
+  check("kosher still serves a plate", !!kosherPlate && kosherPlate.uses.length >= 2);
+  const meatAndDairy = ["chicken", "yellowCheese", "rice", "tomato"].map(food);
+  const noCheese = plateForGoal(meatAndDairy, "lunch", "maintain", "kosher");
+  check("kosher keeps meat and dairy apart", !!noCheese && !noCheese.uses.includes("yellowCheese"), noCheese?.uses.join());
+  const veg = plateForGoal(meatAndDairy, "lunch", "maintain", "vegetarian");
+  check("vegetarian drops the chicken, keeps the cheese", !!veg && !veg.uses.includes("chicken") && veg.uses.includes("yellowCheese"), veg?.uses.join());
+  const gf = plateForGoal(["bread", "chicken", "tomato"].map(food), "lunch", "maintain", "glutenFree");
+  check("gluten-free drops the bread", !!gf && !gf.uses.includes("bread"), gf?.uses.join());
+
+  check("a plate needs two ingredients", plateForGoal([food("chicken")], "lunch", "cut") === null);
+  check("a filter that empties the fridge yields no plate", plateForGoal(["pork", "shrimp"].map(food), "lunch", "cut", "kosher") === null);
+  check("a goal that wants none of the fridge still plates it", (() => {
+    // cutting takes no carbs and no fats — a fridge of only those must still eat
+    const m = plateForGoal(["rice", "pasta", "oliveOil"].map(food), "lunch", "cut");
+    return !!m && m.uses.length >= 2;
+  })());
+  check("no ingredient is used twice", (() => {
+    const m = plateForGoal(fridge, "lunch", "bulk")!;
+    return new Set(m.uses).size === m.uses.length;
+  })());
+  check("a maintenance plate's calories are the plain sum of its parts", (() => {
+    const m = plateForGoal(fridge, "lunch", "maintain")!;
+    const sum = m.uses.reduce((n, id) => n + foodNutrition(food(id)).kcal, 0);
+    return m.kcal === sum;
+  })());
+  check("a scaled plate stays within reach of its parts", (() => {
+    const m = plateForGoal(fridge, "lunch", "bulk")!;
+    const sum = m.uses.reduce((n, id) => n + foodNutrition(food(id)).kcal, 0);
+    return m.kcal > sum && m.kcal < sum * 2;
+  })());
+  check("an unknown food can still be plated", (() => {
+    const m = plateForGoal([adhocFood("שקשוקה"), food("chicken")], "lunch", "maintain");
+    return !!m && m.uses.length === 2;
+  })());
+}
+
+// --- one ingredient against a filter, and what a filter hides
+{
+  const food = (id: string) => FOODS.find((f) => f.id === id)!;
+  check("everything passes the open filter", FOODS.every((f) => foodDietOk(f, "all")));
+  check("pork is not kosher", !foodDietOk(food("pork"), "kosher"));
+  check("fish is kosher", foodDietOk(food("salmon"), "kosher"));
+  check("fish is not vegetarian", !foodDietOk(food("salmon"), "vegetarian"));
+  check("eggs are vegetarian", foodDietOk(food("egg"), "vegetarian"));
+  check("bread has gluten", !foodDietOk(food("bread"), "glutenFree"));
+  check("rice has none", foodDietOk(food("rice"), "glutenFree"));
+
+  const all = MEALS.map((meal) => ({ meal, have: [], missing: [], ready: true, fit: 0 }));
+  check("nothing is hidden by the open filter", dietHidden(all, "all") === 0);
+  check("the kosher filter hides something", dietHidden(all, "kosher") > 0, String(dietHidden(all, "kosher")));
+  check("hidden plus shown is the whole menu", dietHidden(all, "vegetarian") + all.filter((m) => dietOk(m.meal, "vegetarian")).length === all.length);
+}
+
 
 const failed = results.filter(([, ok]) => !ok);
 for (const [name, ok, detail] of results) {

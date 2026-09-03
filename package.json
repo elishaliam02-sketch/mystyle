@@ -55,7 +55,9 @@
     "test:achievements": "node scripts/run-achievements-tests.mjs",
     "test:body": "node scripts/run-body-tests.mjs",
     "test:e2e": "node scripts/e2e.mjs",
-    "test:projection": "node scripts/run-projection-tests.mjs"
+    "test:projection": "node scripts/run-projection-tests.mjs",
+    "test:video": "node scripts/run-video-tests.mjs",
+    "test:sets": "node scripts/run-sets-tests.mjs"
   },
   "private": true
 }

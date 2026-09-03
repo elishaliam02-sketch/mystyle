@@ -16,6 +16,10 @@ export type Training = {
   weights?: Record<string, { date: string; kg: number }[]>;
   /** Local date (YYYY-MM-DD) → ids of exercises ticked that day. */
   log: Record<string, string[]>;
+  /** Set-by-set logging: date → exercise id → its sets (weight, reps, ticked). */
+  setLog?: Record<string, Record<string, { kg: number; reps: number; done: boolean }[]>>;
+  /** Exercises added to a given day on top of the plan: date → exercise ids. */
+  extra?: Record<string, string[]>;
   /** The person's own manually-added moves. */
   custom: Exercise[];
 };
@@ -132,6 +136,9 @@ export type AppState = {
   dietFilter?: string;
   /** Meal ids the person starred, so a dish they love is one tap away. */
   favorites?: string[];
+  /** Exercise id → the YouTube id resolved for its form demo, so the exact
+   * video opens instantly on every tap after the first, and offline too. */
+  videoIds?: Record<string, string>;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -211,5 +218,6 @@ export function migrateState(raw: unknown): AppState {
     nutritionGoal: s.nutritionGoal,
     dietFilter: s.dietFilter,
     favorites: s.favorites,
+    videoIds: s.videoIds,
   };
 }

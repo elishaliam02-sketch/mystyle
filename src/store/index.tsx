@@ -25,6 +25,8 @@ import {
 import { isStorableWeight } from "./weight";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
+import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
+import { demoLink } from "@/workout/video";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -95,6 +97,23 @@ type Store = {
   addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
   /** Ticks every exercise of a session done in one go. */
   completeSession: (ids: string[]) => void;
+  /** Today's sets for an exercise, seeded from the prescribed count. */
+  setsFor: (exerciseId: string, prescribed: number) => SetEntry[];
+  /** Writes one field of one set. */
+  updateSet: (exerciseId: string, index: number, patch: Partial<SetEntry>, prescribed: number) => void;
+  /** Appends an extra set to today's exercise. */
+  addSet: (exerciseId: string, prescribed: number) => void;
+  /** Drops the last set of today's exercise. */
+  removeSet: (exerciseId: string) => void;
+  /** What this exercise looked like the previous time it was trained. */
+  lastSession: (exerciseId: string) => SetEntry[] | null;
+  /** Adds a library exercise to today's session. */
+  addExerciseToday: (exerciseId: string) => void;
+  /** Exercise ids added to today on top of the plan. */
+  todayExtras: () => string[];
+  /** The URL to open for an exercise's form demo: the exact video when it can
+   * be resolved, the search page when it cannot. Remembers what it resolves. */
+  demoFor: (ex: Exercise) => Promise<string>;
   /** Records the weight lifted on an exercise today. */
   logExerciseWeight: (id: string, kg: number) => void;
   /** Every weight logged for an exercise, oldest first. */
@@ -487,9 +506,115 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // --- set-by-set logging -------------------------------------------------
+  const setsFor = useCallback(
+    (exerciseId: string, prescribed: number) => {
+      const d = trustedToday();
+      const stored = state.training?.setLog?.[d]?.[exerciseId];
+      return stored && stored.length > 0 ? stored : blankSets(prescribed);
+    },
+    [state.training, trustedToday],
+  );
+
+  /** Every set write funnels through here so today's rows are created once. */
+  const writeSets = useCallback(
+    (exerciseId: string, prescribed: number, edit: (rows: SetEntry[]) => SetEntry[]) => {
+      setState((s) => {
+        const base: Training = s.training ?? { goal: "maintain", days: 3, log: {}, custom: [] };
+        const { date, highWater } = trustedStamp(s);
+        const day = base.setLog?.[date] ?? {};
+        const current = day[exerciseId]?.length ? day[exerciseId] : blankSets(prescribed);
+        const next = edit(current);
+        // Ticking a set also marks the exercise done for the day, so the
+        // session counters and the streak stay in step with the set table.
+        const anyDone = next.some((r) => r.done);
+        const doneToday = base.log[date] ?? [];
+        const log = {
+          ...base.log,
+          [date]: anyDone
+            ? [...new Set([...doneToday, exerciseId])]
+            : doneToday.filter((x) => x !== exerciseId),
+        };
+        return {
+          ...s,
+          clockHighWaterMs: highWater,
+          training: { ...base, log, setLog: { ...base.setLog, [date]: { ...day, [exerciseId]: next } } },
+        };
+      });
+    },
+    [],
+  );
+
+  const updateSet = useCallback(
+    (exerciseId: string, index: number, patch: Partial<SetEntry>, prescribed: number) => {
+      writeSets(exerciseId, prescribed, (rows) =>
+        rows.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+      );
+    },
+    [writeSets],
+  );
+
+  const addSet = useCallback(
+    (exerciseId: string, prescribed: number) => {
+      writeSets(exerciseId, prescribed, (rows) =>
+        rows.length >= 12 ? rows : [...rows, { kg: 0, reps: 0, done: false }],
+      );
+    },
+    [writeSets],
+  );
+
+  const removeSet = useCallback(
+    (exerciseId: string) => {
+      writeSets(exerciseId, 1, (rows) => (rows.length <= 1 ? rows : rows.slice(0, -1)));
+    },
+    [writeSets],
+  );
+
+  const lastSession = useCallback(
+    (exerciseId: string) => previousSets(state.training?.setLog ?? {}, exerciseId, trustedToday()),
+    [state.training, trustedToday],
+  );
+
+  const addExerciseToday = useCallback((exerciseId: string) => {
+    setState((s) => {
+      const base: Training = s.training ?? { goal: "maintain", days: 3, log: {}, custom: [] };
+      const { date, highWater } = trustedStamp(s);
+      const day = base.extra?.[date] ?? [];
+      if (day.includes(exerciseId)) return s;
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...base, extra: { ...base.extra, [date]: [...day, exerciseId] } },
+      };
+    });
+  }, []);
+
+  const todayExtras = useCallback(
+    () => state.training?.extra?.[trustedToday()] ?? [],
+    [state.training, trustedToday],
+  );
+
   const exerciseLifts = useCallback(
     (id: string) => state.training?.weights?.[id] ?? [],
     [state.training],
+  );
+
+  // Resolving the demo video is a read of the network, so it lives behind the
+  // store rather than in the screen: the id it finds is written into state and
+  // survives a restart, which is what turns "open the video" from a request
+  // into a lookup on every tap but the first.
+  const demoFor = useCallback(
+    (ex: Exercise) =>
+      demoLink(ex, {
+        fetchText: async (url) => {
+          const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+          return res.text();
+        },
+        cache: state.videoIds ?? {},
+        remember: (exerciseId, videoId) =>
+          setState((s) => ({ ...s, videoIds: { ...s.videoIds, [exerciseId]: videoId } })),
+      }),
+    [state.videoIds],
   );
 
   // The server's clock, learned at each sync, pushes the high-water mark
@@ -541,6 +666,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isExerciseDone,
       addCustomExercise,
       completeSession,
+      setsFor,
+      updateSet,
+      addSet,
+      removeSet,
+      lastSession,
+      addExerciseToday,
+      todayExtras,
+      demoFor,
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
@@ -552,7 +685,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
      addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
-     reset, replaceAll],
+     demoFor, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

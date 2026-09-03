@@ -273,6 +273,29 @@ export const MEALS: Meal[] = [
     { title: "בננה עם אגוזים", how: "בננה וחופן אגוזים — אנרגיה מהירה לפני או אחרי אימון." },
     { title: "Banana & nuts", how: "A banana and a handful of nuts — quick energy before or after a workout." },
     ["banana", "nuts"], "snack", ["hearty", "balanced"], 260, 7),
+  // Dishes the dietary filters actually remove. Without these the menu was
+  // entirely kosher already, so turning the kosher filter on changed nothing
+  // on screen — a filter that hides nothing reads as a filter that is broken.
+  M("cheeseburger",
+    { title: "בורגר עם צהובה", how: "קציצת בקר בלחמנייה עם פרוסת גבינה צהובה, עגבנייה ובצל." },
+    { title: "Cheeseburger", how: "A beef patty in a bun with a slice of yellow cheese, tomato and onion." },
+    ["beef", "yellowCheese", "bread", "tomato", "onion"], "dinner", ["hearty", "protein"], 620, 38),
+  M("creamy-beef-pasta",
+    { title: "פסטה בשמנת עם בקר", how: "פסטה ברוטב שמנת עם רצועות בקר ופטריות מוקפצות." },
+    { title: "Creamy beef pasta", how: "Pasta in a cream sauce with strips of beef and sautéed mushrooms." },
+    ["pasta", "beef", "creamCheese", "mushroom"], "dinner", ["hearty", "protein"], 680, 36),
+  M("sausage-cheese-toast",
+    { title: "טוסט נקניק וגבינה", how: "טוסט חם עם נקניק ופרוסת גבינה צהובה, עגבנייה בפנים." },
+    { title: "Sausage & cheese toast", how: "A hot toastie with sausage, yellow cheese and tomato inside." },
+    ["bread", "sausage", "yellowCheese", "tomato"], "lunch", ["hearty"], 520, 26),
+  M("shrimp-stirfry",
+    { title: "שרימפס מוקפץ עם ירקות", how: "שרימפס מוקפץ עם ברוקולי ופלפל בשמן זית, לצד אורז." },
+    { title: "Shrimp stir-fry", how: "Shrimp seared with broccoli and pepper in olive oil, over rice." },
+    ["shrimp", "broccoli", "pepper", "rice", "oliveOil"], "dinner", ["protein", "veg"], 430, 32),
+  M("lamb-yogurt-bowl",
+    { title: "כבש עם יוגורט ובורגול", how: "כבש צלוי על בורגול, כף יוגורט ונענע מעל." },
+    { title: "Lamb & yogurt bowl", how: "Roast lamb over bulgur, a spoon of yogurt and mint on top." },
+    ["lamb", "greekYogurt", "bulgur", "onion"], "dinner", ["hearty", "protein"], 590, 40),
 ];
 
 /**

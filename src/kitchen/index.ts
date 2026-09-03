@@ -1,4 +1,4 @@
-import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type MealSlot } from "./data";
+import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type MealSlot, type FoodTag } from "./data";
 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
 export { FOODS, MEALS, portion, adhocFood, foodNutrition } from "./data";
@@ -197,9 +197,15 @@ export type Diet = "all" | "kosher" | "vegetarian" | "glutenFree";
 // every animal flesh (for the vegetarian filter), and the gluten grains. Fish
 // and eggs are pareve, so fish-with-dairy stays kosher and eggs stay vegetarian.
 const NON_KOSHER = new Set(["pork", "shrimp"]);
-const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage"]);
-const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp"]);
-const GLUTEN = new Set(["bread", "wholeBread", "pasta", "couscous", "tortilla", "oats"]);
+const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage", "lamb"]);
+const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp", "sardines"]);
+const GLUTEN = new Set([
+  "bread", "wholeBread", "pasta", "couscous", "tortilla", "oats",
+  // Oats are only gluten-free when certified, and these four are wheat or
+  // barley in all but name — leaving them out let a "gluten-free" filter
+  // serve a bagel.
+  "bagel", "noodles", "bulgur", "granola", "cornflakes",
+]);
 
 /**
  * Whether a meal passes a dietary filter. Kosher is a practical simplification:
@@ -435,3 +441,152 @@ function stableSeed(s: string): number {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % 100000;
 }
+
+/**
+ * Whether a single ingredient passes a dietary filter on its own. The kosher
+ * meat-and-dairy rule is about a *combination*, so it cannot be judged here —
+ * `plateForGoal` applies it once the plate is assembled.
+ */
+export function foodDietOk(food: Food, diet: Diet): boolean {
+  if (diet === "all") return true;
+  if (diet === "vegetarian") return !FLESH.has(food.id);
+  if (diet === "glutenFree") return !GLUTEN.has(food.id);
+  return !NON_KOSHER.has(food.id);
+}
+
+/**
+ * How many of a set of meals the dietary filter takes off the table. The
+ * kitchen shows this number, because a filter that silently removes nothing
+ * visible is indistinguishable from a filter that is broken.
+ */
+export function dietHidden(matches: MealMatch[], diet: Diet): number {
+  return matches.filter((m) => !dietOk(m.meal, diet)).length;
+}
+
+/**
+ * How many items of each kind a plate takes, per goal. This is what makes the
+ * same fridge produce four different plates: cutting drops the carbs and the
+ * oil and leans on protein and vegetables; a bulk piles on carbs and fats;
+ * recomp is protein-forward but moderate; maintenance is the even plate.
+ */
+const PLATE_SHAPE: Record<Goal, Record<FoodTag, number>> = {
+  cut: { protein: 2, carb: 0, veg: 3, fat: 0, fruit: 1, dairy: 1 },
+  recomp: { protein: 3, carb: 1, veg: 2, fat: 0, fruit: 1, dairy: 1 },
+  maintain: { protein: 2, carb: 2, veg: 2, fat: 1, fruit: 1, dairy: 1 },
+  bulk: { protein: 3, carb: 3, veg: 1, fat: 2, fruit: 1, dairy: 2 },
+};
+
+/** Which kind of food this is, for plate-building. */
+function kindOf(food: Food): FoodTag {
+  return food.tags[0] ?? "carb";
+}
+
+/**
+ * The plate the person's own groceries make *for the goal they chose*.
+ *
+ * The old version dumped every recognised item onto one card, so switching
+ * from cut to bulk changed nothing on screen — the complaint that started this.
+ * Now the goal decides how many of each kind of food go on the plate, and the
+ * dietary filter decides which ingredients are eligible at all, so both
+ * controls visibly rewrite the dish instead of only re-sorting the list below.
+ *
+ * Returns null when nothing survives the filter — two items is the least that
+ * reads as a meal.
+ */
+export function plateForGoal(
+  items: Food[],
+  slot: MealSlot,
+  goal: Goal,
+  diet: Diet = "all",
+): Meal | null {
+  let eligible = items.filter((f) => foodDietOk(f, diet));
+  // Kosher's one combination rule: meat and dairy do not share a plate. The
+  // meat stays (it is the protein the plate is built on), the dairy steps off.
+  if (diet === "kosher" && eligible.some((f) => MEAT.has(f.id))) {
+    eligible = eligible.filter((f) => !f.tags.includes("dairy"));
+  }
+  if (eligible.length < 2) return null;
+
+  const shape = PLATE_SHAPE[goal];
+  // Within a kind, take the items that serve the goal best: the leanest,
+  // most protein-dense ones when cutting or recomping; the most calorie-dense
+  // ones when bulking; the middle ground otherwise.
+  const rank = (f: Food) => {
+    const n = foodNutrition(f);
+    const density = n.kcal > 0 ? n.protein / (n.kcal / 100) : 0;
+    if (goal === "cut") return density * 10 - n.kcal / 100;
+    if (goal === "recomp") return density * 6 + n.protein;
+    if (goal === "bulk") return n.kcal / 10 + n.protein;
+    return density * 4 + n.protein / 2;
+  };
+
+  const byKind = new Map<FoodTag, Food[]>();
+  for (const f of eligible) {
+    const k = kindOf(f);
+    const list = byKind.get(k);
+    if (list) list.push(f);
+    else byKind.set(k, [f]);
+  }
+
+  const chosen: Food[] = [];
+  for (const [kind, list] of byKind) {
+    const take = shape[kind] ?? 1;
+    chosen.push(...[...list].sort((a, b) => rank(b) - rank(a)).slice(0, take));
+  }
+  // A goal that wants none of what is in the fridge must still yield a plate:
+  // top it up with whatever ranks best among the leftovers.
+  if (chosen.length < 2) {
+    const rest = eligible
+      .filter((f) => !chosen.includes(f))
+      .sort((a, b) => rank(b) - rank(a));
+    for (const f of rest) {
+      if (chosen.length >= 2) break;
+      chosen.push(f);
+    }
+  }
+  if (chosen.length < 2) return null;
+
+  // Keep the order the person wrote their list in, so the plate reads back
+  // like their own groceries rather than a re-shuffled set.
+  const ordered = eligible.filter((f) => chosen.includes(f));
+  const base = yourPlate(ordered, slot);
+
+  // A small fridge cannot always yield four different ingredient lists — with
+  // one carb on the shelf, every goal keeps that carb. What still changes is
+  // how much of it goes on the plate, which is the advice a coach would give
+  // anyway: on a cut the protein grows and the carbs and oil shrink; on a bulk
+  // both go up. So the portions carry the goal even when the ingredients cannot.
+  const mult = PLATE_PORTION[goal];
+  let kcal = 0;
+  let protein = 0;
+  for (const f of ordered) {
+    const n = foodNutrition(f);
+    const m = mult[kindOf(f)] ?? 1;
+    kcal += n.kcal * m;
+    protein += n.protein * m;
+  }
+  const note = PORTION_NOTE[goal];
+  return {
+    ...base,
+    kcal: Math.round(kcal),
+    protein: Math.round(protein),
+    he: { ...base.he, how: `${base.he.how} ${note.he}` },
+    en: { ...base.en, how: `${base.en.how} ${note.en}` },
+  };
+}
+
+/** How big each part of the plate is, per goal — see plateForGoal. */
+const PLATE_PORTION: Record<Goal, Partial<Record<FoodTag, number>>> = {
+  cut: { protein: 1.25, carb: 0.6, fat: 0.5, fruit: 0.8 },
+  recomp: { protein: 1.25, carb: 0.85, fat: 0.75 },
+  maintain: {},
+  bulk: { protein: 1.2, carb: 1.6, fat: 1.4, dairy: 1.2, fruit: 1.2 },
+};
+
+/** The one line that tells the person what the goal did to their portions. */
+const PORTION_NOTE: Record<Goal, { he: string; en: string }> = {
+  cut: { he: "לחיטוב: מנת חלבון גדולה, פחמימה ושומן במנה קטנה.", en: "Cutting: a big protein portion, carbs and fat kept small." },
+  recomp: { he: "למיצוק: חלבון מוגדל, פחמימה ושומן מתונים.", en: "Recomp: protein up, carbs and fat moderate." },
+  maintain: { he: "לשמירה: מנות רגילות, צלחת מאוזנת.", en: "Maintaining: normal portions, an even plate." },
+  bulk: { he: "למסה: מנה גדולה — פחמימה ושומן מוגדלים.", en: "Bulking: a big plate — carbs and fat scaled up." },
+};
