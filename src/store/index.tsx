@@ -66,6 +66,10 @@ type Store = {
   setNutritionGoal: (goal: Goal) => void;
   /** Remembers the kitchen's dietary filter across opens. */
   setDietFilter: (diet: string) => void;
+  /** Stars or unstars a meal. */
+  toggleFavorite: (mealId: string) => void;
+  /** True when the meal is starred. */
+  isFavorite: (mealId: string) => boolean;
   /** Logs a meal against today's food diary. */
   logMeal: (label: string, kcal: number, protein: number) => void;
   /** Removes one logged item from today. */
@@ -89,6 +93,8 @@ type Store = {
   isExerciseDone: (id: string) => boolean;
   /** Adds the person's own move to the library, kept device-local. */
   addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
+  /** Ticks every exercise of a session done in one go. */
+  completeSession: (ids: string[]) => void;
   /** Records the weight lifted on an exercise today. */
   logExerciseWeight: (id: string, kg: number) => void;
   /** Every weight logged for an exercise, oldest first. */
@@ -314,6 +320,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, dietFilter: diet }));
   }, []);
 
+  const toggleFavorite = useCallback((mealId: string) => {
+    setState((s) => {
+      const list = s.favorites ?? [];
+      return {
+        ...s,
+        favorites: list.includes(mealId) ? list.filter((m) => m !== mealId) : [...list, mealId],
+      };
+    });
+  }, []);
+
+  const isFavorite = useCallback(
+    (mealId: string) => (state.favorites ?? []).includes(mealId),
+    [state.favorites],
+  );
+
   const logMeal = useCallback((label: string, kcal: number, protein: number) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
@@ -450,6 +471,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // One state write for a whole session: ticking six exercises one by one
+  // would queue six renders and six storage writes.
+  const completeSession = useCallback((ids: string[]) => {
+    setState((s) => {
+      if (!s.training || ids.length === 0) return s;
+      const { date, highWater } = trustedStamp(s);
+      const doneToday = s.training.log[date] ?? [];
+      const merged = [...new Set([...doneToday, ...ids])];
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: { ...s.training, log: { ...s.training.log, [date]: merged } },
+      };
+    });
+  }, []);
+
   const exerciseLifts = useCallback(
     (id: string) => state.training?.weights?.[id] ?? [],
     [state.training],
@@ -490,6 +527,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPantry,
       setNutritionGoal,
       setDietFilter,
+      toggleFavorite,
+      isFavorite,
       logMeal,
       removeMeal,
       todayIntake,
@@ -501,6 +540,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleExerciseDone,
       isExerciseDone,
       addCustomExercise,
+      completeSession,
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
@@ -509,7 +549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, logMeal, removeMeal, todayIntake,
+     readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
      addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      reset, replaceAll],

@@ -9,6 +9,7 @@ import { fill, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   FOODS,
+  MEALS,
   adhocFood,
   dailyTarget,
   dietOk,
@@ -38,6 +39,7 @@ export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { state, setPantry, setNutritionGoal, setDietFilter } = useStore();
+  const favorites = state.favorites ?? [];
 
   const [draft, setDraft] = useState(state.pantry ?? "");
   const [editing, setEditing] = useState(!state.pantry);
@@ -261,6 +263,16 @@ export default function KitchenScreen() {
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
 
+        {/* meals you starred */}
+        {favorites.length > 0 ? (
+          <>
+            <SectionLabel text={t.kitchen.favTitle} />
+            {MEALS.filter((m) => favorites.includes(m.id)).map((m) => (
+              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} />
+            ))}
+          </>
+        ) : null}
+
         {/* meals */}
         {!hasList ? (
           <View style={{ gap: space.md }}>
@@ -407,6 +419,7 @@ function TodayCard({ goal }: { goal: Goal }) {
           <Pressable
             onPress={() => addWater(-1)}
             accessibilityRole="button"
+            accessibilityLabel={t.kitchen.a11yWaterRemove}
             hitSlop={8}
             style={{
               width: 36,
@@ -422,6 +435,7 @@ function TodayCard({ goal }: { goal: Goal }) {
           <Pressable
             onPress={() => addWater(1)}
             accessibilityRole="button"
+            accessibilityLabel={t.kitchen.a11yWaterAdd}
             hitSlop={8}
             style={{
               width: 36,
@@ -457,7 +471,12 @@ function TodayCard({ goal }: { goal: Goal }) {
                 ≈{it.kcal} {t.kitchen.kcal} · {it.protein}
                 {t.kitchen.grams}
               </Text>
-              <Pressable onPress={() => removeMeal(it.id)} accessibilityRole="button" hitSlop={8}>
+              <Pressable
+                onPress={() => removeMeal(it.id)}
+                accessibilityRole="button"
+                accessibilityLabel={t.kitchen.a11yRemoveItem}
+                hitSlop={8}
+              >
                 <Ionicons name="close-circle" size={18} color={colors.inkFaint} />
               </Pressable>
             </View>
@@ -537,8 +556,9 @@ type MealCardProps = {
 function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal } = useStore();
+  const { logMeal, toggleFavorite, isFavorite } = useStore();
   const m = match?.meal ?? meal!;
+  const starred = isFavorite(m.id);
   const copy = locale === "he" ? m.he : m.en;
   const foods = m.uses.map((id) => foodsById.get(id)).filter((f): f is Food => !!f);
 
@@ -564,6 +584,19 @@ function MealCard({ meal, match, have, foodsById, units }: MealCardProps) {
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
+        <Pressable
+          onPress={() => toggleFavorite(m.id)}
+          accessibilityRole="button"
+          accessibilityLabel={t.kitchen.a11yFavorite}
+          accessibilityState={{ selected: starred }}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={starred ? "star" : "star-outline"}
+            size={22}
+            color={starred ? colors.amber : colors.inkFaint}
+          />
+        </Pressable>
         <Text style={[type.title, { color: colors.ink }]}>{copy.title}</Text>
         <View
           style={{

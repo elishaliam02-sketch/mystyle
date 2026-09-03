@@ -130,6 +130,8 @@ export type AppState = {
   nutritionGoal?: Goal;
   /** The kitchen's dietary filter ("all" | "kosher" | "vegetarian"), remembered. */
   dietFilter?: string;
+  /** Meal ids the person starred, so a dish they love is one tap away. */
+  favorites?: string[];
 };
 
 export const EMPTY_STATE: AppState = {
@@ -208,5 +210,6 @@ export function migrateState(raw: unknown): AppState {
     measurements: s.measurements,
     nutritionGoal: s.nutritionGoal,
     dietFilter: s.dietFilter,
+    favorites: s.favorites,
   };
 }

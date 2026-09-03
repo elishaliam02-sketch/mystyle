@@ -26,7 +26,7 @@ const EQUIP = ["gym", "home", "bodyweight"] as const;
 export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, configureTraining, toggleExerciseDone, isExerciseDone, addCustomExercise } =
+  const { state, configureTraining, toggleExerciseDone, isExerciseDone, addCustomExercise, completeSession } =
     useStore();
 
   const training = state.training;
@@ -332,6 +332,14 @@ export default function WorkoutScreen() {
                   onToggle={() => toggleExerciseDone(ex.id)}
                 />
               ))}
+              <Button
+                icon={done === session.exercises.length ? "checkmark-done" : "checkmark"}
+                label={done === session.exercises.length ? t.workout.dayDone : t.workout.finishDay}
+                tone="quiet"
+                disabled={done === session.exercises.length}
+                onPress={() => completeSession(session.exercises.map((e) => e.id))}
+                style={{ marginTop: space.md }}
+              />
             </Card>
           );
         })}
