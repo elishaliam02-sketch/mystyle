@@ -11,6 +11,7 @@ import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 import { MUSCLES, type Equipment, type Muscle } from "@/workout/exercises";
 import { countByMuscle, equipmentKinds, filterExercises } from "@/workout/library";
+import { SelectTile } from "@/components/SelectTile";
 
 /**
  * The whole exercise catalogue, browsable — the Hevy screen.
@@ -242,20 +243,18 @@ export default function LibraryScreen() {
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const { colors, radius, type, space } = useTheme();
   return (
-    <Pressable
+    <SelectTile
+      selected={on}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
       style={{
         paddingVertical: 7,
         paddingHorizontal: space.md,
         borderRadius: radius.pill,
-        backgroundColor: on ? colors.accent : colors.surfaceAlt,
       }}
     >
       <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
         {label}
       </Text>
-    </Pressable>
+    </SelectTile>
   );
 }

@@ -3,6 +3,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
+import { PillButton } from "@/components/PillButton";
+import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
@@ -17,7 +19,7 @@ import {
   type Muscle,
 } from "@/workout/exercises";
 import { buildPlan, type DayType } from "@/workout/plan";
-import { progress } from "@/workout/sets";
+import { clampKg, clampReps, progress } from "@/workout/sets";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
@@ -107,24 +109,22 @@ export default function WorkoutScreen() {
             {GOALS.map((g) => {
               const on = goal === g;
               return (
-                <Pressable
+                <SelectTile
                   key={g}
+                  selected={on}
                   onPress={() => setGoal(g)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
                   style={{
                     flexGrow: 1,
                     flexBasis: "47%",
                     alignItems: "center",
                     paddingVertical: space.md,
                     borderRadius: radius.lg,
-                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
                   }}
                 >
                   <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
                     {goalLabel[g]}
                   </Text>
-                </Pressable>
+                </SelectTile>
               );
             })}
           </View>
@@ -135,21 +135,19 @@ export default function WorkoutScreen() {
             {DAYS.map((d) => {
               const on = days === d;
               return (
-                <Pressable
+                <SelectTile
                   key={d}
+                  selected={on}
                   onPress={() => setDays(d)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
                   style={{
                     flex: 1,
                     alignItems: "center",
                     paddingVertical: space.md,
                     borderRadius: radius.md,
-                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
                   }}
                 >
                   <Text style={[type.title, { color: on ? colors.onAccent : colors.ink }]}>{d}</Text>
-                </Pressable>
+                </SelectTile>
               );
             })}
           </View>
@@ -163,21 +161,19 @@ export default function WorkoutScreen() {
             {MINUTES.map((m) => {
               const on = minutes === m;
               return (
-                <Pressable
+                <SelectTile
                   key={m}
+                  selected={on}
                   onPress={() => setMinutes(m)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
                   style={{
                     flex: 1,
                     alignItems: "center",
                     paddingVertical: space.md,
                     borderRadius: radius.md,
-                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
                   }}
                 >
                   <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>{m}</Text>
-                </Pressable>
+                </SelectTile>
               );
             })}
           </View>
@@ -193,11 +189,10 @@ export default function WorkoutScreen() {
               const label =
                 e === "gym" ? t.workout.equipGym : e === "home" ? t.workout.equipHome : t.workout.equipBody;
               return (
-                <Pressable
+                <SelectTile
                   key={e}
+                  selected={on}
                   onPress={() => setEquipment(e)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
                   style={{
                     flexGrow: 1,
                     flexBasis: "30%",
@@ -205,7 +200,6 @@ export default function WorkoutScreen() {
                     paddingVertical: space.md,
                     paddingHorizontal: space.xs,
                     borderRadius: radius.lg,
-                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
                   }}
                 >
                   <Text
@@ -213,7 +207,7 @@ export default function WorkoutScreen() {
                   >
                     {label}
                   </Text>
-                </Pressable>
+                </SelectTile>
               );
             })}
           </View>
@@ -253,25 +247,7 @@ export default function WorkoutScreen() {
         title={t.workout.heading}
         subtitle={t.workout.body}
         aside={
-          <Pressable
-            onPress={reopenSetup}
-            accessibilityRole="button"
-            hitSlop={8}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              backgroundColor: colors.accent,
-              borderRadius: radius.pill,
-              paddingVertical: 9,
-              paddingHorizontal: 14,
-            }}
-          >
-            <Ionicons name="barbell" size={16} color={colors.onAccent} />
-            <Text style={[type.smallStrong, { color: colors.onAccent }]}>
-              {t.workout.buildShort}
-            </Text>
-          </Pressable>
+          <PillButton icon="barbell" label={t.workout.buildShort} onPress={reopenSetup} />
         }
       >
         <Card tone="accent">
@@ -498,10 +474,8 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
   const doneCount = rows.filter((r) => r.done).length;
   const prog = progress(rows, prev);
 
-  const num = (v: string) => {
-    const n = Number(v.replace(",", "."));
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  };
+  const toKg = (v: string) => clampKg(Number(v.replace(",", ".")));
+  const toReps = (v: string) => clampReps(Number(v.replace(",", ".")));
 
   return (
     <View
@@ -521,27 +495,14 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
           </Text>
         </Pressable>
 
-        <Pressable
+        <PillButton
+          tone="soft"
+          icon="play"
+          label={loadingVideo ? t.workout.watchLoading : t.workout.watch}
           onPress={openDemo}
           disabled={loadingVideo}
-          accessibilityRole="link"
           accessibilityLabel={t.workout.watch}
-          hitSlop={6}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-            backgroundColor: colors.accentWash,
-            borderRadius: radius.pill,
-            paddingVertical: 5,
-            paddingHorizontal: 10,
-          }}
-        >
-          <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>▶</Text>
-          <Text style={[type.small, { color: colors.accent, fontWeight: "700" }]}>
-            {loadingVideo ? t.workout.watchLoading : t.workout.watch}
-          </Text>
-        </Pressable>
+        />
       </View>
 
       {/* set table */}
@@ -577,7 +538,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
 
               <TextInput
                 value={row.kg ? String(row.kg) : ""}
-                onChangeText={(v) => updateSet(ex.id, i, { kg: num(v) }, sets)}
+                onChangeText={(v) => updateSet(ex.id, i, { kg: toKg(v) }, sets)}
                 keyboardType="numeric"
                 placeholder={p && p.kg > 0 ? String(p.kg) : "0"}
                 placeholderTextColor={colors.inkFaint}
@@ -599,7 +560,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
               />
               <TextInput
                 value={row.reps ? String(row.reps) : ""}
-                onChangeText={(v) => updateSet(ex.id, i, { reps: num(v) }, sets)}
+                onChangeText={(v) => updateSet(ex.id, i, { reps: toReps(v) }, sets)}
                 keyboardType="numeric"
                 placeholder={p && p.reps > 0 ? String(p.reps) : "0"}
                 placeholderTextColor={colors.inkFaint}
@@ -646,25 +607,19 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
         })}
 
         <View style={{ flexDirection: "row", gap: space.sm, marginTop: 4 }}>
-          <Pressable
+          <PillButton
+            tone="soft"
+            icon="add"
+            label={t.workout.addSet}
             onPress={() => addSet(ex.id, sets)}
-            accessibilityRole="button"
-            style={{
-              flex: 1,
-              alignItems: "center",
-              paddingVertical: 8,
-              borderRadius: radius.pill,
-              backgroundColor: colors.accentWash,
-            }}
-          >
-            <Text style={[type.smallStrong, { color: colors.accent }]}>{t.workout.addSet}</Text>
-          </Pressable>
+            style={{ flex: 1 }}
+          />
           {rows.length > 1 ? (
             <Pressable
               onPress={() => removeSet(ex.id)}
               accessibilityRole="button"
               style={{
-                paddingVertical: 8,
+                paddingVertical: 9,
                 paddingHorizontal: space.lg,
                 borderRadius: radius.pill,
                 backgroundColor: colors.surfaceAlt,
@@ -698,6 +653,11 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
           ) : null}
           {prog.personalBest ? (
             <Text style={[type.smallStrong, { color: colors.amber }]}>{t.workout.pr}</Text>
+          ) : null}
+          {prog.oneRepMax > 0 ? (
+            <Text style={[type.small, { color: colors.inkFaint }]}>
+              {fill(t.workout.oneRm, { kg: prog.oneRepMax.toLocaleString() })}
+            </Text>
           ) : null}
         </View>
       ) : null}
@@ -856,22 +816,20 @@ function AddExercise({
         {MUSCLES.map((m) => {
           const on = muscle === m;
           return (
-            <Pressable
+            <SelectTile
               key={m}
+              selected={on}
               onPress={() => setMuscle(m)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
               style={{
                 borderRadius: radius.pill,
                 paddingVertical: 6,
                 paddingHorizontal: 12,
-                backgroundColor: on ? colors.accent : colors.surfaceAlt,
               }}
             >
               <Text style={[type.small, { color: on ? colors.onAccent : colors.inkSoft, fontWeight: "700" }]}>
                 {muscleLabel[m]}
               </Text>
-            </Pressable>
+            </SelectTile>
           );
         })}
       </View>

@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
+import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
@@ -436,23 +437,14 @@ function StepsCard() {
       {/* quick nudges, for logging as you go */}
       <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
         {[500, 1000, 2000].map((n) => (
-          <Pressable
+          <PillButton
             key={n}
-            onPress={() => addSteps(n)}
-            accessibilityRole="button"
+            tone="soft"
+            label={fill(t.steps.add, { n })}
             accessibilityLabel={fill(t.steps.add, { n })}
-            style={{
-              flex: 1,
-              alignItems: "center",
-              paddingVertical: 9,
-              borderRadius: radius.pill,
-              backgroundColor: colors.accentWash,
-            }}
-          >
-            <Text style={[type.smallStrong, { color: colors.accent }]}>
-              {fill(t.steps.add, { n })}
-            </Text>
-          </Pressable>
+            onPress={() => addSteps(n)}
+            style={{ flex: 1 }}
+          />
         ))}
       </View>
 

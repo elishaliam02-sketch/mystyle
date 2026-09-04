@@ -7,6 +7,7 @@ import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
+import { SelectTile } from "@/components/SelectTile";
 import {
   bmi,
   checkGoalWeight,
@@ -142,21 +143,18 @@ export default function ProfileScreen() {
             {LOCALES.map(({ id, label }) => {
               const selected = locale === id;
               return (
-                <Pressable
+                <SelectTile
                   key={id}
+                  selected={selected}
                   onPress={() => void setLocale(id)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  style={({ pressed }) => ({
+                  style={{
                     flex: 1,
                     alignItems: "center",
-                    backgroundColor: selected ? colors.accent : "transparent",
                     borderWidth: 1,
                     borderColor: selected ? colors.accent : colors.rule,
                     borderRadius: radius.pill,
                     paddingVertical: space.md,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
+                  }}
                 >
                   <Text
                     style={[
@@ -166,7 +164,7 @@ export default function ProfileScreen() {
                   >
                     {label}
                   </Text>
-                </Pressable>
+                </SelectTile>
               );
             })}
           </View>

@@ -172,6 +172,12 @@ await page.getByLabel(/חזרות 2$/).first().fill("6"); await settle();
   check("set 2 is a separate row, not an overwrite",
     sets[0]?.kg===72.5&&sets[1]?.kg===75&&sets[1]?.reps===6, JSON.stringify(sets)); }
 
+// 9a2) an absurd weight is clamped, not stored raw
+await kg1.fill("999999"); await page.waitForTimeout(250);
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("a typo'd weight is capped at a sane ceiling", sets[0]?.kg===1000, String(sets[0]?.kg)); }
+await kg1.fill("72.5"); await page.waitForTimeout(250);
+
 // 9b) ticking one set marks the exercise done for the day
 await page.getByRole("checkbox",{name:/לחיצת חזה במוט סט 1$/}).first().click(); await settle();
 { const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
@@ -183,10 +189,12 @@ await page.getByRole("checkbox",{name:/לחיצת חזה במוט סט 1$/}).fir
 check("today's volume is shown", await page.getByText(/^נפח: /).first().isVisible().catch(()=>false));
 check("the change against last time is shown",
   await page.getByText(/% מהפעם הקודמת/).first().isVisible().catch(()=>false));
+check("an estimated one-rep-max is shown",
+  await page.getByText(/1RM משוער/).first().isVisible().catch(()=>false));
 
 // 9c) adding and removing a set
 { const before=(await st()).training?.setLog?.[today]?.["bench-press"]?.length??0;
-  await page.getByRole("button",{name:"+ הוסף סט"}).first().click(); await settle();
+  await page.getByRole("button",{name:"הוסף סט"}).first().click(); await settle();
   const after=(await st()).training?.setLog?.[today]?.["bench-press"]?.length??0;
   check("adding a set grows the table", after===before+1, `${before}→${after}`);
   await page.getByRole("button",{name:"הסר סט"}).first().click(); await settle();

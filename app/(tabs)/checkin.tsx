@@ -170,7 +170,17 @@ export default function CheckinScreen() {
               <Button
                 label={t.checkin.edit}
                 tone="quiet"
-                onPress={() => setEditing(true)}
+                onPress={() => {
+                  // Pre-fill from the saved recap at the moment of editing, not
+                  // from a render before the store had loaded — otherwise the
+                  // form opened on the defaults and quietly overwrote the mood
+                  // and note the person had actually saved.
+                  if (existing) {
+                    setMood(existing.mood);
+                    setNote(existing.note);
+                  }
+                  setEditing(true);
+                }}
                 style={{ marginTop: space.md }}
               />
             </Card>

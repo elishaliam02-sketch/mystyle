@@ -11,6 +11,24 @@ export type SetLog = Record<string, Record<string, SetEntry[]>>;
 
 export const MAX_SETS = 12;
 
+/** Sane ceilings for a single set — a bar tops out well under a tonne, and
+ * nobody does a thousand reps. They stop a typo (999999) from poisoning the
+ * volume total and faking a personal best. */
+export const MAX_SET_KG = 1000;
+export const MAX_SET_REPS = 1000;
+
+/** A weight for one set: non-negative, at most half a tonne, one decimal. */
+export function clampKg(n: number): number {
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(MAX_SET_KG, Math.round(n * 10) / 10);
+}
+
+/** Reps for one set: a non-negative whole number, capped. */
+export function clampReps(n: number): number {
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(MAX_SET_REPS, Math.round(n));
+}
+
 /** A fresh, empty session for an exercise the plan prescribes `n` sets of. */
 export function blankSets(n: number): SetEntry[] {
   const count = Math.max(1, Math.min(MAX_SETS, Math.round(n) || 1));
@@ -47,6 +65,24 @@ export function allSetsDone(sets: SetEntry[]): boolean {
   return sets.length > 0 && sets.every((s) => s.done);
 }
 
+/**
+ * Estimated one-rep-max from a working set, by the Epley formula
+ * (1RM = kg x (1 + reps/30)). It is the number lifters actually chase: it lets
+ * 60kg x 10 and 80kg x 5 be compared on one scale, so progress shows even when
+ * the weight on the bar did not change. A single rep is already a max, and a
+ * bodyweight-only set (kg 0) has no meaningful 1RM.
+ */
+export function epley1RM(kg: number, reps: number): number {
+  if (kg <= 0 || reps <= 0) return 0;
+  if (reps === 1) return Math.round(kg * 10) / 10;
+  return Math.round(kg * (1 + reps / 30) * 10) / 10;
+}
+
+/** The best estimated 1RM across a session's completed sets. */
+export function bestOneRepMax(sets: SetEntry[]): number {
+  return sets.reduce((m, s) => (s.done ? Math.max(m, epley1RM(s.kg, s.reps)) : m), 0);
+}
+
 export type Progress = {
   /** Weight moved today, in kg. */
   volume: number;
@@ -56,6 +92,8 @@ export type Progress = {
   deltaPct: number | null;
   /** True when today's heaviest set beats the previous session's. */
   personalBest: boolean;
+  /** Best estimated one-rep-max today, 0 when nothing is done or all bodyweight. */
+  oneRepMax: number;
 };
 
 /**
@@ -75,5 +113,6 @@ export function progress(sets: SetEntry[], prev: SetEntry[] | null): Progress {
     prevVolume,
     deltaPct: prevVolume > 0 ? Math.round(((volume - prevVolume) / prevVolume) * 100) : null,
     personalBest: !!top && (!prevTop || top.kg > prevTop.kg),
+    oneRepMax: bestOneRepMax(sets),
   };
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
+import { PillButton } from "@/components/PillButton";
+import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
@@ -191,34 +193,33 @@ export default function KitchenScreen() {
             {GOALS.map((g) => {
               const on = goal === g;
               return (
-                <Pressable
+                <SelectTile
                   key={g}
+                  selected={on}
                   onPress={() => setGoal(g)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
                   style={{
                     flexGrow: 1,
                     flexBasis: "47%",
                     alignItems: "center",
-                    gap: 2,
                     paddingVertical: space.md,
                     paddingHorizontal: space.xs,
                     borderRadius: radius.lg,
-                    backgroundColor: on ? colors.accent : colors.surfaceAlt,
                   }}
                 >
-                  <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
-                    {goalLabel[g].label}
-                  </Text>
-                  <Text
-                    style={[
-                      type.small,
-                      { color: on ? colors.onAccent : colors.inkFaint, textAlign: "center" },
-                    ]}
-                  >
-                    {goalLabel[g].hint}
-                  </Text>
-                </Pressable>
+                  <View style={{ alignItems: "center", gap: 2 }}>
+                    <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
+                      {goalLabel[g].label}
+                    </Text>
+                    <Text
+                      style={[
+                        type.small,
+                        { color: on ? colors.onAccent : colors.inkFaint, textAlign: "center" },
+                      ]}
+                    >
+                      {goalLabel[g].hint}
+                    </Text>
+                  </View>
+                </SelectTile>
               );
             })}
           </View>
@@ -229,22 +230,20 @@ export default function KitchenScreen() {
           {(["household", "grams"] as const).map((u) => {
             const on = units === u;
             return (
-              <Pressable
+              <SelectTile
                 key={u}
+                selected={on}
                 onPress={() => setUnits(u)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
                 style={{
                   paddingVertical: 8,
                   paddingHorizontal: space.lg,
                   borderRadius: radius.pill,
-                  backgroundColor: on ? colors.accent : colors.surfaceAlt,
                 }}
               >
                 <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
                   {u === "grams" ? t.kitchen.unitsGrams : t.kitchen.unitsHousehold}
                 </Text>
-              </Pressable>
+              </SelectTile>
             );
           })}
         </View>
@@ -262,22 +261,20 @@ export default function KitchenScreen() {
                     ? t.kitchen.dietVeg
                     : t.kitchen.dietGf;
             return (
-              <Pressable
+              <SelectTile
                 key={d}
+                selected={on}
                 onPress={() => setDietFilter(d)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
                 style={{
                   paddingVertical: 8,
                   paddingHorizontal: space.lg,
                   borderRadius: radius.pill,
-                  backgroundColor: on ? colors.accent : colors.surfaceAlt,
                 }}
               >
                 <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
                   {label}
                 </Text>
-              </Pressable>
+              </SelectTile>
             );
           })}
         </View>
@@ -355,24 +352,7 @@ export default function KitchenScreen() {
                 }}
               >
                 <SectionLabel text={t.kitchen.readyTitle} />
-                <Pressable
-                  onPress={shuffleMeals}
-                  accessibilityRole="button"
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 5,
-                    paddingVertical: 7,
-                    paddingHorizontal: space.md,
-                    borderRadius: radius.pill,
-                    backgroundColor: colors.accentWash,
-                  }}
-                >
-                  <Ionicons name="shuffle" size={15} color={colors.accent} />
-                  <Text style={[type.smallStrong, { color: colors.accent }]}>
-                    {t.kitchen.shuffle}
-                  </Text>
-                </Pressable>
+                <PillButton tone="soft" icon="shuffle" label={t.kitchen.shuffle} onPress={shuffleMeals} />
               </View>
             ) : null}
             {ready.map((m) => (
@@ -514,6 +494,11 @@ function TodayCard({ goal }: { goal: Goal }) {
               backgroundColor: colors.accent,
               alignItems: "center",
               justifyContent: "center",
+              shadowColor: colors.accent,
+              shadowOpacity: 0.4,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
             }}
           >
             <Ionicons name="add" size={20} color={colors.onAccent} />

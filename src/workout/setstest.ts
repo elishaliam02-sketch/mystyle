@@ -1,4 +1,4 @@
-import { allSetsDone, blankSets, previousSets, progress, sessionVolume, topSet, type SetLog } from "./sets";
+import { allSetsDone, bestOneRepMax, blankSets, clampKg, clampReps, epley1RM, previousSets, progress, sessionVolume, topSet, type SetLog } from "./sets";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -70,6 +70,43 @@ const S = (kg: number, reps: number, done = true) => ({ kg, reps, done });
   check("an empty session claims nothing", !progress([], last).personalBest && progress([], last).volume === 0);
   check("untouched sets cannot make a best", !progress([S(200, 1, false)], last).personalBest);
   check("last session's volume is reported back", progress([], last).prevVolume === 70 * 8 + 70 * 7 + 65 * 8);
+}
+
+// --- a single set cannot hold an absurd number
+{
+  check("a huge weight is capped", clampKg(999999) === 1000);
+  check("a normal weight is kept", clampKg(72.5) === 72.5);
+  check("weight rounds to one decimal", clampKg(72.55) === 72.6, String(clampKg(72.55)));
+  check("a negative weight becomes zero", clampKg(-5) === 0);
+  check("NaN weight becomes zero", clampKg(Number.NaN) === 0);
+  check("reps are whole numbers", clampReps(8.6) === 9);
+  check("a thousand-and-one reps is capped", clampReps(1001) === 1000);
+  check("negative reps become zero", clampReps(-3) === 0);
+  check("a capped set cannot fake a personal best", (() => {
+    const prev = [{ kg: 100, reps: 5, done: true }];
+    // even a typo'd 999999 is clamped to 1000, still a real PB but a sane one
+    const p = progress([{ kg: clampKg(999999), reps: clampReps(8), done: true }], prev);
+    return p.volume === 1000 * 8 && p.personalBest;
+  })());
+}
+
+// --- estimated one-rep-max
+{
+  check("a single rep is its own max", epley1RM(100, 1) === 100);
+  check("Epley on 100x10 is about 133", epley1RM(100, 10) === 133.3, String(epley1RM(100, 10)));
+  check("more reps at the same weight estimate a higher max", epley1RM(80, 8) > epley1RM(80, 5));
+  check("bodyweight sets have no 1RM", epley1RM(0, 20) === 0);
+  check("zero reps have no 1RM", epley1RM(60, 0) === 0);
+  check("the session 1RM is the best completed set", (() => {
+    const rm = bestOneRepMax([
+      { kg: 60, reps: 10, done: true },
+      { kg: 100, reps: 3, done: true },
+      { kg: 200, reps: 1, done: false },
+    ]);
+    return rm === epley1RM(100, 3);
+  })());
+  check("progress carries the 1RM", progress([{ kg: 100, reps: 5, done: true }], null).oneRepMax === epley1RM(100, 5));
+  check("an all-bodyweight session reports no 1RM", progress([{ kg: 0, reps: 20, done: true }], null).oneRepMax === 0);
 }
 
 const failed = results.filter(([, ok]) => !ok);

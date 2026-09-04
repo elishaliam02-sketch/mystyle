@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
+import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
@@ -108,21 +109,7 @@ function TipOfTheDay() {
         }}
       >
         {!aiTip ? (
-          <Pressable
-            onPress={() => setOffset((o) => o + 1)}
-            accessibilityRole="button"
-            style={({ pressed }) => ({
-              backgroundColor: colors.accent,
-              borderRadius: radius.pill,
-              paddingVertical: space.sm,
-              paddingHorizontal: space.lg,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text style={[type.small, { color: colors.onAccent, fontWeight: "700" }]}>
-              {t.today.tipAnother}
-            </Text>
-          </Pressable>
+          <PillButton tone="soft" label={t.today.tipAnother} onPress={() => setOffset((o) => o + 1)} />
         ) : (
           <View />
         )}
