@@ -7,6 +7,7 @@ import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
+import { signInWithEmail, signOut, signUpWithEmail } from "@/cloud/client";
 import { SelectTile } from "@/components/SelectTile";
 import {
   bmi,
@@ -216,6 +217,8 @@ export default function ProfileScreen() {
           )}
         </Card>
 
+        <AccountCard cloud={cloud} />
+
         <Card label={t.profile.cloudTitle}>
           <Text
             style={[
@@ -270,5 +273,132 @@ export default function ProfileScreen() {
         </Card>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * The account: sign up with an email to back everything up and move it to a new
+ * phone, sign in on another device to pull it down, or sign out. Without an
+ * email the app still works and still syncs — but only to an anonymous account
+ * that a reinstall cannot recover, which is exactly what an email fixes.
+ */
+function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const [mode, setMode] = useState<"in" | "up">("up");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const account = cloud.account;
+  const signedIn = !!account && !account.anonymous;
+
+  const errorText = (code: string): string => {
+    switch (code) {
+      case "exists": return t.account.errExists;
+      case "badLogin": return t.account.errBadLogin;
+      case "weakPassword": return t.account.errWeakPassword;
+      case "badEmail": return t.account.errBadEmail;
+      case "local": return t.account.errLocal;
+      default: return t.account.errGeneric;
+    }
+  };
+
+  async function submit() {
+    if (!email.trim() || password.length < 6) {
+      setNote(t.account.errWeakPassword);
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = mode === "up"
+      ? await signUpWithEmail(email, password)
+      : await signInWithEmail(email, password);
+    setBusy(false);
+    if (!res.ok) {
+      setNote(errorText(res.message));
+      return;
+    }
+    setPassword("");
+    setNote(t.account.done);
+    cloud.refreshAccount();
+    void cloud.sync();
+  }
+
+  async function doSignOut() {
+    setBusy(true);
+    await signOut();
+    setBusy(false);
+    cloud.refreshAccount();
+  }
+
+  if (signedIn) {
+    return (
+      <Card label={t.account.title}>
+        <Text style={[type.bodyStrong, { color: colors.ink }]}>{account!.email}</Text>
+        <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
+        <Button
+          icon="log-out-outline"
+          label={t.account.signOut}
+          tone="quiet"
+          onPress={doSignOut}
+          disabled={busy}
+          style={{ marginTop: space.md }}
+        />
+      </Card>
+    );
+  }
+
+  return (
+    <Card label={t.account.title}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.account.why}</Text>
+
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+        <SelectTile selected={mode === "up"} onPress={() => setMode("up")}
+          style={{ flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 999 }}>
+          <Text style={[type.smallStrong, { color: mode === "up" ? colors.onAccent : colors.inkSoft }]}>
+            {t.account.tabSignUp}
+          </Text>
+        </SelectTile>
+        <SelectTile selected={mode === "in"} onPress={() => setMode("in")}
+          style={{ flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 999 }}>
+          <Text style={[type.smallStrong, { color: mode === "in" ? colors.onAccent : colors.inkSoft }]}>
+            {t.account.tabSignIn}
+          </Text>
+        </SelectTile>
+      </View>
+
+      <View style={{ marginTop: space.md, gap: space.sm }}>
+        <TextField
+          value={email}
+          onChangeText={(v) => { setEmail(v); if (note) setNote(null); }}
+          label={t.account.email}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+        />
+        <TextField
+          value={password}
+          onChangeText={(v) => { setPassword(v); if (note) setNote(null); }}
+          label={t.account.password}
+          placeholder={t.account.passwordHint}
+          secureTextEntry
+        />
+      </View>
+
+      {note ? (
+        <Text style={[type.small, { color: note === t.account.done ? colors.accent : colors.alert, marginTop: space.xs }]}>
+          {note}
+        </Text>
+      ) : null}
+
+      <Button
+        icon="cloud-done-outline"
+        label={mode === "up" ? t.account.createCta : t.account.signInCta}
+        onPress={submit}
+        disabled={busy}
+        style={{ marginTop: space.md }}
+      />
+    </Card>
   );
 }

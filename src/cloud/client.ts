@@ -65,3 +65,79 @@ export async function ensureSession(): Promise<
     return { ok: false, reason: "local" };
   }
 }
+
+export type AccountInfo = { userId: string; email: string | null; anonymous: boolean };
+
+/** Who is signed in right now, or null when local-only. */
+export async function currentAccount(): Promise<AccountInfo | null> {
+  const db = supabase();
+  if (!db) return null;
+  try {
+    const { data } = await db.auth.getUser();
+    const u = data.user;
+    if (!u) return null;
+    return { userId: u.id, email: u.email ?? null, anonymous: !u.email };
+  } catch {
+    return null;
+  }
+}
+
+export type AuthResult = { ok: true } | { ok: false; message: string };
+
+function readableError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("already registered") || m.includes("already been registered")) return "exists";
+  if (m.includes("invalid login")) return "badLogin";
+  if (m.includes("password")) return "weakPassword";
+  if (m.includes("email")) return "badEmail";
+  return "generic";
+}
+
+/**
+ * Turn the current (anonymous) account into a permanent email one, WITHOUT
+ * losing anything: updateUser keeps the same user id, so every row already
+ * synced stays the person's. This is what makes "sign up" safe — the data you
+ * built up before you had an email comes with you.
+ */
+export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
+  const db = supabase();
+  if (!db) return { ok: false, message: "local" };
+  try {
+    // Make sure there is a session (anonymous) to upgrade, so the id is kept.
+    await ensureSession();
+    const { error } = await db.auth.updateUser({ email: email.trim(), password });
+    if (error) {
+      // A brand-new anonymous user updateUser can fail on some setups; fall
+      // back to a normal sign-up so the person still gets an account.
+      const signUp = await db.auth.signUp({ email: email.trim(), password });
+      if (signUp.error) return { ok: false, message: readableError(signUp.error.message) };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "local" };
+  }
+}
+
+/** Sign in to an existing email account on this device. */
+export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
+  const db = supabase();
+  if (!db) return { ok: false, message: "local" };
+  try {
+    const { error } = await db.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) return { ok: false, message: readableError(error.message) };
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "local" };
+  }
+}
+
+/** Sign out and drop back to a fresh anonymous, local-first session. */
+export async function signOut(): Promise<void> {
+  const db = supabase();
+  if (!db) return;
+  try {
+    await db.auth.signOut();
+  } catch {
+    // best effort
+  }
+}

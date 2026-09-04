@@ -159,6 +159,12 @@ export type AppState = {
   salt?: string;
   /** Bumped by the shuffle button, to re-roll today's picks on demand. */
   mealShuffle?: number;
+  /** Backup bookkeeping (device-local, never itself backed up): a signature of
+   * the last backed-up data, when it was last uploaded, and the server stamp
+   * this device last adopted. */
+  backupSig?: string;
+  backupAt?: string;
+  backupSeenAt?: string;
   /** Exercise id → the YouTube id resolved for its form demo, so the exact
    * video opens instantly on every tap after the first, and offline too. */
   videoIds?: Record<string, string>;
@@ -247,5 +253,8 @@ export function migrateState(raw: unknown): AppState {
     stepGoal: s.stepGoal,
     salt: s.salt,
     mealShuffle: s.mealShuffle,
+    backupSig: s.backupSig,
+    backupAt: s.backupAt,
+    backupSeenAt: s.backupSeenAt,
   };
 }

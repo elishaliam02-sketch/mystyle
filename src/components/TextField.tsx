@@ -10,6 +10,8 @@ type Props = {
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   autoFocus?: boolean;
+  secureTextEntry?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
   onSubmitEditing?: () => void;
 };
 
@@ -21,6 +23,8 @@ export function TextField({
   keyboardType,
   multiline,
   autoFocus,
+  secureTextEntry,
+  autoCapitalize,
   onSubmitEditing,
 }: Props) {
   const { colors, space, radius, type } = useTheme();
@@ -41,6 +45,10 @@ export function TextField({
         keyboardType={keyboardType}
         multiline={multiline}
         autoFocus={autoFocus}
+        secureTextEntry={secureTextEntry}
+        // Emails and passwords must not be auto-capitalised.
+        autoCapitalize={autoCapitalize ?? (keyboardType === "email-address" ? "none" : undefined)}
+        autoCorrect={secureTextEntry || keyboardType === "email-address" ? false : undefined}
         onSubmitEditing={onSubmitEditing}
         returnKeyType={onSubmitEditing ? "done" : undefined}
         // Numeric fields stay LTR even in Hebrew, or the digits read backwards.
