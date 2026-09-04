@@ -11,6 +11,12 @@ export type Training = {
   minutes?: number;
   /** Which equipment the plan is built for: "gym" | "home" | "bodyweight". */
   equipment?: string;
+  /** Muscle groups the person flagged as weak, so a generated plan leads with
+   * them. Muscle ids from the workout library. */
+  focus?: string[];
+  /** The salt this plan's exercise rotation was rolled from. Bumping it (the
+   * "regenerate" button) re-rolls the exact moves without changing the goal. */
+  planSeed?: string;
   /** Weight lifted per exercise over time (exercise id → readings), so each
    * session can show what was moved last time — progressive overload. */
   weights?: Record<string, { date: string; kg: number }[]>;
@@ -130,6 +136,8 @@ export type AppState = {
   intake?: Record<string, IntakeItem[]>;
   /** Glasses of water logged each day (YYYY-MM-DD → count). */
   water?: Record<string, number>;
+  /** The person's chosen daily water goal, in cups. Undefined = derive from weight. */
+  waterGoal?: number;
   /** Tape-measure readings per body part (part id → readings over time). */
   measurements?: Record<string, { date: string; cm: number }[]>;
   /** The nutrition goal the kitchen was last set to, so it is remembered
@@ -229,6 +237,7 @@ export function migrateState(raw: unknown): AppState {
     training: s.training,
     intake: s.intake,
     water: s.water,
+    waterGoal: s.waterGoal,
     measurements: s.measurements,
     nutritionGoal: s.nutritionGoal,
     dietFilter: s.dietFilter,

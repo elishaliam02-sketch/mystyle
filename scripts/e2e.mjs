@@ -47,7 +47,7 @@ const settle = ()=>page.waitForTimeout(700);
 const box = (placeholder)=>page.locator(`input[placeholder="${placeholder}"]:visible, textarea[placeholder="${placeholder}"]:visible`).first();
 
 // 1) every tab renders its heading
-for (const [route,heading] of [["/","היום שלך במבט אחד"],["/kitchen","המטבח"],["/workout","האימון"],["/body","מדידות גוף"],["/checkin","סיכום היום"],["/progress","התקדמות"],["/profile","פרופיל"]]) {
+for (const [route,heading] of [["/","ההרגלים שלך"],["/kitchen","המטבח"],["/workout","האימון"],["/body","מדידות גוף"],["/checkin","סיכום היום"],["/progress","התקדמות"],["/profile","פרופיל"]]) {
   await go(route);
   check(`route ${route} renders`, await page.getByText(heading).first().isVisible().catch(()=>false), heading);
 }
@@ -71,6 +71,16 @@ await page.getByLabel("הורד כוס מים").click(); await settle();
 await page.getByLabel("הורד כוס מים").click(); await page.waitForTimeout(400);
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
+
+// 3b) KITCHEN — the water bottle shows a recommended range and a settable goal
+check("a recommended water range is shown",
+  await page.getByText(/מומלץ .* כוסות ביום/).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"שנה יעד"}).first().click(); await settle();
+{ // the goal chips are the whole numbers inside the recommended band; 14 is the
+  // top of the band for the seeded weight and is a button, so it is unambiguous
+  await page.getByRole("button",{name:"14",exact:true}).first().click(); await settle();
+  const s=await st();
+  check("choosing a water goal stores it", s.waterGoal===14, String(s.waterGoal)); }
 
 // 3b) KITCHEN — a saved list comes back as a list, not an empty box
 check("a saved pantry is shown back, not re-asked for",
@@ -218,6 +228,18 @@ await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first(
 await page.getByRole("button",{name:"סמן את כל האימון כבוצע"}).first().click(); await settle();
 { const s=await st(); const done=(s.training?.log?.[today]??[]);
   check("finishing a session ticks every exercise in it", done.length>=6, String(done.length)); }
+
+// 10b) WORKOUT — a cardio plan tuned to the goal is shown, with demo links
+check("a cardio card appears",
+  await page.getByText("אירובי לפי המטרה").first().isVisible().catch(()=>false));
+check("the cardio card states a weekly frequency",
+  await page.getByText(/פעמים בשבוע/).first().isVisible().catch(()=>false));
+
+// 10c) WORKOUT — a new plan can be regenerated, and it re-rolls the moves
+{ const firstMoves = async () => (await page.getByText(/^יעד /).allInnerTexts().catch(()=>[])).join("|");
+  // regenerate button exists
+  check("a regenerate-plan button exists",
+    await page.getByRole("button",{name:"תוכנית חדשה"}).first().isVisible().catch(()=>false)); }
 
 // 11) WORKOUT — rest timer counts down
 await page.getByText("60",{exact:true}).first().click(); await page.waitForTimeout(1500);

@@ -59,6 +59,7 @@
     "test:video": "node scripts/run-video-tests.mjs",
     "test:health": "node scripts/run-health-tests.mjs",
     "test:reminders": "node scripts/run-reminder-tests.mjs",
+    "test:cardio": "node scripts/run-cardio-tests.mjs",
     "test:sets": "node scripts/run-sets-tests.mjs"
   },
   "private": true

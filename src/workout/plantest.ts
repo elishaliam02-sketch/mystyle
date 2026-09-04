@@ -206,6 +206,70 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   }
 }
 
+// --- a plan is this person's, shaped by the goal, and can lead with weak muscles
+{
+  const ids = (pl: ReturnType<typeof buildPlan>) =>
+    pl.sessions.map((d) => d.exercises.map((e) => e.id).join(",")).join("|");
+
+  check("two people with the same inputs get different plans",
+    ids(buildPlan("recomp", 3, 60, "gym", { seed: "userA" })) !==
+      ids(buildPlan("recomp", 3, 60, "gym", { seed: "userB" })));
+  check("the same person gets the same plan twice",
+    ids(buildPlan("recomp", 3, 60, "gym", { seed: "userA" })) ===
+      ids(buildPlan("recomp", 3, 60, "gym", { seed: "userA" })));
+  check("changing the goal changes the exercises, not just the sets",
+    ids(buildPlan("cut", 3, 60, "gym", { seed: "userA" })) !==
+      ids(buildPlan("bulk", 3, 60, "gym", { seed: "userA" })));
+  check("a bulk plan leans on more compounds than a cut plan", (() => {
+    const compoundShare = (g: "cut" | "bulk") => {
+      const pl = buildPlan(g, 4, 60, "gym", { seed: "userA" });
+      const all = pl.sessions.flatMap((d) => d.exercises);
+      return all.filter((e) => e.compound).length / all.length;
+    };
+    return compoundShare("bulk") > compoundShare("cut");
+  })());
+  check("regenerating (a new seed) re-rolls the moves",
+    ids(buildPlan("recomp", 3, 60, "gym", { seed: "s1" })) !==
+      ids(buildPlan("recomp", 3, 60, "gym", { seed: "s2" })));
+
+  // weak-muscle focus
+  const focused = buildPlan("recomp", 3, 60, "gym", { seed: "userA", focus: ["arms"] });
+  check("a focus muscle leads the session that trains it", (() => {
+    // push day (index 0) trains arms; the opening move should be an arms move
+    return focused.sessions[0]!.exercises[0]!.muscle === "arms";
+  })(), focused.sessions[0]!.exercises[0]!.muscle);
+  check("a focus muscle gets more of the session", (() => {
+    const armsIn = (pl: ReturnType<typeof buildPlan>) =>
+      pl.sessions[0]!.exercises.filter((e) => e.muscle === "arms").length;
+    return armsIn(focused) > armsIn(buildPlan("recomp", 3, 60, "gym", { seed: "userA" }));
+  })());
+  check("a leg-day focus does not force arms onto leg day", (() => {
+    const legFocus = buildPlan("recomp", 3, 60, "gym", { seed: "userA", focus: ["legs"] });
+    const legDay = legFocus.sessions[2]!; // push, pull, legs
+    return legDay.exercises.some((e) => e.muscle === "legs");
+  })());
+  check("focus still builds a full session", focused.sessions.every((d) => d.exercises.length >= 4));
+  check("no session repeats an exercise even with focus",
+    focused.sessions.every((d) => new Set(d.exercises.map((e) => e.id)).size === d.exercises.length));
+
+  // every combination still fills, now with a seed and focus in the mix
+  check("every goal/day/kit still builds full sessions with a seed", (() => {
+    for (const goal of ["cut", "recomp", "maintain", "bulk"] as const) {
+      for (const days of [2, 3, 4, 5, 6]) {
+        for (const kit of ["gym", "home", "bodyweight"]) {
+          const pl = buildPlan(goal, days, 60, kit, { seed: "x", focus: ["chest", "back"] });
+          if (pl.sessions.length !== days) return false;
+          for (const d of pl.sessions) {
+            if (d.exercises.length === 0) return false;
+            if (new Set(d.exercises.map((e) => e.id)).size !== d.exercises.length) return false;
+          }
+        }
+      }
+    }
+    return true;
+  })());
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

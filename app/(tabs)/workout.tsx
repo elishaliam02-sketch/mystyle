@@ -20,6 +20,7 @@ import {
 } from "@/workout/exercises";
 import { buildPlan, type DayType } from "@/workout/plan";
 import { clampKg, clampReps, progress } from "@/workout/sets";
+import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
@@ -30,7 +31,7 @@ const EQUIP = ["gym", "home", "bodyweight"] as const;
 export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, configureTraining, isExerciseDone, addCustomExercise, completeSession,
+  const { state, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
     addExerciseToday, todayExtras } = useStore();
 
   const training = state.training;
@@ -38,6 +39,8 @@ export default function WorkoutScreen() {
   const [days, setDays] = useState<number>(training?.days ?? 3);
   const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
   const [equipment, setEquipment] = useState<string>(training?.equipment ?? "gym");
+  // Weak muscles the person wants the generated plan to lead with.
+  const [focus, setFocus] = useState<Muscle[]>((training?.focus as Muscle[]) ?? []);
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -73,16 +76,20 @@ export default function WorkoutScreen() {
     cardio: t.workout.muscleCardio,
   };
 
+  const seed = planSeed();
   const plan = useMemo(
     () =>
       training
-        ? buildPlan(training.goal, training.days, training.minutes, training.equipment)
+        ? buildPlan(training.goal, training.days, training.minutes, training.equipment, {
+            seed,
+            focus: (training.focus as Muscle[]) ?? [],
+          })
         : null,
-    [training],
+    [training, seed],
   );
 
   function build() {
-    configureTraining(goal, days, minutes, equipment);
+    configureTraining(goal, days, minutes, equipment, focus);
     setForceSetup(false);
   }
 
@@ -92,6 +99,7 @@ export default function WorkoutScreen() {
       setDays(training.days);
       setMinutes(training.minutes ?? 45);
       setEquipment(training.equipment ?? "gym");
+      setFocus((training.focus as Muscle[]) ?? []);
     }
     setForceSetup(true);
   }
@@ -213,6 +221,30 @@ export default function WorkoutScreen() {
           </View>
         </Card>
 
+        {/* weak-muscle focus — the generated plan leads with these */}
+        <Card label={t.workout.focusTitle}>
+          <Text style={[type.small, { color: colors.inkSoft }]}>{t.workout.focusHint}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.sm }}>
+            {FOCUS_MUSCLES.map((m) => {
+              const on = focus.includes(m);
+              return (
+                <SelectTile
+                  key={m}
+                  selected={on}
+                  onPress={() =>
+                    setFocus((f) => (f.includes(m) ? f.filter((x) => x !== m) : [...f, m]))
+                  }
+                  style={{ borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 12 }}
+                >
+                  <Text style={[type.small, { color: on ? colors.onAccent : colors.inkSoft, fontWeight: "700" }]}>
+                    {muscleLabel[m]}
+                  </Text>
+                </SelectTile>
+              );
+            })}
+          </View>
+        </Card>
+
         <Button icon="barbell" label={t.workout.build} onPress={build} />
 
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
@@ -224,6 +256,8 @@ export default function WorkoutScreen() {
 
   // ---- the built plan ----
   const custom = training.custom;
+  const focusList = ((training.focus as Muscle[]) ?? []).map((m) => muscleLabel[m]);
+  const focusNote = focusList.length ? fill(t.workout.focusNote, { muscles: focusList.join(", ") }) : null;
 
   // Exercises pulled in from the library for today, shown on the first session.
   const extraIds = todayExtras();
@@ -258,12 +292,25 @@ export default function WorkoutScreen() {
             {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
             {plan.minutes ? ` · ${fill(t.workout.session, { min: plan.minutes })}` : ""}
           </Text>
-          <Button
-            label={t.workout.change}
-            tone="quiet"
-            onPress={reopenSetup}
-            style={{ marginTop: space.md }}
-          />
+          {focusNote ? (
+            <Text style={[type.small, { color: colors.accent, fontWeight: "700", marginTop: 4 }]}>
+              {focusNote}
+            </Text>
+          ) : null}
+          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+            <Button
+              label={t.workout.change}
+              tone="quiet"
+              onPress={reopenSetup}
+              style={{ flex: 1 }}
+            />
+            <PillButton
+              tone="soft"
+              icon="shuffle"
+              label={t.workout.regenerate}
+              onPress={regeneratePlan}
+            />
+          </View>
         </Card>
 
         {workoutDays > 0 ? (
@@ -286,6 +333,8 @@ export default function WorkoutScreen() {
         ) : null}
 
         <RestTimer />
+
+        <CardioCard goal={training.goal} seed={seed} />
 
         {plan.sessions.map((session, i) => {
           const done = session.exercises.filter((e) => isExerciseDone(e.id)).length;
@@ -356,6 +405,82 @@ export default function WorkoutScreen() {
 }
 
 const REST_PRESETS = [60, 90, 120];
+
+/**
+ * The cardio card — conditioning tailored to the goal and rolled from the same
+ * per-device seed as the plan, so it truly differs between a cut and a bulk and
+ * between one person and the next. Each row opens its own demo video.
+ */
+function CardioCard({ goal, seed }: { goal: Goal; seed: string }) {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { demoFor } = useStore();
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const plan = useMemo(() => cardioPlan(goal, seed), [goal, seed]);
+  if (plan.sessions.length === 0) return null;
+
+  const openDemo = async (exerciseId: string) => {
+    const ex = EXERCISES.find((e) => e.id === exerciseId);
+    if (!ex) return;
+    setLoading(exerciseId);
+    try {
+      Linking.openURL(await demoFor(ex));
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <Card label={t.workout.cardioTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>
+        {fill(t.workout.cardioPerWeek, { n: plan.perWeek })} · {locale === "he" ? plan.he : plan.en}
+      </Text>
+      <View style={{ gap: 6, marginTop: space.md }}>
+        {plan.sessions.map((s, i) => (
+          <View
+            key={`${s.exerciseId}-${i}`}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              paddingVertical: 9,
+              paddingHorizontal: space.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surfaceAlt,
+            }}
+          >
+            <Ionicons
+              name={s.style === "interval" ? "flash" : "walk"}
+              size={18}
+              color={s.style === "interval" ? colors.accent : colors.inkSoft}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
+                {locale === "he" ? s.he : s.en}
+              </Text>
+              <Text style={[type.small, { color: colors.inkFaint }]}>
+                {s.style === "interval" ? t.workout.cardioInterval : t.workout.cardioSteady} ·{" "}
+                {fill(t.workout.cardioMin, { min: s.minutes })}
+              </Text>
+            </View>
+            <PillButton
+              tone="soft"
+              icon="play"
+              label={loading === s.exerciseId ? t.workout.watchLoading : t.workout.watch}
+              onPress={() => openDemo(s.exerciseId)}
+              disabled={loading === s.exerciseId}
+              accessibilityLabel={t.workout.watch}
+            />
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+/** The muscles a person can flag as weak — the everyday ones, not "full body". */
+const FOCUS_MUSCLES: Muscle[] = ["chest", "back", "shoulders", "legs", "glutes", "arms", "core"];
 
 function RestTimer() {
   const { t } = useI18n();

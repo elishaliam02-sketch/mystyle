@@ -3,6 +3,8 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-nat
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
+import { WaterBottle } from "@/components/WaterBottle";
+import { fillFraction, recommendedRange, waterStatus } from "@/health/water";
 import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
 import { Screen } from "@/components/Screen";
@@ -376,7 +378,7 @@ export default function KitchenScreen() {
   );
 }
 
-const WATER_GOAL = 8;
+
 
 function Bar({ pct, over }: { pct: number; over: boolean }) {
   const { colors } = useTheme();
@@ -402,15 +404,126 @@ function Bar({ pct, over }: { pct: number; over: boolean }) {
   );
 }
 
+/**
+ * The water tracker: a bottle that visibly fills with each cup, the recommended
+ * range for the person's weight, their own adjustable goal, and a gentle flag
+ * if they go well over. The fill animates, so a tap has a bit of life.
+ */
+function WaterBlock() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, addWater, todayWater, waterGoal, setWaterGoal } = useStore();
+  const [editing, setEditing] = useState(false);
+
+  const cups = todayWater();
+  const goal = waterGoal();
+  const weightKg =
+    [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
+    state.profile.startKg;
+  const range = recommendedRange(weightKg);
+  const status = waterStatus(cups, goal, weightKg);
+  const pct = fillFraction(cups, goal);
+  const statusText =
+    status === "over"
+      ? t.kitchen.waterOver
+      : status === "met"
+        ? t.kitchen.waterMet
+        : cups === 0
+          ? t.kitchen.waterStart
+          : t.kitchen.waterKeep;
+
+  return (
+    <View style={{ marginTop: space.lg }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+        <WaterBottle fill={pct} met={cups >= goal} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={[type.figure, { color: colors.ink }]}>
+            {cups}
+            <Text style={[type.small, { color: colors.inkFaint }]}> / {goal} {t.kitchen.cups}</Text>
+          </Text>
+          <Text style={[type.small, { color: status === "over" ? colors.amber : status === "met" ? colors.accent : colors.inkSoft }]}>
+            {statusText}
+          </Text>
+          <Text style={[type.small, { color: colors.inkFaint }]}>
+            {fill(t.kitchen.waterRange, { min: range.min, max: range.max })}
+          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 4 }}>
+            <Pressable
+              onPress={() => addWater(-1)}
+              accessibilityRole="button"
+              accessibilityLabel={t.kitchen.a11yWaterRemove}
+              hitSlop={8}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.pill,
+                backgroundColor: colors.surfaceAlt,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="remove" size={22} color={colors.ink} />
+            </Pressable>
+            <Pressable
+              onPress={() => addWater(1)}
+              accessibilityRole="button"
+              accessibilityLabel={t.kitchen.a11yWaterAdd}
+              hitSlop={8}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.pill,
+                backgroundColor: colors.accent,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: colors.accent,
+                shadowOpacity: 0.4,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              }}
+            >
+              <Ionicons name="add" size={22} color={colors.onAccent} />
+            </Pressable>
+            <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" hitSlop={8}>
+              <Text style={[type.smallStrong, { color: colors.accent }]}>{t.kitchen.waterEditGoal}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      {editing ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.md }}>
+          {Array.from({ length: range.max - range.min + 1 }, (_, i) => range.min + i).map((n) => (
+            <SelectTile
+              key={n}
+              selected={goal === n}
+              onPress={() => {
+                setWaterGoal(n);
+                setEditing(false);
+              }}
+              style={{ borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 14 }}
+            >
+              <Text style={[type.smallStrong, { color: goal === n ? colors.onAccent : colors.inkSoft }]}>
+                {n}
+              </Text>
+            </SelectTile>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function TodayCard({ goal }: { goal: Goal }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, todayIntake, removeMeal, addWater, todayWater } = useStore();
+  const { state, todayIntake, removeMeal } = useStore();
 
   const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
   const target = dailyTarget(weightKg, goal);
   const eaten = todayIntake();
-  const water = todayWater();
 
   const kcalLeft = target.kcal - eaten.kcal;
   const proLeft = target.protein - eaten.protein;
@@ -450,61 +563,8 @@ function TodayCard({ goal }: { goal: Goal }) {
         {proLeft > 0 ? `${t.kitchen.remaining}: ${proLeft} ${t.kitchen.grams}` : t.kitchen.over}
       </Text>
 
-      {/* water */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: space.lg,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="water" size={18} color={colors.accent} />
-          <Text style={[type.smallStrong, { color: colors.ink }]}>
-            {water} / {WATER_GOAL} {t.kitchen.cups}
-          </Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          <Pressable
-            onPress={() => addWater(-1)}
-            accessibilityRole="button"
-            accessibilityLabel={t.kitchen.a11yWaterRemove}
-            hitSlop={8}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: radius.pill,
-              backgroundColor: colors.surfaceAlt,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="remove" size={20} color={colors.ink} />
-          </Pressable>
-          <Pressable
-            onPress={() => addWater(1)}
-            accessibilityRole="button"
-            accessibilityLabel={t.kitchen.a11yWaterAdd}
-            hitSlop={8}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: radius.pill,
-              backgroundColor: colors.accent,
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: colors.accent,
-              shadowOpacity: 0.4,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 4,
-            }}
-          >
-            <Ionicons name="add" size={20} color={colors.onAccent} />
-          </Pressable>
-        </View>
-      </View>
+      {/* water — a bottle that fills with the day's cups */}
+      <WaterBlock />
 
       {/* logged today */}
       <View style={{ marginTop: space.lg, gap: 6 }}>

@@ -19,6 +19,15 @@ import {
   MIN_KG,
 } from "./index";
 import {
+  defaultWaterGoal,
+  fillFraction,
+  isStorableWaterGoal,
+  MAX_WATER_GOAL,
+  MIN_WATER_GOAL,
+  recommendedRange,
+  waterStatus,
+} from "./water";
+import {
   averageSteps,
   clampSteps,
   isStorableGoal as isStorableStepGoal,
@@ -192,6 +201,43 @@ function check(name: string, pass: boolean, detail?: string) {
   check("no weight still gives an estimate", stepsKcal(10000) > 0);
   check("zero steps burn nothing", stepsKcal(0, 80) === 0);
   check("distance is about 7 km for 10000 steps", stepsKm(10000) === 7.2, String(stepsKm(10000)));
+}
+
+// --- water: a range that scales with weight, a goal you can set, a fill to draw
+{
+  check("a heavier person is recommended more water", recommendedRange(100).max > recommendedRange(50).max);
+  check("the range is always a real span", (() => {
+    for (const w of [40, 60, 80, 120, undefined]) {
+      const r = recommendedRange(w as number | undefined);
+      if (!(r.min >= MIN_WATER_GOAL && r.max <= MAX_WATER_GOAL && r.min < r.max)) return false;
+    }
+    return true;
+  })());
+  check("no weight still gives a sensible range", (() => {
+    const r = recommendedRange(undefined);
+    return r.min >= 6 && r.max <= 12;
+  })());
+  check("the default goal sits inside the range", (() => {
+    const g = defaultWaterGoal(80);
+    const r = recommendedRange(80);
+    return g >= r.min && g <= r.max;
+  })());
+  check("a goal in range is storable", isStorableWaterGoal(8));
+  check("too few cups is refused", !isStorableWaterGoal(3));
+  check("too many cups is refused", !isStorableWaterGoal(20));
+  check("a fractional goal is refused", !isStorableWaterGoal(8.5));
+
+  check("an empty day reads empty", waterStatus(0, 8) === "empty");
+  check("halfway reads on track", waterStatus(5, 8) === "onTrack");
+  check("hitting the goal reads met", waterStatus(8, 8) === "met");
+  check("just under is not met", waterStatus(7, 8) !== "met");
+  check("way over is flagged", waterStatus(20, 8) === "over");
+  check("a low count reads low", waterStatus(1, 10) === "low");
+
+  check("the bottle is empty at zero", fillFraction(0, 8) === 0);
+  check("the bottle is half at half", fillFraction(4, 8) === 0.5);
+  check("the bottle never overflows past full", fillFraction(20, 8) === 1);
+  check("a zero goal cannot divide by zero", fillFraction(3, 0) === 0);
 }
 
 const failed = results.filter(([, ok]) => !ok);

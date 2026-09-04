@@ -11,6 +11,8 @@ import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
 import { Ring } from "@/components/Ring";
+import Svg, { Circle } from "react-native-svg";
+import { dayScore, scoreTier } from "@/insight/dayscore";
 import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
 import { today, useStore } from "@/store";
@@ -138,7 +140,7 @@ function TodayHub() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, streak, todayIntake, todayWater } = useStore();
+  const { state, isDone, streak, todayIntake, todayWater, waterGoal } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -148,7 +150,25 @@ function TodayHub() {
   const target = dailyTarget(weightKg, state.nutritionGoal ?? "maintain");
   const eaten = todayIntake().kcal;
   const water = todayWater();
+  const wGoal = waterGoal();
   const workoutDone = (state.training?.log[today()]?.length ?? 0) > 0;
+
+  // One number that ties the day together — the hook that makes the Today
+  // screen worth opening. It climbs as habits are ticked, the session is done,
+  // water is drunk and food is logged near target.
+  const score = dayScore({
+    habitsDone: doneCount,
+    habitsTotal: habits.length,
+    workoutDone,
+    hasPlan: !!state.training,
+    waterCups: water,
+    waterGoal: wGoal,
+    kcalEaten: eaten,
+    kcalTarget: target.kcal,
+    loggedFood: todayIntake().items.length > 0,
+  });
+  const tier = scoreTier(score);
+  const headline = t.today.score[tier];
 
   type Tile = {
     icon: keyof typeof Ionicons.glyphMap;
@@ -179,14 +199,22 @@ function TodayHub() {
   ];
 
   return (
-    <Card label={t.today.hubTitle}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: space.sm }}>
-        <Ionicons name="flame" size={18} color={colors.accent} />
-        <Text style={[type.bodyStrong, { color: colors.ink }]}>
-          {bestStreak > 0 ? fill(t.today.hubStreak, { days: bestStreak }) : t.today.hubStreakNone}
-        </Text>
+    <Card tone="accent">
+      {/* the day score — the number that makes today worth opening */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+        <ScoreRing score={score} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={[type.title, { color: colors.ink }]}>{headline}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="flame" size={16} color={colors.accent} />
+            <Text style={[type.small, { color: colors.inkSoft }]}>
+              {bestStreak > 0 ? fill(t.today.hubStreak, { days: bestStreak }) : t.today.hubStreakNone}
+            </Text>
+          </View>
+        </View>
       </View>
-      <View style={{ flexDirection: "row", gap: space.sm }}>
+
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.lg }}>
         {tiles.map((tile) => (
           <Pressable
             key={tile.label}
@@ -199,7 +227,7 @@ function TodayHub() {
               gap: 3,
               paddingVertical: space.md,
               borderRadius: radius.md,
-              backgroundColor: colors.surfaceAlt,
+              backgroundColor: colors.surface,
             }}
           >
             <Ionicons name={tile.icon} size={20} color={colors.accent} />
@@ -213,6 +241,34 @@ function TodayHub() {
         ))}
       </View>
     </Card>
+  );
+}
+
+/** The day-score dial: a ring that fills with the score and shows it big. */
+function ScoreRing({ score }: { score: number }) {
+  const { colors, type } = useTheme();
+  const size = 88;
+  const stroke = 9;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.rule} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={colors.accent}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${c}`}
+        />
+      </Svg>
+      <Text style={[type.figure, { color: colors.ink }]}>{score}</Text>
+    </View>
   );
 }
 

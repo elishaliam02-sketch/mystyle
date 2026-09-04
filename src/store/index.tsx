@@ -34,6 +34,7 @@ import {
   DEFAULT_STEP_GOAL,
   isStorableGoal as isStorableStepGoal,
 } from "@/health/steps";
+import { defaultWaterGoal, isStorableWaterGoal } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -89,13 +90,27 @@ type Store = {
   addWater: (delta: number) => void;
   /** Glasses of water logged today. */
   todayWater: () => number;
+  /** The daily water goal in cups — the person's own, or derived from weight. */
+  waterGoal: () => number;
+  setWaterGoal: (cups: number) => void;
   /** Records a tape-measure reading for a body part (today). */
   addMeasurement: (part: string, cm: number) => void;
   /** All readings for a body part, oldest first. */
   measurementSeries: (part: string) => Reading[];
   /** Sets up (or re-tunes) the training plan for a goal, weekly frequency,
    * session length and available equipment. */
-  configureTraining: (goal: Goal, days: number, minutes?: number, equipment?: string) => void;
+  configureTraining: (
+    goal: Goal,
+    days: number,
+    minutes?: number,
+    equipment?: string,
+    focus?: string[],
+  ) => void;
+  /** Re-rolls the plan's exact exercises (new planSeed), same goal and split. */
+  regeneratePlan: () => void;
+  /** The seed a generated plan should roll its exercises from: the plan's own
+   * saved seed, else the device salt — so it is this person's plan. */
+  planSeed: () => string;
   /** Ticks or unticks an exercise as done for the clock-safe today. */
   toggleExerciseDone: (id: string) => void;
   /** True if that exercise is ticked done today. */
@@ -449,6 +464,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const waterGoal = useCallback(() => {
+    if (state.waterGoal && isStorableWaterGoal(state.waterGoal)) return state.waterGoal;
+    const kg =
+      [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
+      state.profile.startKg;
+    return defaultWaterGoal(kg);
+  }, [state.waterGoal, state.weighIns, state.profile.startKg]);
+
+  const setWaterGoal = useCallback((cups: number) => {
+    if (!isStorableWaterGoal(cups)) return;
+    setState((s) => ({ ...s, waterGoal: cups }));
+  }, []);
+
   const todayWater = useCallback(
     () => state.water?.[trustedToday()] ?? 0,
     [state.water, trustedToday],
@@ -474,7 +502,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const configureTraining = useCallback(
-    (goal: Goal, days: number, minutes?: number, equipment?: string) => {
+    (goal: Goal, days: number, minutes?: number, equipment?: string, focus?: string[]) => {
       setState((s) => ({
         ...s,
         training: {
@@ -482,14 +510,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           days,
           minutes,
           equipment,
+          focus,
+          // A fresh configure rolls a fresh plan seed unless one exists, so the
+          // exercises are stable across opens but this person's, not everyone's.
+          planSeed: s.training?.planSeed ?? s.salt ?? newId(),
           // Keep the log, lifted weights and the person's own moves through a re-tune.
           log: s.training?.log ?? {},
           custom: s.training?.custom ?? [],
           weights: s.training?.weights ?? {},
+          setLog: s.training?.setLog,
+          extra: s.training?.extra,
         },
       }));
     },
     [],
+  );
+
+  const regeneratePlan = useCallback(() => {
+    setState((s) => {
+      if (!s.training) return s;
+      return { ...s, training: { ...s.training, planSeed: newId() } };
+    });
+  }, []);
+
+  const planSeed = useCallback(
+    () => state.training?.planSeed ?? state.salt ?? "",
+    [state.training, state.salt],
   );
 
   // Ticking a workout done feeds a streak, so it stamps through the clock guard
@@ -756,9 +802,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       todayIntake,
       addWater,
       todayWater,
+      waterGoal,
+      setWaterGoal,
       addMeasurement,
       measurementSeries,
       configureTraining,
+      regeneratePlan,
+      planSeed,
       toggleExerciseDone,
       isExerciseDone,
       addCustomExercise,
@@ -787,7 +837,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, addMeasurement, measurementSeries, configureTraining,
+     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, configureTraining, regeneratePlan, planSeed,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
   );
