@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
-import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import Svg, { ClipPath, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useTheme } from "@/theme";
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
@@ -50,9 +50,9 @@ export function WaterBottle({ fill, met, width = 74, height = 150 }: Props) {
             <Stop offset="1" stopColor={waterColor} stopOpacity="0.65" />
           </LinearGradient>
           {/* the bottle silhouette, used to clip the water to its shape */}
-          <clipPath id="bottle">
+          <ClipPath id="bottle">
             <Path d="M35 8 h30 v10 c0 4 6 8 8 14 c4 8 5 16 5 26 v112 c0 12 -8 20 -20 20 h-16 c-12 0 -20 -8 -20 -20 V58 c0 -10 1 -18 5 -26 c2 -6 8 -10 8 -14 Z" />
-          </clipPath>
+          </ClipPath>
         </Defs>
 
         {/* the fill, clipped to the bottle */}
