@@ -43,4 +43,8 @@ jobs:
           # Passed through the environment (not interpolated into the shell) so
           # a commit message with quotes or newlines can't break the command.
           COMMIT_MSG: ${{ github.event.head_commit.message || 'Manual update' }}
-        run: eas update --branch preview --message "$COMMIT_MSG"
+        # --non-interactive matters more than it looks: without it, any prompt
+        # eas decides to ask (a branch it wants confirming, a login question)
+        # waits for a keypress that a runner can never send, and the job hangs
+        # until GitHub's six-hour timeout instead of failing in seconds.
+        run: eas update --branch preview --message "$COMMIT_MSG" --non-interactive
