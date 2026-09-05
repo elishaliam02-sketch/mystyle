@@ -26,8 +26,30 @@ export type Training = {
   setLog?: Record<string, Record<string, { kg: number; reps: number; done: boolean }[]>>;
   /** Exercises added to a given day on top of the plan: date → exercise ids. */
   extra?: Record<string, string[]>;
+  /** Per-day, permanent edits to the plan the person made by hand, Hevy-style:
+   * plan-day index → exercises added to and removed from that day. Applied on
+   * top of whatever the generator produced, so a re-roll keeps the person's own
+   * picks. Removing every generated move and adding your own is how a fully
+   * self-built day works. */
+  planEdits?: Record<number, { add?: string[]; remove?: string[] }>;
+  /** How the plan was made: "auto" fills each day from the library; "custom"
+   * hands the person empty days to build themselves. Undefined reads as "auto". */
+  mode?: "auto" | "custom";
   /** The person's own manually-added moves. */
   custom: Exercise[];
+};
+
+/** A progress photo the person took, with the day's numbers frozen beside it. */
+export type ProgressPhoto = {
+  id: string;
+  /** A local file uri on the device. Never uploaded — stays on the phone. */
+  uri: string;
+  /** Local date YYYY-MM-DD. */
+  date: string;
+  /** The weigh-in and body-fat estimate at the time, so a before/after compares
+   * numbers and not only pixels. */
+  kg?: number;
+  bf?: number;
 };
 
 /** One thing eaten and logged against the day's target. */
@@ -86,6 +108,9 @@ export type Profile = {
   /** Height in centimetres. Without it the app cannot tell a healthy target
    * weight from a dangerous one, so it is asked for and guarded. */
   heightCm?: number;
+  /** Sex, for the body-fat estimate (the RFM formula needs it). Optional — the
+   * progress corner asks for it only when the person wants a body-fat reading. */
+  sex?: "male" | "female";
   onboarded: boolean;
   /** Whether daily reminders are scheduled on this device. */
   reminders?: boolean;
@@ -140,9 +165,18 @@ export type AppState = {
   waterGoal?: number;
   /** Tape-measure readings per body part (part id → readings over time). */
   measurements?: Record<string, { date: string; cm: number }[]>;
+  /** The single goal that drives the whole app — training, kitchen, cardio and
+   * the progress targets all read it, so changing it in one place changes
+   * everything. Kept in step with nutritionGoal and training.goal for the
+   * screens that still read those. */
+  goal?: Goal;
   /** The nutrition goal the kitchen was last set to, so it is remembered
-   * across opens and the Today hub can read a calorie target from it. */
+   * across opens and the Today hub can read a calorie target from it. Kept in
+   * step with the canonical `goal`. */
   nutritionGoal?: Goal;
+  /** Progress photos, newest last. Device-local — the file uris live on the
+   * phone and are never uploaded. */
+  photos?: ProgressPhoto[];
   /** The kitchen's dietary filter ("all" | "kosher" | "vegetarian"), remembered. */
   dietFilter?: string;
   /** Meal ids the person starred, so a dish they love is one tap away. */
@@ -245,7 +279,11 @@ export function migrateState(raw: unknown): AppState {
     water: s.water,
     waterGoal: s.waterGoal,
     measurements: s.measurements,
-    nutritionGoal: s.nutritionGoal,
+    // The canonical goal: prefer an explicit one, else adopt whatever the
+    // kitchen or the plan was last set to, so an upgrade doesn't reset it.
+    goal: s.goal ?? s.nutritionGoal ?? s.training?.goal,
+    nutritionGoal: s.nutritionGoal ?? s.goal,
+    photos: s.photos,
     dietFilter: s.dietFilter,
     favorites: s.favorites,
     videoIds: s.videoIds,

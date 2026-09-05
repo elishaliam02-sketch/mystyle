@@ -140,14 +140,14 @@ function TodayHub() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, streak, todayIntake, todayWater, waterGoal } = useStore();
+  const { state, isDone, streak, todayIntake, todayWater, waterGoal, goal } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
   const bestStreak = habits.reduce((m, h) => Math.max(m, streak(h.id)), 0);
 
   const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-  const target = dailyTarget(weightKg, state.nutritionGoal ?? "maintain");
+  const target = dailyTarget(weightKg, goal());
   const eaten = todayIntake().kcal;
   const water = todayWater();
   const wGoal = waterGoal();

@@ -18,7 +18,7 @@ import {
   type Exercise,
   type Muscle,
 } from "@/workout/exercises";
-import { buildPlan, type DayType } from "@/workout/plan";
+import { applyDayEdits, buildPlan, type DayType } from "@/workout/plan";
 import { clampKg, clampReps, progress } from "@/workout/sets";
 import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
@@ -31,16 +31,20 @@ const EQUIP = ["gym", "home", "bodyweight"] as const;
 export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
-    addExerciseToday, todayExtras } = useStore();
+  const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
+    addExerciseToday, todayExtras, addToDay, removeFromDay } = useStore();
 
   const training = state.training;
-  const [goal, setGoal] = useState<Goal>(training?.goal ?? "recomp");
+  // Default to the app-wide goal, so the plan starts on the goal the person
+  // already chose in the kitchen or on the Today screen.
+  const [goal, setGoal] = useState<Goal>(training?.goal ?? goalOf());
   const [days, setDays] = useState<number>(training?.days ?? 3);
   const [minutes, setMinutes] = useState<number>(training?.minutes ?? 45);
   const [equipment, setEquipment] = useState<string>(training?.equipment ?? "gym");
   // Weak muscles the person wants the generated plan to lead with.
   const [focus, setFocus] = useState<Muscle[]>((training?.focus as Muscle[]) ?? []);
+  // How the plan is made: the app builds it, or the person builds each day.
+  const [mode, setMode] = useState<"auto" | "custom">((training?.mode as "auto" | "custom") ?? "auto");
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -88,8 +92,28 @@ export default function WorkoutScreen() {
     [training, seed],
   );
 
+  // Every move the app knows about — the library plus the person's own — so a
+  // day's hand-picked additions resolve to real exercises.
+  const byId = useMemo(() => {
+    const map = new Map<string, Exercise>();
+    for (const e of [...EXERCISES, ...(training?.custom ?? [])]) map.set(e.id, e);
+    return (id: string) => map.get(id);
+  }, [training?.custom]);
+
+  // The plan the person actually sees: the generated sessions (or empty days,
+  // when they chose to build it themselves) with their own per-day add/remove
+  // edits applied on top. This is the Hevy-style "my plan" layer.
+  const sessions = useMemo(() => {
+    if (!plan || !training) return [];
+    const isCustom = training.mode === "custom";
+    return plan.sessions.map((s, i) => ({
+      ...s,
+      exercises: applyDayEdits(isCustom ? [] : s.exercises, training.planEdits?.[i], byId),
+    }));
+  }, [plan, training, byId]);
+
   function build() {
-    configureTraining(goal, days, minutes, equipment, focus);
+    configureTraining(goal, days, minutes, equipment, focus, mode);
     setForceSetup(false);
   }
 
@@ -100,6 +124,7 @@ export default function WorkoutScreen() {
       setMinutes(training.minutes ?? 45);
       setEquipment(training.equipment ?? "gym");
       setFocus((training.focus as Muscle[]) ?? []);
+      setMode((training.mode as "auto" | "custom") ?? "auto");
     }
     setForceSetup(true);
   }
@@ -245,7 +270,44 @@ export default function WorkoutScreen() {
           </View>
         </Card>
 
-        <Button icon="barbell" label={t.workout.build} onPress={build} />
+        {/* who builds the plan — the app, or you, Hevy-style */}
+        <Card label={t.workout.modeTitle}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            {(["auto", "custom"] as const).map((m) => {
+              const on = mode === m;
+              return (
+                <SelectTile
+                  key={m}
+                  selected={on}
+                  onPress={() => setMode(m)}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.xs,
+                    borderRadius: radius.lg,
+                  }}
+                >
+                  <View style={{ alignItems: "center", gap: 2 }}>
+                    <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
+                      {m === "auto" ? t.workout.modeAuto : t.workout.modeCustom}
+                    </Text>
+                    <Text
+                      style={[
+                        type.small,
+                        { color: on ? colors.onAccent : colors.inkFaint, textAlign: "center" },
+                      ]}
+                    >
+                      {m === "auto" ? t.workout.modeAutoHint : t.workout.modeCustomHint}
+                    </Text>
+                  </View>
+                </SelectTile>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Button icon="barbell" label={mode === "custom" ? t.workout.buildCustom : t.workout.build} onPress={build} />
 
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.workout.videoNote}
@@ -336,8 +398,10 @@ export default function WorkoutScreen() {
 
         <CardioCard goal={training.goal} seed={seed} />
 
-        {plan.sessions.map((session, i) => {
-          const done = session.exercises.filter((e) => isExerciseDone(e.id)).length;
+        {sessions.map((session, i) => {
+          const dayExercises = [...session.exercises, ...(i === 0 ? extraExercises : [])];
+          const done = dayExercises.filter((e) => isExerciseDone(e.id)).length;
+          const total = dayExercises.length;
           return (
             <Card key={`${session.type}-${i}`} label={fill(t.workout.day, { n: i + 1 })}>
               <View
@@ -350,26 +414,41 @@ export default function WorkoutScreen() {
               >
                 <Text style={[type.title, { color: colors.ink }]}>{dayLabel[session.type]}</Text>
                 <Text style={[type.smallStrong, { color: colors.accent }]}>
-                  {fill(t.workout.doneCount, { done, total: session.exercises.length })}
+                  {fill(t.workout.doneCount, { done, total })}
                 </Text>
               </View>
-              {[...session.exercises, ...(i === 0 ? extraExercises : [])].map((ex) => (
-                <ExerciseRow
-                  key={ex.id}
-                  ex={ex}
-                  sets={plan.sets}
-                  reps={plan.reps}
-                  muscleLabel={muscleLabel}
-                />
-              ))}
-              <Button
-                icon={done === session.exercises.length ? "checkmark-done" : "checkmark"}
-                label={done === session.exercises.length ? t.workout.dayDone : t.workout.finishDay}
-                tone="quiet"
-                disabled={done === session.exercises.length}
-                onPress={() => completeSession(session.exercises.map((e) => e.id))}
-                style={{ marginTop: space.md }}
+              {dayExercises.length === 0 ? (
+                <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.dayEmpty}</Text>
+              ) : (
+                dayExercises.map((ex) => (
+                  <ExerciseRow
+                    key={ex.id}
+                    ex={ex}
+                    sets={plan.sets}
+                    reps={plan.reps}
+                    muscleLabel={muscleLabel}
+                    onRemove={() => removeFromDay(i, ex.id)}
+                  />
+                ))
+              )}
+
+              {/* add any move to this exact day — the plan is yours to edit */}
+              <DayAdder
+                muscleLabel={muscleLabel}
+                have={dayExercises.map((e) => e.id)}
+                onPick={(id) => addToDay(i, id)}
               />
+
+              {total > 0 ? (
+                <Button
+                  icon={done === total ? "checkmark-done" : "checkmark"}
+                  label={done === total ? t.workout.dayDone : t.workout.finishDay}
+                  tone="quiet"
+                  disabled={done === total}
+                  onPress={() => completeSession(dayExercises.map((e) => e.id))}
+                  style={{ marginTop: space.md }}
+                />
+              ) : null}
             </Card>
           );
         })}
@@ -564,6 +643,8 @@ type RowProps = {
   sets: number;
   reps: string;
   muscleLabel: Record<Muscle, string>;
+  /** When set, a × removes this exercise from the day (Hevy-style editing). */
+  onRemove?: () => void;
 };
 
 /**
@@ -572,7 +653,7 @@ type RowProps = {
  * beside it so you know the number to beat. The exercise counts as done for the
  * day as soon as any set is ticked.
  */
-function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
+function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { setsFor, updateSet, addSet, removeSet, lastSession, demoFor } = useStore();
@@ -628,6 +709,17 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
           disabled={loadingVideo}
           accessibilityLabel={t.workout.watch}
         />
+        {onRemove ? (
+          <Pressable
+            onPress={onRemove}
+            accessibilityRole="button"
+            accessibilityLabel={t.workout.removeExercise}
+            hitSlop={8}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="close-circle" size={22} color={colors.inkFaint} />
+          </Pressable>
+        ) : null}
       </View>
 
       {/* set table */}
@@ -799,6 +891,95 @@ function ExerciseRow({ ex, sets, reps, muscleLabel }: RowProps) {
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Add any move to one specific plan day, for good — the Hevy way of shaping a
+ * plan into yours. Collapsed to a single button until tapped, so a day that is
+ * already right stays tidy; open it and any of the library's moves is a search
+ * and a tap away, added permanently to this day (a re-roll keeps it).
+ */
+function DayAdder({
+  muscleLabel,
+  have,
+  onPick,
+}: {
+  muscleLabel: Record<Muscle, string>;
+  have: string[];
+  onPick: (id: string) => void;
+}) {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const hits = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return [];
+    return EXERCISES.filter((e) => {
+      const hay = `${e.he} ${e.en} ${muscleLabel[e.muscle]}`.toLowerCase();
+      return hay.includes(term);
+    }).slice(0, 8);
+  }, [q, muscleLabel]);
+
+  if (!open) {
+    return (
+      <PillButton
+        tone="soft"
+        icon="add"
+        label={t.workout.dayAdd}
+        onPress={() => setOpen(true)}
+        style={{ marginTop: space.md, alignSelf: "flex-start" }}
+      />
+    );
+  }
+
+  return (
+    <View style={{ marginTop: space.md, gap: space.sm }}>
+      <TextField value={q} onChangeText={setQ} placeholder={t.workout.librarySearch} />
+      {q.trim().length > 0 ? (
+        hits.length === 0 ? (
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.libraryNone}</Text>
+        ) : (
+          hits.map((e) => {
+            const already = have.includes(e.id);
+            return (
+              <Pressable
+                key={e.id}
+                disabled={already}
+                accessibilityRole="button"
+                accessibilityLabel={locale === "he" ? e.he : e.en}
+                onPress={() => {
+                  onPick(e.id);
+                  setQ("");
+                  setOpen(false);
+                }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: space.sm,
+                  paddingVertical: 9,
+                  paddingHorizontal: 10,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.surfaceAlt,
+                  opacity: already ? 0.5 : 1,
+                }}
+              >
+                <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                  {locale === "he" ? e.he : e.en}
+                </Text>
+                <Text style={[type.small, { color: colors.inkFaint }]}>{muscleLabel[e.muscle]}</Text>
+                <Text style={[type.smallStrong, { color: colors.accent }]}>{already ? "✓" : "+"}</Text>
+              </Pressable>
+            );
+          })
+        )
+      ) : null}
+      <Pressable onPress={() => { setOpen(false); setQ(""); }} accessibilityRole="button" hitSlop={6}>
+        <Text style={[type.smallStrong, { color: colors.inkFaint }]}>{t.common.cancel}</Text>
+      </Pressable>
     </View>
   );
 }

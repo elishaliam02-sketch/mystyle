@@ -72,7 +72,11 @@ type Store = {
   readyForAnotherHabit: () => boolean;
   /** The groceries the person keeps, as free text. */
   setPantry: (text: string) => void;
-  /** Remembers the kitchen's nutrition goal across opens. */
+  /** The one goal the whole app follows (training, kitchen, cardio, targets). */
+  goal: () => Goal;
+  /** Sets the unified goal — mirrors to the kitchen and re-rolls the plan. */
+  setGoal: (goal: Goal) => void;
+  /** Remembers the kitchen's nutrition goal across opens (alias of setGoal). */
   setNutritionGoal: (goal: Goal) => void;
   /** Remembers the kitchen's dietary filter across opens. */
   setDietFilter: (diet: string) => void;
@@ -97,6 +101,12 @@ type Store = {
   addMeasurement: (part: string, cm: number) => void;
   /** All readings for a body part, oldest first. */
   measurementSeries: (part: string) => Reading[];
+  /** Sets the person's sex, for the body-fat estimate. */
+  setSex: (sex: "male" | "female") => void;
+  /** Adds a progress photo with the day's numbers frozen beside it. */
+  addPhoto: (uri: string, kg?: number, bf?: number) => void;
+  /** Removes a progress photo. */
+  removePhoto: (id: string) => void;
   /** Sets up (or re-tunes) the training plan for a goal, weekly frequency,
    * session length and available equipment. */
   configureTraining: (
@@ -105,9 +115,16 @@ type Store = {
     minutes?: number,
     equipment?: string,
     focus?: string[],
+    mode?: "auto" | "custom",
   ) => void;
   /** Re-rolls the plan's exact exercises (new planSeed), same goal and split. */
   regeneratePlan: () => void;
+  /** Permanently adds an exercise to a specific plan day (Hevy-style). */
+  addToDay: (dayIndex: number, exerciseId: string) => void;
+  /** Permanently removes an exercise from a specific plan day. */
+  removeFromDay: (dayIndex: number, exerciseId: string) => void;
+  /** The hand-made add/remove edits for a plan day. */
+  dayEdits: (dayIndex: number) => { add?: string[]; remove?: string[] };
   /** The seed a generated plan should roll its exercises from: the plan's own
    * saved seed, else the device salt — so it is this person's plan. */
   planSeed: () => string;
@@ -398,9 +415,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pantry: text }));
   }, []);
 
-  const setNutritionGoal = useCallback((goal: Goal) => {
-    setState((s) => ({ ...s, nutritionGoal: goal }));
+  // The one goal the whole app follows. Setting it mirrors into the kitchen's
+  // nutritionGoal and the training plan's goal (re-rolling its exercises so the
+  // plan visibly changes), so changing the goal anywhere changes everything.
+  const setGoal = useCallback((goal: Goal) => {
+    setState((s) => ({
+      ...s,
+      goal,
+      nutritionGoal: goal,
+      training: s.training
+        ? { ...s.training, goal, planSeed: newId() }
+        : s.training,
+    }));
   }, []);
+
+  const goal = useCallback(
+    (): Goal => state.goal ?? state.nutritionGoal ?? state.training?.goal ?? "recomp",
+    [state.goal, state.nutritionGoal, state.training],
+  );
+
+  // Kept for the kitchen's own goal chips; routes through the unified setter so
+  // the plan and the rest of the app follow along.
+  const setNutritionGoal = setGoal;
 
   const setDietFilter = useCallback((diet: string) => {
     setState((s) => ({ ...s, dietFilter: diet }));
@@ -502,26 +538,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const configureTraining = useCallback(
-    (goal: Goal, days: number, minutes?: number, equipment?: string, focus?: string[]) => {
-      setState((s) => ({
-        ...s,
-        training: {
+    (
+      goal: Goal,
+      days: number,
+      minutes?: number,
+      equipment?: string,
+      focus?: string[],
+      mode: "auto" | "custom" = "auto",
+    ) => {
+      setState((s) => {
+        // Changing how many days the plan spans reshuffles the day indices, so
+        // hand-made per-day edits from the old split no longer line up — clear
+        // them. Keep them through a same-frequency re-tune so the person's own
+        // picks survive a goal or equipment change.
+        const daysChanged = s.training ? s.training.days !== days : false;
+        return {
+          ...s,
+          // The plan's goal is the app's goal — keep them in step.
           goal,
-          days,
-          minutes,
-          equipment,
-          focus,
-          // A fresh configure rolls a fresh plan seed unless one exists, so the
-          // exercises are stable across opens but this person's, not everyone's.
-          planSeed: s.training?.planSeed ?? s.salt ?? newId(),
-          // Keep the log, lifted weights and the person's own moves through a re-tune.
-          log: s.training?.log ?? {},
-          custom: s.training?.custom ?? [],
-          weights: s.training?.weights ?? {},
-          setLog: s.training?.setLog,
-          extra: s.training?.extra,
-        },
-      }));
+          nutritionGoal: goal,
+          training: {
+            goal,
+            days,
+            minutes,
+            equipment,
+            focus,
+            mode,
+            // A fresh configure rolls a fresh plan seed unless one exists, so the
+            // exercises are stable across opens but this person's, not everyone's.
+            planSeed: s.training?.planSeed ?? s.salt ?? newId(),
+            planEdits: daysChanged ? {} : s.training?.planEdits,
+            // Keep the log, lifted weights and the person's own moves through a re-tune.
+            log: s.training?.log ?? {},
+            custom: s.training?.custom ?? [],
+            weights: s.training?.weights ?? {},
+            setLog: s.training?.setLog,
+            extra: s.training?.extra,
+          },
+        };
+      });
     },
     [],
   );
@@ -531,6 +586,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!s.training) return s;
       return { ...s, training: { ...s.training, planSeed: newId() } };
     });
+  }, []);
+
+  // Hevy-style per-day editing: add a library/own move to a specific plan day,
+  // or remove one, and it sticks — a re-roll keeps these picks. Removing a
+  // generated move records it in `remove`; adding records it in `add`. Adding
+  // back something you removed just cancels the removal, and vice versa.
+  const addToDay = useCallback((dayIndex: number, exerciseId: string) => {
+    setState((s) => {
+      if (!s.training) return s;
+      const edits = { ...(s.training.planEdits ?? {}) };
+      const cur = edits[dayIndex] ?? {};
+      const remove = (cur.remove ?? []).filter((id) => id !== exerciseId);
+      const add = cur.add?.includes(exerciseId) ? cur.add : [...(cur.add ?? []), exerciseId];
+      edits[dayIndex] = { add, remove };
+      return { ...s, training: { ...s.training, planEdits: edits } };
+    });
+  }, []);
+
+  const removeFromDay = useCallback((dayIndex: number, exerciseId: string) => {
+    setState((s) => {
+      if (!s.training) return s;
+      const edits = { ...(s.training.planEdits ?? {}) };
+      const cur = edits[dayIndex] ?? {};
+      const add = (cur.add ?? []).filter((id) => id !== exerciseId);
+      const remove = cur.remove?.includes(exerciseId)
+        ? cur.remove
+        : [...(cur.remove ?? []), exerciseId];
+      edits[dayIndex] = { add, remove };
+      return { ...s, training: { ...s.training, planEdits: edits } };
+    });
+  }, []);
+
+  const dayEdits = useCallback(
+    (dayIndex: number) => state.training?.planEdits?.[dayIndex] ?? { add: [], remove: [] },
+    [state.training],
+  );
+
+  // Sex, for the body-fat estimate. Guarded to the two values the formula knows.
+  const setSex = useCallback((sex: "male" | "female") => {
+    setState((s) => ({ ...s, profile: { ...s.profile, sex, updatedAt: now() } }));
+  }, []);
+
+  // A progress photo, with the day's numbers frozen beside it. Device-local: the
+  // uri stays on the phone and never rides a sync.
+  const addPhoto = useCallback((uri: string, kg?: number, bf?: number) => {
+    if (!uri) return;
+    setState((s) => {
+      const { date } = trustedStamp(s);
+      const photo = { id: newId(), uri, date, kg, bf };
+      return { ...s, photos: [...(s.photos ?? []), photo] };
+    });
+  }, []);
+
+  const removePhoto = useCallback((id: string) => {
+    setState((s) => ({ ...s, photos: (s.photos ?? []).filter((p) => p.id !== id) }));
   }, []);
 
   const planSeed = useCallback(
@@ -793,6 +903,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       weeklyConsistency,
       readyForAnotherHabit,
       setPantry,
+      goal,
+      setGoal,
       setNutritionGoal,
       setDietFilter,
       toggleFavorite,
@@ -806,8 +918,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setWaterGoal,
       addMeasurement,
       measurementSeries,
+      setSex,
+      addPhoto,
+      removePhoto,
       configureTraining,
       regeneratePlan,
+      addToDay,
+      removeFromDay,
+      dayEdits,
       planSeed,
       toggleExerciseDone,
       isExerciseDone,
@@ -836,8 +954,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, configureTraining, regeneratePlan, planSeed,
+     readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
+     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan,
+     addToDay, removeFromDay, dayEdits, planSeed,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
   );

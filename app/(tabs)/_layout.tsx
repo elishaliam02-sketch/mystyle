@@ -11,7 +11,7 @@ const ICONS: Record<string, { on: IconName; off: IconName }> = {
   today: { on: "sunny", off: "sunny-outline" },
   kitchen: { on: "restaurant", off: "restaurant-outline" },
   workout: { on: "barbell", off: "barbell-outline" },
-  body: { on: "body", off: "body-outline" },
+  water: { on: "water", off: "water-outline" },
   checkin: { on: "chatbubble-ellipses", off: "chatbubble-ellipses-outline" },
   progress: { on: "stats-chart", off: "stats-chart-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
@@ -72,7 +72,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: t.tabs.today, tabBarIcon: icon("today") }} />
       <Tabs.Screen name="kitchen" options={{ title: t.tabs.kitchen, tabBarIcon: icon("kitchen") }} />
       <Tabs.Screen name="workout" options={{ title: t.tabs.workout, tabBarIcon: icon("workout") }} />
-      <Tabs.Screen name="body" options={{ title: t.tabs.body, tabBarIcon: icon("body") }} />
+      <Tabs.Screen name="water" options={{ title: t.tabs.water, tabBarIcon: icon("water") }} />
       <Tabs.Screen name="checkin" options={{ title: t.tabs.checkin, tabBarIcon: icon("checkin") }} />
       <Tabs.Screen
         name="progress"

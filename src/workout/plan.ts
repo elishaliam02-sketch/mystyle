@@ -193,6 +193,36 @@ function orderMuscles(base: Muscle[], focus: Muscle[]): Muscle[] {
   return [...wanted, ...rest, ...wanted];
 }
 
+/** A day's hand-made edits: exercises the person added and removed by hand. */
+export type DayEdit = { add?: string[]; remove?: string[] };
+
+/**
+ * Applies a person's per-day edits on top of a day's exercises — the Hevy-style
+ * "this is my plan now" layer. Removed moves drop out; added moves join the end,
+ * de-duplicated. `base` is the generated day (or an empty list for a day the
+ * person is building from scratch). Pure, so it is the same on every screen and
+ * in the tests.
+ */
+export function applyDayEdits(
+  base: Exercise[],
+  edit: DayEdit | undefined,
+  byId: (id: string) => Exercise | undefined,
+): Exercise[] {
+  const removed = new Set(edit?.remove ?? []);
+  const kept = base.filter((e) => !removed.has(e.id));
+  const seen = new Set(kept.map((e) => e.id));
+  const added: Exercise[] = [];
+  for (const id of edit?.add ?? []) {
+    if (seen.has(id)) continue;
+    const ex = byId(id);
+    if (ex) {
+      added.push(ex);
+      seen.add(id);
+    }
+  }
+  return [...kept, ...added];
+}
+
 export function buildPlan(
   goal: Goal,
   days: number,

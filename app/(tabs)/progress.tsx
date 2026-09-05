@@ -1,12 +1,24 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
+import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
+import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, type BodyPart } from "@/body";
+import {
+  bodyFatPercent,
+  bodyFatTarget,
+  fatFraction,
+  fatTier,
+  weeklyAverages,
+  weeklyChange,
+  type Sex,
+} from "@/health/composition";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
@@ -285,7 +297,15 @@ export default function ProgressScreen() {
           </View>
         </Card>
 
+        <WeeklyAverageCard />
+
+        <BodyFatCard />
+
         <StepsCard />
+
+        <PhotosCard />
+
+        <MeasurementsSection />
 
         <Card label={t.progress.trendTitle}>
           {weighIns.length >= 2 ? (
@@ -500,4 +520,444 @@ function StepsCard() {
       </Text>
     </Card>
   );
+}
+
+/**
+ * The weekly weight average — the honest "am I moving?" number. Daily weight
+ * jumps with water and food; the week's average cuts through that noise, and
+ * the change against last week reads against the goal (down is good on a cut,
+ * up on a bulk).
+ */
+function WeeklyAverageCard() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, goal } = useStore();
+
+  const weeks = useMemo(() => weeklyAverages(state.weighIns), [state.weighIns]);
+  const change = useMemo(() => weeklyChange(state.weighIns), [state.weighIns]);
+  const latest = weeks.at(-1);
+
+  if (!latest) {
+    return (
+      <Card label={t.progress.weeklyAvgTitle}>
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.progress.weeklyAvgNeed}</Text>
+      </Card>
+    );
+  }
+
+  // A drop is "good" on cut/recomp; a gain is "good" on a bulk. Colour the
+  // change by whether it serves the goal, not merely by its sign.
+  const g = goal();
+  const wantsDown = g === "cut" || g === "recomp";
+  const good =
+    change === null || change === 0
+      ? true
+      : wantsDown
+        ? change < 0
+        : g === "bulk"
+          ? change > 0
+          : Math.abs(change) < 0.4;
+  const changeColor = change === null || change === 0 ? colors.inkSoft : good ? colors.accent : colors.amber;
+  const dirWord =
+    change === null || change === 0 ? t.progress.weeklyFlat : change < 0 ? t.progress.weeklyDown : t.progress.weeklyUp;
+
+  const peak = Math.max(...weeks.map((w) => w.avgKg));
+  const low = Math.min(...weeks.map((w) => w.avgKg));
+  const span = peak - low || 1;
+
+  return (
+    <Card label={t.progress.weeklyAvgTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.weeklyAvgBody}</Text>
+      <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md, alignItems: "flex-end" }}>
+        <View>
+          <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.weeklyAvgLatest}</Text>
+          <Text style={[type.figure, { color: colors.ink }]}>{latest.avgKg}</Text>
+        </View>
+        {change !== null ? (
+          <View>
+            <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.weeklyAvgChange}</Text>
+            <Text style={[type.figure, { color: changeColor }]}>
+              {change > 0 ? "+" : ""}
+              {change}
+            </Text>
+          </View>
+        ) : null}
+        <Text style={[type.small, { color: changeColor, fontWeight: "700", paddingBottom: 6 }]}>{dirWord}</Text>
+      </View>
+
+      {weeks.length >= 2 ? (
+        <View
+          style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, height: 80, marginTop: space.md }}
+          accessibilityRole="image"
+        >
+          {weeks.slice(-8).map((w, i, arr) => (
+            <View
+              key={w.week}
+              style={{
+                flex: 1,
+                height: 14 + ((w.avgKg - low) / span) * 60,
+                borderRadius: radius.sm,
+                backgroundColor: i === arr.length - 1 ? colors.accent : colors.accentWash,
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * Estimated body fat, from the tape measure and the goal. Needs the person's
+ * sex (the formula asks for it) and a waist reading; without either it says so
+ * and offers the fix. The estimate moves as the waist changes, so it is this
+ * person's number and it changes from photo to photo — and the target band it
+ * is judged against changes the moment the goal does.
+ */
+function BodyFatCard() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, goal, setSex } = useStore();
+
+  const sex = state.profile.sex as Sex | undefined;
+  const heightCm = state.profile.heightCm;
+  const waist = useMemo(() => {
+    const series = state.measurements?.waist ?? [];
+    return [...series].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.cm;
+  }, [state.measurements]);
+
+  const bf = bodyFatPercent({ heightCm, waistCm: waist, sex });
+
+  return (
+    <Card label={t.progress.fatTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.fatBody}</Text>
+
+      {/* sex — the estimate needs it */}
+      {!sex ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+          {t.progress.fatNeedSex}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
+        {(["male", "female"] as const).map((s) => (
+          <SelectTile
+            key={s}
+            selected={sex === s}
+            onPress={() => setSex(s)}
+            style={{ flex: 1, alignItems: "center", paddingVertical: space.sm, borderRadius: radius.md }}
+          >
+            <Text style={[type.smallStrong, { color: sex === s ? colors.onAccent : colors.inkSoft }]}>
+              {s === "male" ? t.progress.sexMale : t.progress.sexFemale}
+            </Text>
+          </SelectTile>
+        ))}
+      </View>
+
+      {sex && bf === null ? (
+        <Text style={[type.small, { color: colors.amber, marginTop: space.md }]}>
+          {t.progress.fatNeedWaist}
+        </Text>
+      ) : null}
+
+      {bf !== null && sex ? (
+        (() => {
+          const band = bodyFatTarget(goal(), sex);
+          const tier = fatTier(bf, band);
+          const bfColor = tier === "in" ? colors.accent : colors.amber;
+          const line =
+            tier === "in" ? t.progress.fatIn : tier === "below" ? t.progress.fatBelow : t.progress.fatAbove;
+          return (
+            <View style={{ marginTop: space.md, gap: 6 }}>
+              <Text style={[type.figure, { color: colors.ink, fontSize: 40 }]}>
+                {bf}
+                <Text style={[type.small, { color: colors.inkFaint }]}>%</Text>
+              </Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>
+                {fill(t.progress.fatTargetFor, {
+                  goal: goalWord(t, goal()),
+                  min: band.min,
+                  max: band.max,
+                })}
+              </Text>
+              {/* a scale with the goal band marked and the reading dotted on it */}
+              <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.surfaceAlt, marginTop: 4, overflow: "hidden" }}>
+                <View
+                  style={{
+                    position: "absolute",
+                    left: `${fatFraction(band.min) * 100}%`,
+                    width: `${Math.max(4, (fatFraction(band.max) - fatFraction(band.min)) * 100)}%`,
+                    top: 0,
+                    bottom: 0,
+                    backgroundColor: colors.accentWash,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: `${fatFraction(bf) * 100}%`,
+                    width: 4,
+                    top: -2,
+                    bottom: -2,
+                    backgroundColor: bfColor,
+                  }}
+                />
+              </View>
+              <Text style={[type.smallStrong, { color: bfColor, marginTop: 4 }]}>{line}</Text>
+            </View>
+          );
+        })()
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * Progress photos — the record the scale and the tape can't keep. A photo every
+ * few weeks, each with the day's weight and body-fat frozen beside it, and a
+ * start-vs-now compare once there are two. The files never leave the phone.
+ */
+function PhotosCard() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, addPhoto, removePhoto } = useStore();
+
+  const photos = state.photos ?? [];
+  const sortedWeighIns = useMemo(
+    () => [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)),
+    [state.weighIns],
+  );
+  const latestKg = sortedWeighIns.at(-1)?.kg;
+  const waist = state.measurements?.waist?.at(-1)?.cm;
+  const bf = bodyFatPercent({
+    heightCm: state.profile.heightCm,
+    waistCm: waist,
+    sex: state.profile.sex as Sex | undefined,
+  });
+  const canPick = Platform.OS !== "web";
+
+  const pick = async (fromCamera: boolean) => {
+    try {
+      if (fromCamera) {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) return;
+        const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+        if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
+      } else {
+        const res = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.6,
+        });
+        if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
+      }
+    } catch {
+      // A denied permission or a cancelled sheet is not an error worth shouting about.
+    }
+  };
+
+  const first = photos[0];
+  const last = photos.at(-1);
+
+  return (
+    <Card label={t.progress.photosTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.photosBody}</Text>
+
+      {!canPick ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+          {t.progress.photosUnavailable}
+        </Text>
+      ) : (
+        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+          <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
+          <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+        </View>
+      )}
+
+      {photos.length === 0 ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.md }]}>
+          {t.progress.photosEmpty}
+        </Text>
+      ) : (
+        <>
+          {/* start vs now */}
+          {first && last && first.id !== last.id ? (
+            <View style={{ marginTop: space.md }}>
+              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase", marginBottom: 6 }]}>
+                {t.progress.photosCompare}
+              </Text>
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                {[first, last].map((p, i) => (
+                  <View key={p.id} style={{ flex: 1 }}>
+                    <Image
+                      source={{ uri: p.uri }}
+                      style={{ width: "100%", height: 200, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
+                      resizeMode="cover"
+                    />
+                    <Text style={[type.small, { color: colors.inkSoft, marginTop: 4 }]}>
+                      {i === 0 ? "▶ " : "◀ "}
+                      {p.date}
+                      {p.kg ? ` · ${p.kg}kg` : ""}
+                      {p.bf ? ` · ${p.bf}%` : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* the whole roll */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.md }}>
+            {[...photos].reverse().map((p) => (
+              <View key={p.id} style={{ width: "31%" }}>
+                <Image
+                  source={{ uri: p.uri }}
+                  style={{ width: "100%", height: 120, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
+                  resizeMode="cover"
+                />
+                <Pressable
+                  onPress={() => removePhoto(p.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.progress.photoRemove}
+                  hitSlop={6}
+                  style={{ position: "absolute", top: 4, right: 4 }}
+                >
+                  <Ionicons name="close-circle" size={22} color={colors.onAccent} style={{ opacity: 0.9 }} />
+                </Pressable>
+                <Text style={[type.label, { color: colors.inkFaint, marginTop: 2 }]} numberOfLines={1}>
+                  {p.date}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/** The tape-measure section — folded in from the old Body tab so every number
+ * about the body lives in one corner. */
+function MeasurementsSection() {
+  const { t } = useI18n();
+  const { space, type } = useTheme();
+  const { colors } = useTheme();
+  return (
+    <Card label={t.progress.measureTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.measureBody}</Text>
+      <View style={{ gap: space.md, marginTop: space.md }}>
+        {BODY_PARTS.map((part) => (
+          <PartCard key={part} part={part} />
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+function MeasureSparkline({ values }: { values: number[] }) {
+  const { colors, radius } = useTheme();
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 40 }}>
+      {values.map((v, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: 8 + ((v - min) / range) * 30,
+            borderRadius: radius.sm,
+            backgroundColor: i === values.length - 1 ? colors.accent : colors.accentWash,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PartCard({ part }: { part: BodyPart }) {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { addMeasurement, measurementSeries } = useStore();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const series = measurementSeries(part);
+  const change = measureChange(series);
+  const label = t.body.parts[part];
+
+  function save() {
+    const cm = Number(draft.replace(",", "."));
+    if (!Number.isFinite(cm) || cm < MIN_CM || cm > MAX_CM) {
+      setError(fill(t.body.rangeError, { min: MIN_CM, max: MAX_CM }));
+      return;
+    }
+    addMeasurement(part, cm);
+    setDraft("");
+    setError(null);
+  }
+
+  const down = change.delta < 0;
+  const up = change.delta > 0;
+
+  return (
+    <View style={{ borderRadius: radius.md, backgroundColor: colors.surfaceAlt, padding: space.md, gap: space.xs }}>
+      <Text style={[type.bodyStrong, { color: colors.ink }]}>{label}</Text>
+      {change.latest !== null ? (
+        <View style={{ flexDirection: "row", gap: space.lg, alignItems: "flex-end" }}>
+          <View>
+            <Text style={[type.label, { color: colors.inkFaint }]}>{t.body.latest}</Text>
+            <Text style={[type.title, { color: colors.ink }]}>
+              {change.latest}
+              <Text style={[type.small, { color: colors.inkFaint }]}> {t.body.cm}</Text>
+            </Text>
+          </View>
+          {change.count > 1 ? (
+            <View>
+              <Text style={[type.label, { color: colors.inkFaint }]}>{t.body.change}</Text>
+              <Text style={[type.bodyStrong, { color: down ? colors.accent : up ? colors.amber : colors.inkSoft }]}>
+                {up ? "+" : ""}
+                {change.delta} {t.body.cm}
+              </Text>
+            </View>
+          ) : null}
+          <View style={{ flex: 1 }}>
+            <MeasureSparkline values={series.map((r) => r.cm)} />
+          </View>
+        </View>
+      ) : (
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.body.empty}</Text>
+      )}
+
+      <View style={{ flexDirection: "row", gap: space.sm, alignItems: "flex-start", marginTop: space.xs }}>
+        <View style={{ flex: 1 }}>
+          <TextField
+            value={draft}
+            onChangeText={(v) => {
+              setDraft(v);
+              if (error) setError(null);
+            }}
+            placeholder={t.body.cmPlaceholder}
+            keyboardType="numeric"
+            onSubmitEditing={save}
+          />
+        </View>
+        <View style={{ width: 110 }}>
+          <Button icon="add" label={t.body.add} onPress={save} disabled={!draft.trim()} tone="quiet" />
+        </View>
+      </View>
+      {error ? <Text style={[type.small, { color: colors.alert }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+/** The label for a goal, reused across the progress cards. */
+function goalWord(t: ReturnType<typeof useI18n>["t"], g: string): string {
+  return g === "cut"
+    ? t.kitchen.goalCut
+    : g === "bulk"
+      ? t.kitchen.goalBulk
+      : g === "maintain"
+        ? t.kitchen.goalMaintain
+        : t.kitchen.goalRecomp;
 }

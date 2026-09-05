@@ -24,6 +24,7 @@ export const BACKUP_KEYS = [
   "water",
   "waterGoal",
   "measurements",
+  "goal",
   "nutritionGoal",
   "dietFilter",
   "favorites",

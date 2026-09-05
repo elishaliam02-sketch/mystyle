@@ -47,7 +47,7 @@ const settle = ()=>page.waitForTimeout(700);
 const box = (placeholder)=>page.locator(`input[placeholder="${placeholder}"]:visible, textarea[placeholder="${placeholder}"]:visible`).first();
 
 // 1) every tab renders its heading
-for (const [route,heading] of [["/","ההרגלים שלך"],["/kitchen","המטבח"],["/workout","האימון"],["/body","מדידות גוף"],["/checkin","סיכום היום"],["/progress","התקדמות"],["/profile","פרופיל"]]) {
+for (const [route,heading] of [["/","ההרגלים שלך"],["/kitchen","המטבח"],["/workout","האימון"],["/water","מים"],["/checkin","סיכום היום"],["/progress","התקדמות"],["/profile","פרופיל"]]) {
   await go(route);
   check(`route ${route} renders`, await page.getByText(heading).first().isVisible().catch(()=>false), heading);
 }
@@ -61,8 +61,8 @@ await page.getByRole("checkbox").first().click(); await settle();
 { const s=await st(); check("unticking stores done:false (not a deleted row)",
    s.completions.some(c=>c.habitId==="h1"&&c.date===today&&c.done===false), JSON.stringify(s.completions)); }
 
-// 3) KITCHEN — water + / −
-await go("/kitchen");
+// 3) WATER — its own tab now, + / −
+await go("/water");
 await page.getByLabel("הוסף כוס מים").click(); await settle();
 await page.getByLabel("הוסף כוס מים").click(); await settle();
 { const s=await st(); check("water + twice stores 2", (s.water?.[today]??0)===2, String(s.water?.[today])); }
@@ -72,7 +72,7 @@ await page.getByLabel("הורד כוס מים").click(); await page.waitForTimeo
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
 
-// 3b) KITCHEN — the water bottle shows a recommended range and a settable goal
+// 3b) WATER — the bottle shows a recommended range and a settable goal
 check("a recommended water range is shown",
   await page.getByText(/מומלץ .* כוסות ביום/).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"שנה יעד"}).first().click(); await settle();
@@ -82,7 +82,8 @@ await page.getByRole("button",{name:"שנה יעד"}).first().click(); await set
   const s=await st();
   check("choosing a water goal stores it", s.waterGoal===14, String(s.waterGoal)); }
 
-// 3b) KITCHEN — a saved list comes back as a list, not an empty box
+// 3c) KITCHEN — a saved list comes back as a list, not an empty box
+await go("/kitchen");
 check("a saved pantry is shown back, not re-asked for",
   await page.getByText("חזה עוף",{exact:true}).first().isVisible().catch(()=>false));
 check("the edit box is not what greets a returning user",
@@ -146,16 +147,21 @@ await page.getByLabel("סמן מנה אהובה").first().click(); await settle(
 await page.getByLabel("סמן מנה אהובה").first().click(); await settle();
 { const s=await st(); check("unstarring removes it", (s.favorites??[]).length===0); }
 
-// 7) BODY — add a measurement
-await go("/body");
+// 7) PROGRESS — measurements now live in the progress corner
+await go("/progress");
 await page.getByPlaceholder(/ס.\u05de/).first().fill("83"); await page.waitForTimeout(200);
-await page.getByRole("button",{name:"הוסף"}).first().click(); await settle();
+await page.getByPlaceholder(/ס.מ/).first().press("Enter"); await settle();
 { const s=await st(); check("a measurement is stored for the waist",
    (s.measurements?.waist??[]).some(r=>r.cm===83&&r.date===today), JSON.stringify(s.measurements)); }
 
-// 8) BODY — an absurd value is refused
+// 7b) PROGRESS — a body-fat estimate appears once sex + waist are known
+await page.getByRole("button",{name:"גבר",exact:true}).first().click(); await settle();
+check("a body-fat estimate is shown from waist, height and sex",
+  await page.getByText(/יעד ל.* [0-9]+.[0-9]+%/).first().isVisible().catch(()=>false));
+
+// 8) PROGRESS — an absurd value is refused
 await page.getByPlaceholder(/ס.\u05de/).first().fill("9999"); await page.waitForTimeout(200);
-await page.getByRole("button",{name:"הוסף"}).first().click(); await settle();
+await page.getByPlaceholder(/ס.מ/).first().press("Enter"); await settle();
 { const s=await st(); check("an out-of-range measurement is refused",
    (s.measurements?.waist??[]).every(r=>r.cm!==9999)); }
 
@@ -240,6 +246,18 @@ check("the cardio card states a weekly frequency",
   // regenerate button exists
   check("a regenerate-plan button exists",
     await page.getByRole("button",{name:"תוכנית חדשה"}).first().isVisible().catch(()=>false)); }
+
+// 10d) WORKOUT — Hevy-style per-day editing: remove a move, add one to a day
+await page.getByLabel("הסר תרגיל").first().click(); await settle();
+{ const s=await st(); const edits=Object.values(s.training?.planEdits??{});
+  check("removing a move from a day is recorded in the plan",
+    edits.some(e=>(e.remove??[]).length>0), JSON.stringify(s.training?.planEdits)); }
+await page.getByRole("button",{name:"הוסף תרגיל ליום זה"}).first().click(); await settle();
+await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill("פלאנק"); await settle();
+await page.getByRole("button",{name:"פלאנק",exact:true}).first().click(); await settle();
+{ const s=await st(); const edits=Object.values(s.training?.planEdits??{});
+  check("adding a move to a specific day sticks in the plan",
+    edits.some(e=>(e.add??[]).includes("plank")), JSON.stringify(s.training?.planEdits)); }
 
 // 11) WORKOUT — rest timer counts down
 await page.getByText("60",{exact:true}).first().click(); await page.waitForTimeout(1500);

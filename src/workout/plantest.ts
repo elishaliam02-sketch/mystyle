@@ -1,4 +1,4 @@
-import { buildPlan, EQUIP_SETS } from "./plan";
+import { applyDayEdits, buildPlan, EQUIP_SETS } from "./plan";
 import { EXERCISES, MUSCLES } from "./exercises";
 import { allExercises, countByMuscle, equipmentKinds, filterExercises, matches } from "./library";
 import { bestLift, isStorableKg, lastLift } from "./lifts";
@@ -267,6 +267,47 @@ for (const days of [2, 3, 4, 5, 6] as const) {
       }
     }
     return true;
+  })());
+}
+
+// Hevy-style per-day editing on top of the generated plan
+{
+  const byId = (id: string) => EXERCISES.find((e) => e.id === id);
+  const plan = buildPlan("recomp", 3, 60, "gym", { seed: "editor" });
+  const day0 = plan.sessions[0]!.exercises;
+  const firstId = day0[0]!.id;
+  // pick a library move not already on day 0 to add
+  const toAdd = EXERCISES.find((e) => !day0.some((d) => d.id === e.id))!.id;
+
+  check("removing a move drops it from the day", (() => {
+    const out = applyDayEdits(day0, { remove: [firstId] }, byId);
+    return !out.some((e) => e.id === firstId) && out.length === day0.length - 1;
+  })());
+  check("adding a move appends it to the day", (() => {
+    const out = applyDayEdits(day0, { add: [toAdd] }, byId);
+    return out.some((e) => e.id === toAdd) && out.length === day0.length + 1;
+  })());
+  check("adding a move already present does not duplicate it", (() => {
+    const out = applyDayEdits(day0, { add: [firstId] }, byId);
+    return out.filter((e) => e.id === firstId).length === 1;
+  })());
+  check("an unknown added id is ignored, not crashed on", (() => {
+    const out = applyDayEdits(day0, { add: ["no-such-exercise"] }, byId);
+    return out.length === day0.length;
+  })());
+  check("a custom-built day starts empty and takes only what you add", (() => {
+    const out = applyDayEdits([], { add: [toAdd, firstId] }, byId);
+    return out.length === 2 && out[0]!.id === toAdd;
+  })());
+  check("no edits leaves the day untouched", (() => {
+    const out = applyDayEdits(day0, undefined, byId);
+    return out.length === day0.length && out.every((e, i) => e.id === day0[i]!.id);
+  })());
+  check("edits survive a re-roll (applied to whatever was generated)", (() => {
+    // a re-roll changes the generated moves; the person's added move still shows
+    const rolled = buildPlan("recomp", 3, 60, "gym", { seed: "editor-2" }).sessions[0]!.exercises;
+    const out = applyDayEdits(rolled, { add: [toAdd] }, byId);
+    return out.some((e) => e.id === toAdd);
   })());
 }
 

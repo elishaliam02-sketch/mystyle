@@ -39,6 +39,14 @@ import {
   stepsKm,
   stepsOn,
 } from "./steps";
+import {
+  bodyFatPercent,
+  bodyFatTarget,
+  fatTier,
+  isoWeek,
+  weeklyAverages,
+  weeklyChange,
+} from "./composition";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -238,6 +246,64 @@ function check(name: string, pass: boolean, detail?: string) {
   check("the bottle is half at half", fillFraction(4, 8) === 0.5);
   check("the bottle never overflows past full", fillFraction(20, 8) === 1);
   check("a zero goal cannot divide by zero", fillFraction(3, 0) === 0);
+}
+
+// --- body composition: weekly averages and a body-fat estimate
+{
+  // Two ISO weeks; three readings in the first, one in the second.
+  const weighIns = [
+    { date: "2026-03-02", kg: 80 }, // Mon, week 10
+    { date: "2026-03-04", kg: 80.6 },
+    { date: "2026-03-06", kg: 79.4 },
+    { date: "2026-03-09", kg: 79 }, // Mon, week 11
+  ];
+  check("two calendar weeks collapse to two points", weeklyAverages(weighIns).length === 2);
+  check("a week's average is the mean of its readings", (() => {
+    const w = weeklyAverages(weighIns)[0]!;
+    return w.avgKg === 80 && w.count === 3;
+  })(), JSON.stringify(weeklyAverages(weighIns)[0]));
+  check("weeks come out oldest first", (() => {
+    const ws = weeklyAverages(weighIns);
+    return ws[0]!.from < ws[1]!.from;
+  })());
+  check("the weekly change compares this week to last", weeklyChange(weighIns) === -1,
+    String(weeklyChange(weighIns)));
+  check("one week alone has no change yet", weeklyChange([{ date: "2026-03-02", kg: 80 }]) === null);
+  check("days in the same week share a key", isoWeek("2026-03-02") === isoWeek("2026-03-08"));
+  check("the next Monday is a new week", isoWeek("2026-03-08") !== isoWeek("2026-03-09"));
+  check("an empty log has no weeks", weeklyAverages([]).length === 0);
+
+  // body fat (RFM)
+  check("a leaner waist reads a lower body fat", (() => {
+    const lean = bodyFatPercent({ heightCm: 180, waistCm: 80, sex: "male" })!;
+    const soft = bodyFatPercent({ heightCm: 180, waistCm: 100, sex: "male" })!;
+    return lean < soft;
+  })());
+  check("a man at 180/85 is roughly mid-teens", (() => {
+    const bf = bodyFatPercent({ heightCm: 180, waistCm: 85, sex: "male" })!;
+    return bf > 10 && bf < 22;
+  })(), String(bodyFatPercent({ heightCm: 180, waistCm: 85, sex: "male" })));
+  check("women read higher than men at the same measures", (() => {
+    const m = bodyFatPercent({ heightCm: 170, waistCm: 80, sex: "male" })!;
+    const f = bodyFatPercent({ heightCm: 170, waistCm: 80, sex: "female" })!;
+    return f > m;
+  })());
+  check("no sex means no estimate", bodyFatPercent({ heightCm: 180, waistCm: 85 }) === null);
+  check("no waist means no estimate", bodyFatPercent({ heightCm: 180, sex: "male" }) === null);
+  check("an absurd waist is refused", bodyFatPercent({ heightCm: 180, waistCm: 5, sex: "male" }) === null);
+
+  // targets shift with the goal
+  check("a cut targets less fat than a bulk", (() => {
+    const cut = bodyFatTarget("cut", "male");
+    const bulk = bodyFatTarget("bulk", "male");
+    return cut.max < bulk.max;
+  })());
+  check("a number inside the band reads 'in'", (() => {
+    const band = bodyFatTarget("recomp", "male");
+    return fatTier((band.min + band.max) / 2, band) === "in";
+  })());
+  check("below the band reads 'below'", fatTier(6, bodyFatTarget("recomp", "male")) === "below");
+  check("above the band reads 'above'", fatTier(30, bodyFatTarget("recomp", "male")) === "above");
 }
 
 const failed = results.filter(([, ok]) => !ok);
