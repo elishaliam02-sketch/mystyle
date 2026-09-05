@@ -6,6 +6,7 @@
  */
 import type { AppState, CheckIn, Completion, Habit, WeighIn } from "@/store/types";
 import { mergeState, outgoingChanges, syncOnce, type Changes, type CloudPort, type Rows } from "./sync";
+import { syncRound } from "./round";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -325,6 +326,51 @@ function fakeServer() {
     "a week of history from an offline phone reaches the other device",
     deviceA.habits.some((h) => h.id === "z") && deviceA.completions.length === 1,
   );
+}
+
+// --- the mid-flight race: a sync must never undo what the user just did
+{
+  // A round is several seconds of network. These model "the person taps a goal
+  // while a sync is in flight" and assert their tap survives.
+  const roundWith = async (editMidFlight: boolean) => {
+    let current = { goal: "cut" };
+    let committed: { goal: string } | null = null;
+    const outcome = await syncRound<{ goal: string }>({
+      read: () => current,
+      work: async (snapshot) => {
+        // the person switches goal while the network round is in flight
+        if (editMidFlight) current = { goal: "bulk" };
+        // the server round returns a result derived from the OLD snapshot
+        return { ...snapshot };
+      },
+      commit: (next) => {
+        committed = next;
+        current = next;
+      },
+    });
+    return { outcome, current, committed };
+  };
+
+  {
+    const r = await roundWith(true);
+    check("a goal changed mid-sync is not overwritten by the round", r.current.goal === "bulk");
+    check("the stale round is dropped rather than committed", r.outcome === "dropped");
+    check("nothing was written back over the user's change", r.committed === null);
+  }
+  {
+    const r = await roundWith(false);
+    check("an untouched round still commits normally", r.outcome === "committed");
+    check("the sync result is applied when nothing changed", r.current.goal === "cut");
+  }
+
+  // The bug this replaced: committing unconditionally loses the edit.
+  {
+    let current = { goal: "cut" };
+    const snapshot = current;
+    current = { goal: "bulk" }; // the user's tap
+    const naive = { ...snapshot }; // what the old code wrote back
+    check("the old unconditional write would have lost the change", naive.goal === "cut" && current.goal === "bulk");
+  }
 }
 
 const failed = results.filter(([, ok]) => !ok);

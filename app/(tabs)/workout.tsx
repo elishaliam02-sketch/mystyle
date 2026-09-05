@@ -418,7 +418,21 @@ export default function WorkoutScreen() {
                 </Text>
               </View>
               {dayExercises.length === 0 ? (
-                <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.dayEmpty}</Text>
+                <View style={{ gap: space.sm }}>
+                  <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.dayEmpty}</Text>
+                  {/* even a self-built plan can borrow a ready-made day, so the
+                      two ways of building live side by side rather than one or
+                      the other */}
+                  <PillButton
+                    tone="soft"
+                    icon="sparkles"
+                    label={t.workout.fillDay}
+                    onPress={() => {
+                      for (const e of plan.sessions[i]?.exercises ?? []) addToDay(i, e.id);
+                    }}
+                    style={{ alignSelf: "flex-start" }}
+                  />
+                </View>
               ) : (
                 dayExercises.map((ex) => (
                   <ExerciseRow

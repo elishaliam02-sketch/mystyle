@@ -12,6 +12,7 @@ import {
   isEmptyBackup,
 } from "./backup";
 import { pullBackup, pushBackup } from "./backupPort";
+import { syncRound } from "./round";
 
 const nowIso = () => new Date().toISOString();
 
@@ -34,6 +35,9 @@ export function useCloud() {
   // state, so without this the change it made would schedule another sync,
   // and the app would talk to the server every four seconds forever.
   const ourOwnWrite = useRef<AppState | null>(null);
+  // Set when a round was thrown away because the person edited mid-flight, so
+  // the moment the lock is free we go again and their change reaches the server.
+  const resync = useRef(false);
 
   const sync = useCallback(async () => {
     // One at a time. Two syncs in flight would each merge against a state the
@@ -46,25 +50,46 @@ export function useCloud() {
         setStatus(session.reason);
         return;
       }
-      const merged = await syncOnce(supabasePort, session.userId, latest.current);
+      // The round commits only if the person did not change anything while it
+      // was in flight. If they did, their edit is the newer truth and this
+      // round's result — computed from a state that no longer exists — is
+      // dropped rather than written over it. Writing it back unconditionally is
+      // what made the app look like it never updates: change the goal, a sync
+      // that started moments earlier lands, and the change is silently undone.
+      const outcome = await syncRound<AppState>({
+        read: () => latest.current,
+        work: async (snapshot) => {
+          const merged = await syncOnce(supabasePort, session.userId, snapshot);
+          // Then the full-state backup: everything the granular sync does not
+          // carry (workouts, food, water, steps, measurements, goals) as one
+          // blob, so a reinstalled or new phone gets it all back.
+          return runBackup(session.userId, merged);
+        },
+        commit: (withBackup) => {
+          ourOwnWrite.current = withBackup;
+          replaceAll(withBackup);
+          // lastSyncAt is the server's own clock (server_now), so it is the
+          // trusted time that hardens the anti-cheat clock guard.
+          if (withBackup.lastSyncAt) noteServerTime(withBackup.lastSyncAt);
+          void currentAccount().then(setAccount);
+        },
+      });
 
-      // Then the full-state backup: everything the granular sync does not carry
-      // (workouts, food, water, steps, measurements, goals) as one blob, so a
-      // reinstalled or new phone gets it all back.
-      const withBackup = await runBackup(session.userId, merged);
-
-      ourOwnWrite.current = withBackup;
-      replaceAll(withBackup);
-      // lastSyncAt is the server's own clock (server_now), so it is the trusted
-      // time that hardens the anti-cheat clock guard.
-      if (withBackup.lastSyncAt) noteServerTime(withBackup.lastSyncAt);
+      // A dropped round still has to reach the server — go again once free.
+      if (outcome === "dropped") resync.current = true;
       setLastSync(new Date());
       setStatus("synced");
-      void currentAccount().then(setAccount);
     } catch {
       setStatus("error");
     } finally {
       running.current = false;
+      // A round we dropped to protect a mid-flight edit still needs to reach the
+      // server. Go again once the lock is free, on a short delay so a burst of
+      // taps settles into one round rather than a request per tap.
+      if (resync.current) {
+        resync.current = false;
+        setTimeout(() => void sync(), 1500);
+      }
     }
   }, [replaceAll]);
 

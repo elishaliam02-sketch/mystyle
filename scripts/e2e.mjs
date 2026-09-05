@@ -345,6 +345,10 @@ await page.getByRole("button",{name:"+1000"}).first().click(); await settle();
 { const s=await st(); check("a step nudge is stored", (s.steps?.[today]??0)===1000, String(s.steps?.[today])); }
 await page.getByRole("button",{name:"+2000"}).first().click(); await settle();
 { const s=await st(); check("step nudges add up", (s.steps?.[today]??0)===3000, String(s.steps?.[today])); }
+// the phone counts by itself now, so typing a number is tucked behind a link
+check("automatic step counting is offered rather than a blank box to fill",
+  (await page.getByPlaceholder("כמה צעדים סה״כ היום?").count())===0);
+await page.getByRole("button",{name:"לתקן את המספר ידנית"}).first().click(); await settle();
 await box("כמה צעדים סה״כ היום?").fill("9500"); await page.waitForTimeout(200);
 await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
 { const s=await st(); check("an exact count replaces the running total", (s.steps?.[today]??0)===9500, String(s.steps?.[today])); }

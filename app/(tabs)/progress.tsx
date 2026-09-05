@@ -19,6 +19,7 @@ import {
   weeklyChange,
   type Sex,
 } from "@/health/composition";
+import { useAutoSteps } from "@/health/pedometer";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
@@ -359,6 +360,10 @@ function StepsCard() {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
+
+  // The phone counts for itself where it can, so nobody has to guess a number.
+  const auto = useAutoSteps({ onTotal: setSteps, onDelta: addSteps });
 
   const log = state.steps ?? {};
   const day = todaySteps();
@@ -454,8 +459,32 @@ function StepsCard() {
         {fill(t.steps.weekAverage, { avg: avg.toLocaleString() })}
       </Text>
 
-      {/* quick nudges, for logging as you go */}
-      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+      {/* the phone counts by itself when it can — no guessing a number */}
+      {auto.running ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginTop: space.md,
+            paddingVertical: 8,
+            paddingHorizontal: space.md,
+            borderRadius: radius.pill,
+            backgroundColor: colors.accentWash,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Ionicons name="walk" size={16} color={colors.accent} />
+          <Text style={[type.smallStrong, { color: colors.accent }]}>{t.steps.autoOn}</Text>
+        </View>
+      ) : (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.md }]}>
+          {auto.available ? t.steps.autoAsking : t.steps.autoOff}
+        </Text>
+      )}
+
+      {/* quick nudges, for the walk the phone was not in your pocket for */}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
         {[500, 1000, 2000].map((n) => (
           <PillButton
             key={n}
@@ -468,22 +497,28 @@ function StepsCard() {
         ))}
       </View>
 
-      {/* or the exact number off the phone */}
-      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
-        <View style={{ flex: 1 }}>
-          <TextField
-            value={draft}
-            onChangeText={(v) => {
-              setDraft(v);
-              if (note) setNote(null);
-            }}
-            placeholder={t.steps.placeholder}
-            keyboardType="numeric"
-            onSubmitEditing={saveCount}
-          />
+      {/* correcting the number by hand is there, but out of the way */}
+      {showManual ? (
+        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
+          <View style={{ flex: 1 }}>
+            <TextField
+              value={draft}
+              onChangeText={(v) => {
+                setDraft(v);
+                if (note) setNote(null);
+              }}
+              placeholder={t.steps.placeholder}
+              keyboardType="numeric"
+              onSubmitEditing={saveCount}
+            />
+          </View>
+          <Button label={t.steps.save} onPress={saveCount} disabled={!draft.trim()} tone="quiet" />
         </View>
-        <Button label={t.steps.save} onPress={saveCount} disabled={!draft.trim()} tone="quiet" />
-      </View>
+      ) : (
+        <Pressable onPress={() => setShowManual(true)} accessibilityRole="button" style={{ marginTop: space.sm }}>
+          <Text style={[type.smallStrong, { color: colors.inkFaint }]}>{t.steps.fixByHand}</Text>
+        </Pressable>
+      )}
 
       {editingGoal ? (
         <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>

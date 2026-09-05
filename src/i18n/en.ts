@@ -246,7 +246,11 @@ export const en: typeof he = {
     changeGoal: "Change daily goal",
     goalPlaceholder: "Steps per day",
     goalRange: "A step goal must be between {min} and {max}.",
-    note: "Type in what your phone or watch already counts — the app doesn't read the motion sensor, so there's no permission prompt and no battery cost.",
+    autoOn: "Counting automatically",
+    autoAsking: "Asking permission to count steps…",
+    autoOff: "This phone can't count automatically — you can add steps by hand.",
+    fixByHand: "Correct the number by hand",
+    note: "Your phone counts for you. Walked without it in your pocket? Add those steps by hand.",
   },
   progress: {
     heading: "Progress",
@@ -515,6 +519,7 @@ export const en: typeof he = {
     dayEmpty: "This day is empty — add exercises below.",
     dayAdd: "Add exercise to this day",
     removeExercise: "Remove exercise",
+    fillDay: "Fill this day for me",
   },
 
   body: {
