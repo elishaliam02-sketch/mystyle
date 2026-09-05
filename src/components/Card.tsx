@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/theme";
 
 type Props = {
@@ -28,7 +28,7 @@ export function Card({ label, title, children, tone = "default" }: Props) {
           gap: space.sm,
           // A hairline keeps every card crisp against the paper; the coloured
           // tones wear a slightly stronger edge so they read as highlighted.
-          borderWidth: tone === "default" ? 1 : 1.5,
+          borderWidth: tone === "default" ? StyleSheet.hairlineWidth : 1.5,
           borderColor,
         },
         tone === "default" ? elevation(1) : null,

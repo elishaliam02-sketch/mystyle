@@ -5,16 +5,17 @@ import { Alert, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
+import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
-import { Ring } from "@/components/Ring";
 import Svg, { Circle } from "react-native-svg";
 import { dayScore, scoreTier } from "@/insight/dayscore";
 import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
+import { ON_HERO, ON_HERO_SOFT } from "@/theme";
 import { today, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
@@ -199,75 +200,81 @@ function TodayHub() {
   ];
 
   return (
-    <Card tone="accent">
+    <HeroCard>
       {/* the day score — the number that makes today worth opening */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-        <ScoreRing score={score} />
+        <ScoreRing score={score} onHero />
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={[type.title, { color: colors.ink }]}>{headline}</Text>
+          <Text style={[type.display, { color: ON_HERO, fontSize: 22, lineHeight: 28 }]}>{headline}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="flame" size={16} color={colors.accent} />
-            <Text style={[type.small, { color: colors.inkSoft }]}>
+            <Ionicons name="flame" size={16} color={ON_HERO} />
+            <Text style={[type.small, { color: ON_HERO_SOFT }]}>
               {bestStreak > 0 ? fill(t.today.hubStreak, { days: bestStreak }) : t.today.hubStreakNone}
             </Text>
           </View>
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.lg }}>
+      {/* the pillars as glass tiles on the hero — a shortcut into each */}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.xs }}>
         {tiles.map((tile) => (
           <Pressable
             key={tile.label}
             onPress={tile.onPress}
             disabled={!tile.onPress}
             accessibilityRole={tile.onPress ? "button" : undefined}
-            style={{
+            style={({ pressed }) => ({
               flex: 1,
               alignItems: "center",
-              gap: 3,
+              gap: 4,
               paddingVertical: space.md,
+              paddingHorizontal: 2,
               borderRadius: radius.md,
-              backgroundColor: colors.surface,
-            }}
+              backgroundColor: pressed ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.18)",
+            })}
           >
-            <Ionicons name={tile.icon} size={20} color={colors.accent} />
-            <Text style={[type.smallStrong, { color: colors.ink }]} numberOfLines={1}>
+            <Ionicons name={tile.icon} size={19} color={ON_HERO} />
+            <Text style={[type.smallStrong, { color: ON_HERO }]} numberOfLines={1}>
               {tile.value}
             </Text>
-            <Text style={[type.label, { color: colors.inkFaint }]} numberOfLines={1}>
+            <Text style={[type.label, { color: ON_HERO_SOFT, letterSpacing: 0.3 }]} numberOfLines={1}>
               {tile.label}
             </Text>
           </Pressable>
         ))}
       </View>
-    </Card>
+    </HeroCard>
   );
 }
 
 /** The day-score dial: a ring that fills with the score and shows it big. */
-function ScoreRing({ score }: { score: number }) {
+function ScoreRing({ score, onHero = false }: { score: number; onHero?: boolean }) {
   const { colors, type } = useTheme();
-  const size = 88;
+  const size = 96;
   const stroke = 9;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
+  const track = onHero ? "rgba(255,255,255,0.22)" : colors.rule;
+  const fill = onHero ? "#FFFFFF" : colors.accent;
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.rule} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={colors.accent}
+          stroke={fill}
           strokeWidth={stroke}
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c}`}
         />
       </Svg>
-      <Text style={[type.figure, { color: colors.ink }]}>{score}</Text>
+      <Text style={[type.figure, { color: onHero ? ON_HERO : colors.ink, fontSize: 34 }]}>{score}</Text>
     </View>
   );
 }
@@ -330,7 +337,6 @@ export default function TodayScreen() {
           ? t.today.allDone
           : fill(t.today.doneCount, { done: doneCount, total: habits.length })
       }
-      aside={<Ring done={doneCount} total={habits.length} />}
     >
       <TodayHub />
 

@@ -368,7 +368,7 @@ export function suggestedQuestions(locale: Locale): string[] {
         "למה המשקל תקוע?",
         "מה התוכנית שלי אומרת?",
         "כמה מים שתיתי?",
-        "אין לי מוטיבציה",
+        "אכלתי 2 ביצים ופרוסת לחם",
       ]
     : [
         "How many calories do I have left?",
@@ -376,6 +376,6 @@ export function suggestedQuestions(locale: Locale): string[] {
         "Why is my weight stuck?",
         "What does my plan say?",
         "How much water have I had?",
-        "I have no motivation",
+        "I ate 2 eggs and a slice of bread",
       ];
 }

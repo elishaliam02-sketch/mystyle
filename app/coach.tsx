@@ -14,6 +14,7 @@ import { Screen } from "@/components/Screen";
 import { PillButton } from "@/components/PillButton";
 import { useI18n } from "@/i18n";
 import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
+import { eatIntent, eatenLabel, parseEaten } from "@/coach/logfood";
 import { askServer } from "@/ai/server";
 import { dailyTarget } from "@/kitchen";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
@@ -41,6 +42,7 @@ export default function CoachScreen() {
     waterGoal,
     todaySteps,
     stepGoal,
+    logMeal,
   } = useStore();
 
   const [draft, setDraft] = useState("");
@@ -92,6 +94,36 @@ export default function CoachScreen() {
     const q = question.trim();
     if (!q) return;
     const lang = locale === "he" ? "he" : "en";
+
+    // If the person is telling the coach what they ate, log it and confirm with
+    // the new running total — the coach does the thing, not just talks about it.
+    if (eatIntent(q)) {
+      const eaten = parseEaten(q, lang);
+      if (eaten) {
+        logMeal(eatenLabel(eaten), eaten.kcal, eaten.protein);
+        const totalKcal = todayIntake().kcal + eaten.kcal;
+        const target = context.kcalTarget;
+        const left = target ? target - totalKcal : null;
+        const lines = eaten.items
+          .map((i) => `• ${i.label} — ≈${i.kcal} ${lang === "he" ? "קק״ל" : "kcal"}`)
+          .join("\n");
+        const confirm =
+          lang === "he"
+            ? `רשמתי ליומן:\n${lines}\n\nסה״כ ≈${eaten.kcal} קק״ל · ${eaten.protein} ג׳ חלבון.` +
+              (left !== null ? `\nנשארו לך היום ≈${left} קק״ל.` : "")
+            : `Logged it:\n${lines}\n\nTotal ≈${eaten.kcal} kcal · ${eaten.protein}g protein.` +
+              (left !== null ? `\nYou have ≈${left} kcal left today.` : "");
+        setTurns((prev) => [
+          ...prev,
+          { id: `${Date.now()}-q`, from: "you", text: q },
+          { id: `${Date.now()}-a`, from: "coach", text: confirm },
+        ]);
+        setDraft("");
+        requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+        return;
+      }
+    }
+
     const local = coachReply(q, context, lang);
     const answerId = `${Date.now()}-a`;
 

@@ -4,6 +4,7 @@
  * than generic filler.
  */
 import { classify, coachReply, suggestedQuestions, type CoachContext } from "./index";
+import { eatIntent, eatenLabel, parseEaten } from "./logfood";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -117,6 +118,40 @@ check("six openers are offered in each language",
 {
   const r = coachReply("קשקושבלבל", ctx, "he");
   check("an unknown question lists what the coach can do", r.text.includes("קלוריות") && r.text.includes("חלבון"), r.text.slice(0, 140));
+}
+
+// --- logging a meal from chat ("I ate ...")
+{
+  check("an 'I ate' sentence is recognised as eating", eatIntent("אכלתי 2 ביצים ואורז"));
+  check("an English 'I had' is recognised", eatIntent("I had two eggs and rice"));
+  check("a plain question is not eating", !eatIntent("כמה קלוריות נשארו לי"));
+  check("asking about food is not eating", !eatIntent("מה כדאי לאכול"));
+
+  const m = parseEaten("אכלתי 2 ביצים ואורז", "he");
+  check("known foods are pulled from the sentence", !!m && m.items.length >= 2, JSON.stringify(m?.items?.map(i=>i.label)));
+  check("a quantity before a food multiplies it", (() => {
+    const eggs = m?.items.find((i) => i.food.id === "egg");
+    return !!eggs && eggs.count === 2 && eggs.kcal > 0;
+  })(), JSON.stringify(m?.items));
+  check("calories and protein are summed", !!m && m.kcal > 0 && m.protein > 0);
+  check("the diary label lists the foods", !!m && eatenLabel(m).includes("ביצים"));
+
+  check("a sentence with no known food logs nothing", parseEaten("אכלתי משהו טעים", "he") === null);
+  check("a Hebrew number word is understood", (() => {
+    const two = parseEaten("אכלתי שתי ביצים", "he");
+    const eggs = two?.items.find((i) => i.food.id === "egg");
+    return !!eggs && eggs.count === 2;
+  })());
+  check("no quantity means one", (() => {
+    const one = parseEaten("אכלתי ביצה", "he");
+    const eggs = one?.items.find((i) => i.food.id === "egg");
+    return !!eggs && eggs.count === 1;
+  })(), JSON.stringify(parseEaten("אכלתי ביצה","he")));
+  check("an absurd quantity is capped", (() => {
+    const lots = parseEaten("אכלתי 9999 ביצים", "he");
+    const eggs = lots?.items.find((i) => i.food.id === "egg");
+    return !!eggs && eggs.count <= 50;
+  })());
 }
 
 const failed = results.filter(([, ok]) => !ok);

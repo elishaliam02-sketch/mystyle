@@ -150,9 +150,34 @@ export const type = {
 export function elevation(colors: Colors, level: 1 | 2 = 1) {
   return {
     shadowColor: colors.shadow,
-    shadowOpacity: level === 1 ? 0.06 : 0.1,
-    shadowRadius: level === 1 ? 12 : 22,
-    shadowOffset: { width: 0, height: level === 1 ? 3 : 8 },
-    elevation: level === 1 ? 2 : 5,
+    shadowOpacity: level === 1 ? 0.08 : 0.14,
+    shadowRadius: level === 1 ? 16 : 30,
+    shadowOffset: { width: 0, height: level === 1 ? 6 : 14 },
+    elevation: level === 1 ? 3 : 8,
+  };
+}
+
+/** The one accent gradient the whole app leans on — a lit red, light-to-deep. */
+export function accentGradient(colors: Colors): [string, string] {
+  return [colors.accent, colors.accentDeep];
+}
+
+/**
+ * The signature "hero" surface: a crimson that bleeds into near-black, lit from
+ * one corner. This is the app's one loud gesture — the day score, an intro, a
+ * result. White text sits on it, and a red glow underneath lifts it clear off
+ * the paper so a hero card feels like the front of a product, not a box.
+ */
+export function heroGradient(colors: Colors): [string, string, string] {
+  return [colors.accent, colors.accentDeep, colors.bandBottom];
+}
+
+export function heroGlow(colors: Colors) {
+  return {
+    shadowColor: colors.accent,
+    shadowOpacity: 0.45,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
   };
 }

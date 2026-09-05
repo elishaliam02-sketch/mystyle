@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
-import { elevation, font, palette, radius, space, type, type Colors } from "./tokens";
+import { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type, type Colors } from "./tokens";
 
 type Theme = {
   colors: Colors;
@@ -34,6 +34,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+export const ON_HERO = "#FFFFFF";
+export const ON_HERO_SOFT = "rgba(255,255,255,0.72)";
+
 export function useTheme(): Theme {
   const theme = useContext(ThemeContext);
   if (!theme) {
@@ -42,5 +45,5 @@ export function useTheme(): Theme {
   return theme;
 }
 
-export { elevation, font, palette, radius, space, type };
+export { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type };
 export type { Colors };
