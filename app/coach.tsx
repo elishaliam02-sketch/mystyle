@@ -13,7 +13,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Screen } from "@/components/Screen";
 import { PillButton } from "@/components/PillButton";
 import { useI18n } from "@/i18n";
-import { coachReply, suggestedQuestions } from "@/coach";
+import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
+import { askServer } from "@/ai/server";
 import { dailyTarget } from "@/kitchen";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
@@ -44,6 +45,7 @@ export default function CoachScreen() {
 
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [thinking, setThinking] = useState(false);
   const scroller = useRef<ScrollView>(null);
 
   // Everything the coach is allowed to know, read fresh on every answer.
@@ -79,17 +81,38 @@ export default function CoachScreen() {
 
   const openers = useMemo(() => suggestedQuestions(locale === "he" ? "he" : "en"), [locale]);
 
-  function ask(question: string) {
+  /**
+   * Answers instantly from the device, then — when a model is configured on our
+   * server — replaces that answer with a fuller one. The person is never left
+   * waiting on a network call for a question the app can already answer, and if
+   * the model is unreachable or its free quota is spent, the local answer is
+   * simply what stays.
+   */
+  async function ask(question: string) {
     const q = question.trim();
     if (!q) return;
-    const reply = coachReply(q, context, locale === "he" ? "he" : "en");
+    const lang = locale === "he" ? "he" : "en";
+    const local = coachReply(q, context, lang);
+    const answerId = `${Date.now()}-a`;
+
     setTurns((prev) => [
       ...prev,
       { id: `${Date.now()}-q`, from: "you", text: q },
-      { id: `${Date.now()}-a`, from: "coach", text: reply.text },
+      { id: answerId, from: "coach", text: local.text },
     ]);
     setDraft("");
     requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+
+    setThinking(true);
+    const answer = await askServer({
+      system: coachSystemPrompt(lang),
+      prompt: `${factsFor(context, lang)}\n\nQuestion: ${q}`,
+    });
+    setThinking(false);
+    if (answer.ok) {
+      setTurns((prev) => prev.map((t) => (t.id === answerId ? { ...t, text: answer.text } : t)));
+      requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+    }
   }
 
   return (
@@ -148,6 +171,12 @@ export default function CoachScreen() {
           })}
         </ScrollView>
 
+        {thinking ? (
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
+            {t.coach.thinking}
+          </Text>
+        ) : null}
+
         {/* taps, so the chat is never a blank box staring back */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.sm }}>
           {openers.map((q) => (
@@ -200,4 +229,39 @@ export default function CoachScreen() {
       </Screen>
     </KeyboardAvoidingView>
   );
+}
+
+
+/** The rules the model answers under. Safety is decided here, not by the model. */
+function coachSystemPrompt(locale: "he" | "en"): string {
+  const lang = locale === "he" ? "Hebrew" : "English";
+  return [
+    `You are the coach inside APEX, a fitness and nutrition app.`,
+    `Answer in ${lang}, in at most four short sentences, speaking directly to the person.`,
+    `Use the figures you are given — quote them back rather than talking in generalities.`,
+    ``,
+    `Rules, non-negotiable:`,
+    `- Never give medical or clinical advice, and never diagnose.`,
+    `- Never encourage fasting, purging, or extreme restriction.`,
+    `- If asked about pain, injury, medication, pregnancy or a medical condition,`,
+    `  keep it general and say to speak with a professional.`,
+    `- Never shame the person.`,
+  ].join("\n");
+}
+
+/** The person's own numbers, handed to the model as plain facts. */
+function factsFor(c: CoachContext, locale: "he" | "en"): string {
+  const rows = [
+    `goal: ${c.goal}`,
+    c.kcalTarget != null ? `calories today: ${c.kcalEaten ?? 0} of ${c.kcalTarget}` : null,
+    c.proteinTarget != null ? `protein today: ${c.proteinEaten ?? 0}g of ${c.proteinTarget}g` : null,
+    c.waterGoal != null ? `water today: ${c.waterCups ?? 0} of ${c.waterGoal} cups` : null,
+    c.stepGoal != null ? `steps today: ${c.steps ?? 0} of ${c.stepGoal}` : null,
+    c.weeklyChangeKg != null ? `weekly average change: ${c.weeklyChangeKg} kg vs last week` : null,
+    c.bodyFat != null ? `estimated body fat: ${c.bodyFat}%` : null,
+    c.planDays != null ? `training days per week: ${c.planDays}` : null,
+    `trained today: ${c.trainedToday ? "yes" : "no"}`,
+    c.name ? `name: ${c.name}` : null,
+  ].filter(Boolean);
+  return `Here are this person's figures right now:\n${rows.join("\n")}`;
 }

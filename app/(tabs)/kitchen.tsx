@@ -5,6 +5,7 @@ import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
+import { MealScanner } from "@/components/MealScanner";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -288,6 +289,9 @@ export default function KitchenScreen() {
 
         {/* today: targets, water and the food log */}
         <TodayCard goal={goal} />
+
+        {/* photograph the plate — the fastest way into the diary */}
+        <MealScanner />
 
         {/* log anything you ate, not just the curated dishes */}
         <QuickLog />

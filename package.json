@@ -64,7 +64,8 @@
     "test:cardio": "node scripts/run-cardio-tests.mjs",
     "test:backup": "node scripts/run-backup-tests.mjs",
     "test:sets": "node scripts/run-sets-tests.mjs",
-    "test:coach": "node scripts/run-coach-tests.mjs"
+    "test:coach": "node scripts/run-coach-tests.mjs",
+    "test:nutrition": "node scripts/run-nutrition-tests.mjs"
   },
   "private": true
 }

@@ -673,9 +673,26 @@ export const en: typeof he = {
     emptyBody: "Calories, protein, water, steps, weight, your plan, cardio, kosher, portions, soreness or motivation. Tap a question below or write your own.",
     placeholder: "Ask a question…",
     send: "Send",
+    thinking: "Thinking…",
     note: "The coach runs on your device — no signal, no cost, and nothing leaves your phone. This is not medical advice.",
     entry: "Ask the coach",
     entryHint: "Answers from your own numbers",
+  },
+
+  scan: {
+    title: "Calories from a photo",
+    body: "Photograph the plate and I'll name what's on it and estimate calories and protein.",
+    take: "Photograph a meal",
+    pick: "From gallery",
+    reading: "Reading the photo…",
+    save: "Log it",
+    fallbackLabel: "Meal",
+    confidence: "{pct}% confident",
+    estimateNote: "An estimate only — a photo can't show oil or sauces.",
+    quota: "The free daily quota is spent. Try tomorrow, or search the food by hand below.",
+    unavailable: "Photo counting isn't switched on yet. You can search the food by hand below.",
+    unreadable: "I couldn't find food in that photo. Try a clearer one from above.",
+    phoneOnly: "Photos are available in the phone app.",
   },
 
   common: {
