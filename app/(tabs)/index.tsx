@@ -186,9 +186,9 @@ function TodayHub() {
     },
     {
       icon: "water",
-      value: `${water}`,
+      value: `${water}/${wGoal}`,
       label: t.today.hubWater,
-      onPress: () => router.push("/kitchen"),
+      onPress: () => router.push("/water"),
     },
     {
       icon: workoutDone ? "checkmark-circle" : "barbell",
@@ -333,6 +333,31 @@ export default function TodayScreen() {
       aside={<Ring done={doneCount} total={habits.length} />}
     >
       <TodayHub />
+
+      {/* the coach — answers from this person's own numbers, on the device */}
+      <Pressable onPress={() => router.push("/coach")} accessibilityRole="button">
+        <Card>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: radius.pill,
+                backgroundColor: colors.accent,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="chatbubbles" size={22} color={colors.onAccent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.title, { color: colors.ink }]}>{t.coach.entry}</Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>{t.coach.entryHint}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+          </View>
+        </Card>
+      </Pressable>
 
       <TipOfTheDay />
 

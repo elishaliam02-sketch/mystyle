@@ -445,15 +445,15 @@ export const MEALS: Meal[] = [
  */
 export type Portion = { g: number; he: string; en: string };
 
-const DEFAULT_PORTION: Portion = { g: 100, he: "מנה", en: "1 serving" };
+const DEFAULT_PORTION: Portion = { g: 100, he: "בגודל אגרוף", en: "a fist-sized amount" };
 
 const PORTIONS: Record<string, Portion> = {
   egg: { g: 100, he: "2 ביצים", en: "2 eggs" },
   chicken: { g: 150, he: "חזה בינוני", en: "1 medium breast" },
   turkey: { g: 150, he: "פרוסות", en: "a few slices" },
-  beef: { g: 150, he: "מנה", en: "1 portion" },
-  pork: { g: 150, he: "מנה", en: "1 portion" },
-  lamb: { g: 150, he: "מנה", en: "1 portion" },
+  beef: { g: 150, he: "נתח בגודל כף יד", en: "a palm-sized piece" },
+  pork: { g: 150, he: "נתח בגודל כף יד", en: "a palm-sized piece" },
+  lamb: { g: 150, he: "נתח בגודל כף יד", en: "a palm-sized piece" },
   sausage: { g: 80, he: "יחידה", en: "1 sausage" },
   tuna: { g: 100, he: "קופסה", en: "1 can" },
   salmon: { g: 150, he: "פילה", en: "1 fillet" },
@@ -468,7 +468,7 @@ const PORTIONS: Record<string, Portion> = {
   peas: { g: 80, he: "חצי כוס", en: "1/2 cup" },
   proteinPowder: { g: 30, he: "סקופ", en: "1 scoop" },
   cottage: { g: 150, he: "גביע", en: "1 tub" },
-  whiteCheese: { g: 100, he: "מנה", en: "1 portion" },
+  whiteCheese: { g: 100, he: "4 כפות גדושות", en: "4 heaped tablespoons" },
   greekYogurt: { g: 170, he: "גביע", en: "1 cup" },
   yellowCheese: { g: 30, he: "2 פרוסות", en: "2 slices" },
   mozzarella: { g: 60, he: "כדור", en: "1 ball" },
@@ -483,7 +483,7 @@ const PORTIONS: Record<string, Portion> = {
   oats: { g: 50, he: "חצי כוס", en: "1/2 cup dry" },
   rice: { g: 75, he: "חצי כוס יבש", en: "1/2 cup dry" },
   pasta: { g: 80, he: "מנה יבשה", en: "1 dry portion" },
-  noodles: { g: 80, he: "מנה", en: "1 nest" },
+  noodles: { g: 80, he: "חופן יבש", en: "a dry handful" },
   quinoa: { g: 75, he: "חצי כוס יבש", en: "1/2 cup dry" },
   couscous: { g: 75, he: "חצי כוס", en: "1/2 cup" },
   bulgur: { g: 75, he: "חצי כוס", en: "1/2 cup" },

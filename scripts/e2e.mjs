@@ -339,23 +339,15 @@ await page.getByText("מסה",{exact:true}).first().click(); await settle();
   check("shuffling eventually serves different dishes", changed);
   { const s=await st(); check("the shuffle is remembered", (s.mealShuffle??0) > 0, String(s.mealShuffle)); } }
 
-// 19) PROGRESS — steps
+// 19) PROGRESS — steps are counted by the phone, not typed in
 await go("/progress");
-await page.getByRole("button",{name:"+1000"}).first().click(); await settle();
-{ const s=await st(); check("a step nudge is stored", (s.steps?.[today]??0)===1000, String(s.steps?.[today])); }
-await page.getByRole("button",{name:"+2000"}).first().click(); await settle();
-{ const s=await st(); check("step nudges add up", (s.steps?.[today]??0)===3000, String(s.steps?.[today])); }
-// the phone counts by itself now, so typing a number is tucked behind a link
-check("automatic step counting is offered rather than a blank box to fill",
+check("no manual step-adding buttons are offered any more",
+  (await page.getByRole("button",{name:"+1000"}).count())===0);
+check("no blank step box to fill in",
   (await page.getByPlaceholder("כמה צעדים סה״כ היום?").count())===0);
-await page.getByRole("button",{name:"לתקן את המספר ידנית"}).first().click(); await settle();
-await box("כמה צעדים סה״כ היום?").fill("9500"); await page.waitForTimeout(200);
-await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
-{ const s=await st(); check("an exact count replaces the running total", (s.steps?.[today]??0)===9500, String(s.steps?.[today])); }
-check("hitting the goal is shown", await page.getByText(/ימים ברצף/).first().isVisible().catch(()=>false));
-await box("כמה צעדים סה״כ היום?").fill("999999"); await page.waitForTimeout(200);
-await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
-{ const s=await st(); check("an absurd step count is refused", (s.steps?.[today]??0)===9500, String(s.steps?.[today])); }
+check("the step card explains that counting is automatic",
+  await page.getByText(/ספירה אוטומטית|לא מאפשר ספירה אוטומטית|מבקש הרשאה/).first().isVisible().catch(()=>false));
+// the daily target is still the person's to set
 await page.getByRole("button",{name:"שנה יעד יומי"}).first().click(); await settle();
 await box("יעד צעדים ליום").fill("12000"); await page.waitForTimeout(200);
 await page.getByRole("button",{name:"שמור",exact:true}).last().click(); await settle();
@@ -430,6 +422,21 @@ await page.getByRole("button",{name:"הוסף לאימון של היום"}).firs
 
 check("no uncaught page errors during the whole run", crashes.length===0, crashes.join(" | "));
 
+// 22) COACH — a chat that answers from this person's own numbers
+await go("/");
+await page.getByRole("button",{name:"שאל את המאמן"}).first().click(); await settle();
+check("the coach opens", await page.getByText("המאמן שלך").first().isVisible().catch(()=>false));
+check("openers are offered rather than a blank box",
+  await page.getByRole("button",{name:"כמה מים שתיתי?"}).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"כמה מים שתיתי?"}).first().click(); await settle();
+check("the coach answers with this person's real water numbers",
+  await page.getByText(/כוסות/).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"מה התוכנית שלי אומרת?"}).first().click(); await settle();
+check("the coach answers about the plan using the goal",
+  await page.getByText(/תוכנית שלך בנויה/).first().isVisible().catch(()=>false));
+{ const t = await page.evaluate(()=>document.body.innerText);
+  check("the coach quotes the weekly training frequency", /3 ימים בשבוע/.test(t), t.slice(0,200)); }
+
 await browser.close(); server.close();
 report();
 
@@ -437,7 +444,7 @@ report();
 // check that ran before it — a suite that prints nothing when it falls over
 // tells you only that something broke, not what had already passed.
 function report(err) {
-  const failed = results.filter(([,ok])=>!ok);
+const failed = results.filter(([,ok])=>!ok);
   for (const [n,ok,d] of results) console.log(`${ok?"PASS":"FAIL"}  ${n}${ok?"":`  ← ${d??""}`}`);
   if (err) console.log(`\nCRASH after ${results.length} checks: ${String(err).slice(0,300)}`);
   console.log(`\n${results.length-failed.length}/${results.length} passed`);

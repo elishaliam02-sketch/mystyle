@@ -666,6 +666,18 @@ export const en: typeof he = {
     measureBody: "The scale stalls sometimes and the tape doesn't. Worth measuring.",
   },
 
+  coach: {
+    heading: "Your coach",
+    body: "Ask me anything — I answer from your own numbers.",
+    emptyTitle: "What do you want to know?",
+    emptyBody: "Calories, protein, water, steps, weight, your plan, cardio, kosher, portions, soreness or motivation. Tap a question below or write your own.",
+    placeholder: "Ask a question…",
+    send: "Send",
+    note: "The coach runs on your device — no signal, no cost, and nothing leaves your phone. This is not medical advice.",
+    entry: "Ask the coach",
+    entryHint: "Answers from your own numbers",
+  },
+
   common: {
     close: "Close",
     cancel: "Cancel",

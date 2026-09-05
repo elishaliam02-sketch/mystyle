@@ -31,7 +31,6 @@ import {
   averageSteps,
   isStorableGoal as isStorableStepGoal,
   MAX_STEP_GOAL,
-  MAX_STEPS,
   MIN_STEP_GOAL,
   recentSteps,
   stepStreak,
@@ -356,11 +355,9 @@ function StepsCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { state, setSteps, addSteps, todaySteps, stepGoal, setStepGoal } = useStore();
-  const [draft, setDraft] = useState("");
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState("");
   const [note, setNote] = useState<string | null>(null);
-  const [showManual, setShowManual] = useState(false);
 
   // The phone counts for itself where it can, so nobody has to guess a number.
   const auto = useAutoSteps({ onTotal: setSteps, onDelta: addSteps });
@@ -374,17 +371,6 @@ function StepsCard() {
   const streak = stepStreak(log, today(), goal);
   const weightKg = [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg;
   const peak = Math.max(goal, ...week.map((d) => d.steps), 1);
-
-  function saveCount() {
-    const n = Number(draft.replace(/[,\s]/g, ""));
-    if (!Number.isFinite(n) || n < 0 || n > MAX_STEPS) {
-      setNote(fill(t.steps.range, { max: MAX_STEPS }));
-      return;
-    }
-    setSteps(Math.round(n));
-    setDraft("");
-    setNote(null);
-  }
 
   function saveGoal() {
     const n = Number(goalDraft.replace(/[,\s]/g, ""));
@@ -483,42 +469,6 @@ function StepsCard() {
         </Text>
       )}
 
-      {/* quick nudges, for the walk the phone was not in your pocket for */}
-      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
-        {[500, 1000, 2000].map((n) => (
-          <PillButton
-            key={n}
-            tone="soft"
-            label={fill(t.steps.add, { n })}
-            accessibilityLabel={fill(t.steps.add, { n })}
-            onPress={() => addSteps(n)}
-            style={{ flex: 1 }}
-          />
-        ))}
-      </View>
-
-      {/* correcting the number by hand is there, but out of the way */}
-      {showManual ? (
-        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
-          <View style={{ flex: 1 }}>
-            <TextField
-              value={draft}
-              onChangeText={(v) => {
-                setDraft(v);
-                if (note) setNote(null);
-              }}
-              placeholder={t.steps.placeholder}
-              keyboardType="numeric"
-              onSubmitEditing={saveCount}
-            />
-          </View>
-          <Button label={t.steps.save} onPress={saveCount} disabled={!draft.trim()} tone="quiet" />
-        </View>
-      ) : (
-        <Pressable onPress={() => setShowManual(true)} accessibilityRole="button" style={{ marginTop: space.sm }}>
-          <Text style={[type.smallStrong, { color: colors.inkFaint }]}>{t.steps.fixByHand}</Text>
-        </Pressable>
-      )}
 
       {editingGoal ? (
         <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>

@@ -119,6 +119,9 @@ type Store = {
   ) => void;
   /** Re-rolls the plan's exact exercises (new planSeed), same goal and split. */
   regeneratePlan: () => void;
+  /** Switches between the generated plan and the self-built one. Non-destructive:
+   * the generated days and the person's own picks both survive the switch. */
+  setTrainingMode: (mode: "auto" | "custom") => void;
   /** Permanently adds an exercise to a specific plan day (Hevy-style). */
   addToDay: (dayIndex: number, exerciseId: string) => void;
   /** Permanently removes an exercise from a specific plan day. */
@@ -643,6 +646,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, photos: (s.photos ?? []).filter((p) => p.id !== id) }));
   }, []);
 
+  // Switching how the plan is built never throws anything away: the generated
+  // sessions are recomputed from the seed and the person's per-day edits are
+  // kept, so flipping back and forth returns exactly what was there before.
+  const setTrainingMode = useCallback((mode: "auto" | "custom") => {
+    setState((s) => (s.training ? { ...s, training: { ...s.training, mode } } : s));
+  }, []);
+
   const planSeed = useCallback(
     () => state.training?.planSeed ?? state.salt ?? "",
     [state.training, state.salt],
@@ -923,6 +933,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePhoto,
       configureTraining,
       regeneratePlan,
+      setTrainingMode,
       addToDay,
       removeFromDay,
       dayEdits,
@@ -955,7 +966,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan,
+     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],

@@ -304,7 +304,7 @@ export default function KitchenScreen() {
         {favorites.length > 0 ? (
           <>
             <SectionLabel text={t.kitchen.favTitle} />
-            {MEALS.filter((m) => favorites.includes(m.id)).map((m) => (
+            {MEALS.filter((m) => favorites.includes(m.id) && dietOk(m, diet)).map((m) => (
               <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} />
             ))}
           </>

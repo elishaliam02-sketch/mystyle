@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, Vi
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
+import { ExerciseThumb } from "@/components/ExerciseThumb";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
@@ -32,7 +33,7 @@ export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
-    addExerciseToday, todayExtras, addToDay, removeFromDay } = useStore();
+    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode } = useStore();
 
   const training = state.training;
   // Default to the app-wide goal, so the plan starts on the goal the person
@@ -359,7 +360,33 @@ export default function WorkoutScreen() {
               {focusNote}
             </Text>
           ) : null}
-          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+          {/* both ways of having a plan, switchable at any time and without
+              losing either: the generated days stay generated, the person's own
+              picks stay theirs, and flipping back returns exactly what was there */}
+          <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.md }}>
+            {(["auto", "custom"] as const).map((m) => {
+              const on = (training.mode ?? "auto") === m;
+              return (
+                <SelectTile
+                  key={m}
+                  selected={on}
+                  onPress={() => setTrainingMode(m)}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    paddingVertical: space.sm,
+                    borderRadius: radius.pill,
+                  }}
+                >
+                  <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                    {m === "auto" ? t.workout.modeAuto : t.workout.modeCustom}
+                  </Text>
+                </SelectTile>
+              );
+            })}
+          </View>
+
+          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
             <Button
               label={t.workout.change}
               tone="quiet"
@@ -708,6 +735,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
     >
       {/* title line */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+        <ExerciseThumb ex={ex} size={52} />
         <Pressable onPress={() => setOpen((v) => !v)} style={{ flex: 1 }}>
           <Text style={[type.bodyStrong, { color: colors.ink }]}>{name}</Text>
           <Text style={[type.small, { color: colors.inkFaint }]}>
