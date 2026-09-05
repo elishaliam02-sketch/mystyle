@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
+import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { WaterBottle } from "@/components/WaterBottle";
 import { CUP_ML, fillFraction, recommendedRange, waterStatus } from "@/health/water";
 import { fill, useI18n } from "@/i18n";
+import { ON_HERO, ON_HERO_SOFT } from "@/theme";
 import { daysAgo, today, useStore } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -35,8 +37,6 @@ export default function WaterScreen() {
           : cups === 0
             ? t.water.start
             : t.water.keep;
-  const statusColor =
-    status === "over" ? colors.amber : status === "met" ? colors.accent : colors.inkSoft;
 
   // The last seven days of cups, oldest first, zeros included.
   const log = state.water ?? {};
@@ -55,22 +55,22 @@ export default function WaterScreen() {
 
   return (
     <Screen title={t.water.heading} subtitle={t.water.body}>
-      <Card>
+      <HeroCard>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-          <WaterBottle fill={pct} met={cups >= goal} width={92} height={186} />
+          <WaterBottle fill={pct} met={cups >= goal} width={92} height={186} onHero />
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={[type.figure, { color: colors.ink, fontSize: 40 }]}>
+            <Text style={[type.figure, { color: ON_HERO, fontSize: 44 }]}>
               {cups}
-              <Text style={[type.small, { color: colors.inkFaint }]}>
+              <Text style={[type.small, { color: ON_HERO_SOFT }]}>
                 {" "}
                 {fill(t.water.ofGoal, { goal })}
               </Text>
             </Text>
-            <Text style={[type.small, { color: statusColor, fontWeight: "700" }]}>{statusText}</Text>
-            <Text style={[type.small, { color: colors.inkFaint }]}>
+            <Text style={[type.small, { color: ON_HERO, fontWeight: "700" }]}>{statusText}</Text>
+            <Text style={[type.small, { color: ON_HERO_SOFT }]}>
               {fill(t.water.range, { min: range.min, max: range.max })}
             </Text>
-            <Text style={[type.small, { color: colors.inkFaint }]}>
+            <Text style={[type.small, { color: ON_HERO_SOFT }]}>
               ≈ {fill(t.water.ml, { ml: (cups * CUP_ML).toLocaleString() })}
             </Text>
           </View>
@@ -86,12 +86,14 @@ export default function WaterScreen() {
               width: 52,
               height: 52,
               borderRadius: radius.pill,
-              backgroundColor: colors.surfaceAlt,
+              backgroundColor: "rgba(255,255,255,0.16)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.22)",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="remove" size={26} color={colors.ink} />
+            <Ionicons name="remove" size={26} color={ON_HERO} />
           </Pressable>
           <Pressable
             onPress={() => addWater(1)}
@@ -102,20 +104,20 @@ export default function WaterScreen() {
               flex: 1,
               height: 52,
               borderRadius: radius.pill,
-              backgroundColor: colors.accent,
+              backgroundColor: "#FFFFFF",
               alignItems: "center",
               justifyContent: "center",
               flexDirection: "row",
               gap: 8,
-              shadowColor: colors.accent,
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
+              shadowColor: "#000000",
+              shadowOpacity: 0.18,
+              shadowRadius: 10,
               shadowOffset: { width: 0, height: 4 },
               elevation: 5,
             }}
           >
-            <Ionicons name="add" size={26} color={colors.onAccent} />
-            <Text style={[type.bodyStrong, { color: colors.onAccent }]}>{t.water.cups}</Text>
+            <Ionicons name="add" size={26} color={colors.accent} />
+            <Text style={[type.bodyStrong, { color: colors.accent }]}>{t.water.cups}</Text>
           </Pressable>
           <Pressable
             onPress={() => setEditing((e) => !e)}
@@ -125,17 +127,21 @@ export default function WaterScreen() {
               height: 52,
               paddingHorizontal: space.md,
               borderRadius: radius.pill,
-              backgroundColor: colors.surfaceAlt,
+              backgroundColor: "rgba(255,255,255,0.16)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.22)",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Text style={[type.smallStrong, { color: colors.accent }]}>{t.water.editGoal}</Text>
+            <Text style={[type.smallStrong, { color: ON_HERO }]}>{t.water.editGoal}</Text>
           </Pressable>
         </View>
+      </HeroCard>
 
-        {editing ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.md }}>
+      {editing ? (
+        <Card label={t.water.editGoal}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
             {Array.from({ length: range.max - range.min + 1 }, (_, i) => range.min + i).map((n) => (
               <SelectTile
                 key={n}
@@ -152,8 +158,8 @@ export default function WaterScreen() {
               </SelectTile>
             ))}
           </View>
-        ) : null}
-      </Card>
+        </Card>
+      ) : null}
 
       <Card label={t.water.weekTitle}>
         <View

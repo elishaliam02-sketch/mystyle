@@ -27,7 +27,9 @@ export default function CheckinScreen() {
 
   const existing = state.checkIns.find((c) => c.date === today());
   const [editing, setEditing] = useState(false);
-  const [mood, setMood] = useState<CheckIn["mood"]>(existing?.mood ?? "ok");
+  // No mood is pre-selected for a fresh recap, so saving is an intentional
+  // tap rather than an accidental "ok". Editing an existing recap prefills it.
+  const [mood, setMood] = useState<CheckIn["mood"] | null>(existing?.mood ?? null);
   const [note, setNote] = useState(existing?.note ?? "");
   const [applied, setApplied] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -72,6 +74,7 @@ export default function CheckinScreen() {
   );
 
   function save() {
+    if (!mood) return;
     addCheckIn({ mood, note: note.trim() });
     setEditing(false);
     setApplied(false);
@@ -158,7 +161,7 @@ export default function CheckinScreen() {
               />
             </View>
 
-            <Button icon="checkmark" label={t.checkin.save} onPress={save} style={{ marginTop: space.lg }} />
+            <Button icon="checkmark" label={t.checkin.save} onPress={save} disabled={!mood} style={{ marginTop: space.lg }} />
           </Card>
         ) : (
           <>
