@@ -7,6 +7,7 @@ import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { askServer } from "@/ai/server";
 import { mealLabel, mealPhotoPrompt, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
+import { dailyTarget } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -15,7 +16,8 @@ type Phase =
   | { kind: "idle" }
   | { kind: "reading"; uri: string }
   | { kind: "read"; uri: string; analysis: MealAnalysis }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" };
+  | { kind: "saved"; kcal: number; goal: number }
+  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" };
 
 /**
  * Photograph the meal, get the calories.
@@ -29,7 +31,7 @@ type Phase =
 export function MealScanner() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal } = useStore();
+  const { logMeal, state, goal: goalOf, todayIntake } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 
   const canPick = Platform.OS !== "web";
@@ -40,7 +42,12 @@ export function MealScanner() {
       let res;
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return;
+        // Once the OS has remembered a "no" it stops showing the dialog, so a
+        // silent return left the button doing nothing for good.
+        if (!perm.granted) {
+          setPhase({ kind: "failed", reason: "denied" });
+          return;
+        }
         res = await ImagePicker.launchCameraAsync(opts);
       } else {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
@@ -74,7 +81,14 @@ export function MealScanner() {
     if (phase.kind !== "read") return;
     const { analysis } = phase;
     logMeal(mealLabel(analysis, t.scan.fallbackLabel), analysis.kcal, analysis.protein);
-    setPhase({ kind: "idle" });
+    // The card collapsing was the only sign anything happened, and the diary it
+    // wrote to is a screen away — so the card says where the day stands instead.
+    const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
+    setPhase({
+      kind: "saved",
+      kcal: todayIntake().kcal + analysis.kcal,
+      goal: dailyTarget(weightKg, goalOf()).kcal,
+    });
   }
 
   return (
@@ -85,7 +99,7 @@ export function MealScanner() {
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.scan.phoneOnly}
         </Text>
-      ) : phase.kind === "idle" || phase.kind === "failed" ? (
+      ) : phase.kind === "idle" || phase.kind === "failed" || phase.kind === "saved" ? (
         <>
           <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
             <PillButton icon="camera" label={t.scan.take} onPress={() => scan(true)} style={{ flex: 1 }} />
@@ -97,8 +111,18 @@ export function MealScanner() {
                 ? t.scan.quota
                 : phase.reason === "unreadable"
                   ? t.scan.unreadable
-                  : t.scan.unavailable}
+                  : phase.reason === "denied"
+                    ? t.kitchen.cameraDenied
+                    : t.scan.unavailable}
             </Text>
+          ) : null}
+          {phase.kind === "saved" ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm }}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+              <Text style={[type.smallStrong, { color: colors.accent, flex: 1 }]}>
+                {fill(t.kitchen.loggedToast, { kcal: phase.kcal, goal: phase.goal })}
+              </Text>
+            </View>
           ) : null}
         </>
       ) : null}

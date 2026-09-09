@@ -122,6 +122,9 @@ export const he = {
   },
 
   detail: {
+    gone: "ההרגל הזה כבר לא קיים.",
+    smallerApplied: "עודכן ✓",
+    anchorSave: "שמור עוגן",
     back: "חזרה",
     aiLoading: "קורא את מה שכתבת ומכין טיפים בדיוק על זה...",
     aiBadge: "נכתב על ההרגל שלך",
@@ -199,6 +202,7 @@ export const he = {
   },
 
   checkin: {
+    needMood: "בחר איך עבר עליך היום כדי לשמור.",
     heading: "סיכום היום",
     body: "שלושים שניות. זה הכול.",
     moodQ: "איך היה?",
@@ -215,6 +219,9 @@ export const he = {
   },
 
   library: {
+    alreadyMine: "כבר יש לך תרגיל בשם הזה.",
+    addedOwn: "נוסף — ונכנס לאימון של היום.",
+    removeToday: "הסר מהאימון של היום",
     heading: "מאגר התרגילים",
     body: "כל התרגילים שהאפליקציה מכירה. סנן לפי שריר או ציוד, או פשוט חפש — ומה שנבחר נכנס לאימון של היום.",
     count: "{n} תרגילים",
@@ -258,6 +265,11 @@ export const he = {
     note: "הטלפון סופר בשבילך. אם הלכת בלי הטלפון בכיס — אפשר להוסיף ידנית.",
   },
   progress: {
+    fatNeedHeight: "הוסף גובה בפרופיל כדי לראות אחוז שומן.",
+    fatNeedHeightGo: "פתח פרופיל",
+    weighSaveAnyway: "שמור בכל זאת",
+    cameraDenied: "אין הרשאה למצלמה. אפשר להפעיל אותה בהגדרות הטלפון.",
+    measureJump: "לפינת המידות",
     heading: "התקדמות",
     weekTitle: "קריאת השבוע",
     weighTitle: "משקל",
@@ -308,6 +320,13 @@ export const he = {
   },
 
   kitchen: {
+    loggedToast: "נרשם · {kcal} מתוך {goal} קלוריות היום",
+    cameraDenied: "אין הרשאה למצלמה. אפשר להפעיל אותה בהגדרות הטלפון.",
+    alreadyLogged: "כבר נרשם",
+    goalAlsoTraining: "שינוי המטרה מעדכן גם את תוכנית האימון.",
+    settingsTitle: "הגדרות",
+    settingsOpen: "שנה מטרה, יחידות וכשרות",
+    settingsClose: "סגור הגדרות",
     heading: "המטבח",
     body: "כתוב מה יש לך במקרר ובארון — ואבנה לך מנות מזה.",
     listLabel: "מה יש לך בבית?",
@@ -398,6 +417,7 @@ export const he = {
   },
 
   water: {
+    goalRecommended: "מומלץ למשקל שלך: {min}–{max}",
     heading: "מים",
     body: "כל כוס נספרת. הבקבוק מתמלא ככל שאתה שותה.",
     cups: "כוסות",
@@ -420,6 +440,12 @@ export const he = {
   },
 
   workout: {
+    setCap: "עד 12 סטים בתרגיל",
+    daysResetWarn: "שינוי מספר ימי האימון מאפס את התרגילים שהוספת ידנית לימים.",
+    addedToDay: "נוסף ליום 1 — למעלה",
+    videoFailed: "לא הצלחתי לפתוח את הסרטון.",
+    howToggle: "הצג הסבר",
+    cancelSetup: "חזור לתוכנית",
     heading: "האימון",
     body: "בחר מטרה וכמה ימים בשבוע — ואבנה לך תוכנית מלאה.",
     goalTitle: "מה המטרה?",
@@ -524,6 +550,9 @@ export const he = {
     dayEmpty: "היום הזה ריק — הוסף תרגילים למטה.",
     dayAdd: "הוסף תרגיל ליום זה",
     removeExercise: "הסר תרגיל",
+    setupNoteAuto: "אבנה לך תוכנית מלאה לפי ההעדפות למטה. אפשר לשנות כל תרגיל אחר כך.",
+    setupNoteCustom: "אקבע לך את ימי האימון ואתה תוסיף את התרגילים שלך לכל יום.",
+    bodyPlan: "התוכנית שלך מוכנה. סמן כל תרגיל תוך כדי — הכול נשמר.",
     fillDay: "בנה לי את היום הזה",
   },
 
@@ -603,6 +632,9 @@ export const he = {
     errGeneric: "משהו השתבש. נסה שוב.",
   },
   profile: {
+    saveAction: "שמור",
+    savedNote: "נשמר ✓",
+    syncing: "מסנכרן…",
     heading: "פרופיל",
     nameTitle: "שם",
     namePlaceholder: "השם שלך",
@@ -701,6 +733,9 @@ export const he = {
   },
 
   common: {
+    save: "שמור",
+    savedOk: "נשמר ✓",
+    undo: "בטל",
     close: "סגור",
     cancel: "ביטול",
     restartNeeded: "צריך להפעיל מחדש",

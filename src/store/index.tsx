@@ -151,11 +151,18 @@ type Store = {
   lastSession: (exerciseId: string) => SetEntry[] | null;
   /** Adds a library exercise to today's session. */
   addExerciseToday: (exerciseId: string) => void;
+  /** Takes one back off today's session — a mis-tap in the library should not
+   * need a trip to another tab to undo. */
+  removeExerciseToday: (exerciseId: string) => void;
   /** Exercise ids added to today on top of the plan. */
   todayExtras: () => string[];
   /** The URL to open for an exercise's form demo: the exact video when it can
    * be resolved, the search page when it cannot. Remembers what it resolves. */
   demoFor: (ex: Exercise) => Promise<string>;
+  /** Resolves the demo still for a batch of exercises in the background, so a
+   * plan shows real photographs of the lifts instead of drawn tiles. Silent:
+   * it never blocks a render and never surfaces a failure. */
+  prefetchDemos: (exs: Exercise[]) => void;
   /** The seed behind the kitchen's meal rotation: this device, this day, and
    * however many times the person has asked for another set. */
   mealSeed: () => string;
@@ -807,6 +814,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const removeExerciseToday = useCallback((exerciseId: string) => {
+    setState((s) => {
+      const base = s.training;
+      if (!base) return s;
+      const { date, highWater } = trustedStamp(s);
+      const day = base.extra?.[date] ?? [];
+      if (!day.includes(exerciseId)) return s;
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: {
+          ...base,
+          extra: { ...base.extra, [date]: day.filter((id) => id !== exerciseId) },
+        },
+      };
+    });
+  }, []);
+
   const todayExtras = useCallback(
     () => state.training?.extra?.[trustedToday()] ?? [],
     [state.training, trustedToday],
@@ -880,6 +905,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.videoIds],
   );
 
+  // Exercises whose still we have already gone looking for this run, resolved
+  // or not. Without it a re-render would re-request the same page forever.
+  const tried = useRef<Set<string>>(new Set());
+
+  // Warming the pictures for a whole plan, one at a time and slowly on purpose:
+  // a burst of parallel requests is what gets a phone throttled, and nothing on
+  // screen is waiting on any single one of these. A tile that never resolves
+  // simply stays drawn, which is already a complete picture.
+  const prefetchDemos = useCallback(
+    (exs: Exercise[]) => {
+      const have = state.videoIds ?? {};
+      const todo = exs.filter((e) => !have[e.id] && !tried.current.has(e.id)).slice(0, 24);
+      if (todo.length === 0) return;
+      for (const e of todo) tried.current.add(e.id);
+      void (async () => {
+        for (const ex of todo) {
+          try {
+            await demoLink(ex, {
+              fetchText: async (url) => {
+                const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+                return res.text();
+              },
+              cache: {},
+              remember: (exerciseId, videoId) =>
+                setState((st) => ({ ...st, videoIds: { ...st.videoIds, [exerciseId]: videoId } })),
+            });
+          } catch {
+            // offline, blocked, or a changed page — the drawn tile stands in
+          }
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      })();
+    },
+    [state.videoIds],
+  );
+
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
   // monotonic: a device whose clock was set back is snapped up to real time the
@@ -948,6 +1009,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeSet,
       lastSession,
       addExerciseToday,
+      removeExerciseToday,
       todayExtras,
       mealSeed,
       shuffleMeals,
@@ -957,6 +1019,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       stepGoal,
       setStepGoal,
       demoFor,
+      prefetchDemos,
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
@@ -967,9 +1030,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
      addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
-     addToDay, removeFromDay, dayEdits, planSeed,
+     addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
-     demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
+     demoFor, prefetchDemos, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

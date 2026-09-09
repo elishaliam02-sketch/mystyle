@@ -1,6 +1,8 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,8 +11,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Screen } from "@/components/Screen";
+import { MAX_CONTENT } from "@/components/Screen";
 import { PillButton } from "@/components/PillButton";
 import { useI18n } from "@/i18n";
 import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
@@ -33,6 +36,7 @@ type Turn = { id: string; from: "you" | "coach"; text: string };
 export default function CoachScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     state,
@@ -147,76 +151,111 @@ export default function CoachScreen() {
     }
   }
 
+  const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
+  const sendDisabled = !draft.trim();
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.ground }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Screen
-        title={t.coach.heading}
-        subtitle={t.coach.body}
-        aside={
-          <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={8}>
-            <Ionicons name="close" size={24} color={colors.inkSoft} />
-          </Pressable>
-        }
+      {/* A chat cannot live inside Screen: its ScrollView and this one scroll
+          the same axis, so on Android the outer one claims the drag and the
+          conversation looks frozen — and it capped the thread at 460px. The
+          band is rebuilt here so the message list is the only scroller. */}
+      <LinearGradient
+        colors={[colors.bandTop, colors.bandBottom]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          paddingTop: insets.top + space.xxl,
+          paddingBottom: space.xxl,
+          paddingHorizontal: space.lg,
+          borderBottomStartRadius: radius.xl,
+          borderBottomEndRadius: radius.xl,
+        }}
       >
-        <ScrollView ref={scroller} style={{ maxHeight: 460 }} contentContainerStyle={{ gap: space.sm }}>
-          {turns.length === 0 ? (
+        <View style={[centered, { flexDirection: "row", alignItems: "center", gap: space.lg }]}>
+          <View style={{ flex: 1, gap: space.xs }}>
+            <Text style={[type.hero, { color: colors.bandInk }]}>{t.coach.heading}</Text>
+            <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{t.coach.body}</Text>
+          </View>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.close}
+            hitSlop={8}
+          >
+            <Ionicons name="close" size={24} color={colors.bandInkSoft} />
+          </Pressable>
+        </View>
+      </LinearGradient>
+
+      <ScrollView
+        ref={scroller}
+        style={{ flex: 1 }}
+        contentContainerStyle={[centered, { padding: space.lg, gap: space.sm }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {turns.length === 0 ? (
+          <View
+            style={{
+              padding: space.lg,
+              borderRadius: radius.lg,
+              backgroundColor: colors.surfaceAlt,
+              gap: 6,
+            }}
+          >
+            <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.coach.emptyTitle}</Text>
+            <Text style={[type.small, { color: colors.inkSoft }]}>{t.coach.emptyBody}</Text>
+          </View>
+        ) : null}
+
+        {turns.map((turn) => {
+          const mine = turn.from === "you";
+          return (
             <View
+              key={turn.id}
               style={{
-                padding: space.lg,
+                alignSelf: mine ? "flex-end" : "flex-start",
+                maxWidth: "88%",
+                paddingVertical: 10,
+                paddingHorizontal: space.md,
                 borderRadius: radius.lg,
-                backgroundColor: colors.surfaceAlt,
-                gap: 6,
+                backgroundColor: mine ? colors.accent : colors.surfaceAlt,
               }}
             >
-              <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.coach.emptyTitle}</Text>
-              <Text style={[type.small, { color: colors.inkSoft }]}>{t.coach.emptyBody}</Text>
-            </View>
-          ) : null}
-
-          {turns.map((turn) => {
-            const mine = turn.from === "you";
-            return (
-              <View
-                key={turn.id}
-                style={{
-                  alignSelf: mine ? "flex-end" : "flex-start",
-                  maxWidth: "88%",
-                  paddingVertical: 10,
-                  paddingHorizontal: space.md,
-                  borderRadius: radius.lg,
-                  backgroundColor: mine ? colors.accent : colors.surfaceAlt,
-                }}
+              <Text
+                style={[
+                  type.body,
+                  { color: mine ? colors.onAccent : colors.ink },
+                ]}
               >
-                <Text
-                  style={[
-                    type.body,
-                    { color: mine ? colors.onAccent : colors.ink },
-                  ]}
-                >
-                  {turn.text}
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
+                {turn.text}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
 
+      <View
+        style={[
+          centered,
+          { paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.md, gap: space.sm },
+        ]}
+      >
         {thinking ? (
-          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
-            {t.coach.thinking}
-          </Text>
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.coach.thinking}</Text>
         ) : null}
 
         {/* taps, so the chat is never a blank box staring back */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.sm }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
           {openers.map((q) => (
             <PillButton key={q} tone="soft" label={q} onPress={() => ask(q)} />
           ))}
         </View>
 
-        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center", marginTop: space.md }}>
+        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -239,26 +278,40 @@ export default function CoachScreen() {
           />
           <Pressable
             onPress={() => ask(draft)}
-            disabled={!draft.trim()}
+            disabled={sendDisabled}
             accessibilityRole="button"
             accessibilityLabel={t.coach.send}
-            style={{
+            accessibilityState={{ disabled: sendDisabled }}
+            // The answer can be half a minute away, so the tap has to be felt
+            // at once and the wait has to be visible on the button itself.
+            style={({ pressed }) => ({
               width: 48,
               height: 48,
               borderRadius: radius.pill,
-              backgroundColor: draft.trim() ? colors.accent : colors.surfaceAlt,
+              backgroundColor: sendDisabled ? colors.surfaceAlt : colors.accent,
               alignItems: "center",
               justifyContent: "center",
-            }}
+              opacity: pressed ? 0.85 : 1,
+              transform: [{ scale: pressed && !sendDisabled ? 0.94 : 1 }],
+            })}
           >
-            <Ionicons name="send" size={20} color={draft.trim() ? colors.onAccent : colors.inkFaint} />
+            {thinking ? (
+              <ActivityIndicator
+                size="small"
+                color={sendDisabled ? colors.inkFaint : colors.onAccent}
+              />
+            ) : (
+              <Ionicons
+                name="send"
+                size={20}
+                color={sendDisabled ? colors.inkFaint : colors.onAccent}
+              />
+            )}
           </Pressable>
         </View>
 
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-          {t.coach.note}
-        </Text>
-      </Screen>
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.coach.note}</Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }

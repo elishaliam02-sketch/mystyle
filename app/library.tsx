@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ExerciseThumb } from "@/components/ExerciseThumb";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -26,13 +27,15 @@ export default function LibraryScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, addExerciseToday, todayExtras, addCustomExercise } = useStore();
+  const { state, addExerciseToday, removeExerciseToday, todayExtras, addCustomExercise } =
+    useStore();
 
   const [query, setQuery] = useState("");
   const [muscle, setMuscle] = useState<Muscle | "all">("all");
   const [kit, setKit] = useState<Equipment | "all">("all");
   const [ownName, setOwnName] = useState("");
   const [ownMuscle, setOwnMuscle] = useState<Muscle>("fullbody");
+  const [ownNote, setOwnNote] = useState<{ text: string; ok: boolean } | null>(null);
 
   const custom = state.training?.custom ?? [];
   const chosen = todayExtras();
@@ -76,6 +79,12 @@ export default function LibraryScreen() {
     // A stable id from the name, so adding the same move twice is a no-op
     // rather than a second identical row in the library.
     const id = `own-${name.replace(/\s+/g, "-").toLowerCase()}`;
+    // The store drops the duplicate silently, which read as the form clearing
+    // itself and nothing else happening.
+    if (custom.some((c) => c.id === id)) {
+      setOwnNote({ text: t.library.alreadyMine, ok: false });
+      return;
+    }
     addCustomExercise({
       id,
       he: name,
@@ -89,7 +98,10 @@ export default function LibraryScreen() {
     });
     addExerciseToday(id);
     setOwnName("");
-    setQuery("");
+    // Filter down to the new move, or it lands somewhere in a hundred rows
+    // the person never scrolls to.
+    setQuery(name);
+    setOwnNote({ text: t.library.addedOwn, ok: true });
   }
 
   return (
@@ -128,13 +140,13 @@ export default function LibraryScreen() {
 
         {/* narrow by muscle */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-          <Chip
+          <FilterChip
             label={t.library.allMuscles}
             on={muscle === "all"}
             onPress={() => setMuscle("all")}
           />
           {MUSCLES.map((m) => (
-            <Chip
+            <FilterChip
               key={m}
               label={`${muscleLabel[m]} ${counts[m] ?? 0}`}
               on={muscle === m}
@@ -145,9 +157,9 @@ export default function LibraryScreen() {
 
         {/* narrow by kit */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-          <Chip label={t.library.allKit} on={kit === "all"} onPress={() => setKit("all")} />
+          <FilterChip label={t.library.allKit} on={kit === "all"} onPress={() => setKit("all")} />
           {kits.map((k) => (
-            <Chip
+            <FilterChip
               key={k}
               label={kitLabel[k]}
               on={kit === k}
@@ -168,30 +180,33 @@ export default function LibraryScreen() {
           <View style={{ gap: 6 }}>
             {rows.map((ex) => {
               const already = chosen.includes(ex.id);
+              const name = locale === "he" ? ex.he : ex.en;
               return (
                 <Pressable
                   key={ex.id}
-                  disabled={already}
                   accessibilityRole="button"
-                  accessibilityLabel={locale === "he" ? ex.he : ex.en}
+                  // A mis-tap used to be undoable only from the Workout tab, so
+                  // the tick is a switch now and says which way it goes.
+                  accessibilityLabel={already ? `${name} · ${t.library.removeToday}` : name}
                   accessibilityState={{ selected: already }}
-                  onPress={() => addExerciseToday(ex.id)}
-                  style={{
+                  onPress={() => (already ? removeExerciseToday(ex.id) : addExerciseToday(ex.id))}
+                  style={({ pressed }) => ({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: space.sm,
                     paddingVertical: 11,
                     paddingHorizontal: space.md,
                     borderRadius: radius.md,
-                    backgroundColor: colors.surface,
+                    backgroundColor: already ? colors.accentWash : colors.surface,
                     borderWidth: 1,
                     borderColor: already ? colors.accent : colors.rule,
-                    opacity: already ? 0.6 : 1,
-                  }}
+                    opacity: pressed ? 0.7 : 1,
+                  })}
                 >
+                  <ExerciseThumb ex={ex} size={44} />
                   <View style={{ flex: 1 }}>
                     <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
-                      {locale === "he" ? ex.he : ex.en}
+                      {name}
                     </Text>
                     <Text style={[type.small, { color: colors.inkFaint }]}>
                       {muscleLabel[ex.muscle]} · {kitLabel[ex.equipment]}
@@ -213,13 +228,16 @@ export default function LibraryScreen() {
           <View style={{ marginTop: space.sm }}>
             <TextField
               value={ownName}
-              onChangeText={setOwnName}
+              onChangeText={(next) => {
+                setOwnName(next);
+                setOwnNote(null);
+              }}
               placeholder={t.library.ownPlaceholder}
             />
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.sm }}>
             {MUSCLES.map((m) => (
-              <Chip
+              <FilterChip
                 key={m}
                 label={muscleLabel[m]}
                 on={ownMuscle === m}
@@ -234,18 +252,34 @@ export default function LibraryScreen() {
             disabled={!ownName.trim()}
             style={{ marginTop: space.md }}
           />
+          {ownNote ? (
+            <Text
+              style={[
+                type.small,
+                { color: ownNote.ok ? colors.accent : colors.signal, marginTop: space.sm },
+              ]}
+            >
+              {ownNote.text}
+            </Text>
+          ) : null}
         </Card>
       </Screen>
     </KeyboardAvoidingView>
   );
 }
 
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+/**
+ * A filter pill. Denser than the shared Chip — this screen carries about twenty
+ * of them at once — so it stays its own component, but not under a name that
+ * shadows the shared one.
+ */
+function FilterChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const { colors, radius, type, space } = useTheme();
   return (
     <SelectTile
       selected={on}
       onPress={onPress}
+      accessibilityLabel={label}
       style={{
         paddingVertical: 7,
         paddingHorizontal: space.md,

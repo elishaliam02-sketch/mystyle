@@ -27,6 +27,7 @@ export default function AchievementsScreen() {
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
+          accessibilityLabel={t.common.close}
           hitSlop={10}
           style={{
             width: 40,

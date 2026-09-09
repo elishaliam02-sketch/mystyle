@@ -15,6 +15,9 @@ import { daysAgo, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 
+/** What a "make it smaller" choice hangs off the title with. */
+const SMALLER_JOIN = " — ";
+
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
 function DayGrid({ habitId }: { habitId: string }) {
   const { colors, space } = useTheme();
@@ -40,6 +43,45 @@ function DayGrid({ habitId }: { habitId: string }) {
         );
       })}
     </View>
+  );
+}
+
+/**
+ * This is a stack route with no tab bar, so this control is the only way off
+ * the page — which means it has to render even when the habit does not.
+ */
+function BackLink() {
+  const { t, isRTL } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const router = useRouter();
+
+  return (
+    <Pressable
+      onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      accessibilityRole="button"
+      accessibilityLabel={t.detail.back}
+      style={({ pressed }) => ({
+        alignSelf: "flex-start",
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.rule,
+        borderRadius: radius.pill,
+        paddingVertical: space.sm,
+        paddingHorizontal: space.lg,
+        marginTop: -space.sm,
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+        {/* "Back" is the chevron that points the way the page came from. */}
+        <Ionicons
+          name={isRTL ? "chevron-forward" : "chevron-back"}
+          size={16}
+          color={colors.ink}
+        />
+        <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.detail.back}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -70,6 +112,10 @@ export default function HabitDetail() {
 
   const habit = state.habits.find((h) => h.id === id);
   const [customAnchor, setCustomAnchor] = useState("");
+  // Held only while it differs from what is stored, so applying a smaller
+  // option — which rewrites the title — does not leave a stale draft behind.
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const [titleSaved, setTitleSaved] = useState(false);
 
   const habitTitle = habit?.title;
   const habitSlot = habit?.slot;
@@ -82,13 +128,46 @@ export default function HabitDetail() {
     (signal) => askHabitSupport(habitTitle ?? "", habitSlot, locale, signal),
   );
 
+  // A stale deep link, or the habit was archived from another screen.
   if (!habit) {
-    return <Screen title="—"><View /></Screen>;
+    return (
+      <Screen title={t.detail.gone}>
+        <BackLink />
+      </Screen>
+    );
   }
 
   const library = getSupport(detectCategory(habit.title), locale);
   const support = ai ?? library;
   const days = streak(habit.id);
+
+  // A chosen smaller option lives in the title as a " — option" suffix. Reading
+  // it back out is what lets the next choice replace it instead of stacking on
+  // it ("Read — one page — one page"), which nothing here could undo.
+  const applied = support.smaller.find((option) =>
+    habit.title.endsWith(`${SMALLER_JOIN}${option}`),
+  );
+  const baseTitle = applied
+    ? habit.title.slice(0, habit.title.length - (SMALLER_JOIN + applied).length)
+    : habit.title;
+  const titleValue = titleDraft ?? habit.title;
+
+  function saveTitle() {
+    if (!habit) return;
+    const next = titleValue.trim();
+    if (!next) return;
+    updateHabit(habit.id, { title: next });
+    setTitleDraft(null);
+    setTitleSaved(true);
+  }
+
+  function saveAnchor() {
+    if (!habit) return;
+    const next = customAnchor.trim();
+    if (!next) return;
+    updateHabit(habit.id, { anchor: next });
+    setCustomAnchor("");
+  }
 
   function confirmRemove() {
     if (!habit) return;
@@ -111,26 +190,31 @@ export default function HabitDetail() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={habit.title}>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-          accessibilityRole="button"
-          style={({ pressed }) => ({
-            alignSelf: "flex-start",
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.rule,
-            borderRadius: radius.pill,
-            paddingVertical: space.sm,
-            paddingHorizontal: space.lg,
-            marginTop: -space.sm,
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-            <Ionicons name="chevron-forward" size={16} color={colors.ink} />
-            <Text style={[type.bodyStrong, { color: colors.ink }]}>{t.detail.back}</Text>
-          </View>
-        </Pressable>
+        <BackLink />
+
+        {/* The only place a title can be repaired: a smaller option rewrites it
+            and nothing else in the app can edit it. */}
+        <Card>
+          <TextField
+            value={titleValue}
+            onChangeText={(next) => {
+              setTitleDraft(next);
+              setTitleSaved(false);
+            }}
+            placeholder={t.habit.placeholder}
+            onSubmitEditing={saveTitle}
+          />
+          {titleSaved ? (
+            <Text style={[type.small, { color: colors.accent }]}>{t.common.savedOk}</Text>
+          ) : null}
+          <Button
+            label={t.common.save}
+            tone="quiet"
+            disabled={!titleValue.trim() || titleValue.trim() === habit.title}
+            onPress={saveTitle}
+          />
+        </Card>
+
         {ai ? (
           <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
             <AiBadge />
@@ -191,12 +275,15 @@ export default function HabitDetail() {
                 value={customAnchor}
                 onChangeText={setCustomAnchor}
                 placeholder={t.detail.anchorPrefix}
-                onSubmitEditing={() => {
-                  if (customAnchor.trim()) {
-                    updateHabit(habit.id, { anchor: customAnchor.trim() });
-                    setCustomAnchor("");
-                  }
-                }}
+                onSubmitEditing={saveAnchor}
+              />
+              {/* Dismissing the keyboard by tapping elsewhere used to throw the
+                  typed anchor away, with no sign that anything was lost. */}
+              <Button
+                label={t.detail.anchorSave}
+                tone="quiet"
+                disabled={!customAnchor.trim()}
+                onPress={saveAnchor}
               />
             </View>
           )}
@@ -235,26 +322,42 @@ export default function HabitDetail() {
         <Card label={t.detail.smallerTitle}>
           <Text style={[type.small, { color: colors.inkSoft }]}>{t.detail.smallerBody}</Text>
           <View style={{ gap: space.sm, marginTop: space.md }}>
-            {support.smaller.map((option) => (
-              <Pressable
-                key={option}
-                onPress={() => updateHabit(habit.id, { title: `${habit.title} — ${option}` })}
-                accessibilityRole="button"
-                style={({ pressed }) => ({
-                  borderWidth: 1,
-                  borderColor: colors.rule,
-                  borderRadius: radius.md,
-                  paddingVertical: space.md,
-                  paddingHorizontal: space.lg,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Text style={[type.small, { color: colors.ink }]}>{option}</Text>
-                <Text style={[type.label, { color: colors.accent, marginTop: 4 }]}>
-                  {t.detail.smallerApply}
-                </Text>
-              </Pressable>
-            ))}
+            {support.smaller.map((option) => {
+              const on = applied === option;
+              return (
+                <Pressable
+                  key={option}
+                  disabled={on}
+                  onPress={() => {
+                    updateHabit(habit.id, { title: `${baseTitle}${SMALLER_JOIN}${option}` });
+                    // The field follows the title it just rewrote, rather than
+                    // sitting on a draft of the old one.
+                    setTitleDraft(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={option}
+                  accessibilityState={{ selected: on, disabled: on }}
+                  style={({ pressed }) => ({
+                    borderWidth: 1,
+                    borderColor: on ? colors.accent : colors.rule,
+                    borderRadius: radius.md,
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.lg,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text style={[type.small, { color: colors.ink }]}>{option}</Text>
+                  <Text
+                    style={[
+                      type.label,
+                      { color: on ? colors.inkFaint : colors.accent, marginTop: 4 },
+                    ]}
+                  >
+                    {on ? t.detail.smallerApplied : t.detail.smallerApply}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </Card>
 

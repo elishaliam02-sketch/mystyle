@@ -68,9 +68,12 @@ await page.getByLabel("הוסף כוס מים").click(); await settle();
 { const s=await st(); check("water + twice stores 2", (s.water?.[today]??0)===2, String(s.water?.[today])); }
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water − stores 1", (s.water?.[today]??0)===1, String(s.water?.[today])); }
-await page.getByLabel("הורד כוס מים").click(); await page.waitForTimeout(400);
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
+// at zero the − is a dead control unless it says so: it must be disabled, not
+// lit and unresponsive
+check("the − turns itself off at zero rather than doing nothing",
+  await page.getByLabel("הורד כוס מים").first().isDisabled().catch(()=>false));
 
 // 3b) WATER — the bottle shows a recommended range and a settable goal
 check("a recommended water range is shown",
@@ -94,7 +97,17 @@ await page.getByRole("button",{name:"שנה את הרשימה"}).first().click()
     (await listBox.inputValue()).includes("חזה עוף"), await listBox.inputValue()); }
 await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); await settle();
 
-// 4) KITCHEN — the goal chips visibly re-plate, not just re-sort
+// 4) KITCHEN — the goal chips visibly re-plate, not just re-sort.
+// For a returning user the set-once configuration now lives behind a settings
+// row, so that the food they log every day is what greets them; open it first.
+const openKitchenSettings = async () => {
+  if ((await page.getByText("חיטוב",{exact:true}).count())===0) {
+    await page.getByRole("button",{name:/הגדרות/}).first().click(); await settle();
+  }
+};
+await openKitchenSettings();
+check("the daily controls come before the set-once configuration",
+  await page.getByPlaceholder(/מה אכלת/).first().isVisible().catch(()=>false));
 { const plateText = async () => (await page.getByText(/^שילוב מהמצרכים שלך/).first().textContent().catch(()=>""))??"";
   await page.getByText("חיטוב",{exact:true}).first().click(); await settle();
   const cut = await plateText();
@@ -109,6 +122,7 @@ await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); aw
   await page.getByText("חיטוב",{exact:true}).first().click(); await settle(); }
 
 // 4b) KITCHEN — the diet filter visibly removes dishes
+await openKitchenSettings();
 await page.getByText("כשר",{exact:true}).click(); await settle();
 { const s=await st(); check("diet filter persists", s.dietFilter==="kosher", s.dietFilter); }
 check("the kosher filter reports what it hid",
@@ -187,6 +201,19 @@ await page.getByLabel(/חזרות 2$/).first().fill("6"); await settle();
 { const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
   check("set 2 is a separate row, not an overwrite",
     sets[0]?.kg===72.5&&sets[1]?.kg===75&&sets[1]?.reps===6, JSON.stringify(sets)); }
+
+// 9a1) typing a weight key by key — the bug that made the set table unusable.
+// .fill() sets a value in one shot and never reproduced it; a person types.
+await kg1.fill(""); await page.waitForTimeout(200);
+await kg1.pressSequentially("62.5", { delay: 90 }); await settle();
+check("typing 62.5 one key at a time leaves 62.5 in the box",
+  (await kg1.inputValue())==="62.5", await kg1.inputValue());
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("and 62.5 is what gets stored", sets[0]?.kg===62.5, String(sets[0]?.kg)); }
+await kg1.fill(""); await page.waitForTimeout(200);
+await kg1.pressSequentially("0", { delay: 90 }); await page.waitForTimeout(250);
+check("a typed zero is not swallowed", (await kg1.inputValue())==="0", await kg1.inputValue());
+await kg1.fill("72.5"); await page.waitForTimeout(250);
 
 // 9a2) an absurd weight is clamped, not stored raw
 await kg1.fill("999999"); await page.waitForTimeout(250);
@@ -293,8 +320,14 @@ await go("/profile");
 { const box = page.getByPlaceholder(/השם שלך|Your name/).first();
   const shown = await box.inputValue().catch(()=>"");
   check("the saved name is in the field on open", shown==="טסט", shown); }
-await page.getByRole("button",{name:"נשמר",exact:true}).first().click(); await settle();
+// The button used to be *labelled* "Saved" and produce no visible change at
+// all, so there was no way to tell whether a profile had ever been written.
+check("the save button asks to save rather than claiming it already did",
+  (await page.getByRole("button",{name:"נשמר",exact:true}).count())===0);
+await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
 { const s=await st(); check("saving without editing keeps the name", s.profile.name==="טסט", s.profile.name); }
+check("and saving says so on screen",
+  await page.getByText("נשמר ✓").first().isVisible().catch(()=>false));
 
 // 16) KITCHEN — grams vs household units really change the amounts
 await go("/kitchen");
@@ -302,6 +335,7 @@ await go("/kitchen");
   const readAmounts = async () => (await page.getByText("מה צריך").first()
     .locator("xpath=..").innerText().catch(()=>"")) ?? "";
   const household = await readAmounts();
+  await openKitchenSettings();
   await page.getByText("גרמים",{exact:true}).first().click(); await settle();
   const grams = await readAmounts();
   check("switching to grams changes the amounts shown", grams !== household, `${household.slice(0,60)} → ${grams.slice(0,60)}`);
@@ -356,7 +390,7 @@ await page.getByRole("button",{name:"שמור",exact:true}).last().click(); awai
 // 20) PROFILE — an unhealthy goal weight cannot be stored, however it is tried
 await go("/profile");
 { const goalBox = box("קילוגרם");
-  const save = page.getByRole("button",{name:"נשמר",exact:true}).first();
+  const save = page.getByRole("button",{name:"שמור",exact:true}).first();
 
   await goalBox.fill("20"); await page.waitForTimeout(200);
   await save.click(); await settle();
@@ -436,6 +470,51 @@ check("the coach answers about the plan using the goal",
   await page.getByText(/תוכנית שלך בנויה/).first().isVisible().catch(()=>false));
 { const t = await page.evaluate(()=>document.body.innerText);
   check("the coach quotes the weekly training frequency", /3 ימים בשבוע/.test(t), t.slice(0,200)); }
+
+// 15) A BRAND-NEW ACCOUNT CAN BUILD A PLAN.
+// The complaint was "the user cannot build a plan": the logic was fine, the
+// button was buried under six cards of setup. This asserts it is reachable
+// without scrolling, in both modes, on a phone-sized viewport.
+{
+  const fresh = await browser.newContext({ viewport: { width: 393, height: 852 } });
+  await fresh.addInitScript((seed)=>{try{
+    const s=JSON.parse(seed); delete s.training;
+    localStorage.setItem("mystyle.state.v1",JSON.stringify(s));
+    localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify(seed));
+  const p2 = await fresh.newPage();
+  const boom=[]; p2.on("pageerror",e=>boom.push(String(e).slice(0,160)));
+  await p2.goto(`http://localhost:${PORT}/workout`,{waitUntil:"networkidle"});
+  await p2.waitForTimeout(1800);
+
+  const build = p2.getByRole("button",{name:/בנה לי תוכנית/}).first();
+  check("a new account is offered a build button", await build.isVisible().catch(()=>false));
+  // above the fold: inside the viewport before any scrolling
+  const box = await build.boundingBox().catch(()=>null);
+  check("and it is on screen without scrolling", !!box && box.y + box.height < 852,
+    JSON.stringify(box));
+
+  check("both ways of getting a plan are offered",
+    (await p2.getByRole("button",{name:"תבנה לי"}).count())>0 &&
+    (await p2.getByRole("button",{name:"אני אבנה"}).count())>0);
+
+  await build.click(); await p2.waitForTimeout(1400);
+  const st2 = JSON.parse(await p2.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("pressing it actually writes a plan", !!st2.training && st2.training.days>0,
+    JSON.stringify(st2.training??null));
+  // the plan is real when its set table is on screen, not just a heading
+  check("the built plan shows the exercises with their set tables",
+    (await p2.getByLabel(/ק.ג 1$/).count())>0);
+  check("every move in the plan carries a picture",
+    (await p2.getByLabel(/צפה בהדגמה/).count())>0);
+  check("building a plan raises no page errors", boom.length===0, boom.join(" | "));
+
+  // and the self-built path leaves the days empty for the person to fill
+  await p2.getByRole("button",{name:"אני אבנה"}).first().click(); await p2.waitForTimeout(900);
+  check("switching to self-build offers a way to add a move to a day",
+    (await p2.getByRole("button",{name:"הוסף תרגיל ליום זה"}).count())>0);
+  await fresh.close();
+}
 
 await browser.close(); server.close();
 report();

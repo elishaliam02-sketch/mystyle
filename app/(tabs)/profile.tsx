@@ -4,7 +4,6 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
-import { StubNote } from "@/components/StubNote";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
 import { signInWithEmail, signOut, signUpWithEmail } from "@/cloud/client";
@@ -41,6 +40,7 @@ export default function ProfileScreen() {
   const [goal, setGoal] = useState("");
   const [height, setHeight] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
@@ -85,7 +85,15 @@ export default function ProfileScreen() {
       }
     }
     saveProfile({ name: name.trim(), goalKg: kg, heightCm: cm });
-    setNote(null);
+    setNote(t.profile.savedNote);
+  }
+
+  // cloud.sync() silently drops a second call while one is in flight, so the
+  // button has to look busy rather than sit there looking tappable.
+  async function syncNow() {
+    setSyncing(true);
+    await cloud.sync();
+    setSyncing(false);
   }
 
   function confirmReset() {
@@ -108,20 +116,20 @@ export default function ProfileScreen() {
           <View style={{ gap: space.lg }}>
             <TextField
               value={name}
-              onChangeText={setName}
+              onChangeText={(v) => { setName(v); if (note) setNote(null); }}
               label={t.profile.nameTitle}
               placeholder={t.profile.namePlaceholder}
             />
             <TextField
               value={height}
-              onChangeText={setHeight}
+              onChangeText={(v) => { setHeight(v); if (note) setNote(null); }}
               label={t.profile.heightTitle}
               placeholder={t.profile.heightPlaceholder}
               keyboardType="numeric"
             />
             <TextField
               value={goal}
-              onChangeText={setGoal}
+              onChangeText={(v) => { setGoal(v); if (note) setNote(null); }}
               label={t.profile.goalTitle}
               placeholder={t.profile.goalPlaceholder}
               keyboardType="numeric"
@@ -133,9 +141,19 @@ export default function ProfileScreen() {
               </Text>
             ) : null}
             {note ? (
-              <Text style={[type.small, { color: colors.amber, fontWeight: "700" }]}>{note}</Text>
+              <Text
+                style={[
+                  type.small,
+                  {
+                    color: note === t.profile.savedNote ? colors.accent : colors.amber,
+                    fontWeight: "700",
+                  },
+                ]}
+              >
+                {note}
+              </Text>
             ) : null}
-            <Button label={t.profile.saved} onPress={persist} tone="quiet" />
+            <Button label={t.profile.saveAction} onPress={persist} tone="quiet" />
           </View>
         </Card>
 
@@ -253,14 +271,17 @@ export default function ProfileScreen() {
           ) : null}
           <Button
             icon="cloud-upload-outline"
-            label={t.profile.cloudSyncNow}
+            label={syncing ? t.profile.syncing : t.profile.cloudSyncNow}
             tone="quiet"
-            onPress={() => void cloud.sync()}
+            onPress={() => void syncNow()}
+            disabled={syncing}
             style={{ marginTop: space.md }}
           />
         </Card>
 
-        <StubNote>{t.profile.localNote}</StubNote>
+        <Text style={[type.small, { color: colors.inkFaint, paddingHorizontal: space.xs }]}>
+          {t.profile.localNote}
+        </Text>
 
         <Card label={t.profile.dangerTitle}>
           <Text style={[type.small, { color: colors.inkSoft }]}>{t.profile.dangerBody}</Text>
@@ -306,7 +327,11 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   };
 
   async function submit() {
-    if (!email.trim() || password.length < 6) {
+    if (!email.trim()) {
+      setNote(t.account.errBadEmail);
+      return;
+    }
+    if (password.length < 6) {
       setNote(t.account.errWeakPassword);
       return;
     }
@@ -340,7 +365,7 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
         <Button
           icon="log-out-outline"
-          label={t.account.signOut}
+          label={busy ? t.profile.cloudConnecting : t.account.signOut}
           tone="quiet"
           onPress={doSignOut}
           disabled={busy}
@@ -394,7 +419,13 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
 
       <Button
         icon="cloud-done-outline"
-        label={mode === "up" ? t.account.createCta : t.account.signInCta}
+        label={
+          busy
+            ? t.profile.cloudConnecting
+            : mode === "up"
+              ? t.account.createCta
+              : t.account.signInCta
+        }
         onPress={submit}
         disabled={busy}
         style={{ marginTop: space.md }}

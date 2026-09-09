@@ -6,7 +6,14 @@ import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { WaterBottle } from "@/components/WaterBottle";
-import { CUP_ML, fillFraction, recommendedRange, waterStatus } from "@/health/water";
+import {
+  CUP_ML,
+  fillFraction,
+  MAX_WATER_GOAL,
+  MIN_WATER_GOAL,
+  recommendedRange,
+  waterStatus,
+} from "@/health/water";
 import { fill, useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT } from "@/theme";
 import { daysAgo, today, useStore } from "@/store";
@@ -79,21 +86,25 @@ export default function WaterScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg }}>
           <Pressable
             onPress={() => addWater(-1)}
+            disabled={cups === 0}
             accessibilityRole="button"
             accessibilityLabel={t.water.removeOne}
+            accessibilityState={{ disabled: cups === 0 }}
             hitSlop={8}
             style={{
               width: 52,
               height: 52,
               borderRadius: radius.pill,
-              backgroundColor: "rgba(255,255,255,0.16)",
+              // Dimmed with the hero's own white washes rather than opacity, so
+              // it stays readable on red instead of sinking into it.
+              backgroundColor: cups === 0 ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.16)",
               borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.22)",
+              borderColor: cups === 0 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.22)",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="remove" size={26} color={ON_HERO} />
+            <Ionicons name="remove" size={26} color={cups === 0 ? ON_HERO_SOFT : ON_HERO} />
           </Pressable>
           <Pressable
             onPress={() => addWater(1)}
@@ -122,6 +133,7 @@ export default function WaterScreen() {
           <Pressable
             onPress={() => setEditing((e) => !e)}
             accessibilityRole="button"
+            accessibilityState={{ expanded: editing }}
             hitSlop={8}
             style={{
               height: 52,
@@ -141,22 +153,51 @@ export default function WaterScreen() {
 
       {editing ? (
         <Card label={t.water.editGoal}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-            {Array.from({ length: range.max - range.min + 1 }, (_, i) => range.min + i).map((n) => (
-              <SelectTile
-                key={n}
-                selected={goal === n}
-                onPress={() => {
-                  setWaterGoal(n);
-                  setEditing(false);
-                }}
-                style={{ borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 16 }}
-              >
-                <Text style={[type.smallStrong, { color: goal === n ? colors.onAccent : colors.inkSoft }]}>
-                  {n}
-                </Text>
-              </SelectTile>
-            ))}
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            {fill(t.water.goalRecommended, { min: range.min, max: range.max })}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.xs }}>
+            {Array.from(
+              { length: MAX_WATER_GOAL - MIN_WATER_GOAL + 1 },
+              (_, i) => MIN_WATER_GOAL + i,
+            ).map((n) => {
+              const selected = goal === n;
+              const recommended = n >= range.min && n <= range.max;
+              return (
+                <SelectTile
+                  key={n}
+                  selected={selected}
+                  onPress={() => {
+                    setWaterGoal(n);
+                    setEditing(false);
+                  }}
+                  style={{
+                    borderRadius: radius.pill,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    // The band is marked, not enforced: a red outline says
+                    // "recommended", everything else is still one tap away.
+                    borderWidth: 1,
+                    borderColor: recommended ? colors.accent : colors.rule,
+                  }}
+                >
+                  <Text
+                    style={[
+                      type.smallStrong,
+                      {
+                        color: selected
+                          ? colors.onAccent
+                          : recommended
+                            ? colors.accent
+                            : colors.inkSoft,
+                      },
+                    ]}
+                  >
+                    {n}
+                  </Text>
+                </SelectTile>
+              );
+            })}
           </View>
         </Card>
       ) : null}

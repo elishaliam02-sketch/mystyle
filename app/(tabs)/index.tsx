@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
@@ -111,11 +111,14 @@ function TipOfTheDay() {
           marginTop: space.xs,
         }}
       >
-        {!aiTip ? (
-          <PillButton tone="soft" label={t.today.tipAnother} onPress={() => setOffset((o) => o + 1)} />
-        ) : (
-          <View />
-        )}
+        <PillButton
+          tone="soft"
+          label={t.today.tipAnother}
+          onPress={() => {
+            setOffset((o) => o + 1);
+            retry();
+          }}
+        />
 
         <Pressable
           onPress={() => router.push(`/habit/${habit.id}`)}
@@ -217,33 +220,56 @@ function TodayHub() {
 
       {/* the pillars as glass tiles on the hero — a shortcut into each */}
       <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.xs }}>
-        {tiles.map((tile) => (
-          <Pressable
-            key={tile.label}
-            onPress={tile.onPress}
-            disabled={!tile.onPress}
-            accessibilityRole={tile.onPress ? "button" : undefined}
-            style={({ pressed }) => ({
-              flex: 1,
-              alignItems: "center",
-              gap: 4,
-              paddingVertical: space.md,
-              paddingHorizontal: 2,
-              borderRadius: radius.md,
-              backgroundColor: pressed ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.18)",
-            })}
-          >
-            <Ionicons name={tile.icon} size={19} color={ON_HERO} />
-            <Text style={[type.smallStrong, { color: ON_HERO }]} numberOfLines={1}>
-              {tile.value}
-            </Text>
-            <Text style={[type.label, { color: ON_HERO_SOFT, letterSpacing: 0.3 }]} numberOfLines={1}>
-              {tile.label}
-            </Text>
-          </Pressable>
-        ))}
+        {tiles.map((tile) => {
+          const box = {
+            flex: 1,
+            alignItems: "center" as const,
+            gap: 4,
+            paddingVertical: space.md,
+            paddingHorizontal: 2,
+            borderRadius: radius.md,
+            borderWidth: 1,
+          };
+          const body = (
+            <>
+              <Ionicons name={tile.icon} size={19} color={ON_HERO} />
+              <Text style={[type.smallStrong, { color: ON_HERO }]} numberOfLines={1}>
+                {tile.value}
+              </Text>
+              <Text style={[type.label, { color: ON_HERO_SOFT, letterSpacing: 0.3 }]} numberOfLines={1}>
+                {tile.label}
+              </Text>
+            </>
+          );
+
+          // A tile with nowhere to go is a readout, not a shortcut. Drawn like
+          // the others it read as a button that ignores the tap, and the habit
+          // list it counts is the very next block anyway.
+          if (!tile.onPress) {
+            return (
+              <View key={tile.label} style={[box, { borderColor: "transparent" }]}>
+                {body}
+              </View>
+            );
+          }
+
+          return (
+            <Pressable
+              key={tile.label}
+              onPress={tile.onPress}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                box,
+                {
+                  backgroundColor: pressed ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)",
+                  borderColor: "rgba(255,255,255,0.18)",
+                },
+              ]}
+            >
+              {body}
+            </Pressable>
+          );
+        })}
       </View>
     </HeroCard>
   );
@@ -283,7 +309,7 @@ export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, toggleCompletion, archiveHabit, readyForAnotherHabit } = useStore();
+  const { state, isDone, toggleCompletion, readyForAnotherHabit } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -298,17 +324,6 @@ export default function TodayScreen() {
   const title = state.profile.name
     ? fill(t.today.greetingNamed, { greeting, name: state.profile.name })
     : greeting;
-
-  function confirmRemove(id: string, habitTitle: string) {
-    Alert.alert(
-      t.habit.remove,
-      fill(t.habit.removeConfirm, { title: habitTitle }),
-      [
-        { text: t.common.cancel, style: "cancel" },
-        { text: t.habit.removeYes, style: "destructive", onPress: () => archiveHabit(id) },
-      ],
-    );
-  }
 
   if (habits.length === 0) {
     return (
@@ -340,6 +355,23 @@ export default function TodayScreen() {
     >
       <TodayHub />
 
+      <Card label={t.today.listLabel}>
+        <View>
+          {habits.map((habit, index) => (
+            <TaskRow
+              key={habit.id}
+              first={index === 0}
+              label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
+              hint={habit.anchor}
+              done={isDone(habit.id)}
+              onToggle={() => toggleCompletion(habit.id)}
+              onOpen={() => router.push(`/habit/${habit.id}`)}
+            />
+          ))}
+        </View>
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
+      </Card>
+
       {/* the coach — answers from this person's own numbers, on the device */}
       <Pressable onPress={() => router.push("/coach")} accessibilityRole="button">
         <Card>
@@ -366,28 +398,6 @@ export default function TodayScreen() {
       </Pressable>
 
       <TipOfTheDay />
-
-      <Card label={t.today.listLabel}>
-        <View>
-          {habits.map((habit, index) => (
-            <Pressable
-              key={habit.id}
-              onLongPress={() => confirmRemove(habit.id, habit.title)}
-              delayLongPress={500}
-            >
-              <TaskRow
-                first={index === 0}
-                label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
-                hint={habit.anchor}
-                done={isDone(habit.id)}
-                onToggle={() => toggleCompletion(habit.id)}
-                onOpen={() => router.push(`/habit/${habit.id}`)}
-              />
-            </Pressable>
-          ))}
-        </View>
-        <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
-      </Card>
 
       <View
         style={{

@@ -1,4 +1,4 @@
-import { allSetsDone, bestOneRepMax, blankSets, clampKg, clampReps, epley1RM, previousSets, progress, sessionVolume, topSet, type SetLog } from "./sets";
+import { allSetsDone, bestOneRepMax, blankSets, clampKg, clampReps, epley1RM, previousSets, progress, sessionVolume, topSet, typedNumber, typedValue, type SetLog } from "./sets";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -107,6 +107,29 @@ const S = (kg: number, reps: number, done = true) => ({ kg, reps, done });
   })());
   check("progress carries the 1RM", progress([{ kg: 100, reps: 5, done: true }], null).oneRepMax === epley1RM(100, 5));
   check("an all-bodyweight session reports no 1RM", progress([{ kg: 0, reps: 20, done: true }], null).oneRepMax === 0);
+}
+
+// Typing a weight — the bug that made the set table unusable: every keystroke
+// was pushed through clampKg and rendered back, so the moment you typed the
+// dot in "62.5" it was parsed to 62 and the dot disappeared.
+{
+  // the exact sequence a person types for 62.5 kg
+  const keys = ["6", "62", "62.", "62.5"];
+  const seen = keys.map((k) => typedNumber(k, true));
+  check("every keystroke of 62.5 survives", seen.join("|") === "6|62|62.|62.5", seen.join("|"));
+  check("a half-typed decimal is not yet a number", typedValue("62.") === null);
+  check("and the finished one is", typedValue("62.5") === 62.5);
+  check("a comma decimal is accepted and normalised", typedNumber("62,5", true) === "62.5");
+  check("typing a lone zero is kept, not blanked", typedNumber("0", true) === "0" && typedValue("0") === 0);
+  check("a leading dot is still mid-word", typedValue(typedNumber(".", true)) === null);
+  check("letters never reach the box", typedNumber("6a2", true) === "62");
+  check("only one decimal place is offered", typedNumber("62.55", true) === "62.5");
+  check("only one separator survives", typedNumber("62.5.5", true) === "62.5");
+  check("reps take no decimal point at all", typedNumber("8.5", false) === "85");
+  check("an empty box means nothing yet", typedValue("") === null);
+  check("an absurdly long entry is cut off", typedNumber("123456", true) === "1234");
+  check("what is typed still clamps on commit", clampKg(typedValue("62.5")!) === 62.5);
+  check("and a typo above the cap is still caught", clampKg(9999) === 1000);
 }
 
 const failed = results.filter(([, ok]) => !ok);

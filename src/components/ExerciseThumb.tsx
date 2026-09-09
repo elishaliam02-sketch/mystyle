@@ -45,6 +45,41 @@ const EQUIPMENT_ICONS: Record<Equipment, IconName> = {
   band: "infinite",
 };
 
+/**
+ * A deterministic little shift per exercise, so two chest presses never draw
+ * the identical tile. The muscle colour still carries the meaning — this only
+ * moves the shade and the light direction, by a fixed amount derived from the
+ * exercise's own id, so a move looks the same on every phone and on every
+ * render.
+ */
+function hash(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // avalanche, so neighbouring ids land far apart
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2545f491) >>> 0;
+  return h >>> 0;
+}
+
+/** Nudge a #rrggbb hex by a signed amount per channel, clamped. */
+function shade(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) =>
+    Math.max(0, Math.min(255, c + amount)),
+  );
+  return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+const ANGLES: { start: { x: number; y: number }; end: { x: number; y: number } }[] = [
+  { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+  { start: { x: 1, y: 0 }, end: { x: 0, y: 1 } },
+  { start: { x: 0, y: 0 }, end: { x: 0, y: 1 } },
+  { start: { x: 0, y: 1 }, end: { x: 1, y: 0 } },
+];
+
 export function ExerciseThumb({
   ex,
   size = 56,
@@ -55,7 +90,12 @@ export function ExerciseThumb({
   const { radius } = useTheme();
   const { state } = useStore();
   const videoId = state.videoIds?.[ex.id];
-  const [from, to] = MUSCLE_COLORS[ex.muscle] ?? MUSCLE_COLORS.fullbody;
+  const [baseFrom, baseTo] = MUSCLE_COLORS[ex.muscle] ?? MUSCLE_COLORS.fullbody;
+  const h = hash(ex.id);
+  const lift = ((h >>> 3) % 5) * 9 - 18; // −18…+18 per channel
+  const from = shade(baseFrom, lift);
+  const to = shade(baseTo, lift);
+  const angle = ANGLES[h % ANGLES.length]!;
 
   if (videoId) {
     return (
@@ -71,8 +111,8 @@ export function ExerciseThumb({
   return (
     <LinearGradient
       colors={[from, to]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      start={angle.start}
+      end={angle.end}
       style={{
         width: size,
         height: size,

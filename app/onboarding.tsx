@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
@@ -17,7 +18,7 @@ const TOTAL = 3;
 const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
 
 export default function Onboarding() {
-  const { t, locale } = useI18n();
+  const { t, locale, isRTL } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -190,6 +191,8 @@ export default function Onboarding() {
                     key={idea}
                     onPress={() => setHabit(idea)}
                     accessibilityRole="button"
+                    accessibilityLabel={idea}
+                    accessibilityState={{ selected: habit === idea }}
                     style={({ pressed }) => ({
                       backgroundColor: colors.surface,
                       borderWidth: 1,
@@ -231,7 +234,9 @@ export default function Onboarding() {
             </Text>
           ) : null}
           <Button
-            icon={step === TOTAL - 1 ? "sparkles" : "arrow-back"}
+            // "Forward" is a different glyph in each direction; a fixed one
+            // points backwards for half the users.
+            icon={step === TOTAL - 1 ? "sparkles" : isRTL ? "arrow-back" : "arrow-forward"}
             label={step === TOTAL - 1 ? t.onboarding.finish : t.onboarding.next}
             disabled={!canContinue}
             onPress={() => {
@@ -254,19 +259,43 @@ export default function Onboarding() {
               label={t.onboarding.skip}
               tone="quiet"
               onPress={() => {
+                // Skip is about the two weights. The height is the one number
+                // with no other door until Profile — and the body-fat card
+                // needs it — so it survives, unless it is unusable anyway.
                 setCurrentKg("");
                 setGoalKg("");
-                setHeightCm("");
+                const cm = num(heightCm);
+                if (cm !== undefined && !isHeightCm(cm)) setHeightCm("");
                 setNote(null);
                 setStep(2);
               }}
             />
           ) : null}
-          <Button
-            label={t.onboarding.back}
-            tone="quiet"
+          {/* Back is a way out, not a choice to weigh: as a third full-width
+              button it read as heavy as the step's real action. */}
+          <Pressable
             onPress={() => (step > 0 ? setStep(step - 1) : router.replace("/welcome"))}
-          />
+            accessibilityRole="button"
+            accessibilityLabel={t.onboarding.back}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              alignSelf: "center",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.xs,
+              paddingVertical: space.sm,
+              paddingHorizontal: space.lg,
+              borderRadius: radius.pill,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Ionicons
+              name={isRTL ? "chevron-forward" : "chevron-back"}
+              size={15}
+              color={colors.inkSoft}
+            />
+            <Text style={[type.smallStrong, { color: colors.inkSoft }]}>{t.onboarding.back}</Text>
+          </Pressable>
         </View>
         </View>
       </ScrollView>

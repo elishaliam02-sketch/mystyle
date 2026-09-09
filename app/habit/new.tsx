@@ -80,6 +80,13 @@ export default function NewHabit() {
         <View style={{ flex: 1 }} />
 
         <View style={{ gap: space.sm }}>
+          {/* The same line onboarding shows: a greyed-out Save with no reason
+              beside it reads as broken rather than as waiting on the field. */}
+          {!title.trim() ? (
+            <Text style={[type.small, { color: colors.signal, textAlign: "center" }]}>
+              {t.onboarding.step3NeedOne}
+            </Text>
+          ) : null}
           <Button icon="checkmark" label={t.habit.save} onPress={save} disabled={!title.trim()} />
           <Button label={t.habit.cancel} tone="quiet" onPress={() => router.back()} />
         </View>
