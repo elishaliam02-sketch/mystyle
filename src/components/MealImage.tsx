@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import type { Food, Shape } from "@/kitchen";
+import { useTheme } from "@/theme";
 
 /**
  * The picture for a meal — drawn, not fetched.
@@ -26,10 +27,15 @@ type Props = {
   height?: number;
 };
 
-const WARM_TOP = "#F6EFE3";
-const WARM_BOTTOM = "#ECE0CC";
+/**
+ * The plate is drawn on the app's own paper — charcoal thinned, never a warm
+ * beige of its own. The ingredients keep their real colours: a picture of food
+ * has to look like food, so those live in the kitchen's data, not in the UI
+ * palette.
+ */
 
 export function MealImage({ foods, haveIds, width = 320, height = 150 }: Props) {
+  const { colors } = useTheme();
   // Cap what we draw so a busy plate stays readable; the lead ingredients win.
   const shown = useMemo(() => foods.slice(0, 5), [foods]);
   const cx = width / 2;
@@ -41,16 +47,16 @@ export function MealImage({ foods, haveIds, width = 320, height = 150 }: Props) 
       <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
         <Defs>
           <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={WARM_TOP} />
-            <Stop offset="1" stopColor={WARM_BOTTOM} />
+            <Stop offset="0" stopColor={colors.surfaceAlt} />
+            <Stop offset="1" stopColor={colors.rule} />
           </LinearGradient>
         </Defs>
         <Rect x={0} y={0} width={width} height={height} fill="url(#bg)" />
 
         {/* the plate */}
-        <Ellipse cx={cx} cy={cy} rx={plateR} ry={plateR * 0.62} fill="#FFFFFF" />
-        <Ellipse cx={cx} cy={cy} rx={plateR} ry={plateR * 0.62} fill="none" stroke="#E4D9C6" strokeWidth={2} />
-        <Ellipse cx={cx} cy={cy} rx={plateR * 0.74} ry={plateR * 0.46} fill="none" stroke="#EFE7D8" strokeWidth={1.5} />
+        <Ellipse cx={cx} cy={cy} rx={plateR} ry={plateR * 0.62} fill={colors.surface} />
+        <Ellipse cx={cx} cy={cy} rx={plateR} ry={plateR * 0.62} fill="none" stroke={colors.ruleStrong} strokeWidth={2} />
+        <Ellipse cx={cx} cy={cy} rx={plateR * 0.74} ry={plateR * 0.46} fill="none" stroke={colors.rule} strokeWidth={1.5} />
 
         {shown.map((food, i) => {
           // Fan the ingredients across the plate, tighter as the count grows.

@@ -6,8 +6,15 @@ import type { TextStyle } from "react-native";
  * Typing the record against Colors means a token added to light and forgotten
  * in dark fails the typecheck instead of shipping.
  *
- * The ground is warm paper rather than cold grey: this is a page someone
- * returns to every morning, not a dashboard.
+ * THE FOUR COLOURS. The whole app is drawn with electric blue, vibrant orange,
+ * neon lime and deep charcoal — nothing else. Greys are charcoal thinned or
+ * lifted, so even the paper and the rules belong to the family. Each hue ships
+ * in two weights: a `fill` value (the vivid one, for solid blocks) and an
+ * `ink` value (the same hue, darkened or lifted until it clears 4.5:1 as text
+ * on that theme's paper). Neon lime on white is unreadable at 1.3:1, which is
+ * why `limeInk` exists — the hue survives, the legibility is not negotiable.
+ * `src/theme/themetest.ts` measures every pairing and every hue, so a colour
+ * that drifts out of the family or under the contrast bar fails a test.
  */
 export type Colors = {
   ground: string;
@@ -17,8 +24,8 @@ export type Colors = {
    * colour. Everything below it is quiet paper, so this is what makes the
    * page read as designed rather than as a list of boxes. */
   band: string;
-  /** The two ends of the band's gradient — a crimson-black that bleeds into
-   * near-black, so the header reads as lit rather than flat. */
+  /** The two ends of the band's gradient — electric blue sunk into charcoal,
+   * so the header reads as lit rather than flat. */
   bandTop: string;
   bandBottom: string;
   bandInk: string;
@@ -29,76 +36,120 @@ export type Colors = {
   inkFaint: string;
   rule: string;
   ruleStrong: string;
+  /** Electric blue — the primary action, and the colour of load: kilos on the
+   * bar, volume, bodyweight, water. */
   accent: string;
   accentDeep: string;
   accentWash: string;
   onAccent: string;
-  /** Streaks, energy, "this is going well". */
-  amber: string;
-  amberWash: string;
-  signal: string;
-  signalWash: string;
+  /** Vibrant orange — time and intensity: the rest clock, session minutes,
+   * pace, streaks, a personal best, calories. `orange` fills, `orangeInk`
+   * writes. */
+  orange: string;
+  orangeInk: string;
+  orangeWash: string;
+  onOrange: string;
+  /** Neon lime — counts and completion: reps, sets, steps, ticks, the day
+   * score. Neon lime is a colour for dark ground: at 1.2:1 on white paper it
+   * is a highlighter, not a mark. So `lime` fills only the charcoal surfaces
+   * (the band, the hero, the dark theme); on paper the same hue appears as
+   * `limeInk`, which both writes and fills, and carries `onLime`. */
+  lime: string;
+  limeInk: string;
+  /** A third weight of lime, for the drawn tiles that need two stops of the
+   * same hue without dropping all the way to charcoal. */
+  limeDeep: string;
+  limeWash: string;
+  /** The ink that rides on a lime block — white on the paper-safe weight,
+   * charcoal on the neon one. */
+  onLime: string;
+  /** Destructive. Orange carries it — there is no red in this app. */
   alert: string;
+  alertDeep: string;
+  /** The two ends of the hero gradient. Fixed deep blues rather than the
+   * theme accent, because white sits on them in both themes. */
+  heroFrom: string;
+  heroTo: string;
   shadow: string;
 };
 
 /**
- * APEX palette — red and black. A near-black band crowns every screen, with a
- * bold red as the accent: strength, intensity, the colour of effort. Black
- * carries the weight; red is the one thing that moves. Every ink/ground pairing
- * still clears the accessible-contrast bar in both themes.
+ * VOLT palette — electric blue, vibrant orange, neon lime, deep charcoal.
+ * Charcoal carries the weight and the type; the three brights are spent only
+ * on numbers that have to land in a glance, mid-set, at arm's length. Because
+ * each metric family owns one hue for the life of the app (see
+ * `src/theme/metrics.ts`), colour alone tells you what a figure is before you
+ * have read its label.
  */
 export const palette: Record<"light" | "dark", Colors> = {
   light: {
-    ground: "#F4F4F5",
+    ground: "#F1F3F6",
     surface: "#FFFFFF",
-    surfaceAlt: "#ECECEE",
-    band: "#141416",
-    bandTop: "#3A0E15",
-    bandBottom: "#0E0E10",
+    surfaceAlt: "#E4E8ED",
+    band: "#14171C",
+    bandTop: "#0B2C6B",
+    bandBottom: "#0B0D10",
     bandInk: "#FFFFFF",
-    bandInkSoft: "#B6A9AB",
-    bandRule: "#2C2A2E",
-    ink: "#151517",
-    inkSoft: "#5B595C",
-    inkFaint: "#8E8C90",
-    rule: "#E4E3E5",
-    ruleStrong: "#CCCACE",
-    accent: "#D62330",
-    accentDeep: "#A81722",
-    accentWash: "#FBE1E3",
+    bandInkSoft: "#A9B4C4",
+    bandRule: "#2A3140",
+    ink: "#14171C",
+    inkSoft: "#545B66",
+    inkFaint: "#6B7380",
+    rule: "#E1E5EA",
+    ruleStrong: "#C6CCD4",
+    accent: "#0B5CFF",
+    accentDeep: "#0A44C2",
+    accentWash: "#E9F0FF",
     onAccent: "#FFFFFF",
-    amber: "#B26A12",
-    amberWash: "#FBECD8",
-    signal: "#8A5A0E",
-    signalWash: "#F6EEDC",
-    alert: "#B3261E",
-    shadow: "#141416",
+    orange: "#F55F00",
+    orangeInk: "#B34400",
+    orangeWash: "#FFEADD",
+    onOrange: "#14171C",
+    lime: "#B8FF29",
+    limeInk: "#4C7A00",
+    limeDeep: "#3F6A00",
+    limeWash: "#EDFFD0",
+    onLime: "#FFFFFF",
+    alert: "#C23B00",
+    alertDeep: "#8A2900",
+    heroFrom: "#1466FF",
+    heroTo: "#0A3AAE",
+    shadow: "#14171C",
   },
   dark: {
-    ground: "#0B0B0C",
-    surface: "#161618",
-    surfaceAlt: "#202023",
-    band: "#0E0E10",
-    bandTop: "#320B12",
-    bandBottom: "#08080A",
-    bandInk: "#F4F2F2",
-    bandInkSoft: "#B49CA0",
-    bandRule: "#2A2126",
-    ink: "#ECEAEA",
-    inkSoft: "#A09A9C",
-    inkFaint: "#77716F",
-    rule: "#29292C",
-    ruleStrong: "#3D3B3F",
-    accent: "#F04350",
-    accentDeep: "#FF6B75",
-    accentWash: "#2B1417",
-    onAccent: "#FFFFFF",
-    amber: "#EEB35A",
-    amberWash: "#2A2416",
-    signal: "#D8A94A",
-    signalWash: "#2A2417",
-    alert: "#FF8A8A",
+    ground: "#0B0D10",
+    surface: "#14181D",
+    surfaceAlt: "#1D222A",
+    band: "#0B0D10",
+    bandTop: "#0E2350",
+    bandBottom: "#07080A",
+    bandInk: "#F3F5F8",
+    bandInkSoft: "#A3ADBB",
+    bandRule: "#232935",
+    ink: "#EBEFF4",
+    inkSoft: "#9AA4B2",
+    inkFaint: "#7C8695",
+    rule: "#232830",
+    ruleStrong: "#39404B",
+    accent: "#5B93FF",
+    accentDeep: "#8CB4FF",
+    accentWash: "#101E38",
+    // Charcoal on a lifted blue, not white: a blue bright enough to read on a
+    // black ground is too bright to carry white type.
+    onAccent: "#07080A",
+    orange: "#FF8A3C",
+    orangeInk: "#FFA265",
+    orangeWash: "#2A1809",
+    onOrange: "#14171C",
+    lime: "#C7FF3D",
+    limeInk: "#C7FF3D",
+    limeDeep: "#7CB000",
+    limeWash: "#17250A",
+    onLime: "#0B0D10",
+    alert: "#FF7A2E",
+    alertDeep: "#E0621B",
+    heroFrom: "#1A5BD8",
+    heroTo: "#0C2A6B",
     shadow: "#000000",
   },
 };
@@ -157,24 +208,24 @@ export function elevation(colors: Colors, level: 1 | 2 = 1) {
   };
 }
 
-/** The one accent gradient the whole app leans on — a lit red, light-to-deep. */
+/** The one accent gradient the whole app leans on — electric blue, lit-to-deep. */
 export function accentGradient(colors: Colors): [string, string] {
   return [colors.accent, colors.accentDeep];
 }
 
 /**
- * The signature "hero" surface: a crimson that bleeds into near-black, lit from
+ * The signature "hero" surface: electric blue bleeding into charcoal, lit from
  * one corner. This is the app's one loud gesture — the day score, an intro, a
- * result. White text sits on it, and a red glow underneath lifts it clear off
+ * result. White text sits on it, and a blue glow underneath lifts it clear off
  * the paper so a hero card feels like the front of a product, not a box.
  */
 export function heroGradient(colors: Colors): [string, string, string] {
-  return [colors.accent, colors.accentDeep, colors.bandBottom];
+  return [colors.heroFrom, colors.heroTo, colors.bandBottom];
 }
 
 export function heroGlow(colors: Colors) {
   return {
-    shadowColor: colors.accent,
+    shadowColor: colors.heroFrom,
     shadowOpacity: 0.45,
     shadowRadius: 26,
     shadowOffset: { width: 0, height: 12 },

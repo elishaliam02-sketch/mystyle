@@ -92,7 +92,7 @@ export function MealScanner() {
             <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
           </View>
           {phase.kind === "failed" ? (
-            <Text style={[type.small, { color: colors.amber, marginTop: space.sm }]}>
+            <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>
               {phase.reason === "quota"
                 ? t.scan.quota
                 : phase.reason === "unreadable"

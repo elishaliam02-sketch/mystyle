@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
 import Svg, { ClipPath, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { useTheme } from "@/theme";
+import { ON_HERO, useTheme } from "@/theme";
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
@@ -42,7 +42,7 @@ export function WaterBottle({ fill, met, width = 74, height = 150, onHero = fals
   const cavity = bottom - top;
   const waterHeight = level.interpolate({ inputRange: [0, 1], outputRange: [0, cavity] });
   const waterY = level.interpolate({ inputRange: [0, 1], outputRange: [bottom, top] });
-  const waterColor = onHero ? "#FFFFFF" : met ? colors.accentDeep : colors.accent;
+  const waterColor = onHero ? ON_HERO : met ? colors.accentDeep : colors.accent;
   const glassColor = onHero ? "rgba(255,255,255,0.55)" : colors.ruleStrong;
   const topO = onHero ? "0.85" : "0.95";
   const botO = onHero ? "0.45" : "0.65";

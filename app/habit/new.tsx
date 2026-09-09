@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
 import { SupportPreview } from "@/components/SupportPreview";
+import { TaskScanPanel } from "@/components/TaskScan";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import { useStore, type Habit } from "@/store";
@@ -60,6 +61,10 @@ export default function NewHabit() {
           multiline
           autoFocus
         />
+
+        {/* read back before it is even saved: how hard this task looks and
+            what ticking it will pay */}
+        <TaskScanPanel title={title} />
 
         <SupportPreview title={title} />
 

@@ -1,9 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { TaskScanPanel } from "@/components/TaskScan";
 import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
@@ -14,6 +15,7 @@ import { AiBadge, AiNote } from "@/components/AiNote";
 import { daysAgo, useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
+import { confirm } from "@/ui/confirm";
 
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
 function DayGrid({ habitId }: { habitId: string }) {
@@ -92,17 +94,17 @@ export default function HabitDetail() {
 
   function confirmRemove() {
     if (!habit) return;
-    Alert.alert(t.habit.remove, fill(t.habit.removeConfirm, { title: habit.title }), [
-      { text: t.common.cancel, style: "cancel" },
-      {
-        text: t.habit.removeYes,
-        style: "destructive",
-        onPress: () => {
-          archiveHabit(habit.id);
-          router.back();
-        },
+    confirm({
+      title: t.habit.remove,
+      message: fill(t.habit.removeConfirm, { title: habit.title }),
+      confirmLabel: t.habit.removeYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: () => {
+        archiveHabit(habit.id);
+        router.back();
       },
-    ]);
+    });
   }
 
   return (
@@ -140,6 +142,9 @@ export default function HabitDetail() {
           <Text style={[type.label, { color: colors.accent }]}>{support.label}</Text>
         )}
         <AiNote state={aiState} onRetry={retry} />
+
+        {/* what the app made of this task, and what each tick of it pays */}
+        <TaskScanPanel title={habit.title} />
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>
           <Text style={[type.title, { color: colors.ink }]}>

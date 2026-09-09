@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
@@ -17,8 +17,11 @@ import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT } from "@/theme";
 import { today, useStore } from "@/store";
+import { computeRewards, todayOnOffer } from "@/rewards";
+import { scanTask } from "@/tasks/difficulty";
 import { detectCategory, getSupport } from "@/support";
-import { useTheme } from "@/theme";
+import { confirm } from "@/ui/confirm";
+import { metricFill, metricInk, useTheme } from "@/theme";
 
 /**
  * The home screen's nudge. Claude writes it from the user's actual habits and
@@ -128,6 +131,74 @@ function TipOfTheDay() {
         </Pressable>
       </View>
     </View>
+  );
+}
+
+/**
+ * What today's board is worth, and what it has paid so far.
+ *
+ * The tasks on the Today screen are the person's own words, and the app has
+ * already read them and priced them (see `@/tasks/difficulty`). This is where
+ * that shows up in the run of the day: a level, a bar toward the next one, and
+ * the plain fact that there are still points sitting on the board unticked.
+ */
+function RewardsEntry() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const router = useRouter();
+  const { state } = useStore();
+
+  const day = today();
+  const reward = computeRewards(state, day);
+  const offer = todayOnOffer(state, day);
+  const pct = Math.round((reward.intoLevel / reward.levelSpan) * 100);
+
+  return (
+    <Pressable onPress={() => router.push("/rewards")} accessibilityRole="button">
+      <Card>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          <View
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="medal" size={22} color={colors.onAccent} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[type.title, { color: colors.ink }]}>
+              {fill(t.rewards.entry, { level: reward.level })}
+            </Text>
+            <Text style={[type.small, { color: colors.inkSoft }]}>
+              {fill(t.rewards.entryHint, { points: reward.points, left: reward.toNext })}
+            </Text>
+          </View>
+          <Text style={[type.figure, { color: metricInk(colors, "score"), fontSize: 26, lineHeight: 32 }]}>
+            {offer.earned}
+          </Text>
+        </View>
+
+        <View
+          style={{
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: colors.surfaceAlt,
+            overflow: "hidden",
+            marginTop: space.sm,
+          }}
+        >
+          <View style={{ width: `${pct}%`, height: "100%", backgroundColor: colors.accent }} />
+        </View>
+
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
+          {fill(t.rewards.todayLine, { earned: offer.earned, available: offer.available })}
+        </Text>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -258,7 +329,9 @@ function ScoreRing({ score, onHero = false }: { score: number; onHero?: boolean 
   const c = 2 * Math.PI * r;
   const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
   const track = onHero ? "rgba(255,255,255,0.22)" : colors.rule;
-  const fill = onHero ? "#FFFFFF" : colors.accent;
+  // The day score counts what got finished, so the arc belongs to the count
+  // family: neon lime, which is the one bright that holds up on the blue hero.
+  const fill = onHero ? colors.lime : metricFill(colors, "score");
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={{ position: "absolute", transform: [{ rotate: "-90deg" }] }}>
@@ -300,14 +373,14 @@ export default function TodayScreen() {
     : greeting;
 
   function confirmRemove(id: string, habitTitle: string) {
-    Alert.alert(
-      t.habit.remove,
-      fill(t.habit.removeConfirm, { title: habitTitle }),
-      [
-        { text: t.common.cancel, style: "cancel" },
-        { text: t.habit.removeYes, style: "destructive", onPress: () => archiveHabit(id) },
-      ],
-    );
+    confirm({
+      title: t.habit.remove,
+      message: fill(t.habit.removeConfirm, { title: habitTitle }),
+      confirmLabel: t.habit.removeYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: () => archiveHabit(id),
+    });
   }
 
   if (habits.length === 0) {
@@ -339,6 +412,8 @@ export default function TodayScreen() {
       }
     >
       <TodayHub />
+
+      <RewardsEntry />
 
       {/* the coach — answers from this person's own numbers, on the device */}
       <Pressable onPress={() => router.push("/coach")} accessibilityRole="button">
@@ -380,6 +455,7 @@ export default function TodayScreen() {
                 label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
                 hint={habit.anchor}
                 done={isDone(habit.id)}
+                scan={scanTask(habit.title)}
                 onToggle={() => toggleCompletion(habit.id)}
                 onOpen={() => router.push(`/habit/${habit.id}`)}
               />
@@ -391,7 +467,7 @@ export default function TodayScreen() {
 
       <View
         style={{
-          backgroundColor: ready ? colors.accentWash : colors.amberWash,
+          backgroundColor: ready ? colors.accentWash : colors.orangeWash,
           borderRadius: radius.lg,
           padding: space.xl,
           gap: space.sm,
@@ -401,9 +477,9 @@ export default function TodayScreen() {
           <Ionicons
             name={ready ? "sparkles" : "hourglass-outline"}
             size={16}
-            color={ready ? colors.accent : colors.amber}
+            color={ready ? colors.accent : colors.orangeInk}
           />
-          <Text style={[type.label, { color: ready ? colors.accent : colors.amber }]}>
+          <Text style={[type.label, { color: ready ? colors.accent : colors.orangeInk }]}>
             {ready ? t.today.readyTitle : t.today.holdTitle}
           </Text>
         </View>

@@ -3,7 +3,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Equipment, Exercise, Muscle } from "@/workout/exercises";
 import { useStore } from "@/store";
-import { useTheme } from "@/theme";
+import { ON_HERO, useTheme, type Colors } from "@/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -19,19 +19,37 @@ type IconName = keyof typeof Ionicons.glyphMap;
  * instantly, never a blank grey box and never a spinner.
  */
 
-/** A distinct colour per muscle group, so a session reads at a glance. */
-const MUSCLE_COLORS: Record<Muscle, [string, string]> = {
-  chest: ["#E4572E", "#B3391C"],
-  back: ["#2E86AB", "#1B5A75"],
-  shoulders: ["#F2A65A", "#C97B29"],
-  legs: ["#5B8C5A", "#375C36"],
-  glutes: ["#A05195", "#6E3266"],
-  arms: ["#D7263D", "#96182A"],
-  forearms: ["#B56576", "#7E4150"],
-  core: ["#E9C46A", "#B8933F"],
-  fullbody: ["#4D5D75", "#2E3A4B"],
-  cardio: ["#EF476F", "#B32E4E"],
-};
+/**
+ * A tile per muscle group, drawn from the four colours and nothing else.
+ * Ten groups over three hues, so the hue carries the region — orange for the
+ * pushing muscles, blue for the pulling ones, lime for the lower body — and a
+ * second weight of the same hue tells the members of a family apart. The
+ * equipment glyph on top does the rest; this is a picture, not a readout, so
+ * it never needs a colour the palette does not have.
+ */
+type Tile = { from: string; to: string; ink: string };
+
+function muscleColors(colors: Colors): Record<Muscle, Tile> {
+  const light = { ink: ON_HERO };
+  // Neon lime is far too bright to carry a white glyph — charcoal rides on it.
+  const dark = { ink: colors.onLime };
+  return {
+    // push — orange
+    chest: { from: colors.orange, to: colors.alert, ...light },
+    shoulders: { from: colors.alert, to: colors.alertDeep, ...light },
+    arms: { from: colors.orange, to: colors.alertDeep, ...light },
+    // pull — electric blue
+    back: { from: colors.accent, to: colors.accentDeep, ...light },
+    forearms: { from: colors.accentDeep, to: colors.bandTop, ...light },
+    cardio: { from: colors.accent, to: colors.bandTop, ...light },
+    // lower body — neon lime
+    legs: { from: colors.lime, to: colors.limeDeep, ...dark },
+    glutes: { from: colors.limeDeep, to: colors.band, ...light },
+    core: { from: colors.lime, to: colors.band, ...dark },
+    // everything at once — charcoal
+    fullbody: { from: colors.bandTop, to: colors.band, ...light },
+  };
+}
 
 /** The icon that reads most like the kit the move is done with. */
 const EQUIPMENT_ICONS: Record<Equipment, IconName> = {
@@ -52,10 +70,11 @@ export function ExerciseThumb({
   ex: Exercise;
   size?: number;
 }) {
-  const { radius } = useTheme();
+  const { colors, radius } = useTheme();
   const { state } = useStore();
   const videoId = state.videoIds?.[ex.id];
-  const [from, to] = MUSCLE_COLORS[ex.muscle] ?? MUSCLE_COLORS.fullbody;
+  const tiles = muscleColors(colors);
+  const { from, to, ink } = tiles[ex.muscle] ?? tiles.fullbody;
 
   if (videoId) {
     return (
@@ -84,7 +103,7 @@ export function ExerciseThumb({
       <Ionicons
         name={EQUIPMENT_ICONS[ex.equipment] ?? "barbell"}
         size={Math.round(size * 0.45)}
-        color="#FFFFFF"
+        color={ink}
       />
       {/* a compound lift gets a small mark, so the big lifts stand out */}
       {ex.compound ? (
@@ -96,7 +115,7 @@ export function ExerciseThumb({
             width: 7,
             height: 7,
             borderRadius: 4,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: ink,
             opacity: 0.9,
           }}
         />

@@ -57,10 +57,17 @@ function Badge({ a }: { a: Achievement }) {
   const { colors, radius, type } = useTheme();
   const meta = t.achievements.badges[a.id as keyof typeof t.achievements.badges];
 
+  // Tiers ride the palette: bronze is the blue of load, silver the charcoal
+  // ink, gold the orange of effort — and each chip carries the ink that reads
+  // on it, which for orange is charcoal rather than white.
   const tierColor =
-    a.tier === "gold" ? colors.amber : a.tier === "silver" ? colors.inkSoft : colors.accent;
+    a.tier === "gold" ? colors.orange : a.tier === "silver" ? colors.inkSoft : colors.accent;
   const chip = a.unlocked ? tierColor : colors.surfaceAlt;
-  const iconColor = a.unlocked ? colors.onAccent : colors.inkFaint;
+  const iconColor = !a.unlocked
+    ? colors.inkFaint
+    : a.tier === "gold"
+      ? colors.onOrange
+      : colors.onAccent;
   const pct = Math.round((a.progress / a.target) * 100);
 
   return (

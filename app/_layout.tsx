@@ -57,6 +57,7 @@ function Shell() {
         <Stack.Screen name="habit/new" options={{ presentation: "modal" }} />
         <Stack.Screen name="habit/[id]" />
         <Stack.Screen name="achievements" options={{ presentation: "modal" }} />
+        <Stack.Screen name="rewards" options={{ presentation: "modal" }} />
       </Stack>
     </View>
   );

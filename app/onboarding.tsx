@@ -159,7 +159,7 @@ export default function Onboarding() {
               keyboardType="numeric"
             />
             {note ? (
-              <Text style={[type.small, { color: colors.amber, fontWeight: "700" }]}>{note}</Text>
+              <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
             ) : null}
           </View>
         ) : null}
@@ -226,7 +226,7 @@ export default function Onboarding() {
 
         <View style={{ gap: space.sm }}>
           {!canContinue ? (
-            <Text style={[type.small, { color: colors.signal, textAlign: "center" }]}>
+            <Text style={[type.small, { color: colors.limeInk, textAlign: "center" }]}>
               {t.onboarding.step3NeedOne}
             </Text>
           ) : null}

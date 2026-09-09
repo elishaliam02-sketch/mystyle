@@ -161,7 +161,7 @@ export default function LibraryScreen() {
         </Text>
 
         {rows.length === 0 ? (
-          <Card tone="amber">
+          <Card tone="orange">
             <Text style={[type.body, { color: colors.ink }]}>{t.library.none}</Text>
           </Card>
         ) : (

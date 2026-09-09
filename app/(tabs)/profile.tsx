@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -21,6 +21,7 @@ import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { confirm } from "@/ui/confirm";
 
 const LOCALES: { id: Locale; label: string }[] = [
   { id: "he", label: "עברית" },
@@ -89,10 +90,14 @@ export default function ProfileScreen() {
   }
 
   function confirmReset() {
-    Alert.alert(t.profile.dangerTitle, t.profile.dangerConfirm, [
-      { text: t.common.cancel, style: "cancel" },
-      { text: t.profile.dangerYes, style: "destructive", onPress: reset },
-    ]);
+    confirm({
+      title: t.profile.dangerTitle,
+      message: t.profile.dangerConfirm,
+      confirmLabel: t.profile.dangerYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: reset,
+    });
   }
 
   return (
@@ -133,7 +138,7 @@ export default function ProfileScreen() {
               </Text>
             ) : null}
             {note ? (
-              <Text style={[type.small, { color: colors.amber, fontWeight: "700" }]}>{note}</Text>
+              <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
             ) : null}
             <Button label={t.profile.saved} onPress={persist} tone="quiet" />
           </View>
@@ -194,7 +199,7 @@ export default function ProfileScreen() {
                 </Text>
               ) : null}
               {reminders.denied ? (
-                <Text style={[type.small, { color: colors.amber, marginTop: space.xs }]}>
+                <Text style={[type.small, { color: colors.orangeInk, marginTop: space.xs }]}>
                   {t.profile.notificationsDenied}
                 </Text>
               ) : null}

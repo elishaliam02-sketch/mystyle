@@ -6,17 +6,17 @@ type Props = {
   label?: string;
   title?: string;
   children?: ReactNode;
-  tone?: "default" | "accent" | "amber";
+  tone?: "default" | "accent" | "orange";
 };
 
 export function Card({ label, title, children, tone = "default" }: Props) {
   const { colors, space, radius, type, elevation } = useTheme();
 
   const background =
-    tone === "accent" ? colors.accentWash : tone === "amber" ? colors.amberWash : colors.surface;
-  const labelColor = tone === "amber" ? colors.amber : colors.accent;
+    tone === "accent" ? colors.accentWash : tone === "orange" ? colors.orangeWash : colors.surface;
+  const labelColor = tone === "orange" ? colors.orangeInk : colors.accent;
   const borderColor =
-    tone === "accent" ? colors.accent : tone === "amber" ? colors.amber : colors.rule;
+    tone === "accent" ? colors.accent : tone === "orange" ? colors.orange : colors.rule;
 
   return (
     <View

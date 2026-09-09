@@ -27,7 +27,14 @@ npm start          # then press i for iOS, a for Android, w for web
 ```bash
 npx tsc --noEmit                   # typecheck
 npx expo export --platform web     # verify it bundles
+npm run test:theme                 # the palette measures itself
+npm run test:tasks                 # the difficulty scanner
+npm run test:rewards               # points and levels
 ```
+
+One bundle runs on iOS, Android and the web. Native-only APIs are the thing to
+watch: they tend to fail silently on web rather than loudly, which is why every
+confirmation goes through `src/ui/confirm.ts`.
 
 ## Layout
 
@@ -38,7 +45,11 @@ app/                 screens — the file tree is the navigation tree
 src/
   i18n/              he.ts, en.ts and the provider that switches them
   theme/             colour tokens, spacing, type scale (light + dark)
-  components/        Screen, Card, TaskRow, StubNote
+                     metrics.ts — one hue per metric family
+  tasks/             reads a self-written task and prices its difficulty
+  rewards/           points, levels and streak bonuses, from the ticks alone
+  ui/                confirm.ts — dialogs that work on web as well as native
+  components/        Screen, Card, TaskRow, TaskScan, StubNote
 ```
 
 ## Two rules worth keeping
@@ -48,6 +59,14 @@ and a dark value. A hex typed into a component works in one theme and breaks
 in the other, and nobody notices until a user reports a white-on-white screen.
 `Colors` is a typed contract, so a token added to light and forgotten in dark
 fails the typecheck.
+
+The palette is four colours — electric blue, vibrant orange, neon lime, deep
+charcoal — and each metric family owns one of them for the life of the app:
+load is blue, counts are lime, time and cost are orange. Colour tells you what
+a number is before you have read the word under it, which is the difference
+between glancing at your phone between sets and stopping to read it.
+`npm run test:theme` measures the contrast of every pairing and the hue of
+every token, so the rule is enforced rather than remembered.
 
 **No literal user-facing strings outside `src/i18n/`.** Adding the string to
 `he.ts` makes `en.ts` fail to typecheck until it is translated too. That is

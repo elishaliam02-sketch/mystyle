@@ -19,7 +19,7 @@ const comp = (habitId: string, date: string, done = true) => ({
 // empty state unlocks nothing but still lists every badge
 {
   const a = computeAchievements(EMPTY_STATE);
-  check("empty state lists all badges", a.length === 16, String(a.length));
+  check("empty state lists all badges", a.length === 19, String(a.length));
   check("empty state unlocks none", unlockedCount(a) === 0, String(unlockedCount(a)));
   check("every badge has a positive target", a.every((x) => x.target > 0));
   check("progress never exceeds target", a.every((x) => x.progress <= x.target));
