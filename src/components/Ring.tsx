@@ -21,8 +21,10 @@ export function Ring({
   const { colors, type } = useTheme();
   const stroke = 9;
   const track = on === "band" ? colors.bandRule : colors.rule;
+  // Progress is a count of things finished, so the arc is lime — the neon
+  // fill on the dark band, the darkened ink weight on paper.
   const fill = on === "band" ? colors.bandInk : colors.accent;
-  const doneColor = on === "band" ? colors.amber : colors.amber;
+  const doneColor = on === "band" ? colors.lime : colors.limeInk;
   const labelColor = on === "band" ? colors.bandInk : colors.ink;
   const subColor = on === "band" ? colors.bandInkSoft : colors.inkFaint;
   const r = (size - stroke) / 2;

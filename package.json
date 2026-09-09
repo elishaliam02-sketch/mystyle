@@ -65,7 +65,13 @@
     "test:backup": "node scripts/run-backup-tests.mjs",
     "test:sets": "node scripts/run-sets-tests.mjs",
     "test:coach": "node scripts/run-coach-tests.mjs",
-    "test:nutrition": "node scripts/run-nutrition-tests.mjs"
+    "test:nutrition": "node scripts/run-nutrition-tests.mjs",
+    "test:theme": "node scripts/run-theme-tests.mjs",
+    "test:tasks": "node scripts/run-task-tests.mjs",
+    "test:rewards": "node scripts/run-reward-tests.mjs",
+    "test:legal": "node scripts/run-legal-tests.mjs",
+    "test:export": "node scripts/run-export-tests.mjs",
+    "licenses": "node scripts/gen-licenses.mjs"
   },
   "private": true
 }

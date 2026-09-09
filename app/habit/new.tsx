@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
 import { SupportPreview } from "@/components/SupportPreview";
+import { TaskScanPanel } from "@/components/TaskScan";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import { useStore, type Habit } from "@/store";
@@ -61,6 +62,10 @@ export default function NewHabit() {
           autoFocus
         />
 
+        {/* read back before it is even saved: how hard this task looks and
+            what ticking it will pay */}
+        <TaskScanPanel title={title} />
+
         <SupportPreview title={title} />
 
         <View style={{ gap: space.sm }}>
@@ -83,7 +88,7 @@ export default function NewHabit() {
           {/* The same line onboarding shows: a greyed-out Save with no reason
               beside it reads as broken rather than as waiting on the field. */}
           {!title.trim() ? (
-            <Text style={[type.small, { color: colors.signal, textAlign: "center" }]}>
+            <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
               {t.onboarding.step3NeedOne}
             </Text>
           ) : null}

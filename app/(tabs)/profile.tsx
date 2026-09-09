@@ -1,12 +1,25 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ConsentSwitch } from "@/components/ConsentSwitch";
 import { Screen } from "@/components/Screen";
+import { SupportSignpost } from "@/components/SupportSignpost";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
-import { signInWithEmail, signOut, signUpWithEmail } from "@/cloud/client";
+import {
+  requestPasswordReset,
+  resendConfirmation,
+  signInWithEmail,
+  signOut,
+  signUpWithEmail,
+} from "@/cloud/client";
+import { deleteAccount } from "@/cloud/client";
 import { SelectTile } from "@/components/SelectTile";
 import {
   bmi,
@@ -20,6 +33,11 @@ import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { useAppUpdate } from "@/updates";
+import { LEGAL } from "@/legal";
+import { buildExport, exportFilename, serializeExport } from "@/legal/export";
+import { deliverExport } from "@/legal/deliver";
+import { confirm } from "@/ui/confirm";
 
 const LOCALES: { id: Locale; label: string }[] = [
   { id: "he", label: "עברית" },
@@ -41,6 +59,10 @@ export default function ProfileScreen() {
   const [height, setHeight] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // Set once someone asks for a goal below the healthy floor, and left set:
+  // the signpost stays for the rest of the visit rather than blinking away
+  // with the error message.
+  const [needsSupport, setNeedsSupport] = useState(false);
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
@@ -77,6 +99,9 @@ export default function ProfileScreen() {
       }
       if (verdict.status === "too-low") {
         setNote(fill(t.profile.goalTooLow, { floor: verdict.floor }));
+        // Sticky for the rest of the visit: the refusal on its own leaves
+        // someone with a wish and nowhere to take it.
+        setNeedsSupport(true);
         return;
       }
       if (verdict.status === "too-high") {
@@ -97,10 +122,14 @@ export default function ProfileScreen() {
   }
 
   function confirmReset() {
-    Alert.alert(t.profile.dangerTitle, t.profile.dangerConfirm, [
-      { text: t.common.cancel, style: "cancel" },
-      { text: t.profile.dangerYes, style: "destructive", onPress: reset },
-    ]);
+    confirm({
+      title: t.profile.dangerTitle,
+      message: t.profile.dangerConfirm,
+      confirmLabel: t.profile.dangerYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: reset,
+    });
   }
 
   return (
@@ -109,6 +138,7 @@ export default function ProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.profile.heading}>
+        <UpdateBanner />
         <View style={{ alignItems: "center", paddingVertical: space.md }}>
           <BrandLogo size={72} onBand={false} />
         </View>
@@ -145,7 +175,9 @@ export default function ProfileScreen() {
                 style={[
                   type.small,
                   {
-                    color: note === t.profile.savedNote ? colors.accent : colors.amber,
+                    // a confirmation is not a warning: the saved note is the
+                    // accent, everything else in this line is an error
+                    color: note === t.profile.savedNote ? colors.accent : colors.orangeInk,
                     fontWeight: "700",
                   },
                 ]}
@@ -153,6 +185,7 @@ export default function ProfileScreen() {
                 {note}
               </Text>
             ) : null}
+            {needsSupport ? <SupportSignpost /> : null}
             <Button label={t.profile.saveAction} onPress={persist} tone="quiet" />
           </View>
         </Card>
@@ -212,7 +245,7 @@ export default function ProfileScreen() {
                 </Text>
               ) : null}
               {reminders.denied ? (
-                <Text style={[type.small, { color: colors.amber, marginTop: space.xs }]}>
+                <Text style={[type.small, { color: colors.orangeInk, marginTop: space.xs }]}>
                   {t.profile.notificationsDenied}
                 </Text>
               ) : null}
@@ -279,6 +312,12 @@ export default function ProfileScreen() {
           />
         </Card>
 
+        <PrivacyCard cloud={cloud} />
+
+        <UpdatesCard />
+
+        {/* ordinary footnote copy, not the unfinished-feature warning strip it
+            used to wear — users read that yellow bar as "this part is broken" */}
         <Text style={[type.small, { color: colors.inkFaint, paddingHorizontal: space.xs }]}>
           {t.profile.localNote}
         </Text>
@@ -298,6 +337,233 @@ export default function ProfileScreen() {
 }
 
 /**
+ * Privacy, consent and the way out.
+ *
+ * Everything a data-protection law asks to be reachable, in one card: what is
+ * switched on, the documents themselves, who to write to, and a delete button
+ * that really deletes. Withdrawing a consent here takes effect immediately —
+ * the sync stops at the next round and the AI transport refuses on its very
+ * next call — rather than at the next launch.
+ */
+function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const router = useRouter();
+  const { state, consent, setConsent, reset } = useStore();
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const choices = consent();
+
+  function confirmDelete() {
+    confirm({
+      title: t.legal.deleteTitle,
+      message: t.legal.deleteConfirm,
+      confirmLabel: t.legal.deleteYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: () => void wipe(),
+    });
+  }
+
+  async function wipe() {
+    setBusy(true);
+    setNote(null);
+    // Server first: if it fails, the person still has their account and can
+    // try again. Wiping the device first would leave an orphaned account on
+    // the server with no signed-in device left to delete it from.
+    const hadAccount = !!cloud.account;
+    const gone = await deleteAccount();
+    if (hadAccount && !gone) {
+      setNote(t.legal.deleteFailed);
+      setBusy(false);
+      return;
+    }
+    reset();
+    cloud.refreshAccount();
+    setNote(hadAccount ? t.legal.deleteDone : t.legal.deleteLocalOnly);
+    setBusy(false);
+  }
+
+  /**
+   * The right to a copy, answered by the app rather than by an inbox. The
+   * whole stored state goes out verbatim — a copy that quietly omits fields
+   * would be worse than none, because nobody can tell what is missing.
+   */
+  async function exportData() {
+    setBusy(true);
+    setNote(null);
+    const file = exportFilename();
+    const ok = await deliverExport(
+      serializeExport(buildExport(state, { email: cloud.account?.email ?? null })),
+      file,
+    );
+    setBusy(false);
+    setNote(ok ? fill(t.legal.exportDone, { file }) : t.legal.exportFailed);
+  }
+
+  return (
+    <Card label={t.legal.consentTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.legal.consentBody}</Text>
+
+      <View style={{ gap: space.sm, marginTop: space.md }}>
+        <ConsentSwitch
+          label={t.legal.cloudLabel}
+          body={t.legal.cloudBody}
+          value={choices.cloud}
+          onChange={(next) => setConsent({ cloud: next })}
+        />
+        <ConsentSwitch
+          label={t.legal.aiLabel}
+          body={t.legal.aiBody}
+          value={choices.ai}
+          onChange={(next) => setConsent({ ai: next })}
+        />
+      </View>
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.documentsTitle}
+      </Text>
+      <View style={{ gap: space.xs, marginTop: space.xs }}>
+        {(
+          [
+            [t.legal.privacyLink, "/legal/privacy"],
+            [t.legal.termsLink, "/legal/terms"],
+            [t.legal.licensesLink, "/legal/licenses"],
+          ] as const
+        ).map(([label, href]) => (
+          <Pressable
+            key={href}
+            onPress={() => router.push(href)}
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              paddingVertical: space.sm,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Text style={[type.bodyStrong, { color: colors.accent, flex: 1 }]}>{label}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+        {fill(t.legal.contactBody, { email: LEGAL.contactEmail })}
+      </Text>
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.exportTitle}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+        {t.legal.exportBody}
+      </Text>
+      <Button
+        icon="download-outline"
+        label={t.legal.exportCta}
+        tone="quiet"
+        disabled={busy}
+        onPress={() => void exportData()}
+        style={{ marginTop: space.md }}
+      />
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.deleteTitle}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+        {t.legal.deleteBody}
+      </Text>
+      <Button
+        icon="trash"
+        label={t.legal.deleteCta}
+        tone="danger"
+        disabled={busy}
+        onPress={confirmDelete}
+        style={{ marginTop: space.md }}
+      />
+      {note ? (
+        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * Version and updates. The app can update itself: a new bundle is fetched
+ * quietly and applied when the person says so. This card is where that becomes
+ * visible — what is running, and a button for someone who does not want to
+ * wait for the automatic check.
+ */
+function UpdatesCard() {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const update = useAppUpdate();
+  const { version, channel, embedded } = update.running;
+
+  const status =
+    update.state === "checking"
+      ? t.updates.checking
+      : update.state === "downloading"
+        ? t.updates.downloading
+        : update.state === "ready"
+          ? t.updates.bannerTitle
+          : update.state === "current"
+            ? t.updates.upToDate
+            : update.state === "failed"
+              ? t.updates.failed
+              : null;
+
+  return (
+    <Card label={t.updates.aboutTitle}>
+      <Text style={[type.bodyStrong, { color: colors.ink }]}>
+        {fill(t.updates.version, { version })}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft }]}>
+        {embedded ? t.updates.embedded : t.updates.fromUpdate}
+      </Text>
+      {channel ? (
+        <Text style={[type.small, { color: colors.inkFaint }]}>
+          {fill(t.updates.channelLine, { channel })}
+        </Text>
+      ) : null}
+
+      {update.supported ? (
+        <>
+          <Button
+            icon="refresh"
+            label={update.state === "ready" ? t.updates.restart : t.updates.checkCta}
+            tone="quiet"
+            onPress={() => (update.state === "ready" ? void update.apply() : void update.check())}
+            style={{ marginTop: space.md }}
+          />
+          {status ? (
+            <Text
+              style={[
+                type.small,
+                {
+                  color: update.state === "failed" ? colors.orangeInk : colors.inkSoft,
+                  marginTop: space.xs,
+                },
+              ]}
+            >
+              {status}
+            </Text>
+          ) : null}
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
+            {t.updates.note}
+          </Text>
+        </>
+      ) : (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+          {t.updates.unsupported}
+        </Text>
+      )}
+    </Card>
+  );
+}
+
+/**
  * The account: sign up with an email to back everything up and move it to a new
  * phone, sign in on another device to pull it down, or sign out. Without an
  * email the app still works and still syncs — but only to an anonymous account
@@ -311,9 +577,17 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // The address a confirmation is outstanding for. Set after a signup that
+  // came back without a session, which is what an unconfirmed account looks
+  // like — the moment where the old code said "backed up" and was wrong.
+  const [awaiting, setAwaiting] = useState<string | null>(null);
 
   const account = cloud.account;
   const signedIn = !!account && !account.anonymous;
+  // Signed in but the link was never clicked: the account exists, nothing
+  // syncs, and saying nothing about it is how people lose data they believe
+  // is safe.
+  const unconfirmed = signedIn && account!.confirmed === false;
 
   const errorText = (code: string): string => {
     switch (code) {
@@ -322,6 +596,7 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       case "weakPassword": return t.account.errWeakPassword;
       case "badEmail": return t.account.errBadEmail;
       case "local": return t.account.errLocal;
+      case "noSession": return t.account.errNoSession;
       default: return t.account.errGeneric;
     }
   };
@@ -346,9 +621,41 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       return;
     }
     setPassword("");
+    if (res.needsConfirmation) {
+      // Not signed in, not backed up, and the screen must not pretend
+      // otherwise: the account only becomes real when the link is clicked.
+      setAwaiting(res.email ?? email.trim());
+      setNote(null);
+      return;
+    }
     setNote(t.account.done);
     cloud.refreshAccount();
     void cloud.sync();
+  }
+
+  /** Sends the confirmation email again, for a link that never arrived. */
+  async function resend(address: string) {
+    setBusy(true);
+    const res = await resendConfirmation(address);
+    setBusy(false);
+    setNote(res.ok ? t.account.confirmResent : errorText(res.message));
+  }
+
+  /**
+   * Starts a password reset. The link has to come back to *this* app, so the
+   * redirect is built from the app's own scheme on a phone and the site's
+   * origin on the web — `Linking.createURL` knows which it is.
+   */
+  async function forgotPassword() {
+    if (!email.trim()) {
+      setNote(t.account.errBadEmail);
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = await requestPasswordReset(email, Linking.createURL("/reset"));
+    setBusy(false);
+    setNote(res.ok ? fill(t.account.resetSent, { email: email.trim() }) : errorText(res.message));
   }
 
   async function doSignOut() {
@@ -358,11 +665,48 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     cloud.refreshAccount();
   }
 
+  if (awaiting) {
+    return (
+      <Card label={t.account.confirmTitle}>
+        <Text style={[type.body, { color: colors.ink }]}>
+          {fill(t.account.confirmBody, { email: awaiting })}
+        </Text>
+        <Button
+          icon="mail-outline"
+          label={t.account.confirmResend}
+          tone="quiet"
+          onPress={() => void resend(awaiting)}
+          disabled={busy}
+          style={{ marginTop: space.md }}
+        />
+        {note ? (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>{note}</Text>
+        ) : null}
+      </Card>
+    );
+  }
+
   if (signedIn) {
     return (
       <Card label={t.account.title}>
         <Text style={[type.bodyStrong, { color: colors.ink }]}>{account!.email}</Text>
-        <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
+        {unconfirmed ? (
+          <>
+            <Text style={[type.small, { color: colors.orangeInk, marginTop: 2 }]}>
+              {t.account.unconfirmed}
+            </Text>
+            <Button
+              icon="mail-outline"
+              label={t.account.confirmResend}
+              tone="quiet"
+              onPress={() => void resend(account!.email ?? "")}
+              disabled={busy}
+              style={{ marginTop: space.md }}
+            />
+          </>
+        ) : (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
+        )}
         <Button
           icon="log-out-outline"
           label={busy ? t.profile.cloudConnecting : t.account.signOut}
@@ -430,6 +774,19 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         disabled={busy}
         style={{ marginTop: space.md }}
       />
+
+      {mode === "in" ? (
+        <Pressable
+          onPress={() => void forgotPassword()}
+          accessibilityRole="button"
+          disabled={busy}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingVertical: space.sm })}
+        >
+          <Text style={[type.small, { color: colors.accent, fontWeight: "700", textAlign: "center" }]}>
+            {t.account.forgot}
+          </Text>
+        </Pressable>
+      ) : null}
     </Card>
   );
 }

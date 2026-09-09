@@ -117,6 +117,33 @@ export type Profile = {
   updatedAt?: string;
 };
 
+/**
+ * What the person has agreed to, and when.
+ *
+ * Device-local and never synced: an agreement is given by a person on a
+ * device, and a record of it that could be overwritten by another device's
+ * copy would be worth nothing as evidence.
+ */
+export type LegalAcceptance = {
+  /** The document version accepted — see LEGAL.version. */
+  version: number;
+  acceptedAt: string;
+};
+
+/**
+ * The two things that can send personal data off the phone, each off until
+ * the person turns it on. Kept apart from the acceptance record because
+ * accepting the terms is not the same act as agreeing to cloud storage, and
+ * consent that is bundled is not consent.
+ */
+export type Consent = {
+  /** Sync and back up to the account. */
+  cloud: boolean;
+  /** Send questions, numbers and meal photos to the AI provider. */
+  ai: boolean;
+  updatedAt: string;
+};
+
 export type AppState = {
   profile: Profile;
   habits: Habit[];
@@ -199,6 +226,10 @@ export type AppState = {
   backupSig?: string;
   backupAt?: string;
   backupSeenAt?: string;
+  /** The accepted version of the terms and privacy policy, device-local. */
+  legal?: LegalAcceptance;
+  /** Explicit opt-ins for anything that leaves the device, device-local. */
+  consent?: Consent;
   /** Exercise id → the YouTube id resolved for its form demo, so the exact
    * video opens instantly on every tap after the first, and offline too. */
   videoIds?: Record<string, string>;
@@ -294,5 +325,10 @@ export function migrateState(raw: unknown): AppState {
     backupSig: s.backupSig,
     backupAt: s.backupAt,
     backupSeenAt: s.backupSeenAt,
+    // A build that predates the consent gate has no record, which reads as
+    // "not accepted" and "nothing allowed" — the gate then asks, which is the
+    // correct behaviour for an upgrade, not a bug.
+    legal: s.legal,
+    consent: s.consent,
   };
 }

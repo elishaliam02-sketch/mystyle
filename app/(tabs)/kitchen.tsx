@@ -41,7 +41,7 @@ import {
 } from "@/kitchen";
 import { useStore } from "@/store";
 import { projectGoal } from "@/store/projection";
-import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
+import { metricFill, metricInk, useTheme, type Metric } from "@/theme";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 
@@ -428,7 +428,7 @@ export default function KitchenScreen() {
               ))}
           </View>
         ) : !showAny ? (
-          <Card tone="amber">
+          <Card tone="orange">
             <Text style={[type.body, { color: colors.ink }]}>{t.kitchen.nothing}</Text>
           </Card>
         ) : (
@@ -476,7 +476,7 @@ export default function KitchenScreen() {
 
 
 
-function Bar({ pct, over }: { pct: number; over: boolean }) {
+function Bar({ pct, over, metric }: { pct: number; over: boolean; metric: Metric }) {
   const { colors } = useTheme();
   return (
     <View
@@ -493,7 +493,9 @@ function Bar({ pct, over }: { pct: number; over: boolean }) {
           width: `${pct}%`,
           height: "100%",
           borderRadius: 4,
-          backgroundColor: over ? colors.amber : colors.accent,
+          // Over the line the bar switches to the alert weight of orange; up to
+          // it, the bar is whichever metric it is measuring.
+          backgroundColor: over ? colors.alert : metricFill(colors, metric),
         }}
       />
     </View>
@@ -544,37 +546,50 @@ function TodayCard({ goal }: { goal: Goal }) {
 
   return (
     <>
-      {/* The day's headline number, on the app's hero surface: calories left is
-          the one figure a person opens the kitchen to see, and burying it in a
-          white card among five other white cards made it read like a footnote. */}
-      <HeroCard>
-        <Text style={[type.label, { color: ON_HERO_SOFT, textTransform: "uppercase" }]}>
-          {t.kitchen.todayTitle}
+      {/* The one figure a person opens the kitchen for, said once and large:
+          it used to be a row inside the card, indistinguishable from the four
+          rows around it. The metric's own colour still carries the meaning. */}
+    <Card label={t.kitchen.todayTitle}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm }}>
+        <Text style={[type.figure, { color: metricInk(colors, "calories"), fontSize: 44, lineHeight: 48 }]}>
+          {Math.abs(kcalLeft)}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: 2 }}>
-          <Text style={[type.figure, { color: ON_HERO, fontSize: 46, lineHeight: 50 }]}>
-            {Math.abs(kcalLeft)}
-          </Text>
-          <Text style={[type.small, { color: ON_HERO_SOFT, paddingBottom: 8 }]}>
-            {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining} · ${t.kitchen.kcal}`}
-          </Text>
-        </View>
-        <Text style={[type.small, { color: ON_HERO_SOFT }]}>
+        <Text style={[type.small, { color: colors.inkSoft, paddingBottom: 7 }]}>
+          {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining} · ${t.kitchen.kcal}`}
+        </Text>
+      </View>
+
+      {/* calories */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetKcal}</Text>
+        <Text style={[type.smallStrong, { color: metricInk(colors, "calories") }]}>
           {eaten.kcal} / {target.kcal} {t.kitchen.kcal}
         </Text>
-        <HeroBar pct={kcalPct} />
+      </View>
+      <Bar pct={kcalPct} over={kcalLeft < 0} metric="calories" />
+      <Text style={[type.small, { color: kcalLeft < 0 ? colors.orangeInk : colors.inkFaint, marginTop: 4 }]}>
+        {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining}: ${kcalLeft} ${t.kitchen.kcal}`}
+      </Text>
 
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: space.md }}>
-          <Text style={[type.smallStrong, { color: ON_HERO }]}>{t.kitchen.targetProtein}</Text>
-          <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-            {eaten.protein} / {target.protein} {t.kitchen.grams}
-          </Text>
-        </View>
-        <HeroBar pct={proPct} />
-        <Text style={[type.small, { color: ON_HERO_SOFT, marginTop: 4 }]}>
-          {proLeft > 0 ? `${t.kitchen.remaining}: ${proLeft} ${t.kitchen.grams}` : t.kitchen.over}
+      {/* protein */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginTop: space.md,
+        }}
+      >
+        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetProtein}</Text>
+        <Text style={[type.smallStrong, { color: metricInk(colors, "protein") }]}>
+          {eaten.protein} / {target.protein} {t.kitchen.grams}
         </Text>
-      </HeroCard>
+      </View>
+      <Bar pct={proPct} over={false} metric="protein" />
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
+        {proLeft > 0 ? `${t.kitchen.remaining}: ${proLeft} ${t.kitchen.grams}` : t.kitchen.over}
+      </Text>
+    </Card>
 
     <Card label={t.kitchen.loggedTitle}>
       {/* logged today */}
@@ -827,7 +842,7 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
     maintain: t.kitchen.goalMaintain,
     bulk: t.kitchen.goalBulk,
   };
-  const fitColor = fit >= 70 ? colors.accent : fit >= 45 ? colors.amber : colors.inkFaint;
+  const fitColor = fit >= 70 ? colors.accent : fit >= 45 ? colors.orangeInk : colors.inkFaint;
 
   return (
     <Card>
@@ -846,7 +861,7 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
           <Ionicons
             name={starred ? "star" : "star-outline"}
             size={22}
-            color={starred ? colors.amber : colors.inkFaint}
+            color={starred ? colors.orangeInk : colors.inkFaint}
           />
         </Pressable>
         <Text style={[type.title, { color: colors.ink }]}>{copy.title}</Text>
@@ -910,11 +925,11 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
       {/* nutrition */}
       <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>
         <View>
-          <Text style={[type.figure, { color: colors.ink }]}>≈{m.kcal}</Text>
+          <Text style={[type.figure, { color: metricInk(colors, "calories") }]}>≈{m.kcal}</Text>
           <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.kcal}</Text>
         </View>
         <View>
-          <Text style={[type.figure, { color: colors.ink }]}>
+          <Text style={[type.figure, { color: metricInk(colors, "protein") }]}>
             {m.protein}
             {t.kitchen.grams}
           </Text>
@@ -946,7 +961,7 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
       {/* what to buy */}
       {match && match.missing.length > 0 ? (
         <View style={{ marginTop: space.md, gap: 4 }}>
-          <Text style={[type.label, { color: colors.amber, textTransform: "uppercase" }]}>
+          <Text style={[type.label, { color: colors.orangeInk, textTransform: "uppercase" }]}>
             {t.kitchen.missingLabel}
           </Text>
           <Text style={[type.body, { color: colors.ink }]}>

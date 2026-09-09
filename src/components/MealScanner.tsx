@@ -17,7 +17,7 @@ type Phase =
   | { kind: "reading"; uri: string }
   | { kind: "read"; uri: string; analysis: MealAnalysis }
   | { kind: "saved"; kcal: number; goal: number }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" };
+  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" };
 
 /**
  * Photograph the meal, get the calories.
@@ -63,7 +63,11 @@ export function MealScanner() {
       });
 
       if (!answer.ok) {
-        setPhase({ kind: "failed", reason: answer.reason === "quota" ? "quota" : "unavailable" });
+        setPhase({
+          kind: "failed",
+          reason:
+            answer.reason === "quota" ? "quota" : answer.reason === "declined" ? "off" : "unavailable",
+        });
         return;
       }
       const analysis = parseMealAnalysis(answer.text);
@@ -106,14 +110,16 @@ export function MealScanner() {
             <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
           </View>
           {phase.kind === "failed" ? (
-            <Text style={[type.small, { color: colors.amber, marginTop: space.sm }]}>
+            <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>
               {phase.reason === "quota"
                 ? t.scan.quota
                 : phase.reason === "unreadable"
                   ? t.scan.unreadable
                   : phase.reason === "denied"
                     ? t.kitchen.cameraDenied
-                    : t.scan.unavailable}
+                    : phase.reason === "off"
+                      ? t.scan.off
+                      : t.scan.unavailable}
             </Text>
           ) : null}
           {phase.kind === "saved" ? (

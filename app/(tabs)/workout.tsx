@@ -13,7 +13,7 @@ import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import type { Goal } from "@/kitchen";
 import { useStore } from "@/store";
-import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
+import { metricFill, metricInk, onMetric, ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 import {
   EXERCISES,
   MUSCLES,
@@ -360,7 +360,7 @@ export default function WorkoutScreen() {
         {training ? (
           <>
             {days !== training.days && Object.keys(training.planEdits ?? {}).length > 0 ? (
-              <Card tone="amber">
+              <Card tone="orange">
                 <Text style={[type.small, { color: colors.ink }]}>{t.workout.daysResetWarn}</Text>
               </Card>
             ) : null}
@@ -491,6 +491,7 @@ export default function WorkoutScreen() {
           </View>
         </HeroCard>
 
+
         {sessions.map((session, i) => {
           const dayExercises = [...session.exercises, ...(i === 0 ? extraExercises : [])];
           const done = dayExercises.filter((e) => isExerciseDone(e.id)).length;
@@ -506,7 +507,7 @@ export default function WorkoutScreen() {
                 }}
               >
                 <Text style={[type.title, { color: colors.ink }]}>{dayLabel[session.type]}</Text>
-                <Text style={[type.smallStrong, { color: colors.accent }]}>
+                <Text style={[type.smallStrong, { color: metricInk(colors, "ticks") }]}>
                   {fill(t.workout.doneCount, { done, total })}
                 </Text>
               </View>
@@ -592,7 +593,7 @@ export default function WorkoutScreen() {
                 ] as const
               ).map(([value, label], i) => (
                 <View key={i} style={{ alignItems: "center", flex: 1 }}>
-                  <Text style={[type.figure, { color: colors.ink }]}>{value}</Text>
+                  <Text style={[type.figure, { color: metricInk(colors, "ticks") }]}>{value}</Text>
                   <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>{label}</Text>
                 </View>
               ))}
@@ -650,12 +651,15 @@ function SetField({
   onCommit,
   placeholder,
   accessibilityLabel,
+  ink,
 }: {
   value: number;
   decimals: boolean;
   onCommit: (n: number) => void;
   placeholder: string;
   accessibilityLabel: string;
+  /** The metric's own colour — load and reps are different numbers. */
+  ink: string;
 }) {
   const { colors, radius, font } = useTheme();
   const [draft, setDraft] = useState<string | null>(null);
@@ -689,7 +693,7 @@ function SetField({
         paddingVertical: 7,
         borderRadius: radius.sm,
         backgroundColor: colors.surfaceAlt,
-        color: colors.ink,
+        color: ink,
         fontFamily: font.bodyMedium,
         fontSize: 15,
       }}
@@ -746,7 +750,7 @@ function CardioCard({ goal, seed }: { goal: Goal; seed: string }) {
             <Ionicons
               name={s.style === "interval" ? "flash" : "walk"}
               size={18}
-              color={s.style === "interval" ? colors.accent : colors.inkSoft}
+              color={s.style === "interval" ? metricInk(colors, "duration") : colors.inkSoft}
             />
             <View style={{ flex: 1 }}>
               <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
@@ -754,7 +758,9 @@ function CardioCard({ goal, seed }: { goal: Goal; seed: string }) {
               </Text>
               <Text style={[type.small, { color: colors.inkFaint }]}>
                 {s.style === "interval" ? t.workout.cardioInterval : t.workout.cardioSteady} ·{" "}
-                {fill(t.workout.cardioMin, { min: s.minutes })}
+                <Text style={{ color: metricInk(colors, "duration") }}>
+                  {fill(t.workout.cardioMin, { min: s.minutes })}
+                </Text>
               </Text>
             </View>
             <PillButton
@@ -799,7 +805,8 @@ function RestTimer() {
       {running ? (
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={[type.figure, { color: colors.accent }]}>
+            {/* the clock is the one number read from across the room */}
+            <Text style={[type.figure, { color: metricInk(colors, "rest") }]}>
               {mm}:{ss}
             </Text>
             <Pressable
@@ -821,7 +828,14 @@ function RestTimer() {
             </Pressable>
           </View>
           <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceAlt, overflow: "hidden" }}>
-            <View style={{ width: `${pct}%`, height: "100%", borderRadius: 4, backgroundColor: colors.accent }} />
+            <View
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                borderRadius: 4,
+                backgroundColor: metricFill(colors, "rest"),
+              }}
+            />
           </View>
         </View>
       ) : (
@@ -978,7 +992,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
       </View>
 
       {videoNote ? (
-        <Text style={[type.small, { color: colors.amber }]}>{videoNote}</Text>
+        <Text style={[type.small, { color: colors.orangeInk }]}>{videoNote}</Text>
       ) : null}
 
       {/* set table */}
@@ -990,10 +1004,12 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
           <Text style={[type.label, { color: colors.inkFaint, width: 62, textAlign: "center" }]}>
             {t.workout.prevCol}
           </Text>
-          <Text style={[type.label, { color: colors.inkFaint, flex: 1, textAlign: "center" }]}>
+          {/* the two columns that get read between breaths: load is blue,
+              reps are lime, everywhere in the app and forever */}
+          <Text style={[type.label, { color: metricInk(colors, "load"), flex: 1, textAlign: "center" }]}>
             {t.workout.kgCol}
           </Text>
-          <Text style={[type.label, { color: colors.inkFaint, flex: 1, textAlign: "center" }]}>
+          <Text style={[type.label, { color: metricInk(colors, "reps"), flex: 1, textAlign: "center" }]}>
             {t.workout.repsCol}
           </Text>
           <View style={{ width: 30 }} />
@@ -1018,6 +1034,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 onCommit={(n) => updateSet(ex.id, i, { kg: clampKg(n) }, sets)}
                 placeholder={p && p.kg > 0 ? String(p.kg) : "0"}
                 accessibilityLabel={`${name} ${t.workout.kgCol} ${i + 1}`}
+                ink={metricInk(colors, "load")}
               />
               <SetField
                 value={row.reps}
@@ -1025,6 +1042,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 onCommit={(n) => updateSet(ex.id, i, { reps: clampReps(n) }, sets)}
                 placeholder={p && p.reps > 0 ? String(p.reps) : "0"}
                 accessibilityLabel={`${name} ${t.workout.repsCol} ${i + 1}`}
+                ink={metricInk(colors, "reps")}
               />
 
               <Pressable
@@ -1038,14 +1056,14 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                   height: 30,
                   borderRadius: 8,
                   borderWidth: 2,
-                  borderColor: row.done ? colors.accent : colors.ruleStrong,
-                  backgroundColor: row.done ? colors.accent : "transparent",
+                  borderColor: row.done ? metricFill(colors, "sets") : colors.ruleStrong,
+                  backgroundColor: row.done ? metricFill(colors, "sets") : "transparent",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
                 {row.done ? (
-                  <Text style={{ color: colors.onAccent, fontWeight: "900" }}>✓</Text>
+                  <Text style={{ color: onMetric(colors, "sets"), fontWeight: "900" }}>✓</Text>
                 ) : null}
               </Pressable>
             </View>
@@ -1086,14 +1104,14 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
       {/* today against last time — the whole point of writing sets down */}
       {prog.volume > 0 ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
-          <Text style={[type.small, { color: colors.inkSoft }]}>
+          <Text style={[type.smallStrong, { color: metricInk(colors, "volume") }]}>
             {fill(t.workout.volume, { kg: prog.volume.toLocaleString() })}
           </Text>
           {prog.deltaPct !== null ? (
             <Text
               style={[
                 type.smallStrong,
-                { color: prog.deltaPct >= 0 ? colors.accent : colors.inkFaint },
+                { color: prog.deltaPct >= 0 ? metricInk(colors, "volume") : colors.inkFaint },
               ]}
             >
               {fill(t.workout.vsLast, {
@@ -1102,10 +1120,12 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             </Text>
           ) : null}
           {prog.personalBest ? (
-            <Text style={[type.smallStrong, { color: colors.amber }]}>{t.workout.pr}</Text>
+            <Text style={[type.smallStrong, { color: metricInk(colors, "personalBest") }]}>
+              {t.workout.pr}
+            </Text>
           ) : null}
           {prog.oneRepMax > 0 ? (
-            <Text style={[type.small, { color: colors.inkFaint }]}>
+            <Text style={[type.small, { color: metricInk(colors, "oneRm") }]}>
               {fill(t.workout.oneRm, { kg: prog.oneRepMax.toLocaleString() })}
             </Text>
           ) : null}

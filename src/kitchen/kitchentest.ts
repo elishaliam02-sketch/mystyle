@@ -331,6 +331,73 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 }
 
 
+// --- the food library holds together
+{
+  check("every food id is unique", new Set(FOODS.map((f) => f.id)).size === FOODS.length);
+  check("the library is deep enough to recognise a real shopping list", FOODS.length >= 120,
+    String(FOODS.length));
+
+  // No two foods may claim the same word. The scanner takes the longest term
+  // first and, on a tie, whichever food sits earlier in the list — so a
+  // generic entry that still claims "שקדים" makes a dedicated almonds row
+  // unreachable, and nothing tells you: the word simply keeps resolving to
+  // the wrong food.
+  const owners = new Map<string, string>();
+  const clashes: string[] = [];
+  for (const food of FOODS) {
+    for (const term of food.match) {
+      const key = term.toLowerCase();
+      if (owners.has(key)) clashes.push(`${key}: ${owners.get(key)} vs ${food.id}`);
+      else owners.set(key, food.id);
+    }
+  }
+  check("no two foods claim the same word", clashes.length === 0, clashes.join(", "));
+
+  // The same rule, seen from the other side: whoever wins the longest-first
+  // sort must be the food that asked for the term.
+  const terms = FOODS.flatMap((f) => f.match.map((t) => ({ id: f.id, term: t.toLowerCase() })));
+  const winner = new Map<string, string>();
+  for (const { id, term } of [...terms].sort((a, b) => b.term.length - a.term.length)) {
+    if (!winner.has(term)) winner.set(term, id);
+  }
+  const shadowed = terms.filter((t) => winner.get(t.term) !== t.id).map((t) => `${t.term}→${t.id}`);
+  check("no food is shadowed by another's word", shadowed.length === 0, shadowed.join(", "));
+
+  check("every food has at least one word to match on", FOODS.every((f) => f.match.length > 0));
+  check("every food names itself in both languages",
+    FOODS.every((f) => f.he.trim().length > 0 && f.en.trim().length > 0));
+  check("every food has a portion worth eating",
+    FOODS.every((f) => portion(f.id).g > 0 && portion(f.id).he.trim() && portion(f.id).en.trim()));
+}
+
+// --- the healthy staples that were added second are really reachable
+{
+  const has = (id: string) => FOODS.some((f) => f.id === id);
+  for (const id of ["freekeh", "buckwheat", "kale", "labneh", "kefir", "mackerel", "kohlrabi", "flaxseed"]) {
+    check(`the library knows ${id}`, has(id));
+  }
+
+  // A real Hebrew list, written the way people write it: glued prefixes,
+  // commas, and a specific food whose word a generic entry used to swallow.
+  const list = readPantry("קניתי פריקה, קייל וקולרבי, שקדים, אגוזי מלך, לאבנה ותותים");
+  const ids = new Set(list.map((f) => f.id));
+  for (const id of ["freekeh", "kale", "kohlrabi", "almonds", "walnuts", "labneh", "strawberries"]) {
+    check(`the scanner finds ${id} in a written list`, ids.has(id), [...ids].join(","));
+  }
+  check("the generic nuts row did not swallow the specific ones", !ids.has("nuts"));
+
+  // Freekeh and barley are wheat and barley whatever the health aisle calls
+  // them, and pita is bread — a gluten-free filter that served them would be
+  // worse than no filter.
+  for (const id of ["freekeh", "barley", "pita", "pitaWhole"]) {
+    check(`${id} is not gluten-free`, !foodDietOk(FOODS.find((f) => f.id === id)!, "glutenFree"));
+  }
+  check("buckwheat is gluten-free despite the name",
+    foodDietOk(FOODS.find((f) => f.id === "buckwheat")!, "glutenFree"));
+  check("mackerel counts as flesh for a vegetarian",
+    !foodDietOk(FOODS.find((f) => f.id === "mackerel")!, "vegetarian"));
+}
+
 // --- the menu itself holds together
 {
   const foodIds = new Set(FOODS.map((f) => f.id));

@@ -11,9 +11,9 @@ export function StubNote({ children }: { children: string }) {
   return (
     <View
       style={{
-        backgroundColor: colors.signalWash,
+        backgroundColor: colors.limeWash,
         borderStartWidth: 3,
-        borderStartColor: colors.signal,
+        borderStartColor: colors.limeInk,
         borderRadius: radius.sm,
         paddingVertical: space.md,
         paddingHorizontal: space.lg,

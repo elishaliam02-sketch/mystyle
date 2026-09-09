@@ -173,7 +173,7 @@ export default function LibraryScreen() {
         </Text>
 
         {rows.length === 0 ? (
-          <Card tone="amber">
+          <Card tone="orange">
             <Text style={[type.body, { color: colors.ink }]}>{t.library.none}</Text>
           </Card>
         ) : (
@@ -256,7 +256,7 @@ export default function LibraryScreen() {
             <Text
               style={[
                 type.small,
-                { color: ownNote.ok ? colors.accent : colors.signal, marginTop: space.sm },
+                { color: ownNote.ok ? colors.accent : colors.alert, marginTop: space.sm },
               ]}
             >
               {ownNote.text}

@@ -1,12 +1,14 @@
 /**
  * Achievements — the Hevy-style badges that turn quiet, steady effort into
  * something you can see. Every badge is earned from data the app already keeps
- * (habit ticks, streaks, workouts logged, weigh-ins, recaps), so this is a pure
- * function of the stored state: no clock, no network, fully testable. The
- * screen supplies the words for each id; here we only decide progress.
+ * (habit ticks, streaks, workouts logged, weigh-ins, recaps, and the reward
+ * level the self-set tasks add up to), so this is a pure function of the
+ * stored state: no clock, no network, fully testable. The screen supplies the
+ * words for each id; here we only decide progress.
  */
 
 import type { AppState } from "@/store/types";
+import { earnings, levelAt } from "@/rewards";
 
 /** An Ionicons glyph name — the screen renders it. */
 export type Achievement = {
@@ -81,6 +83,12 @@ export function computeAchievements(state: AppState): Achievement[] {
   const exercisesDone = Object.values(log).reduce((n, ids) => n + ids.length, 0);
   const customMoves = state.training?.custom.length ?? 0;
 
+  // What the reward system makes of the tasks this person set themselves: the
+  // hard ones they actually finished, and the level those ticks add up to.
+  const earned = earnings(state);
+  const hardTicks = earned.ticks.hard;
+  const level = levelAt(earned.points).level;
+
   const weighIns = state.weighIns.length;
   const checkIns = state.checkIns.length;
 
@@ -105,6 +113,10 @@ export function computeAchievements(state: AppState): Achievement[] {
     badge("workouts-100", "trophy", workoutDays, 100),
     badge("exercises-250", "flash", exercisesDone, 250),
     badge("own-move", "add-circle", customMoves, 1),
+    // self-set tasks: what you asked of yourself, not what the app asked
+    badge("first-hard", "flash-outline", hardTicks, 1),
+    badge("hard-25", "rocket", hardTicks, 25),
+    badge("level-10", "trophy-outline", level, 10),
     // kitchen
     badge("kitchen-start", "restaurant", state.pantry?.trim() ? 1 : 0, 1),
     // weight
@@ -116,7 +128,7 @@ export function computeAchievements(state: AppState): Achievement[] {
   ];
 }
 
-/** How many are unlocked — for the "12/16" summary. */
+/** How many are unlocked — for the "12/19" summary. */
 export function unlockedCount(list: Achievement[]): number {
   return list.filter((a) => a.unlocked).length;
 }

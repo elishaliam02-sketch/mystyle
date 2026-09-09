@@ -20,10 +20,10 @@ export function Button({ label, onPress, tone = "primary", icon, disabled, style
   const textColor = tone === "quiet" ? colors.ink : colors.onAccent;
 
   // A primary button should feel like the obvious thing to press: a solid pill
-  // with a red gradient and a coloured glow, so it lifts off the page rather
-  // than sitting flat in it. The gradient runs light-to-deep for a lit edge.
+  // with an electric-blue gradient and a coloured glow, so it lifts off the page
+  // rather than sitting flat in it. The gradient runs lit-to-deep for a lit edge.
   const gradient: [string, string] =
-    tone === "danger" ? [colors.alert, "#7E140F"] : [colors.accent, colors.accentDeep];
+    tone === "danger" ? [colors.alert, colors.alertDeep] : [colors.accent, colors.accentDeep];
   const glow =
     solid && !disabled
       ? {

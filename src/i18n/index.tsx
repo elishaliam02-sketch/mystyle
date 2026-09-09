@@ -10,7 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Alert, I18nManager, Platform } from "react-native";
+import { I18nManager, Platform } from "react-native";
+import { notify } from "@/ui/confirm";
 import { en } from "./en";
 import { he } from "./he";
 
@@ -88,11 +89,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const restartMessage = useCallback(() => {
-    Alert.alert(
-      he.common.restartNeeded,
-      he.common.restartBody,
-      [{ text: he.common.ok }],
-    );
+    notify(he.common.restartNeeded, he.common.restartBody, he.common.ok);
   }, []);
 
   useEffect(() => {

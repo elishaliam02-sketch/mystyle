@@ -198,13 +198,17 @@ export type Diet = "all" | "kosher" | "vegetarian" | "glutenFree";
 // and eggs are pareve, so fish-with-dairy stays kosher and eggs stay vegetarian.
 const NON_KOSHER = new Set(["pork", "shrimp"]);
 const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage", "lamb"]);
-const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp", "sardines"]);
+const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp", "sardines", "mackerel"]);
 const GLUTEN = new Set([
   "bread", "wholeBread", "pasta", "couscous", "tortilla", "oats",
   // Oats are only gluten-free when certified, and these four are wheat or
   // barley in all but name — leaving them out let a "gluten-free" filter
   // serve a bagel.
   "bagel", "noodles", "bulgur", "granola", "cornflakes",
+  // Freekeh is green durum wheat and barley is barley, whatever the health
+  // aisle calls them; pita is bread. Buckwheat and millet are not wheat at
+  // all despite the names, so they stay in.
+  "freekeh", "barley", "pita", "pitaWhole",
 ]);
 
 /**

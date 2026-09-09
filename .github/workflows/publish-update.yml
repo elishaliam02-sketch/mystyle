@@ -17,7 +17,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Nothing ships without the checks passing. An OTA update bypasses store
+  # review, so this workflow is the only gate between a bad merge and every
+  # installed phone — running the suites here rather than trusting that
+  # somebody looked is the difference between a policy and a guarantee.
+  verify:
+    name: Run the checks first
+    uses: ./.github/workflows/checks.yml
+
   update:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Check out the code

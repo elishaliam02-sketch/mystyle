@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
 import { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type, type Colors } from "./tokens";
+import { METRIC_FAMILY, metricFill, metricInk, metricWash, onMetric, type Metric, type MetricFamily } from "./metrics";
 
 type Theme = {
   colors: Colors;
@@ -45,5 +46,20 @@ export function useTheme(): Theme {
   return theme;
 }
 
-export { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type };
-export type { Colors };
+export {
+  accentGradient,
+  elevation,
+  font,
+  heroGlow,
+  heroGradient,
+  METRIC_FAMILY,
+  metricFill,
+  metricInk,
+  metricWash,
+  onMetric,
+  palette,
+  radius,
+  space,
+  type,
+};
+export type { Colors, Metric, MetricFamily };

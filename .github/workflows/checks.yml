@@ -1,0 +1,66 @@
+name: Checks
+
+# Everything that must be true before code reaches anyone.
+#
+# This matters more here than in most projects: an over-the-air update skips
+# store review entirely, so a broken push on main is on people's phones within
+# minutes. The publish workflow waits for this one to pass.
+#
+# Runs on every push and pull request, and can be started by hand.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+  # Called by the publish workflow, so an update cannot go out unless this
+  # exact job has passed on that exact commit.
+  workflow_call:
+
+jobs:
+  checks:
+    name: Typecheck, tests, web bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The typed contracts do a lot of the work in this codebase — a string
+      # added to Hebrew and not to English, or a colour token added to light
+      # and not to dark, fails right here.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Every suite, so a failure names the area rather than just "tests".
+      - name: Unit suites
+        run: |
+          set -e
+          for suite in sync date insight kitchen clock workout achievements body \
+                       projection video health reminders cardio backup sets coach \
+                       nutrition theme tasks rewards legal export; do
+            echo "── $suite"
+            npm run --silent "test:$suite"
+          done
+
+      # Proves the app still bundles for the platform with the strictest
+      # constraints, and produces the dist/ the end-to-end suite drives.
+      - name: Web bundle
+        run: npx expo export --platform web
+
+      - name: Install a browser for the end-to-end suite
+        run: npx --yes playwright@1 install --with-deps chromium
+
+      # Unit tests prove the engines; this proves the buttons are wired to
+      # them, in a real browser, against the real bundle.
+      - name: End-to-end
+        run: npx --yes --package=playwright@1 -- node scripts/e2e.mjs

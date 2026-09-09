@@ -17,6 +17,7 @@ import {
   today,
   type AppState,
   type CheckIn,
+  type Consent,
   type Habit,
   type IntakeItem,
   type Profile,
@@ -24,6 +25,7 @@ import {
   type WeighIn,
 } from "./types";
 import { isStorableWeight } from "./weight";
+import { acceptanceCurrent, LEGAL, publishAiConsent } from "@/legal";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
@@ -183,6 +185,14 @@ type Store = {
   exerciseLifts: (id: string) => Lift[];
   /** Advances the clock guard from a trusted server timestamp. */
   noteServerTime: (iso: string) => void;
+  /** Records acceptance of the current terms and privacy policy. */
+  acceptLegal: () => void;
+  /** Whether the accepted documents are still the current ones. */
+  legalCurrent: () => boolean;
+  /** The two opt-ins, with "off" as the answer when nothing was ever chosen. */
+  consent: () => Consent;
+  /** Turns one of them on or off, stamping when it changed. */
+  setConsent: (patch: Partial<Pick<Consent, "cloud" | "ai">>) => void;
   reset: () => void;
   /** Adopts a merged state wholesale — used after a cloud sync. */
   replaceAll: (next: AppState) => void;
@@ -954,6 +964,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const acceptLegal = useCallback(() => {
+    setState((s) => ({ ...s, legal: { version: LEGAL.version, acceptedAt: now() } }));
+  }, []);
+
+  const legalCurrent = useCallback(() => acceptanceCurrent(state.legal?.version), [state.legal]);
+
+  const consent = useCallback(
+    (): Consent => state.consent ?? { cloud: false, ai: false, updatedAt: "" },
+    [state.consent],
+  );
+
+  const setConsent = useCallback((patch: Partial<Pick<Consent, "cloud" | "ai">>) => {
+    setState((s) => ({
+      ...s,
+      consent: {
+        cloud: patch.cloud ?? s.consent?.cloud ?? false,
+        ai: patch.ai ?? s.consent?.ai ?? false,
+        updatedAt: now(),
+      },
+    }));
+  }, []);
+
+  // The AI transport is a plain module and cannot read this context, so the
+  // answer is published to it whenever it changes. Withdrawing consent has to
+  // take effect on the very next call, not on the next launch.
+  useEffect(() => {
+    publishAiConsent(state.consent?.ai ?? false);
+  }, [state.consent?.ai]);
+
   const reset = useCallback(() => setState(EMPTY_STATE), []);
 
   const replaceAll = useCallback((next: AppState) => setState(next), []);
@@ -1023,6 +1062,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
+      acceptLegal,
+      legalCurrent,
+      consent,
+      setConsent,
       reset,
       replaceAll,
     }),
@@ -1032,7 +1075,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
-     demoFor, prefetchDemos, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal, reset, replaceAll],
+     demoFor, prefetchDemos, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
+     acceptLegal, legalCurrent, consent, setConsent, reset, replaceAll],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

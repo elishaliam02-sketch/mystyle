@@ -38,7 +38,7 @@ import {
   stepsKm,
 } from "@/health/steps";
 import { daysAgo, today, useStore, type WeighIn } from "@/store";
-import { useTheme } from "@/theme";
+import { metricFill, metricInk, useTheme } from "@/theme";
 
 function Heatmap() {
   const { t } = useI18n();
@@ -219,7 +219,7 @@ export default function ProgressScreen() {
                   <Text
                     style={[
                       type.figure,
-                      { color: delta <= 0 ? colors.accent : colors.amber },
+                      { color: delta <= 0 ? colors.accent : colors.orangeInk },
                     ]}
                   >
                     {delta > 0 ? "+" : ""}
@@ -328,7 +328,7 @@ export default function ProgressScreen() {
 
         <Card label={t.progress.consistencyTitle}>
           {state.habits.filter((h) => !h.archived).length > 0 ? (
-            <Text style={[type.figure, { color: colors.ink }]}>
+            <Text style={[type.figure, { color: metricInk(colors, "ticks") }]}>
               {fill(t.progress.consistencyValue, { percent: consistency })}
             </Text>
           ) : (
@@ -395,7 +395,7 @@ function StepsCard() {
   return (
     <Card label={t.steps.title}>
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
-        <Text style={[type.figure, { color: colors.ink }]}>{day.toLocaleString()}</Text>
+        <Text style={[type.figure, { color: metricInk(colors, "steps") }]}>{day.toLocaleString()}</Text>
         <Text style={[type.small, { color: colors.inkSoft, paddingBottom: 6 }]}>
           {fill(t.steps.ofGoal, { goal: goal.toLocaleString() })}
         </Text>
@@ -414,7 +414,7 @@ function StepsCard() {
           style={{
             width: `${pct}%`,
             height: "100%",
-            backgroundColor: day >= goal ? colors.accent : colors.amber,
+            backgroundColor: day >= goal ? metricFill(colors, "steps") : colors.ruleStrong,
           }}
         />
       </View>
@@ -444,7 +444,7 @@ function StepsCard() {
                 width: "100%",
                 height: Math.max(3, Math.round((d.steps / peak) * 40)),
                 borderRadius: 3,
-                backgroundColor: d.steps >= goal ? colors.accent : colors.rule,
+                backgroundColor: d.steps >= goal ? metricFill(colors, "steps") : colors.rule,
               }}
             />
           </View>
@@ -555,7 +555,7 @@ function WeeklyAverageCard() {
         : g === "bulk"
           ? change > 0
           : Math.abs(change) < 0.4;
-  const changeColor = change === null || change === 0 ? colors.inkSoft : good ? colors.accent : colors.amber;
+  const changeColor = change === null || change === 0 ? colors.inkSoft : good ? colors.accent : colors.orangeInk;
   const dirWord =
     change === null || change === 0 ? t.progress.weeklyFlat : change < 0 ? t.progress.weeklyDown : t.progress.weeklyUp;
 
@@ -569,7 +569,7 @@ function WeeklyAverageCard() {
       <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md, alignItems: "flex-end" }}>
         <View>
           <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.weeklyAvgLatest}</Text>
-          <Text style={[type.figure, { color: colors.ink }]}>{latest.avgKg}</Text>
+          <Text style={[type.figure, { color: metricInk(colors, "bodyWeight") }]}>{latest.avgKg}</Text>
         </View>
         {change !== null ? (
           <View>
@@ -659,14 +659,14 @@ function BodyFatCard() {
       {sex && bf === null ? (
         heightOk ? (
           <View style={{ gap: space.sm, marginTop: space.md }}>
-            <Text style={[type.small, { color: colors.amber }]}>{t.progress.fatNeedWaist}</Text>
+            <Text style={[type.small, { color: colors.orangeInk }]}>{t.progress.fatNeedWaist}</Text>
             {/* The waist is the only number still missing, so it is typed on
                 this card instead of three cards further down the page. */}
             <PartCard part="waist" />
           </View>
         ) : (
           <View style={{ gap: space.sm, marginTop: space.md }}>
-            <Text style={[type.small, { color: colors.amber }]}>{t.progress.fatNeedHeight}</Text>
+            <Text style={[type.small, { color: colors.orangeInk }]}>{t.progress.fatNeedHeight}</Text>
             <PillButton
               tone="soft"
               icon="person"
@@ -682,7 +682,7 @@ function BodyFatCard() {
         (() => {
           const band = bodyFatTarget(goal(), sex);
           const tier = fatTier(bf, band);
-          const bfColor = tier === "in" ? colors.accent : colors.amber;
+          const bfColor = tier === "in" ? colors.accent : colors.orangeInk;
           const line =
             tier === "in" ? t.progress.fatIn : tier === "below" ? t.progress.fatBelow : t.progress.fatAbove;
           return (
@@ -799,7 +799,29 @@ function PhotosCard() {
       )}
 
       {note ? (
-        <Text style={[type.small, { color: colors.amber, marginTop: space.sm }]}>{note}</Text>
+        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text>
+      ) : null}
+      {/* The one place the app can lose something without saying so: photos
+          are files on this phone and are never uploaded, so a new phone starts
+          with none. Saying it next to the pictures, rather than only in the
+          privacy policy, is the difference between a choice and a surprise. */}
+      {photos.length > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: space.sm,
+            backgroundColor: colors.surfaceAlt,
+            borderRadius: radius.md,
+            padding: space.md,
+            marginTop: space.md,
+          }}
+        >
+          <Ionicons name="phone-portrait-outline" size={15} color={colors.inkFaint} />
+          <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>
+            {t.progress.photosLocalOnly}
+          </Text>
+        </View>
       ) : null}
 
       {photos.length === 0 ? (
@@ -950,7 +972,7 @@ function PartCard({ part }: { part: BodyPart }) {
           {change.count > 1 ? (
             <View>
               <Text style={[type.label, { color: colors.inkFaint }]}>{t.body.change}</Text>
-              <Text style={[type.bodyStrong, { color: down ? colors.accent : up ? colors.amber : colors.inkSoft }]}>
+              <Text style={[type.bodyStrong, { color: down ? colors.accent : up ? colors.orangeInk : colors.inkSoft }]}>
                 {up ? "+" : ""}
                 {change.delta} {t.body.cm}
               </Text>

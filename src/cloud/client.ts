@@ -66,7 +66,17 @@ export async function ensureSession(): Promise<
   }
 }
 
-export type AccountInfo = { userId: string; email: string | null; anonymous: boolean };
+export type AccountInfo = {
+  userId: string;
+  email: string | null;
+  anonymous: boolean;
+  /** Whether the address has been confirmed by clicking the emailed link.
+   *  False while a confirmation is outstanding — the screens must not claim
+   *  the data is backed up until this is true. */
+  confirmed: boolean;
+  /** An address the person asked to change to, not yet confirmed. */
+  pendingEmail: string | null;
+};
 
 /** Who is signed in right now, or null when local-only. */
 export async function currentAccount(): Promise<AccountInfo | null> {
@@ -76,13 +86,25 @@ export async function currentAccount(): Promise<AccountInfo | null> {
     const { data } = await db.auth.getUser();
     const u = data.user;
     if (!u) return null;
-    return { userId: u.id, email: u.email ?? null, anonymous: !u.email };
+    const pending = (u as { new_email?: string | null }).new_email ?? null;
+    return {
+      userId: u.id,
+      email: u.email ?? null,
+      anonymous: !u.email,
+      // Supabase only stamps this once the emailed link is clicked. When
+      // confirmation is switched off in the project it is stamped at signup,
+      // so this reads true for everyone and nothing below changes.
+      confirmed: !!u.email_confirmed_at,
+      pendingEmail: pending,
+    };
   } catch {
     return null;
   }
 }
 
-export type AuthResult = { ok: true } | { ok: false; message: string };
+export type AuthResult =
+  | { ok: true; needsConfirmation?: boolean; email?: string }
+  | { ok: false; message: string };
 
 function readableError(message: string): string {
   const m = message.toLowerCase();
@@ -103,18 +125,122 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   const db = supabase();
   if (!db) return { ok: false, message: "local" };
   try {
+    const address = email.trim();
     // Make sure there is a session (anonymous) to upgrade, so the id is kept.
     await ensureSession();
-    const { error } = await db.auth.updateUser({ email: email.trim(), password });
+    const { data, error } = await db.auth.updateUser({ email: address, password });
     if (error) {
       // A brand-new anonymous user updateUser can fail on some setups; fall
       // back to a normal sign-up so the person still gets an account.
-      const signUp = await db.auth.signUp({ email: email.trim(), password });
+      const signUp = await db.auth.signUp({ email: address, password });
       if (signUp.error) return { ok: false, message: readableError(signUp.error.message) };
+      // No session back from signUp means the project requires a confirmed
+      // email. Saying "signed in, backed up" here would be a plain lie: until
+      // that link is clicked nothing syncs.
+      return { ok: true, needsConfirmation: !signUp.data.session, email: address };
     }
+    // On an upgrade the address only becomes the account's once confirmed;
+    // until then Supabase parks it in new_email and the old identity stands.
+    const pending = (data.user as { new_email?: string | null } | null)?.new_email ?? null;
+    const changed = data.user?.email?.toLowerCase() === address.toLowerCase();
+    return { ok: true, needsConfirmation: !!pending || !changed, email: address };
+  } catch {
+    return { ok: false, message: "local" };
+  }
+}
+
+/**
+ * Sends the confirmation email again.
+ *
+ * People mistype addresses, and mail lands in spam. Without this the only way
+ * out of an unconfirmed account is to wait for a link that may never arrive,
+ * which is how someone loses the data they just signed up to protect.
+ */
+export async function resendConfirmation(email: string): Promise<AuthResult> {
+  const db = supabase();
+  if (!db) return { ok: false, message: "local" };
+  try {
+    const { error } = await db.auth.resend({ type: "signup", email: email.trim() });
+    if (error) return { ok: false, message: readableError(error.message) };
+    return { ok: true, needsConfirmation: true, email: email.trim() };
+  } catch {
+    return { ok: false, message: "local" };
+  }
+}
+
+/**
+ * Starts a password reset: Supabase emails a link that opens the app on the
+ * reset screen with a session attached.
+ *
+ * `redirectTo` has to be a link this app can actually receive — the scheme URL
+ * on a phone, the site's own origin on the web — and the same value has to be
+ * listed as a redirect URL in the Supabase dashboard, or the link lands
+ * nowhere. Without this whole path, forgetting a password means losing the
+ * account and every synced row with it, which makes "sign up so you never lose
+ * your data" untrue.
+ */
+export async function requestPasswordReset(email: string, redirectTo: string): Promise<AuthResult> {
+  const db = supabase();
+  if (!db) return { ok: false, message: "local" };
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    if (error) return { ok: false, message: readableError(error.message) };
+    return { ok: true, email: email.trim() };
+  } catch {
+    return { ok: false, message: "local" };
+  }
+}
+
+/**
+ * Sets a new password for the session the reset link established. Fails
+ * plainly when there is no such session, rather than appearing to work.
+ */
+export async function setNewPassword(password: string): Promise<AuthResult> {
+  const db = supabase();
+  if (!db) return { ok: false, message: "local" };
+  try {
+    const { data } = await db.auth.getSession();
+    if (!data.session) return { ok: false, message: "noSession" };
+    const { error } = await db.auth.updateUser({ password });
+    if (error) return { ok: false, message: readableError(error.message) };
     return { ok: true };
   } catch {
     return { ok: false, message: "local" };
+  }
+}
+
+/**
+ * Turns the token in a password-reset link into a session.
+ *
+ * Web does this by itself (`detectSessionInUrl`), but a phone hands the app
+ * the URL and nothing more, so the tokens have to be redeemed by hand. Both
+ * shapes are handled: `code` for the PKCE flow and an access/refresh pair for
+ * the older implicit one.
+ */
+export async function sessionFromResetLink(params: {
+  code?: string;
+  accessToken?: string;
+  refreshToken?: string;
+}): Promise<boolean> {
+  const db = supabase();
+  if (!db) return false;
+  try {
+    if (params.code) {
+      const { error } = await db.auth.exchangeCodeForSession(params.code);
+      if (!error) return true;
+    }
+    if (params.accessToken && params.refreshToken) {
+      const { error } = await db.auth.setSession({
+        access_token: params.accessToken,
+        refresh_token: params.refreshToken,
+      });
+      if (!error) return true;
+    }
+    // Web may already have consumed the URL and stored the session for us.
+    const { data } = await db.auth.getSession();
+    return !!data.session;
+  } catch {
+    return false;
   }
 }
 
@@ -132,6 +258,38 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /** Sign out and drop back to a fresh anonymous, local-first session. */
+/**
+ * Deletes the account and everything in it, server-side.
+ *
+ * The client cannot remove a row from auth.users — no client key may — so this
+ * calls a security-definer function that deletes the caller's own user row and
+ * lets the schema's cascades take the data with it. Deleting only the rows we
+ * can reach from here would leave the login, the email and the backup blob
+ * behind, which is not deletion in any sense a person or a regulator would
+ * accept.
+ *
+ * Returns false when there is nothing to delete server-side (local-only
+ * install) or the call failed; the caller still wipes the device either way.
+ */
+export async function deleteAccount(): Promise<boolean> {
+  const db = supabase();
+  if (!db) return false;
+  const { data } = await db.auth.getSession();
+  if (!data.session) return false;
+
+  const { error } = await db.rpc("delete_my_account");
+  if (error) return false;
+
+  // The session is now a token for a user that no longer exists; clearing it
+  // stops the app trying to sync into a hole.
+  try {
+    await db.auth.signOut();
+  } catch {
+    // Already gone server-side — nothing to do.
+  }
+  return true;
+}
+
 export async function signOut(): Promise<void> {
   const db = supabase();
   if (!db) return;

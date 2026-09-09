@@ -176,7 +176,7 @@ export default function CheckinScreen() {
             <View style={{ gap: space.sm, marginTop: space.lg }}>
               {/* Save is greyed until a mood is picked — say which tap is missing. */}
               {!mood ? (
-                <Text style={[type.small, { color: colors.signal, textAlign: "center" }]}>
+                <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
                   {t.checkin.needMood}
                 </Text>
               ) : null}
