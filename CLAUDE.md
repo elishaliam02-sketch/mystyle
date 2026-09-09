@@ -48,6 +48,12 @@ user re-accept. Adding a network call means adding it to a gate and to the
 policy — `npm run test:legal` checks the documents stay in step, name every
 processor, and carry no placeholder text.
 
+**An off feature says it is off.** The AI coach is off until someone turns it
+on, so `AiState` distinguishes `declined` (off — the note names the switch and
+links to it) from `unavailable` (not here at all). A feature that looks broken
+is worse than one that is plainly switched off, and nobody hunts a settings
+screen for something they think is unbuilt.
+
 **Screens that are not wired up yet render a `<StubNote>`** naming the
 roadmap phase where they get built, so a tester never reports an unbuilt
 phase as a bug.
@@ -69,8 +75,13 @@ npm run test:theme     # palette: four hues, and every pairing readable
 npm run test:tasks     # the difficulty scanner, in both languages
 npm run test:rewards   # points, levels and the streak bonus
 npm run test:legal     # the documents, both languages, and the consent mirror
+npm run test:export    # the data copy is complete and reloadable
 npm run test:kitchen   # the food library: no food shadows another's words
 ```
+
+CI runs all of this on every push (`.github/workflows/checks.yml`), and the OTA
+publish workflow waits for it — an update skips store review, so this is the
+only gate between a bad merge and every installed phone.
 
 After adding or upgrading a dependency, regenerate the licence list that the
 profile screen shows: `npm run licenses`.
@@ -96,6 +107,16 @@ and *offers* a restart — it never restarts on its own, and it no-ops in Expo G
 and on web. `runtimeVersion` follows `version` in app.json, so an update only
 ever reaches a build that can run it. JavaScript, strings, the palette and the
 food library ship this way; native changes still need a store build.
+
+## Accounts
+
+Supabase Auth, with the recovery paths people actually need: `requestPasswordReset`
+sends a link back to `app/reset.tsx` (the tokens are redeemed by hand there —
+web consumes them automatically, a phone does not), and a signup that returns
+without a session means the project requires a confirmed email, so the screen
+says "check your inbox" instead of claiming the data is backed up. Turning
+email confirmation on needs custom SMTP in Supabase; the built-in mailer is
+rate-limited to a couple of messages an hour.
 
 ## Before publishing
 

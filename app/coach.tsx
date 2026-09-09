@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n";
 import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
 import { eatIntent, eatenLabel, parseEaten } from "@/coach/logfood";
 import { askServer } from "@/ai/server";
+import { AiNote } from "@/components/AiNote";
 import { dailyTarget } from "@/kitchen";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
@@ -48,6 +49,7 @@ export default function CoachScreen() {
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
+  const [aiOff, setAiOff] = useState(false);
   const scroller = useRef<ScrollView>(null);
 
   // Everything the coach is allowed to know, read fresh on every answer.
@@ -144,7 +146,13 @@ export default function CoachScreen() {
     if (answer.ok) {
       setTurns((prev) => prev.map((t) => (t.id === answerId ? { ...t, text: answer.text } : t)));
       requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+      return;
     }
+    // The answer above it is the on-device coach's, and it is a real answer —
+    // but a person who turned the AI off (or never turned it on) deserves to
+    // know which of the two they are reading, and where the switch is. Shown
+    // once, under the thread, rather than on every turn.
+    setAiOff(answer.reason === "declined");
   }
 
   return (
@@ -202,6 +210,10 @@ export default function CoachScreen() {
             );
           })}
         </ScrollView>
+
+        {aiOff && !thinking ? (
+          <AiNote state="declined" />
+        ) : null}
 
         {thinking ? (
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>

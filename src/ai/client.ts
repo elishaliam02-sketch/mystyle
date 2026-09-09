@@ -9,13 +9,17 @@
  * own server; nothing outside it changes.
  */
 
+import { aiConsentGiven } from "@/legal";
+
 export type AiState =
   | "checking"
   /** Claude answered — content on screen is personalised. */
   | "ready"
   /** No Claude here at all (native app, non-viewer host). Never say "error". */
   | "unavailable"
-  /** The viewer declined. Permanent for this view; do not re-ask. */
+  /** The person has not turned the AI coach on. Recoverable — the note says
+   *  where the switch is, because a feature that looks broken is worse than a
+   *  feature that is plainly off. */
   | "declined"
   /** Something went wrong this time. A retry is worth offering. */
   | "failed";
@@ -65,6 +69,10 @@ export async function askJson<T>(
     validate: (raw: unknown) => T | null;
   },
 ): Promise<AskResult<T>> {
+  // The same gate the server transport carries. This path only exists inside
+  // the preview host, but "only in one host" is not a reason to send someone's
+  // habits to a model they did not agree to.
+  if (!aiConsentGiven()) return { ok: false, state: "declined" };
   const sample = await resolve();
   if (!sample?.json) return { ok: false, state: "unavailable" };
   if (opts.signal?.aborted) return { ok: false, state: "failed" };

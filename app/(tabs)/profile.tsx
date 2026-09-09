@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
@@ -7,11 +8,18 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ConsentSwitch } from "@/components/ConsentSwitch";
 import { Screen } from "@/components/Screen";
+import { SupportSignpost } from "@/components/SupportSignpost";
 import { StubNote } from "@/components/StubNote";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
-import { signInWithEmail, signOut, signUpWithEmail } from "@/cloud/client";
+import {
+  requestPasswordReset,
+  resendConfirmation,
+  signInWithEmail,
+  signOut,
+  signUpWithEmail,
+} from "@/cloud/client";
 import { deleteAccount } from "@/cloud/client";
 import { SelectTile } from "@/components/SelectTile";
 import {
@@ -28,6 +36,8 @@ import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 import { useAppUpdate } from "@/updates";
 import { LEGAL } from "@/legal";
+import { buildExport, exportFilename, serializeExport } from "@/legal/export";
+import { deliverExport } from "@/legal/deliver";
 import { confirm } from "@/ui/confirm";
 
 const LOCALES: { id: Locale; label: string }[] = [
@@ -49,6 +59,10 @@ export default function ProfileScreen() {
   const [goal, setGoal] = useState("");
   const [height, setHeight] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  // Set once someone asks for a goal below the healthy floor, and left set:
+  // the signpost stays for the rest of the visit rather than blinking away
+  // with the error message.
+  const [needsSupport, setNeedsSupport] = useState(false);
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
@@ -85,6 +99,9 @@ export default function ProfileScreen() {
       }
       if (verdict.status === "too-low") {
         setNote(fill(t.profile.goalTooLow, { floor: verdict.floor }));
+        // Sticky for the rest of the visit: the refusal on its own leaves
+        // someone with a wish and nowhere to take it.
+        setNeedsSupport(true);
         return;
       }
       if (verdict.status === "too-high") {
@@ -148,6 +165,7 @@ export default function ProfileScreen() {
             {note ? (
               <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
             ) : null}
+            {needsSupport ? <SupportSignpost /> : null}
             <Button label={t.profile.saved} onPress={persist} tone="quiet" />
           </View>
         </Card>
@@ -306,7 +324,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
   const router = useRouter();
-  const { consent, setConsent, reset } = useStore();
+  const { state, consent, setConsent, reset } = useStore();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const choices = consent();
@@ -339,6 +357,23 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     cloud.refreshAccount();
     setNote(hadAccount ? t.legal.deleteDone : t.legal.deleteLocalOnly);
     setBusy(false);
+  }
+
+  /**
+   * The right to a copy, answered by the app rather than by an inbox. The
+   * whole stored state goes out verbatim — a copy that quietly omits fields
+   * would be worse than none, because nobody can tell what is missing.
+   */
+  async function exportData() {
+    setBusy(true);
+    setNote(null);
+    const file = exportFilename();
+    const ok = await deliverExport(
+      serializeExport(buildExport(state, { email: cloud.account?.email ?? null })),
+      file,
+    );
+    setBusy(false);
+    setNote(ok ? fill(t.legal.exportDone, { file }) : t.legal.exportFailed);
   }
 
   return (
@@ -392,6 +427,21 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
         {fill(t.legal.contactBody, { email: LEGAL.contactEmail })}
       </Text>
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.exportTitle}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+        {t.legal.exportBody}
+      </Text>
+      <Button
+        icon="download-outline"
+        label={t.legal.exportCta}
+        tone="quiet"
+        disabled={busy}
+        onPress={() => void exportData()}
+        style={{ marginTop: space.md }}
+      />
 
       <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
         {t.legal.deleteTitle}
@@ -502,9 +552,17 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // The address a confirmation is outstanding for. Set after a signup that
+  // came back without a session, which is what an unconfirmed account looks
+  // like — the moment where the old code said "backed up" and was wrong.
+  const [awaiting, setAwaiting] = useState<string | null>(null);
 
   const account = cloud.account;
   const signedIn = !!account && !account.anonymous;
+  // Signed in but the link was never clicked: the account exists, nothing
+  // syncs, and saying nothing about it is how people lose data they believe
+  // is safe.
+  const unconfirmed = signedIn && account!.confirmed === false;
 
   const errorText = (code: string): string => {
     switch (code) {
@@ -513,6 +571,7 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       case "weakPassword": return t.account.errWeakPassword;
       case "badEmail": return t.account.errBadEmail;
       case "local": return t.account.errLocal;
+      case "noSession": return t.account.errNoSession;
       default: return t.account.errGeneric;
     }
   };
@@ -533,9 +592,41 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       return;
     }
     setPassword("");
+    if (res.needsConfirmation) {
+      // Not signed in, not backed up, and the screen must not pretend
+      // otherwise: the account only becomes real when the link is clicked.
+      setAwaiting(res.email ?? email.trim());
+      setNote(null);
+      return;
+    }
     setNote(t.account.done);
     cloud.refreshAccount();
     void cloud.sync();
+  }
+
+  /** Sends the confirmation email again, for a link that never arrived. */
+  async function resend(address: string) {
+    setBusy(true);
+    const res = await resendConfirmation(address);
+    setBusy(false);
+    setNote(res.ok ? t.account.confirmResent : errorText(res.message));
+  }
+
+  /**
+   * Starts a password reset. The link has to come back to *this* app, so the
+   * redirect is built from the app's own scheme on a phone and the site's
+   * origin on the web — `Linking.createURL` knows which it is.
+   */
+  async function forgotPassword() {
+    if (!email.trim()) {
+      setNote(t.account.errBadEmail);
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = await requestPasswordReset(email, Linking.createURL("/reset"));
+    setBusy(false);
+    setNote(res.ok ? fill(t.account.resetSent, { email: email.trim() }) : errorText(res.message));
   }
 
   async function doSignOut() {
@@ -545,11 +636,48 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     cloud.refreshAccount();
   }
 
+  if (awaiting) {
+    return (
+      <Card label={t.account.confirmTitle}>
+        <Text style={[type.body, { color: colors.ink }]}>
+          {fill(t.account.confirmBody, { email: awaiting })}
+        </Text>
+        <Button
+          icon="mail-outline"
+          label={t.account.confirmResend}
+          tone="quiet"
+          onPress={() => void resend(awaiting)}
+          disabled={busy}
+          style={{ marginTop: space.md }}
+        />
+        {note ? (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>{note}</Text>
+        ) : null}
+      </Card>
+    );
+  }
+
   if (signedIn) {
     return (
       <Card label={t.account.title}>
         <Text style={[type.bodyStrong, { color: colors.ink }]}>{account!.email}</Text>
-        <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
+        {unconfirmed ? (
+          <>
+            <Text style={[type.small, { color: colors.orangeInk, marginTop: 2 }]}>
+              {t.account.unconfirmed}
+            </Text>
+            <Button
+              icon="mail-outline"
+              label={t.account.confirmResend}
+              tone="quiet"
+              onPress={() => void resend(account!.email ?? "")}
+              disabled={busy}
+              style={{ marginTop: space.md }}
+            />
+          </>
+        ) : (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>{t.account.backedUp}</Text>
+        )}
         <Button
           icon="log-out-outline"
           label={t.account.signOut}
@@ -611,6 +739,19 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         disabled={busy}
         style={{ marginTop: space.md }}
       />
+
+      {mode === "in" ? (
+        <Pressable
+          onPress={() => void forgotPassword()}
+          accessibilityRole="button"
+          disabled={busy}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingVertical: space.sm })}
+        >
+          <Text style={[type.small, { color: colors.accent, fontWeight: "700", textAlign: "center" }]}>
+            {t.account.forgot}
+          </Text>
+        </Pressable>
+      ) : null}
     </Card>
   );
 }

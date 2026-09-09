@@ -71,6 +71,29 @@ afterwards and only reports success when the server actually confirmed.
 the delete button reports a failure rather than pretending — which is the right
 behaviour, but it means deletion is not live until the SQL is run.
 
+## 3b. Right to a copy
+
+The profile screen downloads everything the app holds as a JSON file —
+`src/legal/export.ts` builds it (pure, and tested for completeness),
+`deliver.ts` hands it over: a real file download on the web, the system share
+sheet on a phone. Built with what is already installed on purpose; reaching for
+expo-file-system would put a portability right behind a store review.
+
+**TODO (human):** the share sheet carries the file as text on a phone. If
+exports grow past a few hundred KB, add expo-file-system and a native build.
+
+## 3c. Safeguarding
+
+A goal weight below the healthy floor is refused (`checkGoalWeight`) and the
+refusal now comes with a door rather than just a "no": `SupportSignpost` points
+to a doctor or dietitian and to ER"N, Israel's 24/7 anonymous emotional-support
+line (1201, WhatsApp 052-8451201). Verified against the organisation's own
+listing, not remembered.
+
+**TODO (human):** if you publish outside Israel, that number needs a local
+equivalent — a helpline printed in a health app has to be real and reachable
+where the reader is.
+
 ## 4. Store submission answers
 
 ### Apple — privacy nutrition labels

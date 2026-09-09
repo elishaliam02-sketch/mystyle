@@ -14,6 +14,9 @@ import { SUPABASE_URL, cloudConfigured } from "@/cloud/config";
 export type ServerAiFailure =
   /** No server, no key, or the project is not configured — use the local coach. */
   | "unavailable"
+  /** The person has not turned the AI coach on. Recoverable, and the screen
+   *  should say how — "unavailable" reads as broken, which this is not. */
+  | "declined"
   /** The free tier's quota is spent for now. Worth saying out loud. */
   | "quota"
   /** Reached it and it went wrong this time; a retry is reasonable. */
@@ -42,7 +45,7 @@ export async function askServer(opts: {
   // as "unavailable" rather than a refusal: every caller already falls back to
   // the on-device coach for that reason, and the screens already say which of
   // the two the person is reading.
-  if (!aiConsentGiven()) return { ok: false, reason: "unavailable" };
+  if (!aiConsentGiven()) return { ok: false, reason: "declined" };
   if (!cloudConfigured) return { ok: false, reason: "unavailable" };
   const db = supabase();
   if (!db) return { ok: false, reason: "unavailable" };

@@ -77,6 +77,7 @@ export const en: typeof he = {
         heading: "Your rights",
         body: [
           "You are entitled to know what is held about you, to correct it, to receive a copy, to delete all of it, and to withdraw a consent you gave.",
+          "A copy: the profile screen downloads everything as a JSON file — all of it, exactly as stored, with no wait for a reply to an email.",
           "Deletion: the profile screen has a delete-account button. It deletes the account and all of its rows from the server, and clears the data from the device. It cannot be undone.",
           `For anything else — a copy of your data, a correction, or a complaint — write to ${LEGAL.contactEmail} and we will deal with it within 30 days.`,
           "If you are in Israel or the EU, you also have the right to complain to your local supervisory authority.",

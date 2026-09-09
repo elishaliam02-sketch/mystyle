@@ -31,7 +31,12 @@ npm run test:theme                 # the palette measures itself
 npm run test:tasks                 # the difficulty scanner
 npm run test:rewards               # points and levels
 npm run test:legal                 # the legal documents and the consent gates
+npm run test:export                # the "download my data" copy is complete
 ```
+
+Every push runs all of it in CI, and the over-the-air publish waits for that
+run to pass — an OTA update reaches phones without store review, so it is the
+only gate there is.
 
 One bundle runs on iOS, Android and the web. Native-only APIs are the thing to
 watch: they tend to fail silently on web rather than loudly, which is why every

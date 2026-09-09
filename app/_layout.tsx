@@ -43,6 +43,11 @@ function OnboardingGate() {
   useEffect(() => {
     if (!ready) return;
     const inLegal = segments[0] === "legal";
+    // A password-reset link is time-limited and arrives from outside the app.
+    // Bouncing it to the consent gate or to onboarding would spend the link on
+    // a screen that cannot use it, so this one route is always allowed
+    // through — it neither reads nor writes anything but the password.
+    if (segments[0] === "reset") return;
     if (!legalCurrent() && !inLegal) {
       router.replace("/legal/consent");
       return;
@@ -73,6 +78,7 @@ function Shell() {
         <Stack.Screen name="achievements" options={{ presentation: "modal" }} />
         <Stack.Screen name="rewards" options={{ presentation: "modal" }} />
         <Stack.Screen name="legal/consent" />
+        <Stack.Screen name="reset" />
         <Stack.Screen name="legal/privacy" options={{ presentation: "modal" }} />
         <Stack.Screen name="legal/terms" options={{ presentation: "modal" }} />
         <Stack.Screen name="legal/licenses" options={{ presentation: "modal" }} />

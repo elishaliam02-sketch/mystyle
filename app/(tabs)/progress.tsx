@@ -757,6 +757,29 @@ function PhotosCard() {
         </View>
       )}
 
+      {/* The one place the app can lose something without saying so: photos
+          are files on this phone and are never uploaded, so a new phone starts
+          with none. Saying it next to the pictures, rather than only in the
+          privacy policy, is the difference between a choice and a surprise. */}
+      {photos.length > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: space.sm,
+            backgroundColor: colors.surfaceAlt,
+            borderRadius: radius.md,
+            padding: space.md,
+            marginTop: space.md,
+          }}
+        >
+          <Ionicons name="phone-portrait-outline" size={15} color={colors.inkFaint} />
+          <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>
+            {t.progress.photosLocalOnly}
+          </Text>
+        </View>
+      ) : null}
+
       {photos.length === 0 ? (
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.md }]}>
           {t.progress.photosEmpty}

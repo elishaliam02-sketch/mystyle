@@ -5,8 +5,16 @@
  */
 import http from "node:http"; import fs from "node:fs"; import path from "node:path";
 import { createRequire } from "node:module";
-const require = createRequire("/opt/node22/lib/node_modules/x.js");
-const { chromium } = require("playwright");
+// Playwright may be a project dependency (CI installs it) or only present as a
+// global (this dev box). Try the project first and fall back, rather than
+// hardcoding one machine's layout and failing everywhere else.
+const { chromium } = await (async () => {
+  try {
+    return await import("playwright");
+  } catch {
+    return createRequire("/opt/node22/lib/node_modules/x.js")("playwright");
+  }
+})();
 
 const DIST = path.resolve("dist"); const PORT = 8120;
 const MIME = {".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",".jpg":"image/jpeg",".svg":"image/svg+xml",".ttf":"font/ttf",".woff":"font/woff",".woff2":"font/woff2",".ico":"image/x-icon",".map":"application/json"};
