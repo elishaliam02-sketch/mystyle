@@ -552,6 +552,10 @@ export const he = {
   },
 
   workout: {
+    worksTitle: "עובד על",
+    worksAlso: "ועוזרים:",
+    viewFront: "מלפנים",
+    viewBack: "מאחור",
     setCap: "עד 12 סטים בתרגיל",
     daysResetWarn: "שינוי מספר ימי האימון מאפס את התרגילים שהוספת ידנית לימים.",
     addedToDay: "נוסף ליום 1 — למעלה",

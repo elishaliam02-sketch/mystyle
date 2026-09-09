@@ -525,6 +525,14 @@ check("the coach answers about the plan using the goal",
     (await p2.getByLabel(/ק.ג 1$/).count())>0);
   check("every move in the plan carries a picture",
     (await p2.getByLabel(/צפה בהדגמה/).count())>0);
+  // the picture is a body with the worked muscle lit, not a decorative tile:
+  // opening a move must name what it works, in words as well as in the drawing
+  await p2.getByRole("button",{name:/הצג הסבר/}).first().click();
+  await p2.waitForTimeout(700);
+  check("opening a move says which muscle it works",
+    await p2.getByText("עובד על").first().isVisible().catch(()=>false));
+  check("and names the muscles that help",
+    await p2.getByText(/ועוזרים:/).first().isVisible().catch(()=>false));
   check("building a plan raises no page errors", boom.length===0, boom.join(" | "));
 
   // and the self-built path leaves the days empty for the person to fill

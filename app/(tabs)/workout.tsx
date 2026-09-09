@@ -6,6 +6,8 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { ExerciseThumb } from "@/components/ExerciseThumb";
+import { MuscleMap } from "@/components/MuscleMap";
+import { view, worked } from "@/workout/muscles";
 import { HeroCard } from "@/components/HeroCard";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
@@ -34,7 +36,7 @@ export default function WorkoutScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
-    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode, prefetchDemos } = useStore();
+    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode } = useStore();
 
   const training = state.training;
   // Default to the app-wide goal, so the plan starts on the goal the person
@@ -114,14 +116,6 @@ export default function WorkoutScreen() {
     }));
   }, [plan, training, byId]);
 
-  // Warm the real photographs for the moves on screen. Every exercise the plan
-  // shows gets its still looked up once, in the background, so the tiles turn
-  // into pictures of the actual lift the way Hevy's do — and the screen is
-  // fully usable the whole time it happens.
-  useEffect(() => {
-    if (sessions.length === 0) return;
-    prefetchDemos(sessions.flatMap((s) => s.exercises));
-  }, [sessions, prefetchDemos]);
 
   function build() {
     configureTraining(goal, days, minutes, equipment, focus, mode);
@@ -909,6 +903,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
 
   const name = locale === "he" ? ex.he : ex.en;
   const how = locale === "he" ? ex.howHe : ex.howEn;
+  const w = worked(ex);
   const rows = setsFor(ex.id, sets);
   const prev = lastSession(ex.id);
   const doneCount = rows.filter((r) => r.done).length;
@@ -993,6 +988,47 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
 
       {videoNote ? (
         <Text style={[type.small, { color: colors.orangeInk }]}>{videoNote}</Text>
+      ) : null}
+
+      {open ? (
+        <View style={{ gap: 4, marginTop: space.sm }}>
+          {/* the same diagram as the row's tile, at a size where the lit
+              muscles are actually readable, and named in words beside it for
+              anyone who would rather read than look */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <MuscleMap
+              primary={w.primary}
+              secondary={w.secondary}
+              view={view(ex.muscle)}
+              size={78}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+                {t.workout.worksTitle}
+              </Text>
+              <Text style={[type.bodyStrong, { color: colors.ink }]}>
+                {muscleLabel[w.primary]}
+              </Text>
+              {w.secondary.length > 0 ? (
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {t.workout.worksAlso} {w.secondary.map((m) => muscleLabel[m]).join(", ")}
+                </Text>
+              ) : null}
+              <Text style={[type.small, { color: colors.inkFaint }]}>
+                {view(ex.muscle) === "front" ? t.workout.viewFront : t.workout.viewBack}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase", marginTop: space.sm }]}>
+            {t.workout.howTitle}
+          </Text>
+          {how.map((step, i) => (
+            <Text key={i} style={[type.small, { color: colors.inkSoft }]}>
+              {i + 1}. {step}
+            </Text>
+          ))}
+        </View>
       ) : null}
 
       {/* set table */}
@@ -1132,18 +1168,6 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
         </View>
       ) : null}
 
-      {open ? (
-        <View style={{ gap: 4, marginTop: space.sm }}>
-          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
-            {t.workout.howTitle}
-          </Text>
-          {how.map((step, i) => (
-            <Text key={i} style={[type.small, { color: colors.inkSoft }]}>
-              {i + 1}. {step}
-            </Text>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }

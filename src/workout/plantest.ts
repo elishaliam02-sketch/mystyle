@@ -2,6 +2,7 @@ import { applyDayEdits, buildPlan, EQUIP_SETS } from "./plan";
 import { EXERCISES, MUSCLES } from "./exercises";
 import { allExercises, countByMuscle, equipmentKinds, filterExercises, matches } from "./library";
 import { bestLift, isStorableKg, lastLift } from "./lifts";
+import { view, worked, workedList } from "./muscles";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -309,6 +310,37 @@ for (const days of [2, 3, 4, 5, 6] as const) {
     const out = applyDayEdits(rolled, { add: [toAdd] }, byId);
     return out.some((e) => e.id === toAdd);
   })());
+}
+
+// What an exercise works — the picture beside every row is drawn from this, so
+// a wrong answer here is a wrong answer on screen two hundred times.
+{
+  const byId = (id: string) => EXERCISES.find((e) => e.id === id)!;
+
+  check("every exercise in the library can say what it works",
+    EXERCISES.every((e) => !!worked(e).primary));
+  check("the primary is always the exercise's own muscle",
+    EXERCISES.every((e) => worked(e).primary === e.muscle));
+  check("a muscle is never listed as its own helper",
+    EXERCISES.every((e) => !worked(e).secondary.includes(e.muscle)));
+  check("an isolation move claims no helpers",
+    EXERCISES.filter((e) => !e.compound).every((e) => worked(e).secondary.length === 0));
+  check("a compound chest press credits the shoulders and arms too", (() => {
+    const w = worked(byId("bench-press"));
+    return w.primary === "chest" && w.secondary.includes("shoulders") && w.secondary.includes("arms");
+  })(), JSON.stringify(worked(byId("bench-press"))));
+  check("the worked list reads primary first",
+    workedList(worked(byId("bench-press")))[0] === "chest");
+  check("no exercise repeats a muscle in its worked list",
+    EXERCISES.every((e) => { const l = workedList(worked(e)); return new Set(l).size === l.length; }));
+
+  // The view has to be the one the muscle is visible from, or the diagram
+  // highlights something behind the figure and shows nothing at all.
+  check("a back move is drawn from behind", view("back") === "back");
+  check("so are glutes", view("glutes") === "back");
+  check("a chest move is drawn from the front", view("chest") === "front");
+  check("every muscle resolves to one of the two views",
+    MUSCLES.every((m) => view(m) === "front" || view(m) === "back"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

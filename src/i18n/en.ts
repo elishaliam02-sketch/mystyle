@@ -544,6 +544,10 @@ export const en: typeof he = {
   },
 
   workout: {
+    worksTitle: "Works",
+    worksAlso: "Also:",
+    viewFront: "Front",
+    viewBack: "Back",
     setCap: "Up to 12 sets per exercise",
     daysResetWarn: "Changing the number of days clears the exercises you added to days by hand.",
     addedToDay: "Added to Day 1 — above",

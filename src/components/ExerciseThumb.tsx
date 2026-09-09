@@ -1,8 +1,9 @@
-import { Image, View } from "react-native";
+import { View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Equipment, Exercise, Muscle } from "@/workout/exercises";
-import { useStore } from "@/store";
+import { MuscleMap } from "./MuscleMap";
+import { view, worked } from "@/workout/muscles";
 import { ON_HERO, useTheme, type Colors } from "@/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -11,12 +12,18 @@ type IconName = keyof typeof Ionicons.glyphMap;
  * A picture for every exercise — the thing that makes a plan read like Hevy
  * rather than a spreadsheet.
  *
- * When the exact demo video has already been resolved for this move, its
- * YouTube still is the picture: it is the real lift, and it costs nothing extra
- * because the id is already cached on the device. Until then (and offline, and
- * for a move the person invented themselves) the tile is drawn instead — a
- * colour keyed to the muscle group with the equipment's own icon over it. Drawn
- * instantly, never a blank grey box and never a spinner.
+ * The picture is a body with the worked muscles lit up, because that is the
+ * question a row you do not recognise actually raises: *what does this do?* A
+ * coloured square with a dumbbell on it looked fine and answered nothing. The
+ * muscle group still sets the tile's colour behind the figure, so a session
+ * still reads at a glance as chest day or leg day.
+ *
+ * A real photograph was tried and dropped. The YouTube still for the demo is
+ * whatever thumbnail the uploader chose — a face, a caption, a piece of
+ * clickbait — so a plan drawn from them was a wall of unrelated pictures at
+ * different crops. A diagram we draw is the same every time, at every size,
+ * offline, and it is about the exercise rather than about a video of it. The
+ * video is still one tap away.
  */
 
 /**
@@ -107,8 +114,6 @@ export function ExerciseThumb({
   size?: number;
 }) {
   const { colors, radius } = useTheme();
-  const { state } = useStore();
-  const videoId = state.videoIds?.[ex.id];
   const tiles = muscleColors(colors);
   const { from: baseFrom, to: baseTo, ink } = tiles[ex.muscle] ?? tiles.fullbody;
   const h = hash(ex.id);
@@ -116,17 +121,7 @@ export function ExerciseThumb({
   const from = shade(baseFrom, lift);
   const to = shade(baseTo, lift);
   const angle = ANGLES[h % ANGLES.length]!;
-
-  if (videoId) {
-    return (
-      <Image
-        source={{ uri: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` }}
-        style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: from }}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-      />
-    );
-  }
+  const w = worked(ex);
 
   return (
     <LinearGradient
@@ -141,26 +136,23 @@ export function ExerciseThumb({
         justifyContent: "center",
       }}
     >
-      <Ionicons
-        name={EQUIPMENT_ICONS[ex.equipment] ?? "barbell"}
-        size={Math.round(size * 0.45)}
-        color={ink}
+      <MuscleMap
+        primary={w.primary}
+        secondary={w.secondary}
+        view={view(ex.muscle)}
+        size={Math.round(size * 0.74)}
+        onHero
       />
-      {/* a compound lift gets a small mark, so the big lifts stand out */}
-      {ex.compound ? (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 5,
-            right: 5,
-            width: 7,
-            height: 7,
-            borderRadius: 4,
-            backgroundColor: ink,
-            opacity: 0.9,
-          }}
+      {/* the kit, small, in the corner: a barbell bench and a dumbbell bench
+          light the same muscles and this is what tells them apart */}
+      <View style={{ position: "absolute", bottom: 4, right: 4 }}>
+        <Ionicons
+          name={EQUIPMENT_ICONS[ex.equipment] ?? "barbell"}
+          size={Math.round(size * 0.2)}
+          color={ink}
+          style={{ opacity: 0.9 }}
         />
-      ) : null}
+      </View>
     </LinearGradient>
   );
 }

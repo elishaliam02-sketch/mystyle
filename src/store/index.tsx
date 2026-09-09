@@ -161,10 +161,6 @@ type Store = {
   /** The URL to open for an exercise's form demo: the exact video when it can
    * be resolved, the search page when it cannot. Remembers what it resolves. */
   demoFor: (ex: Exercise) => Promise<string>;
-  /** Resolves the demo still for a batch of exercises in the background, so a
-   * plan shows real photographs of the lifts instead of drawn tiles. Silent:
-   * it never blocks a render and never surfaces a failure. */
-  prefetchDemos: (exs: Exercise[]) => void;
   /** The seed behind the kitchen's meal rotation: this device, this day, and
    * however many times the person has asked for another set. */
   mealSeed: () => string;
@@ -915,41 +911,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.videoIds],
   );
 
-  // Exercises whose still we have already gone looking for this run, resolved
-  // or not. Without it a re-render would re-request the same page forever.
-  const tried = useRef<Set<string>>(new Set());
-
-  // Warming the pictures for a whole plan, one at a time and slowly on purpose:
-  // a burst of parallel requests is what gets a phone throttled, and nothing on
-  // screen is waiting on any single one of these. A tile that never resolves
-  // simply stays drawn, which is already a complete picture.
-  const prefetchDemos = useCallback(
-    (exs: Exercise[]) => {
-      const have = state.videoIds ?? {};
-      const todo = exs.filter((e) => !have[e.id] && !tried.current.has(e.id)).slice(0, 24);
-      if (todo.length === 0) return;
-      for (const e of todo) tried.current.add(e.id);
-      void (async () => {
-        for (const ex of todo) {
-          try {
-            await demoLink(ex, {
-              fetchText: async (url) => {
-                const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-                return res.text();
-              },
-              cache: {},
-              remember: (exerciseId, videoId) =>
-                setState((st) => ({ ...st, videoIds: { ...st.videoIds, [exerciseId]: videoId } })),
-            });
-          } catch {
-            // offline, blocked, or a changed page — the drawn tile stands in
-          }
-          await new Promise((r) => setTimeout(r, 400));
-        }
-      })();
-    },
-    [state.videoIds],
-  );
 
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
@@ -1058,7 +1019,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       stepGoal,
       setStepGoal,
       demoFor,
-      prefetchDemos,
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
@@ -1075,7 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
-     demoFor, prefetchDemos, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
+     demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
      acceptLegal, legalCurrent, consent, setConsent, reset, replaceAll],
   );
 
