@@ -19,7 +19,17 @@ process.on("unhandledRejection", (e) => { try { report(e); } catch {} process.ex
 const pad=n=>String(n).padStart(2,"0"); const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const now=new Date(); const today=iso(now); const dayAgo=n=>{const d=new Date(now);d.setDate(d.getDate()-n);return iso(d);};
 
+// The consent gate stands in front of every screen, so a seeded user has to
+// have accepted the current documents or the whole suite would only ever
+// exercise the gate. Read out of the source rather than hardcoded: bumping
+// LEGAL.version must not quietly turn every test below into a gate test.
+const LEGAL_VERSION = Number(/version:\s*(\d+)/.exec(fs.readFileSync("src/legal/config.ts","utf8"))[1]);
+
 const seed = {
+  legal:{version:LEGAL_VERSION,acceptedAt:now.toISOString()},
+  // Both opt-ins off — the state a person is in unless they say otherwise, and
+  // the one that proves every screen works with nothing leaving the device.
+  consent:{cloud:false,ai:false,updatedAt:now.toISOString()},
   profile:{name:"טסט",onboarded:true,startKg:85,heightCm:180,updatedAt:"1970-01-01T00:00:00.000Z"},
   habits:[{id:"h1",title:"לשתות מים",slot:"morning",createdAt:dayAgo(10),archived:false,updatedAt:now.toISOString()}],
   completions:[],weighIns:[],checkIns:[],
@@ -436,6 +446,49 @@ check("the coach answers about the plan using the goal",
   await page.getByText(/תוכנית שלך בנויה/).first().isVisible().catch(()=>false));
 { const t = await page.evaluate(()=>document.body.innerText);
   check("the coach quotes the weekly training frequency", /3 ימים בשבוע/.test(t), t.slice(0,200)); }
+
+// 14) THE CONSENT GATE — the one screen nobody may walk past.
+// Its own context, seeded without an acceptance: this is what a new install
+// and an existing user after a version bump both look like.
+{
+  const fresh = await browser.newContext({viewport:{width:412,height:915}});
+  await fresh.addInitScript(s=>{try{
+    localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify({...seed, legal:undefined, consent:undefined}));
+  const gate = await fresh.newPage();
+  const gst = async ()=> JSON.parse(await gate.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+
+  await gate.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"});
+  await gate.waitForTimeout(2200);
+  check("an unaccepted install lands on the consent gate",
+    gate.url().includes("/legal/consent"), gate.url());
+  check("the gate offers the privacy policy",
+    await gate.getByText("מדיניות הפרטיות המלאה").first().isVisible().catch(()=>false));
+
+  // The optional switches must be off before anyone touches them: a default-on
+  // consent is not consent, and this is the assertion that keeps it that way.
+  const before = await gst();
+  check("nothing is consented to by default",
+    !before.consent || (!before.consent.cloud && !before.consent.ai), JSON.stringify(before.consent));
+
+  const cloudSwitch = gate.locator('[role=switch], input[type=checkbox]').first();
+  await cloudSwitch.click(); await gate.waitForTimeout(600);
+  { const s = await gst(); check("turning cloud backup on is recorded",
+    s.consent?.cloud === true && s.consent?.ai === false, JSON.stringify(s.consent)); }
+
+  await gate.getByText("אני מאשר ומתחיל").first().click();
+  await gate.waitForTimeout(2200);
+  { const s = await gst(); check("accepting records the version that was shown",
+    s.legal?.version === LEGAL_VERSION, JSON.stringify(s.legal)); }
+  check("accepting lets the app through", !gate.url().includes("/legal/consent"), gate.url());
+
+  await gate.goto(`http://localhost:${PORT}/legal/terms`,{waitUntil:"networkidle"});
+  await gate.waitForTimeout(1500);
+  check("the terms open and lead with the health disclaimer",
+    await gate.getByText("זו לא עצה רפואית").first().isVisible().catch(()=>false));
+
+  await fresh.close();
+}
 
 await browser.close(); server.close();
 report();

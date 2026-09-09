@@ -132,6 +132,38 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /** Sign out and drop back to a fresh anonymous, local-first session. */
+/**
+ * Deletes the account and everything in it, server-side.
+ *
+ * The client cannot remove a row from auth.users — no client key may — so this
+ * calls a security-definer function that deletes the caller's own user row and
+ * lets the schema's cascades take the data with it. Deleting only the rows we
+ * can reach from here would leave the login, the email and the backup blob
+ * behind, which is not deletion in any sense a person or a regulator would
+ * accept.
+ *
+ * Returns false when there is nothing to delete server-side (local-only
+ * install) or the call failed; the caller still wipes the device either way.
+ */
+export async function deleteAccount(): Promise<boolean> {
+  const db = supabase();
+  if (!db) return false;
+  const { data } = await db.auth.getSession();
+  if (!data.session) return false;
+
+  const { error } = await db.rpc("delete_my_account");
+  if (error) return false;
+
+  // The session is now a token for a user that no longer exists; clearing it
+  // stops the app trying to sync into a hole.
+  try {
+    await db.auth.signOut();
+  } catch {
+    // Already gone server-side — nothing to do.
+  }
+  return true;
+}
+
 export async function signOut(): Promise<void> {
   const db = supabase();
   if (!db) return;

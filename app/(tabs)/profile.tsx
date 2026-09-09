@@ -1,13 +1,18 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ConsentSwitch } from "@/components/ConsentSwitch";
 import { Screen } from "@/components/Screen";
 import { StubNote } from "@/components/StubNote";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
 import { signInWithEmail, signOut, signUpWithEmail } from "@/cloud/client";
+import { deleteAccount } from "@/cloud/client";
 import { SelectTile } from "@/components/SelectTile";
 import {
   bmi,
@@ -21,6 +26,8 @@ import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { useAppUpdate } from "@/updates";
+import { LEGAL } from "@/legal";
 import { confirm } from "@/ui/confirm";
 
 const LOCALES: { id: Locale; label: string }[] = [
@@ -106,6 +113,7 @@ export default function ProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.profile.heading}>
+        <UpdateBanner />
         <View style={{ alignItems: "center", paddingVertical: space.md }}>
           <BrandLogo size={72} onBand={false} />
         </View>
@@ -265,6 +273,10 @@ export default function ProfileScreen() {
           />
         </Card>
 
+        <PrivacyCard cloud={cloud} />
+
+        <UpdatesCard />
+
         <StubNote>{t.profile.localNote}</StubNote>
 
         <Card label={t.profile.dangerTitle}>
@@ -278,6 +290,201 @@ export default function ProfileScreen() {
         </Card>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * Privacy, consent and the way out.
+ *
+ * Everything a data-protection law asks to be reachable, in one card: what is
+ * switched on, the documents themselves, who to write to, and a delete button
+ * that really deletes. Withdrawing a consent here takes effect immediately —
+ * the sync stops at the next round and the AI transport refuses on its very
+ * next call — rather than at the next launch.
+ */
+function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const router = useRouter();
+  const { consent, setConsent, reset } = useStore();
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const choices = consent();
+
+  function confirmDelete() {
+    confirm({
+      title: t.legal.deleteTitle,
+      message: t.legal.deleteConfirm,
+      confirmLabel: t.legal.deleteYes,
+      cancelLabel: t.common.cancel,
+      destructive: true,
+      onConfirm: () => void wipe(),
+    });
+  }
+
+  async function wipe() {
+    setBusy(true);
+    setNote(null);
+    // Server first: if it fails, the person still has their account and can
+    // try again. Wiping the device first would leave an orphaned account on
+    // the server with no signed-in device left to delete it from.
+    const hadAccount = !!cloud.account;
+    const gone = await deleteAccount();
+    if (hadAccount && !gone) {
+      setNote(t.legal.deleteFailed);
+      setBusy(false);
+      return;
+    }
+    reset();
+    cloud.refreshAccount();
+    setNote(hadAccount ? t.legal.deleteDone : t.legal.deleteLocalOnly);
+    setBusy(false);
+  }
+
+  return (
+    <Card label={t.legal.consentTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.legal.consentBody}</Text>
+
+      <View style={{ gap: space.sm, marginTop: space.md }}>
+        <ConsentSwitch
+          label={t.legal.cloudLabel}
+          body={t.legal.cloudBody}
+          value={choices.cloud}
+          onChange={(next) => setConsent({ cloud: next })}
+        />
+        <ConsentSwitch
+          label={t.legal.aiLabel}
+          body={t.legal.aiBody}
+          value={choices.ai}
+          onChange={(next) => setConsent({ ai: next })}
+        />
+      </View>
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.documentsTitle}
+      </Text>
+      <View style={{ gap: space.xs, marginTop: space.xs }}>
+        {(
+          [
+            [t.legal.privacyLink, "/legal/privacy"],
+            [t.legal.termsLink, "/legal/terms"],
+            [t.legal.licensesLink, "/legal/licenses"],
+          ] as const
+        ).map(([label, href]) => (
+          <Pressable
+            key={href}
+            onPress={() => router.push(href)}
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              paddingVertical: space.sm,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Text style={[type.bodyStrong, { color: colors.accent, flex: 1 }]}>{label}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+        {fill(t.legal.contactBody, { email: LEGAL.contactEmail })}
+      </Text>
+
+      <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
+        {t.legal.deleteTitle}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+        {t.legal.deleteBody}
+      </Text>
+      <Button
+        icon="trash"
+        label={t.legal.deleteCta}
+        tone="danger"
+        disabled={busy}
+        onPress={confirmDelete}
+        style={{ marginTop: space.md }}
+      />
+      {note ? (
+        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * Version and updates. The app can update itself: a new bundle is fetched
+ * quietly and applied when the person says so. This card is where that becomes
+ * visible — what is running, and a button for someone who does not want to
+ * wait for the automatic check.
+ */
+function UpdatesCard() {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const update = useAppUpdate();
+  const { version, channel, embedded } = update.running;
+
+  const status =
+    update.state === "checking"
+      ? t.updates.checking
+      : update.state === "downloading"
+        ? t.updates.downloading
+        : update.state === "ready"
+          ? t.updates.bannerTitle
+          : update.state === "current"
+            ? t.updates.upToDate
+            : update.state === "failed"
+              ? t.updates.failed
+              : null;
+
+  return (
+    <Card label={t.updates.aboutTitle}>
+      <Text style={[type.bodyStrong, { color: colors.ink }]}>
+        {fill(t.updates.version, { version })}
+      </Text>
+      <Text style={[type.small, { color: colors.inkSoft }]}>
+        {embedded ? t.updates.embedded : t.updates.fromUpdate}
+      </Text>
+      {channel ? (
+        <Text style={[type.small, { color: colors.inkFaint }]}>
+          {fill(t.updates.channelLine, { channel })}
+        </Text>
+      ) : null}
+
+      {update.supported ? (
+        <>
+          <Button
+            icon="refresh"
+            label={update.state === "ready" ? t.updates.restart : t.updates.checkCta}
+            tone="quiet"
+            onPress={() => (update.state === "ready" ? void update.apply() : void update.check())}
+            style={{ marginTop: space.md }}
+          />
+          {status ? (
+            <Text
+              style={[
+                type.small,
+                {
+                  color: update.state === "failed" ? colors.orangeInk : colors.inkSoft,
+                  marginTop: space.xs,
+                },
+              ]}
+            >
+              {status}
+            </Text>
+          ) : null}
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
+            {t.updates.note}
+          </Text>
+        </>
+      ) : (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+          {t.updates.unsupported}
+        </Text>
+      )}
+    </Card>
   );
 }
 

@@ -20,24 +20,38 @@ import { StoreProvider, useStore } from "@/store";
 import { ThemeProvider, useTheme } from "@/theme";
 
 /**
- * Sends a first-time user into onboarding. It deliberately does NOT redirect
- * in the other direction: the moment onboarding completes, segments still
- * read "onboarding" for one render, and a leave-redirect here would hijack
- * finish()'s navigation to the new habit's tips page. Leaving is finish()'s
- * job; the onboarding screen guards its own accidental-entry case.
+ * Sends a first-time user into onboarding, and anyone who has not accepted the
+ * current terms into the consent gate first.
+ *
+ * The consent check comes before the onboarding one and applies to everybody,
+ * not only to new installs: raising LEGAL.version is what makes an existing
+ * user see the documents again after they change, which is the whole point of
+ * versioning them. The legal screens themselves are exempt, or reading the
+ * policy from the gate would bounce straight back to the gate.
+ *
+ * It deliberately does NOT redirect in the other direction: the moment
+ * onboarding completes, segments still read "onboarding" for one render, and a
+ * leave-redirect here would hijack finish()'s navigation to the new habit's
+ * tips page. Leaving is finish()'s job; the onboarding screen guards its own
+ * accidental-entry case.
  */
 function OnboardingGate() {
-  const { state, ready } = useStore();
+  const { state, ready, legalCurrent } = useStore();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (!ready) return;
-    const inSetup = segments[0] === "welcome" || segments[0] === "onboarding";
+    const inLegal = segments[0] === "legal";
+    if (!legalCurrent() && !inLegal) {
+      router.replace("/legal/consent");
+      return;
+    }
+    const inSetup = segments[0] === "welcome" || segments[0] === "onboarding" || inLegal;
     if (!state.profile.onboarded && !inSetup) {
       router.replace("/welcome");
     }
-  }, [ready, state.profile.onboarded, segments, router]);
+  }, [ready, legalCurrent, state.profile.onboarded, segments, router]);
 
   return null;
 }
@@ -58,6 +72,10 @@ function Shell() {
         <Stack.Screen name="habit/[id]" />
         <Stack.Screen name="achievements" options={{ presentation: "modal" }} />
         <Stack.Screen name="rewards" options={{ presentation: "modal" }} />
+        <Stack.Screen name="legal/consent" />
+        <Stack.Screen name="legal/privacy" options={{ presentation: "modal" }} />
+        <Stack.Screen name="legal/terms" options={{ presentation: "modal" }} />
+        <Stack.Screen name="legal/licenses" options={{ presentation: "modal" }} />
       </Stack>
     </View>
   );

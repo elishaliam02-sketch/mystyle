@@ -22,7 +22,12 @@ const nowIso = () => new Date().toISOString();
  * a failed sync just leaves the state exactly as it was.
  */
 export function useCloud() {
-  const { state, replaceAll, ready, noteServerTime } = useStore();
+  const { state, replaceAll, ready, noteServerTime, consent } = useStore();
+  // Nothing reaches the network until the person has said it may. This is the
+  // one gate: the sync itself, the account, and the backup all hang off it, so
+  // there is no second path that could quietly keep uploading after someone
+  // turned it off.
+  const allowed = consent().cloud;
   const [status, setStatus] = useState<CloudState>("connecting");
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [account, setAccount] = useState<AccountInfo | null>(null);
@@ -40,6 +45,12 @@ export function useCloud() {
   const resync = useRef(false);
 
   const sync = useCallback(async () => {
+    if (!allowed) {
+      // Not an error and not worth a warning: the app is doing exactly what it
+      // was told, and every screen works the same way offline.
+      setStatus("local");
+      return;
+    }
     // One at a time. Two syncs in flight would each merge against a state the
     // other is about to replace, and the slower one would win.
     if (running.current) return;
@@ -91,7 +102,10 @@ export function useCloud() {
         setTimeout(() => void sync(), 1500);
       }
     }
-  }, [replaceAll]);
+    // `allowed` belongs here: turning cloud backup off has to stop the very
+    // next round, not the next launch, and turning it on has to start one
+    // without waiting for something else to change.
+  }, [replaceAll, allowed]);
 
   // One sync on launch, after the local state has loaded — syncing before it
   // would push an empty state over a real account.

@@ -8,6 +8,7 @@ import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
@@ -411,6 +412,8 @@ export default function TodayScreen() {
           : fill(t.today.doneCount, { done: doneCount, total: habits.length })
       }
     >
+      <UpdateBanner />
+
       <TodayHub />
 
       <RewardsEntry />

@@ -30,6 +30,7 @@ npx expo export --platform web     # verify it bundles
 npm run test:theme                 # the palette measures itself
 npm run test:tasks                 # the difficulty scanner
 npm run test:rewards               # points and levels
+npm run test:legal                 # the legal documents and the consent gates
 ```
 
 One bundle runs on iOS, Android and the web. Native-only APIs are the thing to
@@ -48,6 +49,8 @@ src/
                      metrics.ts — one hue per metric family
   tasks/             reads a self-written task and prices its difficulty
   rewards/           points, levels and streak bonuses, from the ticks alone
+  legal/             the privacy policy and terms, and what gates on them
+  updates/           over-the-air updates, offered rather than forced
   ui/                confirm.ts — dialogs that work on web as well as native
   components/        Screen, Card, TaskRow, TaskScan, StubNote
 ```
@@ -71,6 +74,15 @@ every token, so the rule is enforced rather than remembered.
 **No literal user-facing strings outside `src/i18n/`.** Adding the string to
 `he.ts` makes `en.ts` fail to typecheck until it is translated too. That is
 the point — it is why the second language costs nothing to keep current.
+
+## Consent is wiring, not a checkbox
+
+Two things can send data off the phone — cloud backup and the AI coach — and
+both are off until someone turns them on, separately from accepting the terms.
+The switches are not decoration: `useCloud` will not open a round without the
+first, and `src/ai/server.ts` refuses every call without the second, so there
+is no second path out. Withdrawing either takes effect on the next call rather
+than the next launch. `docs/COMPLIANCE.md` says what else publishing needs.
 
 ## Direction handling
 

@@ -8,6 +8,7 @@
  * to the on-device coach, which always works.
  */
 import { supabase } from "@/cloud/client";
+import { aiConsentGiven } from "@/legal";
 import { SUPABASE_URL, cloudConfigured } from "@/cloud/config";
 
 export type ServerAiFailure =
@@ -36,6 +37,12 @@ export async function askServer(opts: {
   mimeType?: string;
   signal?: AbortSignal;
 }): Promise<ServerAiResult> {
+  // The question, the numbers behind it and any meal photo are personal data
+  // going to a third party, so this is gated on an explicit opt-in. Reported
+  // as "unavailable" rather than a refusal: every caller already falls back to
+  // the on-device coach for that reason, and the screens already say which of
+  // the two the person is reading.
+  if (!aiConsentGiven()) return { ok: false, reason: "unavailable" };
   if (!cloudConfigured) return { ok: false, reason: "unavailable" };
   const db = supabase();
   if (!db) return { ok: false, reason: "unavailable" };
