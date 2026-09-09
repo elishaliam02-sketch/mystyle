@@ -66,6 +66,7 @@ type Copy = {
   billedYearly: string;
   monthlyNote: string;
   unlocksLabel: string;
+  unlocksTitle: string;
   unlocks: Record<ProUnlock, string>;
   freeLabel: string;
   freeTitle: string;
@@ -103,6 +104,7 @@ const COPY: Record<"he" | "en", Copy> = {
     billedYearly: "חיוב אחד בשנה",
     monthlyNote: "חיוב כל חודש, מבטלים מתי שרוצים",
     unlocksLabel: "מה נפתח",
+    unlocksTitle: "מה שהמנוי מוסיף",
     unlocks: {
       habits: `הרגלים בלי הגבלה — בחינם עד ${FREE_LIMITS.habits}`,
       coach: `מאמן חכם בלי תקרה יומית — בחינם ${FREE_LIMITS.coachRepliesPerDay} תשובות ביום`,
@@ -115,7 +117,7 @@ const COPY: Record<"he" | "en", Copy> = {
     freeTitle: "מה שחינם נשאר חינם",
     freeBody:
       "מעקב הרגלים, תוכנית האימונים, המים והצעדים ממשיכים לעבוד גם בלי מנוי. התשלום מסיר את המגבלות — הוא לא נועל את האפליקציה.",
-    cta: `התחלה של ${TRIAL_DAYS} ימים חינם`,
+    cta: `מתחילים ${TRIAL_DAYS} ימים חינם`,
     ctaPro: "ניהול המנוי",
     afterTrial: (price, period) => `בתום הניסיון: ${price} ${period}. אפשר לבטל לפני, בלי חיוב.`,
     renews: "המנוי מתחדש אוטומטית בסוף כל תקופה באותו אמצעי תשלום, עד שמבטלים אותו.",
@@ -147,6 +149,7 @@ const COPY: Record<"he" | "en", Copy> = {
     billedYearly: "One charge a year",
     monthlyNote: "Charged every month, cancel any time",
     unlocksLabel: "What you unlock",
+    unlocksTitle: "What the subscription adds",
     unlocks: {
       habits: `Unlimited habits — ${FREE_LIMITS.habits} on the free tier`,
       coach: `The coach with no daily ceiling — ${FREE_LIMITS.coachRepliesPerDay} replies a day free`,
@@ -316,7 +319,7 @@ export default function PaywallScreen() {
         </Card>
       ) : null}
 
-      <Card label={c.unlocksLabel} title={c.title}>
+      <Card label={c.unlocksLabel} title={c.unlocksTitle}>
         <View style={{ gap: space.sm }}>
           {PRO_UNLOCKS.map((key) => (
             <View key={key} style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>

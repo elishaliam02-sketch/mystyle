@@ -586,6 +586,24 @@ check("the coach answers about the plan using the goal",
   await fresh.close();
 }
 
+// 17) THE PAYWALL — it must be reachable, honest, and never crash signed-out.
+await go("/profile");
+check("the subscription is reachable from the profile",
+  await page.getByText("APEX Pro").first().isVisible().catch(()=>false));
+await page.getByText("APEX Pro").first().click(); await page.waitForTimeout(1600);
+check("tapping it opens the paywall", page.url().includes("/paywall"), page.url());
+check("the paywall names both plans",
+  (await page.getByText("חודשי").count())>0 && (await page.getByText("שנתי").count())>0);
+check("the yearly plan shows what it saves",
+  await page.getByText(/חוסך \d+%/).first().isVisible().catch(()=>false));
+check("it says the subscription renews by itself",
+  await page.getByText(/מתחדש אוטומטית/).first().isVisible().catch(()=>false));
+check("and says how to cancel",
+  await page.getByText(/לביטול/).first().isVisible().catch(()=>false));
+check("what stays free is stated, not hidden",
+  await page.getByText(/נשאר חינם/).first().isVisible().catch(()=>false));
+check("the paywall raises no page errors", crashes.length===0, crashes.join(" | "));
+
 await browser.close(); server.close();
 report();
 

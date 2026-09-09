@@ -50,6 +50,7 @@ export default function ProfileScreen() {
   const { state, saveProfile, reset } = useStore();
   const reminders = useReminders();
   const cloud = useCloud();
+  const router = useRouter();
 
   // Seeded empty and filled once the store has loaded from disk: reading state
   // on the first render caught the profile before it hydrated, so the fields
@@ -311,6 +312,38 @@ export default function ProfileScreen() {
             style={{ marginTop: space.md }}
           />
         </Card>
+
+        {/* the way in to the subscription — a paywall nobody can reach is not
+            a paywall, and this is the screen people look for it on */}
+        <Pressable onPress={() => router.push("/paywall")} accessibilityRole="button">
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.accentWash,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="sparkles" size={20} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type.title, { color: colors.ink }]}>
+                  {locale === "he" ? "APEX Pro" : "APEX Pro"}
+                </Text>
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {locale === "he"
+                    ? "כל האפליקציה בלי גבולות · שבוע ראשון חינם"
+                    : "The whole app, no limits · first week free"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+            </View>
+          </Card>
+        </Pressable>
 
         <PrivacyCard cloud={cloud} />
 

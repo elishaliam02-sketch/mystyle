@@ -439,8 +439,9 @@ async function handleWebhook(req: Request): Promise<Response> {
   // primary key on event_id is what makes the claim atomic.
   const claim = await db.from("billing_events").insert({ event_id: eventId, type });
   if (claim.error) {
-    // Already recorded (unique violation) — or the table is unreachable. Either
-    // way, do not apply it twice. A 200 stops Stripe retrying a duplicate.
+    // A unique violation means Stripe has sent this one before: acknowledge it
+    // and do not apply it twice. Anything else is our problem, not Stripe's,
+    // and must not be acknowledged — a 200 here would lose the event for good.
     const duplicate = String(claim.error.code ?? "") === "23505";
     if (duplicate) return json({ received: true, duplicate: true });
     console.error("billing_events insert failed", claim.error.code);
