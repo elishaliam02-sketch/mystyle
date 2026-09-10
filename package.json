@@ -70,6 +70,7 @@
     "test:tasks": "node scripts/run-task-tests.mjs",
     "test:rewards": "node scripts/run-reward-tests.mjs",
     "test:legal": "node scripts/run-legal-tests.mjs",
+    "test:gate": "node scripts/run-gate-tests.mjs",
     "test:billing": "node scripts/run-billing-tests.mjs",
     "test:export": "node scripts/run-export-tests.mjs",
     "licenses": "node scripts/gen-licenses.mjs"

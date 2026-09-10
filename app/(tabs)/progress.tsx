@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, type BodyPart } from "@/body";
@@ -738,7 +739,7 @@ function BodyFatCard() {
 function PhotosCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addPhoto, removePhoto } = useStore();
+  const { state, addPhoto, removePhoto, allowance } = useStore();
   const [note, setNote] = useState<string | null>(null);
 
   const photos = state.photos ?? [];
@@ -754,6 +755,9 @@ function PhotosCard() {
     sex: state.profile.sex as Sex | undefined,
   });
   const canPick = Platform.OS !== "web";
+  // Only *taking* another one is capped. The roll below, and its per-photo
+  // delete, stay exactly as they are — deleting is how room is made.
+  const canAdd = allowance("progressPhotos").ok;
 
   const pick = async (fromCamera: boolean) => {
     setNote(null);
@@ -791,10 +795,17 @@ function PhotosCard() {
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.progress.photosUnavailable}
         </Text>
+      ) : canAdd ? (
+        <View style={{ gap: space.xs, marginTop: space.md }}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
+            <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+          </View>
+          <ProRemaining feature="progressPhotos" />
+        </View>
       ) : (
-        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-          <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
-          <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+        <View style={{ marginTop: space.md }}>
+          <ProGate feature="progressPhotos" />
         </View>
       )}
 

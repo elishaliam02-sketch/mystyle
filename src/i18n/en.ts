@@ -861,6 +861,17 @@ export const en: typeof he = {
   },
 
   common: {
+    proLocked: "This opens with Pro",
+    proSee: "First week free",
+    proLeftOne: "One left today",
+    proLeftDay: "{n} left today",
+    proLeftTotal: "{n} left",
+    proHabits: "You are at {limit} habits — the free maximum. Pro has no limit.",
+    proCoach: "You have used today's {limit} answers. Pro asks without a limit.",
+    proMealPhoto: "You have photographed today's meal. Pro reads every meal.",
+    proPhotos: "You have {limit} photos — the free maximum. Pro has no limit.",
+    proCustom: "You have added {limit} of your own — the free maximum. Pro has no limit.",
+    proCloud: "Cloud backup and syncing between devices come with Pro.",
     save: "Save",
     savedOk: "Saved ✓",
     undo: "Undo",

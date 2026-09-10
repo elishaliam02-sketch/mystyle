@@ -9,6 +9,8 @@ import { PillButton } from "@/components/PillButton";
 import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { supabase } from "@/cloud/client";
+import { parseEntitlement } from "@/cloud/entitlementPort";
+import { useStore } from "@/store";
 import { useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 import {
@@ -179,6 +181,7 @@ const COPY: Record<"he" | "en", Copy> = {
 
 export default function PaywallScreen() {
   const { t, locale } = useI18n();
+  const { setSubscription } = useStore();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
 
@@ -200,14 +203,19 @@ export default function PaywallScreen() {
         const { data: session } = await db.auth.getSession();
         if (!session.session) return;
         const { data, error } = await db.functions.invoke("billing", { body: { action: "status" } });
-        if (!alive || error || !data || typeof data !== "object") return;
-        const row = data as { status?: unknown; currentPeriodEnd?: unknown; trialEndsAt?: unknown };
+        if (!alive || error) return;
+        const row = parseEntitlement(data);
+        if (!row) return;
         setSub({
           nowIso: new Date().toISOString(),
-          status: typeof row.status === "string" ? (row.status as EntitlementState["status"]) : "none",
-          currentPeriodEnd: typeof row.currentPeriodEnd === "string" ? row.currentPeriodEnd : null,
-          trialEndsAt: typeof row.trialEndsAt === "string" ? row.trialEndsAt : null,
+          status: row.status,
+          currentPeriodEnd: row.currentPeriodEnd ?? null,
+          trialEndsAt: row.trialEndsAt ?? null,
         });
+        // Someone who just subscribed came back to this screen; the rest of the
+        // app must not still think they are on the free tier while they are
+        // looking at proof that they are not.
+        setSubscription(row);
       } catch {
         // A pricing screen that crashes because a status call failed would be
         // worse than one that simply shows the price.

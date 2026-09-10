@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
 import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { askServer } from "@/ai/server";
 import { mealLabel, mealPhotoPrompt, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
 import { dailyTarget } from "@/kitchen";
@@ -31,12 +32,16 @@ type Phase =
 export function MealScanner() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal, state, goal: goalOf, todayIntake } = useStore();
+  const { logMeal, state, goal: goalOf, todayIntake, allowance, noteUsed } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 
   const canPick = Platform.OS !== "web";
+  const canScan = allowance("mealPhoto").ok;
 
   async function scan(fromCamera: boolean) {
+    // Checked before the camera or the picker opens: nobody should frame a
+    // plate, take the shot and only then be told it will not be read.
+    if (!allowance("mealPhoto").ok) return;
     try {
       const opts = { quality: 0.5, base64: true } as const;
       let res;
@@ -75,6 +80,10 @@ export function MealScanner() {
         setPhase({ kind: "failed", reason: "unreadable" });
         return;
       }
+      // A photograph was read and came back as food. Anything short of this —
+      // a cancelled picker, a refused camera, a server that never answered, a
+      // reply we could not parse — cost them nothing and is not counted.
+      noteUsed("mealPhoto");
       setPhase({ kind: "read", uri: asset.uri, analysis });
     } catch {
       setPhase({ kind: "failed", reason: "unavailable" });
@@ -105,10 +114,24 @@ export function MealScanner() {
         </Text>
       ) : phase.kind === "idle" || phase.kind === "failed" || phase.kind === "saved" ? (
         <>
-          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-            <PillButton icon="camera" label={t.scan.take} onPress={() => scan(true)} style={{ flex: 1 }} />
-            <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
-          </View>
+          {/* At the daily limit the two buttons are replaced outright, rather
+              than left on screen to open a camera whose picture we will not
+              read. What was already scanned and saved today stays below. */}
+          {canScan ? (
+            <>
+              <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+                <PillButton icon="camera" label={t.scan.take} onPress={() => scan(true)} style={{ flex: 1 }} />
+                <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
+              </View>
+              <View style={{ marginTop: space.sm }}>
+                <ProRemaining feature="mealPhoto" />
+              </View>
+            </>
+          ) : (
+            <View style={{ marginTop: space.md }}>
+              <ProGate feature="mealPhoto" />
+            </View>
+          )}
           {phase.kind === "failed" ? (
             <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>
               {phase.reason === "quota"

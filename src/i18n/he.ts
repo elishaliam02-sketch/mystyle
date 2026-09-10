@@ -869,6 +869,17 @@ export const he = {
   },
 
   common: {
+    proLocked: "זה נפתח ב-Pro",
+    proSee: "שבוע ראשון חינם",
+    proLeftOne: "נשאר לך אחד היום",
+    proLeftDay: "נשארו לך {n} היום",
+    proLeftTotal: "נשארו לך {n}",
+    proHabits: "הגעת ל-{limit} הרגלים — המקסימום בחינם. ב-Pro אין הגבלה.",
+    proCoach: "השתמשת ב-{limit} התשובות של היום. ב-Pro אפשר לשאול בלי הגבלה.",
+    proMealPhoto: "צילמת את הארוחה של היום. ב-Pro אפשר לצלם כל ארוחה.",
+    proPhotos: "יש לך {limit} תמונות — המקסימום בחינם. ב-Pro אין הגבלה.",
+    proCustom: "הוספת {limit} תרגילים משלך — המקסימום בחינם. ב-Pro אין הגבלה.",
+    proCloud: "גיבוי בענן וסנכרון בין מכשירים זמינים ב-Pro.",
     save: "שמור",
     savedOk: "נשמר ✓",
     undo: "בטל",

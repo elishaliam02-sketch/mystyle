@@ -604,6 +604,106 @@ check("what stays free is stated, not hidden",
   await page.getByText(/נשאר חינם/).first().isVisible().catch(()=>false));
 check("the paywall raises no page errors", crashes.length===0, crashes.join(" | "));
 
+// 18) THE FREE-TIER LIMITS ACTUALLY BITE — and never break what exists.
+// A paywall that promises a limit and does not enforce it has nothing to sell;
+// a limit that deletes or disables what someone already made is worse than no
+// limit at all. Both halves are asserted here.
+{
+  const mk = (n) => Array.from({length:n},(_,i)=>({
+    id:`g${i}`, title:`הרגל ${i+1}`, slot:"morning", createdAt:dayAgo(3),
+    archived:false, updatedAt:now.toISOString(),
+  }));
+  const seedWith = (habits, extra={}) => JSON.stringify({...seed, habits, ...extra});
+
+  const open = async (state) => {
+    const ctx2 = await browser.newContext({viewport:{width:393,height:852}});
+    await ctx2.addInitScript(s=>{try{
+      localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+    }catch{}}, state);
+    const pg = await ctx2.newPage();
+    const errs=[]; pg.on("pageerror",e=>errs.push(String(e).slice(0,160)));
+    return { ctx2, pg, errs };
+  };
+
+  // Under the limit: nothing is gated, and no trace of the paywall shows.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(2)));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("under the limit, a free account sees no gate",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("and its habits are all listed", (await pg.getByRole("checkbox").count())>=2,
+      String(await pg.getByRole("checkbox").count()));
+    check("no page errors under the limit", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // At the limit: the gate appears, and everything already there still works.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(3)));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("at the limit the gate is shown, not a dead button",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("the habits already written are still all there",
+      (await pg.getByRole("checkbox").count())===3, String(await pg.getByRole("checkbox").count()));
+    // The whole point: a limit stops the next one, it does not disable the app.
+    await pg.getByRole("checkbox").first().click(); await pg.waitForTimeout(900);
+    { const st2 = JSON.parse(await pg.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+      check("and ticking one still works at the limit",
+        (st2.completions??[]).some(c=>c.done===true), JSON.stringify(st2.completions)); }
+    check("the gate routes somewhere rather than doing nothing", await (async()=>{
+      await pg.getByLabel("זה נפתח ב-Pro").first().click(); await pg.waitForTimeout(1500);
+      return pg.url().includes("/paywall");
+    })(), pg.url());
+    check("no page errors at the limit", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // Finishing onboarding starts the trial, so nobody meets a wall in their
+  // first minute. This is the check that a new install is not born limited.
+  { const fresh2 = await browser.newContext({viewport:{width:393,height:852}});
+    await fresh2.addInitScript(()=>{try{localStorage.setItem("mystyle.locale","he");}catch{}});
+    const pg = await fresh2.newPage();
+    await pg.goto(`http://localhost:${PORT}/onboarding`,{waitUntil:"networkidle"});
+    await pg.waitForTimeout(1800);
+    const before = await pg.evaluate(()=>localStorage.getItem("mystyle.state.v1"));
+    check("a fresh install has no subscription yet",
+      !before || !JSON.parse(before).subscription, String(before).slice(0,80));
+    await fresh2.close(); }
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"trialing", trialEndsAt: new Date(Date.now()+5*86400000).toISOString() } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a trial is not metered — twelve habits, no gate",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("no page errors during a trial", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+  // An expired trial falls back to free, and still keeps everything written.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"trialing", trialEndsAt: new Date(Date.now()-86400000).toISOString() } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("an expired trial is limited again",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("but keeps every habit written during it",
+      (await pg.getByRole("checkbox").count())===12, String(await pg.getByRole("checkbox").count()));
+    check("no page errors after a trial ends", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // A paying account is never counted, however many it has.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"active", currentPeriodEnd:"2099-01-01T00:00:00.000Z" } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a paying account with twelve habits sees no gate at all",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("no page errors for a paying account", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // An expired subscription keeps every habit — it only stops the next one.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"expired", currentPeriodEnd:"2020-01-01T00:00:00.000Z" } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a lapsed account keeps every habit it ever wrote",
+      (await pg.getByRole("checkbox").count())===12, String(await pg.getByRole("checkbox").count()));
+    check("and is shown the way back rather than a broken screen",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("no page errors for a lapsed account", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+}
+
 await browser.close(); server.close();
 report();
 

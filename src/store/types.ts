@@ -233,6 +233,18 @@ export type AppState = {
   /** Exercise id → the YouTube id resolved for its form demo, so the exact
    * video opens instantly on every tap after the first, and offline too. */
   videoIds?: Record<string, string>;
+  /** What the billing server last told us about this account. Written only by
+   * a sync; the app never edits it, because an entitlement the phone can set
+   * is an entitlement anyone can set. */
+  subscription?: {
+    status: "none" | "trialing" | "active" | "past_due" | "canceled" | "expired";
+    plan?: string;
+    currentPeriodEnd?: string;
+    trialEndsAt?: string;
+  };
+  /** date (YYYY-MM-DD) → how many of each metered thing was used that day.
+   * Only the days that were used are kept, so it stays small. */
+  usage?: Record<string, { coach?: number; mealPhoto?: number }>;
 };
 
 export const EMPTY_STATE: AppState = {
@@ -318,6 +330,8 @@ export function migrateState(raw: unknown): AppState {
     dietFilter: s.dietFilter,
     favorites: s.favorites,
     videoIds: s.videoIds,
+    subscription: s.subscription,
+    usage: s.usage,
     steps: s.steps,
     stepGoal: s.stepGoal,
     salt: s.salt,

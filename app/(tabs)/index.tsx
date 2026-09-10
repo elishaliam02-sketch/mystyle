@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -383,7 +384,7 @@ export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, toggleCompletion, readyForAnotherHabit } = useStore();
+  const { state, isDone, toggleCompletion, readyForAnotherHabit, allowance } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -417,6 +418,9 @@ export default function TodayScreen() {
   }
 
   const ready = readyForAnotherHabit();
+  // Only the *next* habit is ever refused: the list above is untouched by this,
+  // and every habit already there stays tickable, openable and editable.
+  const canAdd = allowance("habits").ok;
 
   return (
     <Screen
@@ -502,13 +506,23 @@ export default function TodayScreen() {
         <Text style={[type.small, { color: colors.inkSoft }]}>
           {ready ? t.today.readyBody : t.today.holdBody}
         </Text>
-        <Button
-          icon="add"
-          label={t.today.addCta}
-          tone={ready ? "primary" : "quiet"}
-          onPress={() => router.push("/habit/new")}
-          style={{ marginTop: space.xs }}
-        />
+        {/* The invitation to add one stays as it was; at the free ceiling the
+            button is replaced by the card that says which limit was hit, rather
+            than left on screen doing nothing. */}
+        {canAdd ? (
+          <>
+            <Button
+              icon="add"
+              label={t.today.addCta}
+              tone={ready ? "primary" : "quiet"}
+              onPress={() => router.push("/habit/new")}
+              style={{ marginTop: space.xs }}
+            />
+            <ProRemaining feature="habits" />
+          </>
+        ) : (
+          <ProGate feature="habits" />
+        )}
       </View>
     </Screen>
   );

@@ -20,6 +20,7 @@ import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
 import { eatIntent, eatenLabel, parseEaten } from "@/coach/logfood";
 import { askServer } from "@/ai/server";
 import { AiNote } from "@/components/AiNote";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { dailyTarget } from "@/kitchen";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
@@ -48,6 +49,8 @@ export default function CoachScreen() {
     todaySteps,
     stepGoal,
     logMeal,
+    allowance,
+    noteUsed,
   } = useStore();
 
   const [draft, setDraft] = useState("");
@@ -99,6 +102,16 @@ export default function CoachScreen() {
   async function ask(question: string) {
     const q = question.trim();
     if (!q) return;
+
+    // Asked before a word of work is done, so a refused question never costs a
+    // reply. The thread above stays exactly as it is — the limit is on the next
+    // answer, not on the conversation already had — and the send button leads
+    // to the paywall rather than sitting there doing nothing.
+    if (!allowance("coach").ok) {
+      router.push("/paywall");
+      return;
+    }
+
     const lang = locale === "he" ? "he" : "en";
 
     // If the person is telling the coach what they ate, log it and confirm with
@@ -150,6 +163,11 @@ export default function CoachScreen() {
     if (answer.ok) {
       setTurns((prev) => prev.map((t) => (t.id === answerId ? { ...t, text: answer.text } : t)));
       requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+      // The only point at which a model actually answered. Everything below
+      // this line is the on-device coach standing in for one — free to us, so
+      // free to them; charging a reply for our server being unreachable would
+      // take the day's quota for nothing.
+      noteUsed("coach");
       return;
     }
     // The answer above it is the on-device coach's, and it is a real answer —
@@ -256,6 +274,12 @@ export default function CoachScreen() {
         ]}
       >
         {aiOff && !thinking ? <AiNote state="declined" /> : null}
+
+        {/* Above the composer, never over the thread: the conversation stays
+            readable and scrollable while the card says why the next question
+            is not going anywhere. */}
+        <ProGate feature="coach" />
+        <ProRemaining feature="coach" />
 
         {thinking ? (
           <Text style={[type.small, { color: colors.inkFaint }]}>{t.coach.thinking}</Text>

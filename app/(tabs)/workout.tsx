@@ -9,6 +9,7 @@ import { ExerciseThumb } from "@/components/ExerciseThumb";
 import { MuscleMap } from "@/components/MuscleMap";
 import { view, worked } from "@/workout/muscles";
 import { HeroCard } from "@/components/HeroCard";
+import { ProGate } from "@/components/ProGate";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
@@ -1364,14 +1365,20 @@ function AddExercise({
 }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const { allowance } = useStore();
   const [name, setName] = useState("");
   const [yt, setYt] = useState("");
   const [muscle, setMuscle] = useState<Muscle>("core");
   const [added, setAdded] = useState<string | null>(null);
 
+  // The same ceiling the library's "add your own" is under — two doors, one
+  // limit — and it stops only the next move, not the ones already saved.
+  const canAdd = allowance("customExercises").ok;
+
   function add() {
     const clean = name.trim();
     if (!clean) return;
+    if (!canAdd) return;
     const id = `custom-${Date.now().toString(36)}`;
     onAdd({
       id,
@@ -1433,13 +1440,13 @@ function AddExercise({
           placeholder="squat form"
         />
       </View>
-      <Button
-        icon="add"
-        label={t.workout.addSave}
-        onPress={add}
-        disabled={!name.trim()}
-        style={{ marginTop: space.md }}
-      />
+      <View style={{ marginTop: space.md }}>
+        {canAdd ? (
+          <Button icon="add" label={t.workout.addSave} onPress={add} disabled={!name.trim()} />
+        ) : (
+          <ProGate feature="customExercises" />
+        )}
+      </View>
       {added ? (
         <Text style={[type.smallStrong, { color: colors.accent, marginTop: space.sm }]}>
           {added} · {t.common.savedOk}

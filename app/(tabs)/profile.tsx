@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-nat
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ProGate } from "@/components/ProGate";
 import { ConsentSwitch } from "@/components/ConsentSwitch";
 import { Screen } from "@/components/Screen";
 import { SupportSignpost } from "@/components/SupportSignpost";
@@ -382,7 +383,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
   const router = useRouter();
-  const { state, consent, setConsent, reset } = useStore();
+  const { state, consent, setConsent, reset, allowance } = useStore();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const choices = consent();
@@ -439,12 +440,23 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.legal.consentBody}</Text>
 
       <View style={{ gap: space.sm, marginTop: space.md }}>
-        <ConsentSwitch
-          label={t.legal.cloudLabel}
-          body={t.legal.cloudBody}
-          value={choices.cloud}
-          onChange={(next) => setConsent({ cloud: next })}
-        />
+        {/* Backing the data up is the server bill, so it is the paid tier —
+            but signing in is not, because an account is what you subscribe
+            *with*. Turning it off is always allowed: a limit may stop a thing
+            starting, never stop it stopping. */}
+        {allowance("cloudBackup").ok || choices.cloud ? (
+          <ConsentSwitch
+            label={t.legal.cloudLabel}
+            body={t.legal.cloudBody}
+            value={choices.cloud}
+            onChange={(next) => setConsent({ cloud: next })}
+          />
+        ) : (
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.smallStrong, { color: colors.ink }]}>{t.legal.cloudLabel}</Text>
+            <ProGate feature="cloudBackup" />
+          </View>
+        )}
         <ConsentSwitch
           label={t.legal.aiLabel}
           body={t.legal.aiBody}

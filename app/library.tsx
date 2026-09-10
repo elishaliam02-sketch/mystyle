@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-nat
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ExerciseThumb } from "@/components/ExerciseThumb";
+import { ProGate } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -27,7 +28,7 @@ export default function LibraryScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, addExerciseToday, removeExerciseToday, todayExtras, addCustomExercise } =
+  const { state, addExerciseToday, removeExerciseToday, todayExtras, addCustomExercise, allowance } =
     useStore();
 
   const [query, setQuery] = useState("");
@@ -39,6 +40,9 @@ export default function LibraryScreen() {
 
   const custom = state.training?.custom ?? [];
   const chosen = todayExtras();
+  // Only adding the next one is limited: every move already in `custom` stays
+  // in the list above, searchable and addable to today's session as before.
+  const canAddOwn = allowance("customExercises").ok;
 
   const muscleLabel: Record<Muscle, string> = {
     chest: t.workout.muscleChest,
@@ -76,6 +80,7 @@ export default function LibraryScreen() {
   function addOwn() {
     const name = ownName.trim();
     if (!name) return;
+    if (!canAddOwn) return;
     // A stable id from the name, so adding the same move twice is a no-op
     // rather than a second identical row in the library.
     const id = `own-${name.replace(/\s+/g, "-").toLowerCase()}`;
@@ -245,13 +250,18 @@ export default function LibraryScreen() {
               />
             ))}
           </View>
-          <Button
-            icon="add"
-            label={t.library.ownAdd}
-            onPress={addOwn}
-            disabled={!ownName.trim()}
-            style={{ marginTop: space.md }}
-          />
+          <View style={{ marginTop: space.md }}>
+            {canAddOwn ? (
+              <Button
+                icon="add"
+                label={t.library.ownAdd}
+                onPress={addOwn}
+                disabled={!ownName.trim()}
+              />
+            ) : (
+              <ProGate feature="customExercises" />
+            )}
+          </View>
           {ownNote ? (
             <Text
               style={[
