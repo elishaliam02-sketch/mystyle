@@ -704,6 +704,53 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
     await ctx2.close(); }
 }
 
+// 19) THE CALORIE CALCULATOR — the counting that works with no key and no
+// network. This is the path most people will actually use, so it is asserted
+// end to end: search, add, step, total, and the row that lands in the diary.
+{
+  const cctx = await browser.newContext({viewport:{width:393,height:852}});
+  await cctx.addInitScript(s=>{try{
+    localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify({...seed, intake:{}}));
+  const cp = await cctx.newPage();
+  const cerr=[]; cp.on("pageerror",e=>cerr.push(String(e).slice(0,160)));
+  await cp.goto(`http://localhost:${PORT}/calc`,{waitUntil:"networkidle"});
+  await cp.waitForTimeout(1800);
+
+  check("the calculator opens", await cp.getByText("מחשבון קלוריות").first().isVisible().catch(()=>false));
+  check("it starts empty and says so",
+    await cp.getByText(/הצלחת ריקה/).first().isVisible().catch(()=>false));
+  check("and it cannot log an empty plate",
+    await cp.getByRole("button",{name:/רשום ליומן/}).first().isDisabled().catch(()=>false));
+
+  await cp.getByPlaceholder(/לדוגמה/).first().fill("ביצים"); await cp.waitForTimeout(700);
+  await cp.getByRole("button",{name:"ביצים"}).first().click(); await cp.waitForTimeout(600);
+  check("adding a food puts it on the plate",
+    await cp.getByText(/100 גרם/).first().isVisible().catch(()=>false));
+  check("one portion reads as one, in Hebrew that is a sentence",
+    (await cp.getByText("1 מנות").count())===0);
+
+  const readTotal = async () => Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+  const t1 = await readTotal();
+  check("a portion of eggs is its per-100 figure", t1 === 165, String(t1));
+  await cp.getByLabel("עוד מנה").first().click(); await cp.waitForTimeout(600);
+  const t2 = await readTotal();
+  check("one more portion doubles it exactly", t2 === 330, `${t1} -> ${t2}`);
+  await cp.getByLabel("פחות מנה").first().click(); await cp.waitForTimeout(600);
+  check("and stepping back down returns to where it was", (await readTotal()) === 165);
+
+  await cp.getByRole("button",{name:/רשום ליומן/}).first().click(); await cp.waitForTimeout(1200);
+  { const s2 = JSON.parse(await cp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    const rows = Object.values(s2.intake ?? {}).flat();
+    check("logging it writes exactly one diary row", rows.length === 1, JSON.stringify(rows));
+    check("with the calories the screen showed",
+      rows[0]?.kcal === 165, JSON.stringify(rows[0]));
+    check("and named after what was on the plate",
+      String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
+  check("the calculator raises no page errors", cerr.length===0, cerr.join(" | "));
+  await cctx.close();
+}
+
 await browser.close(); server.close();
 report();
 

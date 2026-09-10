@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "expo-router";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
@@ -50,6 +51,7 @@ const UNITS_KEY = "mystyle.kitchen.units";
 
 export default function KitchenScreen() {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const { colors, space, radius, type } = useTheme();
   const { state, setPantry, goal: goalOf, setGoal, setDietFilter, mealSeed, shuffleMeals } = useStore();
   const favorites = state.favorites ?? [];
@@ -225,6 +227,32 @@ export default function KitchenScreen() {
 
       {/* photograph the plate — the fastest way into the diary */}
       <MealScanner />
+
+      {/* The counting that always works, given its own way in rather than
+          living only inside the scanner's failure states. */}
+      <Pressable onPress={() => router.push("/calc")} accessibilityRole="button">
+        <Card>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.pill,
+                backgroundColor: colors.accentWash,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="calculator" size={21} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.title, { color: colors.ink }]}>{t.kitchen.calcTitle}</Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.calcBody}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+          </View>
+        </Card>
+      </Pressable>
 
       {/* log anything you ate, not just the curated dishes */}
       <QuickLog goalKcal={goalKcal} />

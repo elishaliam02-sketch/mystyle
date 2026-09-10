@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -34,6 +35,7 @@ export function MealScanner() {
   const { colors, space, radius, type } = useTheme();
   const { logMeal, state, goal: goalOf, todayIntake, allowance, noteUsed } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const router = useRouter();
 
   const canPick = Platform.OS !== "web";
   const canScan = allowance("mealPhoto").ok;
@@ -109,9 +111,16 @@ export function MealScanner() {
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.scan.body}</Text>
 
       {!canPick ? (
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-          {t.scan.phoneOnly}
-        </Text>
+        <View style={{ gap: space.sm, marginTop: space.sm }}>
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.scan.phoneOnly}</Text>
+          <PillButton
+            tone="soft"
+            icon="calculator"
+            label={t.kitchen.calcOpen}
+            onPress={() => router.push("/calc")}
+            style={{ alignSelf: "flex-start" }}
+          />
+        </View>
       ) : phase.kind === "idle" || phase.kind === "failed" || phase.kind === "saved" ? (
         <>
           {/* At the daily limit the two buttons are replaced outright, rather
@@ -126,6 +135,15 @@ export function MealScanner() {
               <View style={{ marginTop: space.sm }}>
                 <ProRemaining feature="mealPhoto" />
               </View>
+              <Pressable
+                onPress={() => router.push("/calc")}
+                accessibilityRole="button"
+                style={{ marginTop: space.sm }}
+              >
+                <Text style={[type.smallStrong, { color: colors.accent }]}>
+                  {t.kitchen.calcOpen} · {t.kitchen.calcHint}
+                </Text>
+              </Pressable>
             </>
           ) : (
             <View style={{ marginTop: space.md }}>
@@ -133,17 +151,29 @@ export function MealScanner() {
             </View>
           )}
           {phase.kind === "failed" ? (
-            <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>
-              {phase.reason === "quota"
-                ? t.scan.quota
-                : phase.reason === "unreadable"
-                  ? t.scan.unreadable
-                  : phase.reason === "denied"
-                    ? t.kitchen.cameraDenied
-                    : phase.reason === "off"
-                      ? t.scan.off
-                      : t.scan.unavailable}
-            </Text>
+            <View style={{ gap: space.sm, marginTop: space.sm }}>
+              <Text style={[type.small, { color: colors.orangeInk }]}>
+                {phase.reason === "quota"
+                  ? t.scan.quota
+                  : phase.reason === "unreadable"
+                    ? t.scan.unreadable
+                    : phase.reason === "denied"
+                      ? t.kitchen.cameraDenied
+                      : phase.reason === "off"
+                        ? t.scan.off
+                        : t.scan.unavailable}
+              </Text>
+              {/* Reading a photograph can fail for half a dozen reasons we do
+                  not control. Counting the meal by hand cannot, so every one of
+                  those endings offers it rather than stopping here. */}
+              <PillButton
+                tone="soft"
+                icon="calculator"
+                label={t.kitchen.calcOpen}
+                onPress={() => router.push("/calc")}
+                style={{ alignSelf: "flex-start" }}
+              />
+            </View>
           ) : null}
           {phase.kind === "saved" ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm }}>
@@ -207,6 +237,20 @@ export function MealScanner() {
             <Button icon="add-circle" label={t.scan.save} onPress={save} style={{ flex: 1 }} />
             <PillButton tone="soft" label={t.common.cancel} onPress={() => setPhase({ kind: "idle" })} />
           </View>
+          {/* A guess from a photograph is a starting point, not a verdict. This
+              opens the same list in the calculator, where every item and every
+              weight can be corrected before it reaches the diary. */}
+          <PillButton
+            tone="soft"
+            icon="create"
+            label={t.kitchen.calcFromPhoto}
+            onPress={() => {
+              const items = phase.analysis.items.map((i) => ({ label: i.label, grams: i.grams }));
+              setPhase({ kind: "idle" });
+              router.push({ pathname: "/calc", params: { items: JSON.stringify(items) } });
+            }}
+            style={{ alignSelf: "flex-start" }}
+          />
         </View>
       ) : null}
     </Card>
