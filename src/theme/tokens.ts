@@ -45,6 +45,12 @@ export type Colors = {
   /** Vibrant orange — time and intensity: the rest clock, session minutes,
    * pace, streaks, a personal best, calories. `orange` fills, `orangeInk`
    * writes. */
+  /** The effort family: time and cost. It is not the brand — that is crimson —
+   * so it needs a hue of its own, far from both. */
+  azure: string;
+  azureInk: string;
+  azureWash: string;
+  onAzure: string;
   orange: string;
   orangeInk: string;
   orangeWash: string;
@@ -87,7 +93,7 @@ export const palette: Record<"light" | "dark", Colors> = {
     surface: "#FFFFFF",
     surfaceAlt: "#E4E8ED",
     band: "#14171C",
-    bandTop: "#0B2C6B",
+    bandTop: "#3A0E15",
     bandBottom: "#0B0D10",
     bandInk: "#FFFFFF",
     bandInkSoft: "#A9B4C4",
@@ -97,10 +103,14 @@ export const palette: Record<"light" | "dark", Colors> = {
     inkFaint: "#6B7380",
     rule: "#E1E5EA",
     ruleStrong: "#C6CCD4",
-    accent: "#0B5CFF",
-    accentDeep: "#0A44C2",
-    accentWash: "#E9F0FF",
+    accent: "#D62330",
+    accentDeep: "#A81722",
+    accentWash: "#FDEFF0",
     onAccent: "#FFFFFF",
+    azure: "#0B5CFF",
+    azureInk: "#0B5CFF",
+    azureWash: "#E9F0FF",
+    onAzure: "#FFFFFF",
     orange: "#F55F00",
     orangeInk: "#B34400",
     orangeWash: "#FFEADD",
@@ -112,8 +122,8 @@ export const palette: Record<"light" | "dark", Colors> = {
     onLime: "#FFFFFF",
     alert: "#C23B00",
     alertDeep: "#8A2900",
-    heroFrom: "#1466FF",
-    heroTo: "#0A3AAE",
+    heroFrom: "#D62330",
+    heroTo: "#8E121C",
     shadow: "#14171C",
   },
   dark: {
@@ -121,7 +131,7 @@ export const palette: Record<"light" | "dark", Colors> = {
     surface: "#14181D",
     surfaceAlt: "#1D222A",
     band: "#0B0D10",
-    bandTop: "#0E2350",
+    bandTop: "#320B12",
     bandBottom: "#07080A",
     bandInk: "#F3F5F8",
     bandInkSoft: "#A3ADBB",
@@ -131,12 +141,16 @@ export const palette: Record<"light" | "dark", Colors> = {
     inkFaint: "#7C8695",
     rule: "#232830",
     ruleStrong: "#39404B",
-    accent: "#5B93FF",
-    accentDeep: "#8CB4FF",
-    accentWash: "#101E38",
+    accent: "#F04350",
+    accentDeep: "#FF6B75",
+    accentWash: "#2B1417",
     // Charcoal on a lifted blue, not white: a blue bright enough to read on a
     // black ground is too bright to carry white type.
     onAccent: "#07080A",
+    azure: "#5B93FF",
+    azureInk: "#5B93FF",
+    azureWash: "#101E38",
+    onAzure: "#07080A",
     orange: "#FF8A3C",
     orangeInk: "#FFA265",
     orangeWash: "#2A1809",
