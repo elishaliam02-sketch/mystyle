@@ -162,8 +162,8 @@ export const palette: Record<"light" | "dark", Colors> = {
     onLime: "#0B0D10",
     alert: "#FF7A2E",
     alertDeep: "#E0621B",
-    heroFrom: "#1A5BD8",
-    heroTo: "#0C2A6B",
+    heroFrom: "#D62330",
+    heroTo: "#7E1019",
     shadow: "#000000",
   },
 };
@@ -222,15 +222,15 @@ export function elevation(colors: Colors, level: 1 | 2 = 1) {
   };
 }
 
-/** The one accent gradient the whole app leans on — electric blue, lit-to-deep. */
+/** The one accent gradient the whole app leans on — crimson, lit-to-deep. */
 export function accentGradient(colors: Colors): [string, string] {
   return [colors.accent, colors.accentDeep];
 }
 
 /**
- * The signature "hero" surface: electric blue bleeding into charcoal, lit from
- * one corner. This is the app's one loud gesture — the day score, an intro, a
- * result. White text sits on it, and a blue glow underneath lifts it clear off
+ * The signature "hero" surface: crimson bleeding into charcoal, lit from one
+ * corner. This is the app's one loud gesture — the day score, an intro, a
+ * result. White text sits on it, and a red glow underneath lifts it clear off
  * the paper so a hero card feels like the front of a product, not a box.
  */
 export function heroGradient(colors: Colors): [string, string, string] {
