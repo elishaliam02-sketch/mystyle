@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -20,7 +21,7 @@ import { dayScore, scoreTier } from "@/insight/dayscore";
 import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT } from "@/theme";
-import { today, useStore } from "@/store";
+import { useStore } from "@/store";
 import { computeRewards, todayOnOffer } from "@/rewards";
 import { scanTask } from "@/tasks/difficulty";
 import { detectCategory, getSupport } from "@/support";
@@ -37,11 +38,11 @@ function TipOfTheDay() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone } = useStore();
+  const { state, isDone, todayKey } = useStore();
   const [offset, setOffset] = useState(0);
 
   const habits = state.habits.filter((h) => !h.archived);
-  const dayKey = today();
+  const dayKey = todayKey();
 
   const lines = habits.map((h) => ({
     title: h.title,
@@ -153,9 +154,9 @@ function RewardsEntry() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state } = useStore();
+  const { state, todayKey } = useStore();
 
-  const day = today();
+  const day = todayKey();
   const reward = computeRewards(state, day);
   const offer = todayOnOffer(state, day);
   const pct = Math.round((reward.intoLevel / reward.levelSpan) * 100);
@@ -219,7 +220,7 @@ function TodayHub() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, streak, todayIntake, todayWater, waterGoal, goal } = useStore();
+  const { state, isDone, streak, todayIntake, todayWater, waterGoal, goal, todayKey } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -230,7 +231,7 @@ function TodayHub() {
   const eaten = todayIntake().kcal;
   const water = todayWater();
   const wGoal = waterGoal();
-  const workoutDone = (state.training?.log[today()]?.length ?? 0) > 0;
+  const workoutDone = (state.training?.log[todayKey()]?.length ?? 0) > 0;
 
   // One number that ties the day together — the hook that makes the Today
   // screen worth opening. It climbs as habits are ticked, the session is done,
@@ -485,7 +486,7 @@ export default function TodayScreen() {
               <Text style={[type.title, { color: colors.ink }]}>{t.coach.entry}</Text>
               <Text style={[type.small, { color: colors.inkSoft }]}>{t.coach.entryHint}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+            <Chevron size={20} color={colors.inkFaint} />
           </View>
         </Card>
       </Pressable>

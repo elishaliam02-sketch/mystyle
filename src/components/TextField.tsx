@@ -13,6 +13,8 @@ type Props = {
   secureTextEntry?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   onSubmitEditing?: () => void;
+  /** A ceiling on length, so a pasted essay cannot become a habit title. */
+  maxLength?: number;
 };
 
 export function TextField({
@@ -26,6 +28,7 @@ export function TextField({
   secureTextEntry,
   autoCapitalize,
   onSubmitEditing,
+  maxLength,
 }: Props) {
   const { colors, space, radius, type } = useTheme();
   const { isRTL } = useI18n();
@@ -50,6 +53,7 @@ export function TextField({
         autoCapitalize={autoCapitalize ?? (keyboardType === "email-address" ? "none" : undefined)}
         autoCorrect={secureTextEntry || keyboardType === "email-address" ? false : undefined}
         onSubmitEditing={onSubmitEditing}
+        maxLength={maxLength}
         returnKeyType={onSubmitEditing ? "done" : undefined}
         // Numeric fields stay LTR even in Hebrew, or the digits read backwards.
         textAlign={keyboardType === "numeric" ? "left" : isRTL ? "right" : "left"}

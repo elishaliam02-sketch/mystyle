@@ -747,6 +747,24 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       rows[0]?.kcal === 165, JSON.stringify(rows[0]));
     check("and named after what was on the plate",
       String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
+  // a food outside the ~130-item library — pizza — must still be loggable
+  await cp.getByPlaceholder(/לדוגמה/).first().fill("פיצה"); await cp.waitForTimeout(600);
+  check("an unknown food offers a category to add it by",
+    (await cp.getByRole("button",{name:/פיצה · פחמימה/}).count())>0);
+  await cp.getByRole("button",{name:/פיצה · פחמימה/}).first().click(); await cp.waitForTimeout(600);
+  check("adding an unknown food puts it on the plate",
+    await cp.getByText("פיצה").first().isVisible().catch(()=>false));
+  // and its weight can be typed exactly, not only stepped
+  await cp.getByText(/גרם ·/).first().click(); await cp.waitForTimeout(400);
+  const gbox = cp.getByLabel("כמות בגרמים").first();
+  check("tapping the weight opens an exact-gram editor", (await gbox.count())>0);
+  if (await gbox.count()) {
+    await gbox.fill("250"); await cp.waitForTimeout(400);
+    await cp.mouse.click(20, 700); await cp.waitForTimeout(400);
+    const t = Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+    check("a typed weight recomputes the total", t === 325, String(t));
+  }
+
   check("the calculator raises no page errors", cerr.length===0, cerr.join(" | "));
   await cctx.close();
 }

@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -376,7 +377,7 @@ export default function ProfileScreen() {
                     : "The whole app, no limits · first week free"}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+              <Chevron size={20} color={colors.inkFaint} />
             </View>
           </Card>
         </Pressable>
@@ -524,7 +525,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
             })}
           >
             <Text style={[type.bodyStrong, { color: colors.accent, flex: 1 }]}>{label}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
+            <Chevron size={16} color={colors.inkFaint} />
           </Pressable>
         ))}
       </View>

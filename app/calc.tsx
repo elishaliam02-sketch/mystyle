@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/Button";
@@ -8,9 +8,10 @@ import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import {
-  addFood, fromAnalysis, label as calcLabel, portions, removeFood, step, total,
+  addFood, fromAnalysis, label as calcLabel, portions, removeFood, setGrams, step, total,
   type CalcItem,
 } from "@/kitchen/calc";
+import { adhocFood, type FoodTag } from "@/kitchen/data";
 import { dailyTarget, searchFoods } from "@/kitchen";
 import { recentMeals } from "@/kitchen/recent";
 import { fill, useI18n } from "@/i18n";
@@ -31,7 +32,7 @@ import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
  */
 export default function CalcScreen() {
   const { t, locale } = useI18n();
-  const { colors, space, radius, type } = useTheme();
+  const { colors, space, radius, type, font } = useTheme();
   const { logMeal, state, goal: goalOf, todayIntake, todayKey } = useStore();
   const router = useRouter();
   const params = useLocalSearchParams<{ items?: string }>();
@@ -52,6 +53,7 @@ export default function CalcScreen() {
   });
   const [q, setQ] = useState("");
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const hits = useMemo(() => (q.trim() ? searchFoods(q, 8) : []), [q]);
   const sums = total(items);
@@ -211,6 +213,46 @@ export default function CalcScreen() {
                 </Pressable>
               ))}
             </View>
+          ) : q.trim().length > 0 ? (
+            // The library is ~130 foods; a plate is not. When nothing matches,
+            // the typed word is still loggable — pick the closest category so
+            // the estimate lands in the right ballpark, the way the pantry and
+            // the photo path already accept a food the app has never seen.
+            <View style={{ gap: 6, marginTop: space.sm }}>
+              <Text style={[type.small, { color: colors.inkSoft }]}>
+                {fill(t.kitchen.calcAddUnknown, { q: q.trim() })}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                {([
+                  ["protein", t.kitchen.calcCatProtein],
+                  ["carb", t.kitchen.calcCatCarb],
+                  ["veg", t.kitchen.calcCatVeg],
+                  ["fat", t.kitchen.calcCatFat],
+                ] as [FoodTag, string][]).map(([tag, label]) => (
+                  <Pressable
+                    key={tag}
+                    onPress={() => {
+                      setItems((prev) => addFood(prev, adhocFood(q.trim().slice(0, 40), tag)));
+                      setQ("");
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${q.trim()} · ${label}`}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: radius.pill,
+                      backgroundColor: pressed ? colors.accent : colors.accentWash,
+                    })}
+                  >
+                    <Ionicons name="add" size={15} color={colors.accent} />
+                    <Text style={[type.smallStrong, { color: colors.accent }]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           ) : null}
         </Card>
 
@@ -243,12 +285,51 @@ export default function CalcScreen() {
                     <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
                       {locale === "he" ? item.food.he : item.food.en}
                     </Text>
-                    <Text style={[type.small, { color: colors.inkFaint }]}>
-                      {item.grams} {t.kitchen.calcGrams} ·{" "}
-                      {portions(item) === 1
-                        ? t.kitchen.calcPortionOne
-                        : fill(t.kitchen.calcPortions, { n: portions(item) })}
-                    </Text>
+                    {editing === item.food.id ? (
+                      // the ± steppers move by whole portions; typing here is
+                      // the escape hatch for an exact weight (180 g, not "two
+                      // portions of ninety")
+                      <TextInput
+                        value={String(item.grams)}
+                        onChangeText={(v) => {
+                          const n = Number(v.replace(/[^0-9]/g, ""));
+                          setItems((prev) => setGrams(prev, item.food.id, Number.isFinite(n) ? n : 0));
+                        }}
+                        onBlur={() => setEditing(null)}
+                        autoFocus
+                        keyboardType="number-pad"
+                        accessibilityLabel={t.kitchen.calcEditGrams}
+                        style={{
+                          alignSelf: "flex-start",
+                          minWidth: 64,
+                          marginTop: 2,
+                          paddingVertical: 3,
+                          paddingHorizontal: 8,
+                          borderRadius: radius.sm,
+                          backgroundColor: colors.surface,
+                          borderWidth: 1,
+                          borderColor: colors.accent,
+                          color: colors.ink,
+                          fontFamily: font.bodyMedium,
+                          fontSize: 14,
+                          textAlign: "center",
+                        }}
+                      />
+                    ) : (
+                      <Pressable
+                        onPress={() => setEditing(item.food.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.kitchen.calcEditGrams}
+                        hitSlop={6}
+                      >
+                        <Text style={[type.small, { color: colors.inkFaint }]}>
+                          {item.grams} {t.kitchen.calcGrams} ·{" "}
+                          {portions(item) === 1
+                            ? t.kitchen.calcPortionOne
+                            : fill(t.kitchen.calcPortions, { n: portions(item) })}
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
 
                   <Pressable

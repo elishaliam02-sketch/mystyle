@@ -727,14 +727,26 @@ export function foodNutrition(food: Food): { kcal: number; protein: number } {
  * so it can still be listed, drawn and counted — nothing the person writes is
  * simply ignored. Its id is prefixed so it never collides with a real food.
  */
-export function adhocFood(word: string): Food {
+export function adhocFood(word: string, tag: FoodTag = "carb"): Food {
+  // The colour follows the category so an added food still reads as what it
+  // is on the plate, rather than every unknown looking identical.
+  const color = COLOR_FOR_TAG[tag];
   return {
-    id: `x:${word}`,
-    tags: ["carb"],
+    id: `x:${tag}:${word}`,
+    tags: [tag],
     he: word,
     en: word,
     match: [],
     shape: "blob",
-    color: "#8AA0B4",
+    color,
   };
 }
+
+const COLOR_FOR_TAG: Record<FoodTag, string> = {
+  protein: "#C98A6B",
+  carb: "#D9B36A",
+  veg: "#7FB05A",
+  fruit: "#E27D9A",
+  fat: "#E8C36B",
+  dairy: "#EDE7DA",
+};

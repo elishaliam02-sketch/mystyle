@@ -65,6 +65,7 @@ export default function NewHabit() {
           placeholder={t.habit.placeholder}
           multiline
           autoFocus
+          maxLength={80}
         />
 
         {/* read back before it is even saved: how hard this task looks and

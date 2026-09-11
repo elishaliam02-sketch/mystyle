@@ -87,7 +87,7 @@ export default function RewardsScreen() {
             [
               [reward.todayPoints, t.rewards.todayTitle, colors.limeInk],
               [reward.weekPoints, t.rewards.weekTitle, colors.accent],
-              [reward.points, t.rewards.lifetimeTitle, colors.orangeInk],
+              [reward.points, t.rewards.lifetimeTitle, colors.azureInk],
             ] as const
           ).map(([value, label, tone]) => (
             <View key={label} style={{ flex: 1, alignItems: "center" }}>

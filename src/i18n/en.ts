@@ -437,6 +437,12 @@ export const en: typeof he = {
   },
 
   kitchen: {
+    calcAddUnknown: "Not on the list? Add \"{q}\" as:",
+    calcCatProtein: "Protein",
+    calcCatCarb: "Carb",
+    calcCatVeg: "Veg",
+    calcCatFat: "Fat",
+    calcEditGrams: "Weight in grams",
     recentTitle: "You ate recently",
     recentBody: "One tap logs it again.",
     recentOften: "×{n} days",
