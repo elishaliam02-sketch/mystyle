@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
+import { ProGate } from "@/components/ProGate";
 import { SupportPreview } from "@/components/SupportPreview";
 import { TaskScanPanel } from "@/components/TaskScan";
 import { TextField } from "@/components/TextField";
@@ -18,10 +19,14 @@ export default function NewHabit() {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { addHabit } = useStore();
+  const { addHabit, allowance } = useStore();
 
   const [title, setTitle] = useState("");
   const [slot, setSlot] = useState<Habit["slot"]>();
+
+  // This screen is reachable by its own URL, so the limit has to be answered
+  // here too — otherwise someone fills in the whole form and then finds out.
+  const canSave = allowance("habits").ok;
 
   function save() {
     const id = addHabit(title, slot);
@@ -85,7 +90,22 @@ export default function NewHabit() {
         <View style={{ flex: 1 }} />
 
         <View style={{ gap: space.sm }}>
-          <Button icon="checkmark" label={t.habit.save} onPress={save} disabled={!title.trim()} />
+          {canSave ? (
+            <>
+              {/* The same line onboarding shows: a greyed-out Save with no reason
+                  beside it reads as broken rather than as waiting on the field. */}
+              {!title.trim() ? (
+                <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
+                  {t.onboarding.step3NeedOne}
+                </Text>
+              ) : null}
+              <Button icon="checkmark" label={t.habit.save} onPress={save} disabled={!title.trim()} />
+            </>
+          ) : (
+            <ProGate feature="habits" />
+          )}
+          {/* Never gated: leaving is how someone gets back to the habits they
+              already have. */}
           <Button label={t.habit.cancel} tone="quiet" onPress={() => router.back()} />
         </View>
       </ScrollView>

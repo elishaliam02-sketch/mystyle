@@ -66,6 +66,7 @@ function hsl(hex: string): { hue: number; sat: number; light: number } {
  */
 const HUE_BANDS: [string, number, number][] = [
   ["electric violet", 232, 278],
+  ["azure", 195, 231],
   ["volt lime", 70, 95],
   ["hot orange", 12, 42],
 ];
@@ -85,11 +86,12 @@ for (const scheme of ["light", "dark"] as const) {
     const strays = (Object.entries(c) as [keyof Colors, string][])
       .filter(([, hex]) => family(hex) === null)
       .map(([k, hex]) => `${k}=${hex} (${Math.round(hsl(hex).hue)}°)`);
-    check(`${scheme}: every token is one of the four colours`, strays.length === 0, strays.join(", "));
+    check(`${scheme}: every token belongs to a named hue`, strays.length === 0, strays.join(", "));
   }
 
   // Each bright is present, and is the hue it claims to be.
   check(`${scheme}: accent is electric violet`, family(c.accent) === "electric violet", c.accent);
+  check(`${scheme}: azure is azure`, family(c.azure) === "azure", c.azure);
   check(`${scheme}: orange is hot orange`, family(c.orange) === "hot orange", c.orange);
   check(`${scheme}: lime is volt lime`, family(c.lime) === "volt lime", c.lime);
   // Charcoal is judged by chroma, not saturation: a near-white ink reads as

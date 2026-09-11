@@ -88,7 +88,9 @@ export default function Welcome() {
 
         <View style={{ gap: space.sm }}>
           <Button
-            icon="arrow-back"
+            // The arrow has to point the way the page reads, or it sends an
+            // English reader backwards on the very first tap.
+            icon={isRTL ? "arrow-back" : "arrow-forward"}
             label={t.welcome.start}
             onPress={() => router.replace("/onboarding")}
           />

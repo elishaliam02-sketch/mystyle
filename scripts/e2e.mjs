@@ -86,9 +86,12 @@ await page.getByLabel("הוסף כוס מים").click(); await settle();
 { const s=await st(); check("water + twice stores 2", (s.water?.[today]??0)===2, String(s.water?.[today])); }
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water − stores 1", (s.water?.[today]??0)===1, String(s.water?.[today])); }
-await page.getByLabel("הורד כוס מים").click(); await page.waitForTimeout(400);
 await page.getByLabel("הורד כוס מים").click(); await settle();
 { const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
+// at zero the − is a dead control unless it says so: it must be disabled, not
+// lit and unresponsive
+check("the − turns itself off at zero rather than doing nothing",
+  await page.getByLabel("הורד כוס מים").first().isDisabled().catch(()=>false));
 
 // 3b) WATER — the bottle shows a recommended range and a settable goal
 check("a recommended water range is shown",
@@ -112,7 +115,17 @@ await page.getByRole("button",{name:"שנה את הרשימה"}).first().click()
     (await listBox.inputValue()).includes("חזה עוף"), await listBox.inputValue()); }
 await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); await settle();
 
-// 4) KITCHEN — the goal chips visibly re-plate, not just re-sort
+// 4) KITCHEN — the goal chips visibly re-plate, not just re-sort.
+// For a returning user the set-once configuration now lives behind a settings
+// row, so that the food they log every day is what greets them; open it first.
+const openKitchenSettings = async () => {
+  if ((await page.getByText("חיטוב",{exact:true}).count())===0) {
+    await page.getByRole("button",{name:/הגדרות/}).first().click(); await settle();
+  }
+};
+await openKitchenSettings();
+check("the daily controls come before the set-once configuration",
+  await page.getByPlaceholder(/מה אכלת/).first().isVisible().catch(()=>false));
 { const plateText = async () => (await page.getByText(/^שילוב מהמצרכים שלך/).first().textContent().catch(()=>""))??"";
   await page.getByText("חיטוב",{exact:true}).first().click(); await settle();
   const cut = await plateText();
@@ -127,6 +140,7 @@ await page.getByRole("button",{name:"בנה לי מנות"}).first().click(); aw
   await page.getByText("חיטוב",{exact:true}).first().click(); await settle(); }
 
 // 4b) KITCHEN — the diet filter visibly removes dishes
+await openKitchenSettings();
 await page.getByText("כשר",{exact:true}).click(); await settle();
 { const s=await st(); check("diet filter persists", s.dietFilter==="kosher", s.dietFilter); }
 check("the kosher filter reports what it hid",
@@ -205,6 +219,19 @@ await page.getByLabel(/חזרות 2$/).first().fill("6"); await settle();
 { const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
   check("set 2 is a separate row, not an overwrite",
     sets[0]?.kg===72.5&&sets[1]?.kg===75&&sets[1]?.reps===6, JSON.stringify(sets)); }
+
+// 9a1) typing a weight key by key — the bug that made the set table unusable.
+// .fill() sets a value in one shot and never reproduced it; a person types.
+await kg1.fill(""); await page.waitForTimeout(200);
+await kg1.pressSequentially("62.5", { delay: 90 }); await settle();
+check("typing 62.5 one key at a time leaves 62.5 in the box",
+  (await kg1.inputValue())==="62.5", await kg1.inputValue());
+{ const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];
+  check("and 62.5 is what gets stored", sets[0]?.kg===62.5, String(sets[0]?.kg)); }
+await kg1.fill(""); await page.waitForTimeout(200);
+await kg1.pressSequentially("0", { delay: 90 }); await page.waitForTimeout(250);
+check("a typed zero is not swallowed", (await kg1.inputValue())==="0", await kg1.inputValue());
+await kg1.fill("72.5"); await page.waitForTimeout(250);
 
 // 9a2) an absurd weight is clamped, not stored raw
 await kg1.fill("999999"); await page.waitForTimeout(250);
@@ -311,8 +338,14 @@ await go("/profile");
 { const box = page.getByPlaceholder(/השם שלך|Your name/).first();
   const shown = await box.inputValue().catch(()=>"");
   check("the saved name is in the field on open", shown==="טסט", shown); }
-await page.getByRole("button",{name:"נשמר",exact:true}).first().click(); await settle();
+// The button used to be *labelled* "Saved" and produce no visible change at
+// all, so there was no way to tell whether a profile had ever been written.
+check("the save button asks to save rather than claiming it already did",
+  (await page.getByRole("button",{name:"נשמר",exact:true}).count())===0);
+await page.getByRole("button",{name:"שמור",exact:true}).first().click(); await settle();
 { const s=await st(); check("saving without editing keeps the name", s.profile.name==="טסט", s.profile.name); }
+check("and saving says so on screen",
+  await page.getByText("נשמר ✓").first().isVisible().catch(()=>false));
 
 // 16) KITCHEN — grams vs household units really change the amounts
 await go("/kitchen");
@@ -320,6 +353,7 @@ await go("/kitchen");
   const readAmounts = async () => (await page.getByText("מה צריך").first()
     .locator("xpath=..").innerText().catch(()=>"")) ?? "";
   const household = await readAmounts();
+  await openKitchenSettings();
   await page.getByText("גרמים",{exact:true}).first().click(); await settle();
   const grams = await readAmounts();
   check("switching to grams changes the amounts shown", grams !== household, `${household.slice(0,60)} → ${grams.slice(0,60)}`);
@@ -374,7 +408,7 @@ await page.getByRole("button",{name:"שמור",exact:true}).last().click(); awai
 // 20) PROFILE — an unhealthy goal weight cannot be stored, however it is tried
 await go("/profile");
 { const goalBox = box("קילוגרם");
-  const save = page.getByRole("button",{name:"נשמר",exact:true}).first();
+  const save = page.getByRole("button",{name:"שמור",exact:true}).first();
 
   await goalBox.fill("20"); await page.waitForTimeout(200);
   await save.click(); await settle();
@@ -455,7 +489,60 @@ check("the coach answers about the plan using the goal",
 { const t = await page.evaluate(()=>document.body.innerText);
   check("the coach quotes the weekly training frequency", /3 ימים בשבוע/.test(t), t.slice(0,200)); }
 
-// 14) THE CONSENT GATE — the one screen nobody may walk past.
+// 15) A BRAND-NEW ACCOUNT CAN BUILD A PLAN.
+// The complaint was "the user cannot build a plan": the logic was fine, the
+// button was buried under six cards of setup. This asserts it is reachable
+// without scrolling, in both modes, on a phone-sized viewport.
+{
+  const fresh = await browser.newContext({ viewport: { width: 393, height: 852 } });
+  await fresh.addInitScript((seed)=>{try{
+    const s=JSON.parse(seed); delete s.training;
+    localStorage.setItem("mystyle.state.v1",JSON.stringify(s));
+    localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify(seed));
+  const p2 = await fresh.newPage();
+  const boom=[]; p2.on("pageerror",e=>boom.push(String(e).slice(0,160)));
+  await p2.goto(`http://localhost:${PORT}/workout`,{waitUntil:"networkidle"});
+  await p2.waitForTimeout(1800);
+
+  const build = p2.getByRole("button",{name:/בנה לי תוכנית/}).first();
+  check("a new account is offered a build button", await build.isVisible().catch(()=>false));
+  // above the fold: inside the viewport before any scrolling
+  const box = await build.boundingBox().catch(()=>null);
+  check("and it is on screen without scrolling", !!box && box.y + box.height < 852,
+    JSON.stringify(box));
+
+  check("both ways of getting a plan are offered",
+    (await p2.getByRole("button",{name:"תבנה לי"}).count())>0 &&
+    (await p2.getByRole("button",{name:"אני אבנה"}).count())>0);
+
+  await build.click(); await p2.waitForTimeout(1400);
+  const st2 = JSON.parse(await p2.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("pressing it actually writes a plan", !!st2.training && st2.training.days>0,
+    JSON.stringify(st2.training??null));
+  // the plan is real when its set table is on screen, not just a heading
+  check("the built plan shows the exercises with their set tables",
+    (await p2.getByLabel(/ק.ג 1$/).count())>0);
+  check("every move in the plan carries a picture",
+    (await p2.getByLabel(/צפה בהדגמה/).count())>0);
+  // the picture is a body with the worked muscle lit, not a decorative tile:
+  // opening a move must name what it works, in words as well as in the drawing
+  await p2.getByRole("button",{name:/הצג הסבר/}).first().click();
+  await p2.waitForTimeout(700);
+  check("opening a move says which muscle it works",
+    await p2.getByText("עובד על").first().isVisible().catch(()=>false));
+  check("and names the muscles that help",
+    await p2.getByText(/ועוזרים:/).first().isVisible().catch(()=>false));
+  check("building a plan raises no page errors", boom.length===0, boom.join(" | "));
+
+  // and the self-built path leaves the days empty for the person to fill
+  await p2.getByRole("button",{name:"אני אבנה"}).first().click(); await p2.waitForTimeout(900);
+  check("switching to self-build offers a way to add a move to a day",
+    (await p2.getByRole("button",{name:"הוסף תרגיל ליום זה"}).count())>0);
+  await fresh.close();
+}
+
+// 16) THE CONSENT GATE — the one screen nobody may walk past.
 // Its own context, seeded without an acceptance: this is what a new install
 // and an existing user after a version bump both look like.
 {
@@ -495,7 +582,173 @@ check("the coach answers about the plan using the goal",
   check("the terms open and lead with the health disclaimer",
     await gate.getByText("זו לא עצה רפואית").first().isVisible().catch(()=>false));
 
+  await gate.close();
   await fresh.close();
+}
+
+// 17) THE PAYWALL — it must be reachable, honest, and never crash signed-out.
+await go("/profile");
+check("the subscription is reachable from the profile",
+  await page.getByText("APEX Pro").first().isVisible().catch(()=>false));
+await page.getByText("APEX Pro").first().click(); await page.waitForTimeout(1600);
+check("tapping it opens the paywall", page.url().includes("/paywall"), page.url());
+check("the paywall names both plans",
+  (await page.getByText("חודשי").count())>0 && (await page.getByText("שנתי").count())>0);
+check("the yearly plan shows what it saves",
+  await page.getByText(/חוסך \d+%/).first().isVisible().catch(()=>false));
+check("it says the subscription renews by itself",
+  await page.getByText(/מתחדש אוטומטית/).first().isVisible().catch(()=>false));
+check("and says how to cancel",
+  await page.getByText(/לביטול/).first().isVisible().catch(()=>false));
+check("what stays free is stated, not hidden",
+  await page.getByText(/נשאר חינם/).first().isVisible().catch(()=>false));
+check("the paywall raises no page errors", crashes.length===0, crashes.join(" | "));
+
+// 18) THE FREE-TIER LIMITS ACTUALLY BITE — and never break what exists.
+// A paywall that promises a limit and does not enforce it has nothing to sell;
+// a limit that deletes or disables what someone already made is worse than no
+// limit at all. Both halves are asserted here.
+{
+  const mk = (n) => Array.from({length:n},(_,i)=>({
+    id:`g${i}`, title:`הרגל ${i+1}`, slot:"morning", createdAt:dayAgo(3),
+    archived:false, updatedAt:now.toISOString(),
+  }));
+  const seedWith = (habits, extra={}) => JSON.stringify({...seed, habits, ...extra});
+
+  const open = async (state) => {
+    const ctx2 = await browser.newContext({viewport:{width:393,height:852}});
+    await ctx2.addInitScript(s=>{try{
+      localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+    }catch{}}, state);
+    const pg = await ctx2.newPage();
+    const errs=[]; pg.on("pageerror",e=>errs.push(String(e).slice(0,160)));
+    return { ctx2, pg, errs };
+  };
+
+  // Under the limit: nothing is gated, and no trace of the paywall shows.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(2)));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("under the limit, a free account sees no gate",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("and its habits are all listed", (await pg.getByRole("checkbox").count())>=2,
+      String(await pg.getByRole("checkbox").count()));
+    check("no page errors under the limit", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // At the limit: the gate appears, and everything already there still works.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(3)));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("at the limit the gate is shown, not a dead button",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("the habits already written are still all there",
+      (await pg.getByRole("checkbox").count())===3, String(await pg.getByRole("checkbox").count()));
+    // The whole point: a limit stops the next one, it does not disable the app.
+    await pg.getByRole("checkbox").first().click(); await pg.waitForTimeout(900);
+    { const st2 = JSON.parse(await pg.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+      check("and ticking one still works at the limit",
+        (st2.completions??[]).some(c=>c.done===true), JSON.stringify(st2.completions)); }
+    check("the gate routes somewhere rather than doing nothing", await (async()=>{
+      await pg.getByLabel("זה נפתח ב-Pro").first().click(); await pg.waitForTimeout(1500);
+      return pg.url().includes("/paywall");
+    })(), pg.url());
+    check("no page errors at the limit", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // Finishing onboarding starts the trial, so nobody meets a wall in their
+  // first minute. This is the check that a new install is not born limited.
+  { const fresh2 = await browser.newContext({viewport:{width:393,height:852}});
+    await fresh2.addInitScript(()=>{try{localStorage.setItem("mystyle.locale","he");}catch{}});
+    const pg = await fresh2.newPage();
+    await pg.goto(`http://localhost:${PORT}/onboarding`,{waitUntil:"networkidle"});
+    await pg.waitForTimeout(1800);
+    const before = await pg.evaluate(()=>localStorage.getItem("mystyle.state.v1"));
+    check("a fresh install has no subscription yet",
+      !before || !JSON.parse(before).subscription, String(before).slice(0,80));
+    await fresh2.close(); }
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"trialing", trialEndsAt: new Date(Date.now()+5*86400000).toISOString() } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a trial is not metered — twelve habits, no gate",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("no page errors during a trial", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+  // An expired trial falls back to free, and still keeps everything written.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"trialing", trialEndsAt: new Date(Date.now()-86400000).toISOString() } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("an expired trial is limited again",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("but keeps every habit written during it",
+      (await pg.getByRole("checkbox").count())===12, String(await pg.getByRole("checkbox").count()));
+    check("no page errors after a trial ends", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // A paying account is never counted, however many it has.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"active", currentPeriodEnd:"2099-01-01T00:00:00.000Z" } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a paying account with twelve habits sees no gate at all",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+    check("no page errors for a paying account", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+
+  // An expired subscription keeps every habit — it only stops the next one.
+  { const { ctx2, pg, errs } = await open(seedWith(mk(12), {
+      subscription:{ status:"expired", currentPeriodEnd:"2020-01-01T00:00:00.000Z" } }));
+    await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+    check("a lapsed account keeps every habit it ever wrote",
+      (await pg.getByRole("checkbox").count())===12, String(await pg.getByRole("checkbox").count()));
+    check("and is shown the way back rather than a broken screen",
+      (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
+    check("no page errors for a lapsed account", errs.length===0, errs.join(" | "));
+    await ctx2.close(); }
+}
+
+// 19) THE CALORIE CALCULATOR — the counting that works with no key and no
+// network. This is the path most people will actually use, so it is asserted
+// end to end: search, add, step, total, and the row that lands in the diary.
+{
+  const cctx = await browser.newContext({viewport:{width:393,height:852}});
+  await cctx.addInitScript(s=>{try{
+    localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify({...seed, intake:{}}));
+  const cp = await cctx.newPage();
+  const cerr=[]; cp.on("pageerror",e=>cerr.push(String(e).slice(0,160)));
+  await cp.goto(`http://localhost:${PORT}/calc`,{waitUntil:"networkidle"});
+  await cp.waitForTimeout(1800);
+
+  check("the calculator opens", await cp.getByText("מחשבון קלוריות").first().isVisible().catch(()=>false));
+  check("it starts empty and says so",
+    await cp.getByText(/הצלחת ריקה/).first().isVisible().catch(()=>false));
+  check("and it cannot log an empty plate",
+    await cp.getByRole("button",{name:/רשום ליומן/}).first().isDisabled().catch(()=>false));
+
+  await cp.getByPlaceholder(/לדוגמה/).first().fill("ביצים"); await cp.waitForTimeout(700);
+  await cp.getByRole("button",{name:"ביצים"}).first().click(); await cp.waitForTimeout(600);
+  check("adding a food puts it on the plate",
+    await cp.getByText(/100 גרם/).first().isVisible().catch(()=>false));
+  check("one portion reads as one, in Hebrew that is a sentence",
+    (await cp.getByText("1 מנות").count())===0);
+
+  const readTotal = async () => Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+  const t1 = await readTotal();
+  check("a portion of eggs is its per-100 figure", t1 === 165, String(t1));
+  await cp.getByLabel("עוד מנה").first().click(); await cp.waitForTimeout(600);
+  const t2 = await readTotal();
+  check("one more portion doubles it exactly", t2 === 330, `${t1} -> ${t2}`);
+  await cp.getByLabel("פחות מנה").first().click(); await cp.waitForTimeout(600);
+  check("and stepping back down returns to where it was", (await readTotal()) === 165);
+
+  await cp.getByRole("button",{name:/רשום ליומן/}).first().click(); await cp.waitForTimeout(1200);
+  { const s2 = JSON.parse(await cp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    const rows = Object.values(s2.intake ?? {}).flat();
+    check("logging it writes exactly one diary row", rows.length === 1, JSON.stringify(rows));
+    check("with the calories the screen showed",
+      rows[0]?.kcal === 165, JSON.stringify(rows[0]));
+    check("and named after what was on the plate",
+      String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
+  check("the calculator raises no page errors", cerr.length===0, cerr.join(" | "));
+  await cctx.close();
 }
 
 await browser.close(); server.close();

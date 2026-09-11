@@ -81,6 +81,14 @@ export default function CheckinScreen() {
     setDismissed(false);
   }
 
+  // Leaving edit mode has to be possible without saving, and the form goes back
+  // to the recap as it stands rather than keeping the abandoned draft.
+  function cancelEdit() {
+    setMood(existing?.mood ?? null);
+    setNote(existing?.note ?? "");
+    setEditing(false);
+  }
+
   function describe(adj: Adjustment): string | null {
     const habit = habits.find((h) => h.title === adj.habitTitle);
     if (!habit) return null;
@@ -108,6 +116,10 @@ export default function CheckinScreen() {
       updateHabit(habit.id, { slot: SLOT_WORDS[adj.slot] });
     } else if (adj.kind === "anchor" && adj.anchor) {
       updateHabit(habit.id, { anchor: adj.anchor });
+    } else {
+      // Nothing was changed — an "applied" note here would confirm a change
+      // that never happened.
+      return;
     }
     setApplied(true);
   }
@@ -161,7 +173,18 @@ export default function CheckinScreen() {
               />
             </View>
 
-            <Button icon="checkmark" label={t.checkin.save} onPress={save} disabled={!mood} style={{ marginTop: space.lg }} />
+            <View style={{ gap: space.sm, marginTop: space.lg }}>
+              {/* Save is greyed until a mood is picked — say which tap is missing. */}
+              {!mood ? (
+                <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
+                  {t.checkin.needMood}
+                </Text>
+              ) : null}
+              <Button icon="checkmark" label={t.checkin.save} onPress={save} disabled={!mood} />
+              {editing ? (
+                <Button label={t.common.cancel} tone="quiet" onPress={cancelEdit} />
+              ) : null}
+            </View>
           </Card>
         ) : (
           <>

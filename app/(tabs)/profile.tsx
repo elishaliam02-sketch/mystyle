@@ -6,10 +6,10 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-nat
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ProGate } from "@/components/ProGate";
 import { ConsentSwitch } from "@/components/ConsentSwitch";
 import { Screen } from "@/components/Screen";
 import { SupportSignpost } from "@/components/SupportSignpost";
-import { StubNote } from "@/components/StubNote";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { TextField } from "@/components/TextField";
@@ -53,6 +53,7 @@ export default function ProfileScreen() {
   const { state, saveProfile, reset } = useStore();
   const reminders = useReminders();
   const cloud = useCloud();
+  const router = useRouter();
 
   // Seeded empty and filled once the store has loaded from disk: reading state
   // on the first render caught the profile before it hydrated, so the fields
@@ -61,6 +62,7 @@ export default function ProfileScreen() {
   const [goal, setGoal] = useState("");
   const [height, setHeight] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   // Set once someone asks for a goal below the healthy floor, and left set:
   // the signpost stays for the rest of the visit rather than blinking away
   // with the error message.
@@ -112,7 +114,15 @@ export default function ProfileScreen() {
       }
     }
     saveProfile({ name: name.trim(), goalKg: kg, heightCm: cm });
-    setNote(null);
+    setNote(t.profile.savedNote);
+  }
+
+  // cloud.sync() silently drops a second call while one is in flight, so the
+  // button has to look busy rather than sit there looking tappable.
+  async function syncNow() {
+    setSyncing(true);
+    await cloud.sync();
+    setSyncing(false);
   }
 
   function confirmReset() {
@@ -141,20 +151,20 @@ export default function ProfileScreen() {
           <View style={{ gap: space.lg }}>
             <TextField
               value={name}
-              onChangeText={setName}
+              onChangeText={(v) => { setName(v); if (note) setNote(null); }}
               label={t.profile.nameTitle}
               placeholder={t.profile.namePlaceholder}
             />
             <TextField
               value={height}
-              onChangeText={setHeight}
+              onChangeText={(v) => { setHeight(v); if (note) setNote(null); }}
               label={t.profile.heightTitle}
               placeholder={t.profile.heightPlaceholder}
               keyboardType="numeric"
             />
             <TextField
               value={goal}
-              onChangeText={setGoal}
+              onChangeText={(v) => { setGoal(v); if (note) setNote(null); }}
               label={t.profile.goalTitle}
               placeholder={t.profile.goalPlaceholder}
               keyboardType="numeric"
@@ -166,10 +176,22 @@ export default function ProfileScreen() {
               </Text>
             ) : null}
             {note ? (
-              <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
+              <Text
+                style={[
+                  type.small,
+                  {
+                    // a confirmation is not a warning: the saved note is the
+                    // accent, everything else in this line is an error
+                    color: note === t.profile.savedNote ? colors.accent : colors.orangeInk,
+                    fontWeight: "700",
+                  },
+                ]}
+              >
+                {note}
+              </Text>
             ) : null}
             {needsSupport ? <SupportSignpost /> : null}
-            <Button label={t.profile.saved} onPress={persist} tone="quiet" />
+            <Button label={t.profile.saveAction} onPress={persist} tone="quiet" />
           </View>
         </Card>
 
@@ -319,18 +341,55 @@ export default function ProfileScreen() {
           ) : null}
           <Button
             icon="cloud-upload-outline"
-            label={t.profile.cloudSyncNow}
+            label={syncing ? t.profile.syncing : t.profile.cloudSyncNow}
             tone="quiet"
-            onPress={() => void cloud.sync()}
+            onPress={() => void syncNow()}
+            disabled={syncing}
             style={{ marginTop: space.md }}
           />
         </Card>
+
+        {/* the way in to the subscription — a paywall nobody can reach is not
+            a paywall, and this is the screen people look for it on */}
+        <Pressable onPress={() => router.push("/paywall")} accessibilityRole="button">
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.accentWash,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="sparkles" size={20} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type.title, { color: colors.ink }]}>
+                  {locale === "he" ? "APEX Pro" : "APEX Pro"}
+                </Text>
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {locale === "he"
+                    ? "כל האפליקציה בלי גבולות · שבוע ראשון חינם"
+                    : "The whole app, no limits · first week free"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+            </View>
+          </Card>
+        </Pressable>
 
         <PrivacyCard cloud={cloud} />
 
         <UpdatesCard />
 
-        <StubNote>{t.profile.localNote}</StubNote>
+        {/* ordinary footnote copy, not the unfinished-feature warning strip it
+            used to wear — users read that yellow bar as "this part is broken" */}
+        <Text style={[type.small, { color: colors.inkFaint, paddingHorizontal: space.xs }]}>
+          {t.profile.localNote}
+        </Text>
 
         <Card label={t.profile.dangerTitle}>
           <Text style={[type.small, { color: colors.inkSoft }]}>{t.profile.dangerBody}</Text>
@@ -359,7 +418,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
   const router = useRouter();
-  const { state, consent, setConsent, reset } = useStore();
+  const { state, consent, setConsent, reset, allowance } = useStore();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const choices = consent();
@@ -416,12 +475,23 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.legal.consentBody}</Text>
 
       <View style={{ gap: space.sm, marginTop: space.md }}>
-        <ConsentSwitch
-          label={t.legal.cloudLabel}
-          body={t.legal.cloudBody}
-          value={choices.cloud}
-          onChange={(next) => setConsent({ cloud: next })}
-        />
+        {/* Backing the data up is the server bill, so it is the paid tier —
+            but signing in is not, because an account is what you subscribe
+            *with*. Turning it off is always allowed: a limit may stop a thing
+            starting, never stop it stopping. */}
+        {allowance("cloudBackup").ok || choices.cloud ? (
+          <ConsentSwitch
+            label={t.legal.cloudLabel}
+            body={t.legal.cloudBody}
+            value={choices.cloud}
+            onChange={(next) => setConsent({ cloud: next })}
+          />
+        ) : (
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.smallStrong, { color: colors.ink }]}>{t.legal.cloudLabel}</Text>
+            <ProGate feature="cloudBackup" />
+          </View>
+        )}
         <ConsentSwitch
           label={t.legal.aiLabel}
           body={t.legal.aiBody}
@@ -612,7 +682,11 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   };
 
   async function submit() {
-    if (!email.trim() || password.length < 6) {
+    if (!email.trim()) {
+      setNote(t.account.errBadEmail);
+      return;
+    }
+    if (password.length < 6) {
       setNote(t.account.errWeakPassword);
       return;
     }
@@ -715,7 +789,7 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         )}
         <Button
           icon="log-out-outline"
-          label={t.account.signOut}
+          label={busy ? t.profile.cloudConnecting : t.account.signOut}
           tone="quiet"
           onPress={doSignOut}
           disabled={busy}
@@ -769,7 +843,13 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
 
       <Button
         icon="cloud-done-outline"
-        label={mode === "up" ? t.account.createCta : t.account.signInCta}
+        label={
+          busy
+            ? t.profile.cloudConnecting
+            : mode === "up"
+              ? t.account.createCta
+              : t.account.signInCta
+        }
         onPress={submit}
         disabled={busy}
         style={{ marginTop: space.md }}

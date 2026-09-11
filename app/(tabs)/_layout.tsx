@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
 import { View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MAX_CONTENT } from "@/components/Screen";
 import { useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
 
@@ -66,6 +67,13 @@ export default function TabsLayout() {
           height: 70 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(12, insets.bottom + 8),
+          // The body of every screen is held to one centred column; on a
+          // tablet or a desktop browser the bar has to stop with it, or seven
+          // tabs end up marooned at the far corners of a metre of glass. On a
+          // phone the width is already below the cap, so this is a no-op.
+          width: "100%",
+          maxWidth: MAX_CONTENT,
+          alignSelf: "center",
         },
       }}
     >

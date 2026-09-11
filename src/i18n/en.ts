@@ -120,6 +120,9 @@ export const en: typeof he = {
   },
 
   detail: {
+    gone: "That habit no longer exists.",
+    smallerApplied: "Updated ✓",
+    anchorSave: "Save anchor",
     back: "Back",
     aiLoading: "Reading what you wrote and writing tips for exactly that...",
     aiBadge: "Written for your habit",
@@ -315,6 +318,7 @@ export const en: typeof he = {
   },
 
   checkin: {
+    needMood: "Pick how today went to save.",
     heading: "Daily summary",
     body: "Thirty seconds. That's all.",
     moodQ: "How was it?",
@@ -331,6 +335,9 @@ export const en: typeof he = {
   },
 
   library: {
+    alreadyMine: "You already have an exercise with that name.",
+    addedOwn: "Added — and put in today\u2019s session.",
+    removeToday: "Remove from today\u2019s session",
     heading: "Exercise library",
     body: "Every move the app knows. Filter by muscle or kit, or just search — whatever you pick joins today's session.",
     count: "{n} exercises",
@@ -374,6 +381,11 @@ export const en: typeof he = {
     note: "Your phone counts for you. Walked without it in your pocket? Add those steps by hand.",
   },
   progress: {
+    fatNeedHeight: "Add your height in Profile to see body fat.",
+    fatNeedHeightGo: "Open Profile",
+    weighSaveAnyway: "Save anyway",
+    cameraDenied: "No camera permission. Turn it on in your phone settings.",
+    measureJump: "Go to measurements",
     heading: "Progress",
     weekTitle: "This week, read",
     weighTitle: "Weight",
@@ -425,6 +437,32 @@ export const en: typeof he = {
   },
 
   kitchen: {
+    calcPortionOne: "1 portion",
+    calcSearchHint: "e.g. rice, eggs, chicken breast",
+    calcTitle: "Calorie calculator",
+    calcBody: "Pick what you ate and how much — the numbers add themselves up.",
+    calcOpen: "Open the calculator",
+    calcHint: "Always works, offline too",
+    calcSearch: "Search a food and add it to the plate",
+    calcEmpty: "The plate is empty. Search a food above and add it.",
+    calcPlate: "On the plate",
+    calcPortions: "{n} portions",
+    calcGrams: "g",
+    calcSave: "Log it",
+    calcSaved: "Logged ✓",
+    calcTotal: "Total",
+    calcEstimate: "Every figure is an estimate",
+    calcFromPhoto: "From the photo — you can correct it",
+    calcRemove: "Remove from the plate",
+    calcMore: "One more portion",
+    calcLess: "One less portion",
+    loggedToast: "Logged · {kcal} of {goal} kcal today",
+    cameraDenied: "No camera permission. Turn it on in your phone settings.",
+    alreadyLogged: "Already logged",
+    goalAlsoTraining: "Changing the goal also updates your training plan.",
+    settingsTitle: "Settings",
+    settingsOpen: "Change goal, units and kosher",
+    settingsClose: "Close settings",
     heading: "The kitchen",
     body: "Tell me what's in your fridge and cupboard — I'll build meals from it.",
     listLabel: "What do you have at home?",
@@ -515,6 +553,7 @@ export const en: typeof he = {
   },
 
   water: {
+    goalRecommended: "Recommended for your weight: {min}–{max}",
     heading: "Water",
     body: "Every cup counts. The bottle fills as you drink.",
     cups: "cups",
@@ -537,6 +576,16 @@ export const en: typeof he = {
   },
 
   workout: {
+    worksTitle: "Works",
+    worksAlso: "Also:",
+    viewFront: "Front",
+    viewBack: "Back",
+    setCap: "Up to 12 sets per exercise",
+    daysResetWarn: "Changing the number of days clears the exercises you added to days by hand.",
+    addedToDay: "Added to Day 1 — above",
+    videoFailed: "Could not open the video.",
+    howToggle: "Show how-to",
+    cancelSetup: "Back to my plan",
     heading: "Your training",
     body: "Pick a goal and how many days a week — I'll build the full plan.",
     goalTitle: "What's the goal?",
@@ -641,6 +690,9 @@ export const en: typeof he = {
     dayEmpty: "This day is empty — add exercises below.",
     dayAdd: "Add exercise to this day",
     removeExercise: "Remove exercise",
+    setupNoteAuto: "I'll build a full plan from the settings below. You can change any exercise afterwards.",
+    setupNoteCustom: "I'll set up your training days and you add your own exercises to each one.",
+    bodyPlan: "Your plan is ready. Tick each move as you go — everything is saved.",
     fillDay: "Fill this day for me",
   },
 
@@ -738,6 +790,9 @@ export const en: typeof he = {
     errGeneric: "Something went wrong. Try again.",
   },
   profile: {
+    saveAction: "Save",
+    savedNote: "Saved ✓",
+    syncing: "Syncing…",
     heading: "Profile",
     nameTitle: "Name",
     namePlaceholder: "Your name",
@@ -838,6 +893,20 @@ export const en: typeof he = {
   },
 
   common: {
+    proLocked: "This opens with Pro",
+    proSee: "First week free",
+    proLeftOne: "One left today",
+    proLeftDay: "{n} left today",
+    proLeftTotal: "{n} left",
+    proHabits: "You are at {limit} habits — the free maximum. Pro has no limit.",
+    proCoach: "You have used today's {limit} answers. Pro asks without a limit.",
+    proMealPhoto: "You have photographed today's meal. Pro reads every meal.",
+    proPhotos: "You have {limit} photos — the free maximum. Pro has no limit.",
+    proCustom: "You have added {limit} of your own — the free maximum. Pro has no limit.",
+    proCloud: "Cloud backup and syncing between devices come with Pro.",
+    save: "Save",
+    savedOk: "Saved ✓",
+    undo: "Undo",
     close: "Close",
     cancel: "Cancel",
     restartNeeded: "Restart required",

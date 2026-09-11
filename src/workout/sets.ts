@@ -116,3 +116,35 @@ export function progress(sets: SetEntry[], prev: SetEntry[] | null): Progress {
     oneRepMax: bestOneRepMax(sets),
   };
 }
+
+/**
+ * What a person is allowed to have typed *so far* into a weight or reps box.
+ *
+ * The set table used to push every keystroke through `clampKg` and render the
+ * number back, which silently ate a trailing decimal point: typing "62." became
+ * 62, the dot vanished, and the next key produced 625. Half of all real gym
+ * weights end in .5, so the screen rejected half the weights it exists to
+ * record. The fix is to keep what was typed and only interpret it when it is a
+ * complete number — this decides what counts as typed.
+ *
+ * Both separators are accepted because a Hebrew keyboard offers a comma where
+ * an English one offers a full stop; the caller normalises before parsing.
+ */
+export function typedNumber(text: string, decimals: boolean): string {
+  const cleaned = decimals ? text.replace(/[^0-9.,]/g, "") : text.replace(/[^0-9]/g, "");
+  if (!decimals) return cleaned.slice(0, 4);
+  // one separator only, and at most one digit after it
+  const m = /^(\d{0,4})(?:[.,](\d?))?/.exec(cleaned);
+  if (!m) return "";
+  const [, whole = "", frac] = m;
+  const sep = /[.,]/.test(cleaned.slice(whole.length, whole.length + 1));
+  return sep ? `${whole}.${frac ?? ""}` : whole;
+}
+
+/** The number a partially typed box currently means, or null while it means
+ * nothing yet ("", ".", "62." — all still mid-word). */
+export function typedValue(text: string): number | null {
+  if (text === "" || text === "." || text.endsWith(".")) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}

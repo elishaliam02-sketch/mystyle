@@ -10,9 +10,11 @@ deliberately does not.
 dark value, and `Colors` is a typed contract — adding a token to light and
 forgetting dark fails the typecheck. A hex literal in a component is a bug.
 
-**Four colours, and no fifth.** Electric violet, hot orange, volt lime,
-violet-black. Every neutral is charcoal thinned or lifted, so the greys belong to
-the family too. Each bright ships in two weights: a vivid `fill` for solid
+**Four colours plus azure.** Electric violet, hot orange, volt lime and
+violet-black carry the brand; azure is the fifth, added so the effort family
+has a hue of its own rather than borrowing the brand's. Every neutral is
+charcoal thinned or lifted toward the violet, so the greys belong to the
+family too. Each bright ships in two weights: a vivid `fill` for solid
 blocks, and an `ink` (`orangeInk`, `limeInk`) that is the same hue darkened
 until it clears 4.5:1 as text on paper — neon lime on white is 1.2:1, so a
 lime *fill* belongs on a charcoal ground and `metricFill` hands out `limeInk`
@@ -21,8 +23,10 @@ hue: a stray colour or a bright that drifts under the bar fails a test.
 
 **Each metric family owns one hue, app-wide** (`src/theme/metrics.ts`). Load is
 violet (kg, volume, 1RM, bodyweight, water), counts are lime (reps, sets, steps,
-ticks, the day score), time and cost are orange (the rest clock, minutes,
-pace, calories, streaks, a PR). Read a figure's colour with `metricInk` /
+ticks, the day score), time and cost are azure (the rest clock, minutes,
+pace, calories, streaks, a PR). Orange is left for warnings — over target, a
+refused goal. The three metric inks are checked to sit at least 40° apart in
+hue, because two colours a person cannot tell apart mid-set are one colour. Read a figure's colour with `metricInk` /
 `metricFill` / `onMetric` rather than picking a token by hand — the point is
 that kilos are the same blue on every screen, so a glance mid-set lands.
 

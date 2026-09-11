@@ -30,6 +30,8 @@ import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
 import { demoLink } from "@/workout/video";
+import { entitlement as entitlementOf, trialEndsAt, TRIAL_DAYS, type Entitlement } from "@/billing/plans";
+import { check, type Feature, type Verdict } from "@/billing/gate";
 import { isHeightCm, isStorableGoal } from "@/health";
 import {
   clampSteps,
@@ -152,7 +154,19 @@ type Store = {
   /** What this exercise looked like the previous time it was trained. */
   lastSession: (exerciseId: string) => SetEntry[] | null;
   /** Adds a library exercise to today's session. */
+  /** What this account is entitled to right now, judged against the trusted
+   * clock rather than the device's. */
+  entitlement: () => Entitlement;
+  /** Whether one more of a metered thing is allowed, and how many are left. */
+  allowance: (feature: Feature) => Verdict;
+  /** Records that one was used. Only the metered-per-day features count. */
+  noteUsed: (feature: Feature) => void;
+  /** What the billing server said, stored verbatim. */
+  setSubscription: (sub: AppState["subscription"]) => void;
   addExerciseToday: (exerciseId: string) => void;
+  /** Takes one back off today's session — a mis-tap in the library should not
+   * need a trip to another tab to undo. */
+  removeExerciseToday: (exerciseId: string) => void;
   /** Exercise ids added to today on top of the plan. */
   todayExtras: () => string[];
   /** The URL to open for an exercise's form demo: the exact video when it can
@@ -251,7 +265,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           next.goalKg = s.profile.goalKg;
         }
       }
-      return { ...s, profile: { ...next, updatedAt: now() } };
+      // Finishing onboarding starts the trial, here on the device and without
+      // a card. Someone who has just written their first habit has seen none
+      // of what they would be paying for, and meeting a limit in the first
+      // minute is how an app gets deleted in the second. The server overwrites
+      // this the moment it has anything truer to say; the worst it can be
+      // abused for is another week by reinstalling, which is a far smaller
+      // cost than a wall across a new user's first session.
+      const startsTrial = !s.subscription && !s.profile.onboarded && next.onboarded;
+      // A clock so broken that seven days from now cannot be computed gets no
+      // trial rather than an endless one.
+      const ends = startsTrial ? trialEndsAt(new Date().toISOString(), TRIAL_DAYS) : null;
+      const subscription: AppState["subscription"] =
+        ends === null ? s.subscription : { status: "trialing", trialEndsAt: ends };
+      return { ...s, subscription, profile: { ...next, updatedAt: now() } };
     });
   }, []);
 
@@ -817,6 +844,89 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const removeExerciseToday = useCallback((exerciseId: string) => {
+    setState((s) => {
+      const base = s.training;
+      if (!base) return s;
+      const { date, highWater } = trustedStamp(s);
+      const day = base.extra?.[date] ?? [];
+      if (!day.includes(exerciseId)) return s;
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        training: {
+          ...base,
+          extra: { ...base.extra, [date]: day.filter((id) => id !== exerciseId) },
+        },
+      };
+    });
+  }, []);
+
+  // ------------------------------------------------------------- entitlement
+
+  // The clock guard matters here more than anywhere else in the app: a trial
+  // that ends "tomorrow" on a device whose owner has wound the date back is a
+  // trial that never ends. `trustedToday` is already high-water-marked against
+  // the server, so the same guard that protects a streak protects the billing.
+  const entitlement = useCallback((): Entitlement => {
+    const sub = state.subscription;
+    if (!sub) return "free";
+    return entitlementOf({
+      nowIso: `${trustedToday()}T12:00:00.000Z`,
+      status: sub.status,
+      currentPeriodEnd: sub.currentPeriodEnd,
+      trialEndsAt: sub.trialEndsAt,
+    });
+  }, [state.subscription, trustedToday]);
+
+  const usedCount = useCallback(
+    (feature: Feature): number => {
+      switch (feature) {
+        case "habits":
+          return state.habits.filter((h) => !h.archived).length;
+        case "progressPhotos":
+          return state.photos?.length ?? 0;
+        case "customExercises":
+          return state.training?.custom?.length ?? 0;
+        case "cloudBackup":
+          return 0;
+        case "coach":
+        case "mealPhoto":
+          return state.usage?.[trustedToday()]?.[feature] ?? 0;
+      }
+    },
+    [state.habits, state.photos, state.training, state.usage, trustedToday],
+  );
+
+  const allowance = useCallback(
+    (feature: Feature) => check(feature, entitlement(), usedCount(feature)),
+    [entitlement, usedCount],
+  );
+
+  const noteUsed = useCallback(
+    (feature: Feature) => {
+      // Only the daily ones have a counter; the rest are counted by what
+      // exists, so there is nothing to record.
+      if (feature !== "coach" && feature !== "mealPhoto") return;
+      setState((s) => {
+        const { date, highWater } = trustedStamp(s);
+        const day = s.usage?.[date] ?? {};
+        return {
+          ...s,
+          clockHighWaterMs: highWater,
+          // Only today's row is kept plus whatever was already there; a used
+          // day is a few bytes and the history is never read back.
+          usage: { ...s.usage, [date]: { ...day, [feature]: (day[feature] ?? 0) + 1 } },
+        };
+      });
+    },
+    [],
+  );
+
+  const setSubscription = useCallback((sub: AppState["subscription"]) => {
+    setState((s) => ({ ...s, subscription: sub }));
+  }, []);
+
   const todayExtras = useCallback(
     () => state.training?.extra?.[trustedToday()] ?? [],
     [state.training, trustedToday],
@@ -889,6 +999,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }),
     [state.videoIds],
   );
+
 
   // The server's clock, learned at each sync, pushes the high-water mark
   // forward. This is what makes the clock guard trustworthy rather than merely
@@ -986,7 +1097,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSet,
       removeSet,
       lastSession,
+      entitlement,
+      allowance,
+      noteUsed,
+      setSubscription,
       addExerciseToday,
+      removeExerciseToday,
       todayExtras,
       mealSeed,
       shuffleMeals,
@@ -1010,7 +1126,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
      addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
-     addToDay, removeFromDay, dayEdits, planSeed,
+     addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
+     entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
      acceptLegal, legalCurrent, consent, setConsent, reset, replaceAll],

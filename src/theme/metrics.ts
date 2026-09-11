@@ -8,15 +8,15 @@ import type { Colors } from "./tokens";
  * So every number the app shows belongs to exactly one of three families, and
  * that family owns one of the three brights. Colour answers "what is this?"
  * before the eye reaches the word under it, and the answer never changes from
- * screen to screen: kilos are blue on the plan, blue in the progress corner,
- * blue on the weigh-in.
+ * screen to screen: kilos are crimson on the plan, crimson in the progress
+ * corner, crimson on the weigh-in.
  *
- *   LOAD   (electric blue)  — mass and volume moved: kg on the bar, session
+ *   LOAD   (crimson)        — mass and volume moved: kg on the bar, session
  *                             volume, an estimated 1RM, bodyweight, body fat,
  *                             water drunk, protein.
  *   COUNT  (neon lime)      — things finished: reps, sets, steps, habits
  *                             ticked, the day score, carbs.
- *   EFFORT (vibrant orange) — time and cost: the rest clock, minutes trained,
+ *   EFFORT (electric blue)  — time and cost: the rest clock, minutes trained,
  *                             pace, distance, calories, a streak, a PR.
  *
  * Anything that is not a measurement — names, hints, dates — stays charcoal.
@@ -85,7 +85,7 @@ export function metricInk(colors: Colors, metric: Metric): string {
     case "count":
       return colors.limeInk;
     case "effort":
-      return colors.orangeInk;
+      return colors.azureInk;
   }
 }
 
@@ -103,7 +103,7 @@ export function metricFill(colors: Colors, metric: Metric): string {
     case "count":
       return colors.limeInk;
     case "effort":
-      return colors.orange;
+      return colors.azure;
   }
 }
 
@@ -115,7 +115,7 @@ export function onMetric(colors: Colors, metric: Metric): string {
     case "count":
       return colors.onLime;
     case "effort":
-      return colors.onOrange;
+      return colors.onAzure;
   }
 }
 
@@ -127,6 +127,6 @@ export function metricWash(colors: Colors, metric: Metric): string {
     case "count":
       return colors.limeWash;
     case "effort":
-      return colors.orangeWash;
+      return colors.azureWash;
   }
 }

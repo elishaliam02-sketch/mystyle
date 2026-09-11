@@ -24,7 +24,7 @@ export type Colors = {
    * colour. Everything below it is quiet paper, so this is what makes the
    * page read as designed rather than as a list of boxes. */
   band: string;
-  /** The two ends of the band's gradient — electric violet sunk into charcoal,
+  /** The two ends of the band's gradient — electric blue sunk into charcoal,
    * so the header reads as lit rather than flat. */
   bandTop: string;
   bandBottom: string;
@@ -36,7 +36,7 @@ export type Colors = {
   inkFaint: string;
   rule: string;
   ruleStrong: string;
-  /** Electric violet — the primary action, and the colour of load: kilos on the
+  /** Electric blue — the primary action, and the colour of load: kilos on the
    * bar, volume, bodyweight, water. */
   accent: string;
   accentDeep: string;
@@ -45,6 +45,12 @@ export type Colors = {
   /** Vibrant orange — time and intensity: the rest clock, session minutes,
    * pace, streaks, a personal best, calories. `orange` fills, `orangeInk`
    * writes. */
+  /** The effort family: time and cost. It is not the brand — that is crimson —
+   * so it needs a hue of its own, far from both. */
+  azure: string;
+  azureInk: string;
+  azureWash: string;
+  onAzure: string;
   orange: string;
   orangeInk: string;
   orangeWash: string;
@@ -79,19 +85,10 @@ export type Colors = {
 };
 
 /**
- * VOLT palette — electric violet, hot orange, volt lime, violet-black.
- *
- * The four colours are the same four roles as before, tuned to read young and
- * loud rather than corporate: the primary moved off a safe blue and onto an
- * ultraviolet that belongs to sportswear and music rather than to banking, the
- * orange ran hotter, and the lime stayed exactly where it was because neon
- * lime was already the youngest thing in the set. Even the greys are violet
- * now — charcoal thinned toward the accent, so nothing on screen is a neutral
- * borrowed from somewhere else.
- *
- * Charcoal still carries the weight and the type; the three brights are spent
- * only on numbers that have to land in a glance, mid-set, at arm's length.
- * Because each metric family owns one hue for the life of the app (see
+ * VOLT palette — electric blue, vibrant orange, neon lime, deep charcoal.
+ * Charcoal carries the weight and the type; the three brights are spent only
+ * on numbers that have to land in a glance, mid-set, at arm's length. Because
+ * each metric family owns one hue for the life of the app (see
  * `src/theme/metrics.ts`), colour alone tells you what a figure is before you
  * have read its label.
  */
@@ -115,6 +112,10 @@ export const palette: Record<"light" | "dark", Colors> = {
     accentDeep: "#4A17C4",
     accentWash: "#EDE7FF",
     onAccent: "#FFFFFF",
+    azure: "#0063C0",
+    azureInk: "#0063C0",
+    azureWash: "#E3F3FF",
+    onAzure: "#FFFFFF",
     orange: "#FF5A1F",
     orangeInk: "#C23B00",
     orangeWash: "#FFEADF",
@@ -152,16 +153,20 @@ export const palette: Record<"light" | "dark", Colors> = {
     // Charcoal on a lifted violet, not white: a violet bright enough to read
     // on a black ground is too bright to carry white type.
     onAccent: "#08080D",
+    azure: "#4FB2FF",
+    azureInk: "#7CC6FF",
+    azureWash: "#0A2236",
+    onAzure: "#06131F",
     orange: "#FF8248",
     orangeInk: "#FFA275",
     orangeWash: "#2C1710",
-    onLime: "#0B0B12",
+    onOrange: "#12121A",
     lime: "#C6FF3D",
     limeInk: "#C6FF3D",
     limeDeep: "#7CB000",
     limeMark: "#C6FF3D",
     limeWash: "#182609",
-    onOrange: "#12121A",
+    onLime: "#0B0B12",
     alert: "#FF7A44",
     alertDeep: "#E0621B",
     heroFrom: "#6A2BE0",
@@ -224,15 +229,15 @@ export function elevation(colors: Colors, level: 1 | 2 = 1) {
   };
 }
 
-/** The one accent gradient the whole app leans on — violet, lit-to-deep. */
+/** The one accent gradient the whole app leans on — crimson, lit-to-deep. */
 export function accentGradient(colors: Colors): [string, string] {
   return [colors.accent, colors.accentDeep];
 }
 
 /**
- * The signature "hero" surface: electric violet bleeding into black, lit from
- * one corner. This is the app's one loud gesture — the day score, an intro, a
- * result. White text sits on it, and a violet glow underneath lifts it clear off
+ * The signature "hero" surface: crimson bleeding into charcoal, lit from one
+ * corner. This is the app's one loud gesture — the day score, an intro, a
+ * result. White text sits on it, and a red glow underneath lifts it clear off
  * the paper so a hero card feels like the front of a product, not a box.
  */
 export function heroGradient(colors: Colors): [string, string, string] {

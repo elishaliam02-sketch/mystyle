@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
 import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { askServer } from "@/ai/server";
 import { mealLabel, mealPhotoPrompt, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
+import { dailyTarget } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -15,7 +18,8 @@ type Phase =
   | { kind: "idle" }
   | { kind: "reading"; uri: string }
   | { kind: "read"; uri: string; analysis: MealAnalysis }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "off" };
+  | { kind: "saved"; kcal: number; goal: number }
+  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" };
 
 /**
  * Photograph the meal, get the calories.
@@ -29,18 +33,28 @@ type Phase =
 export function MealScanner() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal } = useStore();
+  const { logMeal, state, goal: goalOf, todayIntake, allowance, noteUsed } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const router = useRouter();
 
   const canPick = Platform.OS !== "web";
+  const canScan = allowance("mealPhoto").ok;
 
   async function scan(fromCamera: boolean) {
+    // Checked before the camera or the picker opens: nobody should frame a
+    // plate, take the shot and only then be told it will not be read.
+    if (!allowance("mealPhoto").ok) return;
     try {
       const opts = { quality: 0.5, base64: true } as const;
       let res;
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return;
+        // Once the OS has remembered a "no" it stops showing the dialog, so a
+        // silent return left the button doing nothing for good.
+        if (!perm.granted) {
+          setPhase({ kind: "failed", reason: "denied" });
+          return;
+        }
         res = await ImagePicker.launchCameraAsync(opts);
       } else {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
@@ -68,6 +82,10 @@ export function MealScanner() {
         setPhase({ kind: "failed", reason: "unreadable" });
         return;
       }
+      // A photograph was read and came back as food. Anything short of this —
+      // a cancelled picker, a refused camera, a server that never answered, a
+      // reply we could not parse — cost them nothing and is not counted.
+      noteUsed("mealPhoto");
       setPhase({ kind: "read", uri: asset.uri, analysis });
     } catch {
       setPhase({ kind: "failed", reason: "unavailable" });
@@ -78,7 +96,14 @@ export function MealScanner() {
     if (phase.kind !== "read") return;
     const { analysis } = phase;
     logMeal(mealLabel(analysis, t.scan.fallbackLabel), analysis.kcal, analysis.protein);
-    setPhase({ kind: "idle" });
+    // The card collapsing was the only sign anything happened, and the diary it
+    // wrote to is a screen away — so the card says where the day stands instead.
+    const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
+    setPhase({
+      kind: "saved",
+      kcal: todayIntake().kcal + analysis.kcal,
+      goal: dailyTarget(weightKg, goalOf()).kcal,
+    });
   }
 
   return (
@@ -86,25 +111,77 @@ export function MealScanner() {
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.scan.body}</Text>
 
       {!canPick ? (
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-          {t.scan.phoneOnly}
-        </Text>
-      ) : phase.kind === "idle" || phase.kind === "failed" ? (
+        <View style={{ gap: space.sm, marginTop: space.sm }}>
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.scan.phoneOnly}</Text>
+          <PillButton
+            tone="soft"
+            icon="calculator"
+            label={t.kitchen.calcOpen}
+            onPress={() => router.push("/calc")}
+            style={{ alignSelf: "flex-start" }}
+          />
+        </View>
+      ) : phase.kind === "idle" || phase.kind === "failed" || phase.kind === "saved" ? (
         <>
-          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-            <PillButton icon="camera" label={t.scan.take} onPress={() => scan(true)} style={{ flex: 1 }} />
-            <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
-          </View>
+          {/* At the daily limit the two buttons are replaced outright, rather
+              than left on screen to open a camera whose picture we will not
+              read. What was already scanned and saved today stays below. */}
+          {canScan ? (
+            <>
+              <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+                <PillButton icon="camera" label={t.scan.take} onPress={() => scan(true)} style={{ flex: 1 }} />
+                <PillButton tone="soft" icon="images" label={t.scan.pick} onPress={() => scan(false)} style={{ flex: 1 }} />
+              </View>
+              <View style={{ marginTop: space.sm }}>
+                <ProRemaining feature="mealPhoto" />
+              </View>
+              <Pressable
+                onPress={() => router.push("/calc")}
+                accessibilityRole="button"
+                style={{ marginTop: space.sm }}
+              >
+                <Text style={[type.smallStrong, { color: colors.accent }]}>
+                  {t.kitchen.calcOpen} · {t.kitchen.calcHint}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <View style={{ marginTop: space.md }}>
+              <ProGate feature="mealPhoto" />
+            </View>
+          )}
           {phase.kind === "failed" ? (
-            <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>
-              {phase.reason === "quota"
-                ? t.scan.quota
-                : phase.reason === "unreadable"
-                  ? t.scan.unreadable
-                  : phase.reason === "off"
-                    ? t.scan.off
-                    : t.scan.unavailable}
-            </Text>
+            <View style={{ gap: space.sm, marginTop: space.sm }}>
+              <Text style={[type.small, { color: colors.orangeInk }]}>
+                {phase.reason === "quota"
+                  ? t.scan.quota
+                  : phase.reason === "unreadable"
+                    ? t.scan.unreadable
+                    : phase.reason === "denied"
+                      ? t.kitchen.cameraDenied
+                      : phase.reason === "off"
+                        ? t.scan.off
+                        : t.scan.unavailable}
+              </Text>
+              {/* Reading a photograph can fail for half a dozen reasons we do
+                  not control. Counting the meal by hand cannot, so every one of
+                  those endings offers it rather than stopping here. */}
+              <PillButton
+                tone="soft"
+                icon="calculator"
+                label={t.kitchen.calcOpen}
+                onPress={() => router.push("/calc")}
+                style={{ alignSelf: "flex-start" }}
+              />
+            </View>
+          ) : null}
+          {phase.kind === "saved" ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm }}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+              <Text style={[type.smallStrong, { color: colors.accent, flex: 1 }]}>
+                {fill(t.kitchen.loggedToast, { kcal: phase.kcal, goal: phase.goal })}
+              </Text>
+            </View>
           ) : null}
         </>
       ) : null}
@@ -160,6 +237,20 @@ export function MealScanner() {
             <Button icon="add-circle" label={t.scan.save} onPress={save} style={{ flex: 1 }} />
             <PillButton tone="soft" label={t.common.cancel} onPress={() => setPhase({ kind: "idle" })} />
           </View>
+          {/* A guess from a photograph is a starting point, not a verdict. This
+              opens the same list in the calculator, where every item and every
+              weight can be corrected before it reaches the diary. */}
+          <PillButton
+            tone="soft"
+            icon="create"
+            label={t.kitchen.calcFromPhoto}
+            onPress={() => {
+              const items = phase.analysis.items.map((i) => ({ label: i.label, grams: i.grams }));
+              setPhase({ kind: "idle" });
+              router.push({ pathname: "/calc", params: { items: JSON.stringify(items) } });
+            }}
+            style={{ alignSelf: "flex-start" }}
+          />
         </View>
       ) : null}
     </Card>

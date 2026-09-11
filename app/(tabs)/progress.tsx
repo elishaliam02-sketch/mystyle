@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, type BodyPart } from "@/body";
@@ -127,6 +128,8 @@ export default function ProgressScreen() {
   // A range error blocks the save; a jump warning asks for one confirming tap.
   const [weighNote, setWeighNote] = useState<string | null>(null);
   const [jumpArmed, setJumpArmed] = useState(false);
+  // The field empties on a save, which on its own reads like nothing happened.
+  const [saved, setSaved] = useState(false);
 
   const weighIns = state.weighIns;
   const latest = weighIns[weighIns.length - 1];
@@ -193,6 +196,7 @@ export default function ProgressScreen() {
     setKg("");
     setWeighNote(null);
     setJumpArmed(false);
+    setSaved(true);
   }
 
   return (
@@ -201,6 +205,67 @@ export default function ProgressScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.progress.heading}>
+        <Card label={t.progress.weighTitle}>
+          <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.weighBody}</Text>
+
+          {latest ? (
+            <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>
+              <View>
+                <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.latest}</Text>
+                <Text style={[type.figure, { color: colors.ink }]}>{latest.kg}</Text>
+              </View>
+              {weighIns.length > 1 ? (
+                <View>
+                  <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.change}</Text>
+                  <Text
+                    style={[
+                      type.figure,
+                      { color: delta <= 0 ? colors.accent : colors.orangeInk },
+                    ]}
+                  >
+                    {delta > 0 ? "+" : ""}
+                    {delta.toFixed(1)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={[type.body, { color: colors.inkFaint, marginTop: space.sm }]}>
+              {t.progress.weighEmpty}
+            </Text>
+          )}
+
+          <View style={{ gap: space.sm, marginTop: space.lg }}>
+            <TextField
+              value={kg}
+              onChangeText={(v) => {
+                setKg(v);
+                // Any edit clears a standing warning and disarms the confirm,
+                // so a corrected number is re-checked from scratch.
+                if (weighNote) setWeighNote(null);
+                if (jumpArmed) setJumpArmed(false);
+                if (saved) setSaved(false);
+              }}
+              placeholder={t.progress.weighPlaceholder}
+              keyboardType="numeric"
+              onSubmitEditing={save}
+            />
+            {weighNote ? (
+              <Text style={[type.small, { color: colors.alert }]}>{weighNote}</Text>
+            ) : saved ? (
+              <Text style={[type.smallStrong, { color: colors.accent }]}>{t.common.savedOk}</Text>
+            ) : null}
+            {/* Armed for a confirm, the label — not only the icon — has to say
+                that this second tap is the one that stores the number. */}
+            <Button
+              icon={jumpArmed ? "checkmark" : "add"}
+              label={jumpArmed ? t.progress.weighSaveAnyway : t.progress.weighSave}
+              onPress={save}
+              disabled={!kg.trim()}
+            />
+          </View>
+        </Card>
+
         <Pressable onPress={() => router.push("/achievements")} accessibilityRole="button">
           <Card>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -241,61 +306,6 @@ export default function ProgressScreen() {
           </Card>
         ) : null}
 
-        <Card label={t.progress.weighTitle}>
-          <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.weighBody}</Text>
-
-          {latest ? (
-            <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>
-              <View>
-                <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.latest}</Text>
-                <Text style={[type.figure, { color: metricInk(colors, "bodyWeight") }]}>{latest.kg}</Text>
-              </View>
-              {weighIns.length > 1 ? (
-                <View>
-                  <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.change}</Text>
-                  <Text
-                    style={[
-                      type.figure,
-                      { color: delta <= 0 ? colors.accent : colors.orangeInk },
-                    ]}
-                  >
-                    {delta > 0 ? "+" : ""}
-                    {delta.toFixed(1)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          ) : (
-            <Text style={[type.body, { color: colors.inkFaint, marginTop: space.sm }]}>
-              {t.progress.weighEmpty}
-            </Text>
-          )}
-
-          <View style={{ gap: space.sm, marginTop: space.lg }}>
-            <TextField
-              value={kg}
-              onChangeText={(v) => {
-                setKg(v);
-                // Any edit clears a standing warning and disarms the confirm,
-                // so a corrected number is re-checked from scratch.
-                if (weighNote) setWeighNote(null);
-                if (jumpArmed) setJumpArmed(false);
-              }}
-              placeholder={t.progress.weighPlaceholder}
-              keyboardType="numeric"
-              onSubmitEditing={save}
-            />
-            {weighNote ? (
-              <Text style={[type.small, { color: colors.alert }]}>{weighNote}</Text>
-            ) : null}
-            <Button
-              icon={jumpArmed ? "checkmark" : "add"}
-              label={t.progress.weighSave}
-              onPress={save}
-              disabled={!kg.trim()}
-            />
-          </View>
-        </Card>
 
         <WeeklyAverageCard />
 
@@ -471,34 +481,38 @@ function StepsCard() {
 
 
       {editingGoal ? (
-        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm, alignItems: "center" }}>
-          <View style={{ flex: 1 }}>
-            <TextField
-              value={goalDraft}
-              onChangeText={setGoalDraft}
-              placeholder={t.steps.goalPlaceholder}
-              keyboardType="numeric"
-              onSubmitEditing={saveGoal}
-            />
+        <View style={{ gap: 6, marginTop: space.sm }}>
+          <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+            <View style={{ flex: 1 }}>
+              <TextField
+                value={goalDraft}
+                onChangeText={(v) => {
+                  setGoalDraft(v);
+                  if (note) setNote(null);
+                }}
+                placeholder={t.steps.goalPlaceholder}
+                keyboardType="numeric"
+                onSubmitEditing={saveGoal}
+              />
+            </View>
+            <Button label={t.steps.save} onPress={saveGoal} tone="quiet" />
           </View>
-          <Button label={t.steps.save} onPress={saveGoal} tone="quiet" />
+          {/* The rejected goal is explained under the field it came from, not
+              under the paragraph below it, where a short screen hides it. */}
+          {note ? <Text style={[type.small, { color: colors.alert }]}>{note}</Text> : null}
         </View>
       ) : (
-        <Pressable
+        <PillButton
+          tone="soft"
+          icon="create"
+          label={t.steps.changeGoal}
           onPress={() => {
             setGoalDraft(String(goal));
             setEditingGoal(true);
           }}
-          accessibilityRole="button"
-          style={{ marginTop: space.sm }}
-        >
-          <Text style={[type.smallStrong, { color: colors.accent }]}>{t.steps.changeGoal}</Text>
-        </Pressable>
+          style={{ alignSelf: "flex-start", marginTop: space.sm }}
+        />
       )}
-
-      {note ? (
-        <Text style={[type.small, { color: colors.alert, marginTop: 6 }]}>{note}</Text>
-      ) : null}
 
       <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
         {t.steps.note}
@@ -603,9 +617,14 @@ function BodyFatCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { state, goal, setSex } = useStore();
+  const router = useRouter();
 
   const sex = state.profile.sex as Sex | undefined;
   const heightCm = state.profile.heightCm;
+  // The estimate goes null for three separate reasons, and the fix differs:
+  // the waist is typed here, the height only exists in Profile. Same band the
+  // RFM formula accepts, so the card never sends you somewhere that won't help.
+  const heightOk = !!heightCm && heightCm >= 120 && heightCm <= 250;
   const waist = useMemo(() => {
     const series = state.measurements?.waist ?? [];
     return [...series].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.cm;
@@ -639,9 +658,25 @@ function BodyFatCard() {
       </View>
 
       {sex && bf === null ? (
-        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.md }]}>
-          {t.progress.fatNeedWaist}
-        </Text>
+        heightOk ? (
+          <View style={{ gap: space.sm, marginTop: space.md }}>
+            <Text style={[type.small, { color: colors.orangeInk }]}>{t.progress.fatNeedWaist}</Text>
+            {/* The waist is the only number still missing, so it is typed on
+                this card instead of three cards further down the page. */}
+            <PartCard part="waist" />
+          </View>
+        ) : (
+          <View style={{ gap: space.sm, marginTop: space.md }}>
+            <Text style={[type.small, { color: colors.orangeInk }]}>{t.progress.fatNeedHeight}</Text>
+            <PillButton
+              tone="soft"
+              icon="person"
+              label={t.progress.fatNeedHeightGo}
+              onPress={() => router.push("/profile")}
+              style={{ alignSelf: "flex-start" }}
+            />
+          </View>
+        )
       ) : null}
 
       {bf !== null && sex ? (
@@ -704,7 +739,8 @@ function BodyFatCard() {
 function PhotosCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addPhoto, removePhoto } = useStore();
+  const { state, addPhoto, removePhoto, allowance } = useStore();
+  const [note, setNote] = useState<string | null>(null);
 
   const photos = state.photos ?? [];
   const sortedWeighIns = useMemo(
@@ -719,12 +755,21 @@ function PhotosCard() {
     sex: state.profile.sex as Sex | undefined,
   });
   const canPick = Platform.OS !== "web";
+  // Only *taking* another one is capped. The roll below, and its per-photo
+  // delete, stay exactly as they are — deleting is how room is made.
+  const canAdd = allowance("progressPhotos").ok;
 
   const pick = async (fromCamera: boolean) => {
+    setNote(null);
     try {
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return;
+        // Once the OS remembers a refusal it stops even asking, so silence here
+        // leaves the button looking dead. A cancelled sheet stays silent below.
+        if (!perm.granted) {
+          setNote(t.progress.cameraDenied);
+          return;
+        }
         const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
         if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
       } else {
@@ -735,7 +780,7 @@ function PhotosCard() {
         if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
       }
     } catch {
-      // A denied permission or a cancelled sheet is not an error worth shouting about.
+      // A cancelled sheet is not an error worth shouting about.
     }
   };
 
@@ -750,13 +795,23 @@ function PhotosCard() {
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.progress.photosUnavailable}
         </Text>
+      ) : canAdd ? (
+        <View style={{ gap: space.xs, marginTop: space.md }}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
+            <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+          </View>
+          <ProRemaining feature="progressPhotos" />
+        </View>
       ) : (
-        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-          <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
-          <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+        <View style={{ marginTop: space.md }}>
+          <ProGate feature="progressPhotos" />
         </View>
       )}
 
+      {note ? (
+        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text>
+      ) : null}
       {/* The one place the app can lose something without saying so: photos
           are files on this phone and are never uploaded, so a new phone starts
           with none. Saying it next to the pictures, rather than only in the
@@ -851,6 +906,11 @@ function MeasurementsSection() {
   return (
     <Card label={t.progress.measureTitle}>
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.measureBody}</Text>
+      {/* Every Add below stays greyed until a number is typed — said once here,
+          quietly, rather than once on every part card. */}
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
+        {fill(t.body.rangeError, { min: MIN_CM, max: MAX_CM })}
+      </Text>
       <View style={{ gap: space.md, marginTop: space.md }}>
         {BODY_PARTS.map((part) => (
           <PartCard key={part} part={part} />

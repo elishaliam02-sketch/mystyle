@@ -14,6 +14,7 @@ import {
 import { pullBackup, pushBackup } from "./backupPort";
 import { syncRound } from "./round";
 import { useConnectivity } from "@/net";
+import { fetchEntitlement } from "./entitlementPort";
 
 const nowIso = () => new Date().toISOString();
 
@@ -23,7 +24,7 @@ const nowIso = () => new Date().toISOString();
  * a failed sync just leaves the state exactly as it was.
  */
 export function useCloud() {
-  const { state, replaceAll, ready, noteServerTime, consent } = useStore();
+  const { state, replaceAll, ready, noteServerTime, consent, setSubscription } = useStore();
   // Nothing reaches the network until the person has said it may. This is the
   // one gate: the sync itself, the account, and the backup all hang off it, so
   // there is no second path that could quietly keep uploading after someone
@@ -93,6 +94,15 @@ export function useCloud() {
       if (outcome === "dropped") resync.current = true;
       setLastSync(new Date());
       setStatus("synced");
+
+      // What the account is entitled to, refreshed on the same round. It has to
+      // ride along with the sync rather than wait for someone to open the
+      // pricing screen: a person who subscribed on another device, or whose
+      // card was declined last night, would otherwise carry yesterday's answer
+      // until they happened to go looking for it. A null means "not known" and
+      // deliberately leaves whatever is stored alone.
+      const ent = await fetchEntitlement();
+      if (ent) setSubscription(ent);
     } catch {
       setStatus("error");
     } finally {
@@ -108,7 +118,7 @@ export function useCloud() {
     // `allowed` belongs here: turning cloud backup off has to stop the very
     // next round, not the next launch, and turning it on has to start one
     // without waiting for something else to change.
-  }, [replaceAll, allowed]);
+  }, [replaceAll, allowed, setSubscription]);
 
   // One sync on launch, after the local state has loaded — syncing before it
   // would push an empty state over a real account.

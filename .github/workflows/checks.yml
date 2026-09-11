@@ -41,16 +41,11 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Every suite, so a failure names the area rather than just "tests".
+      # Every suite, discovered from the scripts directory rather than listed
+      # here — a list in a YAML file is a list somebody forgets to edit, and
+      # this one had already fallen behind twice.
       - name: Unit suites
-        run: |
-          set -e
-          for suite in sync date insight kitchen clock workout achievements body \
-                       projection video health reminders cardio backup sets coach \
-                       nutrition theme tasks rewards legal export net; do
-            echo "── $suite"
-            npm run --silent "test:$suite"
-          done
+        run: npm test
 
       # Proves the app still bundles for the platform with the strictest
       # constraints, and produces the dist/ the end-to-end suite drives.

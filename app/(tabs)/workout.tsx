@@ -6,13 +6,17 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { ExerciseThumb } from "@/components/ExerciseThumb";
+import { MuscleMap } from "@/components/MuscleMap";
+import { view, worked } from "@/workout/muscles";
+import { HeroCard } from "@/components/HeroCard";
+import { ProGate } from "@/components/ProGate";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import type { Goal } from "@/kitchen";
 import { useStore } from "@/store";
-import { metricFill, metricInk, onMetric, useTheme } from "@/theme";
+import { metricFill, metricInk, onMetric, ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 import {
   EXERCISES,
   MUSCLES,
@@ -20,7 +24,7 @@ import {
   type Muscle,
 } from "@/workout/exercises";
 import { applyDayEdits, buildPlan, type DayType } from "@/workout/plan";
-import { clampKg, clampReps, progress } from "@/workout/sets";
+import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
 import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 
@@ -31,7 +35,7 @@ const EQUIP = ["gym", "home", "bodyweight"] as const;
 
 export default function WorkoutScreen() {
   const { t } = useI18n();
-  const { colors, space, radius, type } = useTheme();
+  const { colors, space, radius, type, font } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
     addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode } = useStore();
 
@@ -113,6 +117,7 @@ export default function WorkoutScreen() {
     }));
   }, [plan, training, byId]);
 
+
   function build() {
     configureTraining(goal, days, minutes, equipment, focus, mode);
     setForceSetup(false);
@@ -134,9 +139,81 @@ export default function WorkoutScreen() {
   if (setup || !training || !plan) {
     return (
       <Screen title={t.workout.heading} subtitle={t.workout.body}>
-        <Card tone="accent">
-          <Text style={[type.body, { color: colors.ink }]}>{t.workout.intro}</Text>
-        </Card>
+        {/* The choice and the action, both above the fold. The build button used
+            to sit under six cards of options, so people scrolled, gave up, and
+            concluded the app could not build a plan at all. */}
+        <HeroCard>
+          <Text style={[type.display, { color: ON_HERO, fontSize: 22, lineHeight: 28 }]}>
+            {t.workout.modeTitle}
+          </Text>
+
+          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.xs }}>
+            {(["auto", "custom"] as const).map((m) => {
+              const on = mode === m;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => setMode(m)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    alignItems: "center",
+                    gap: 3,
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.sm,
+                    borderRadius: radius.lg,
+                    backgroundColor: on ? "#FFFFFF" : pressed ? "rgba(255,255,255,0.26)" : "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: on ? "#FFFFFF" : "rgba(255,255,255,0.22)",
+                  })}
+                >
+                  <Text style={[type.bodyStrong, { color: on ? colors.accent : ON_HERO }]}>
+                    {m === "auto" ? t.workout.modeAuto : t.workout.modeCustom}
+                  </Text>
+                  <Text
+                    style={[
+                      type.small,
+                      { color: on ? colors.inkSoft : ON_HERO_SOFT, textAlign: "center" },
+                    ]}
+                  >
+                    {m === "auto" ? t.workout.modeAutoHint : t.workout.modeCustomHint}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Pressable
+            onPress={build}
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              height: 54,
+              marginTop: space.sm,
+              borderRadius: radius.pill,
+              backgroundColor: "#FFFFFF",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: pressed ? 0.9 : 1,
+              shadowColor: "#000000",
+              shadowOpacity: 0.18,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 5,
+            })}
+          >
+            <Ionicons name="barbell" size={20} color={colors.accent} />
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 17, color: colors.accent }}>
+              {mode === "custom" ? t.workout.buildCustom : t.workout.build}
+            </Text>
+          </Pressable>
+
+          <Text style={[type.small, { color: ON_HERO_SOFT, marginTop: 2 }]}>
+            {mode === "custom" ? t.workout.setupNoteCustom : t.workout.setupNoteAuto}
+          </Text>
+        </HeroCard>
 
         <Card label={t.workout.goalTitle}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
@@ -271,44 +348,31 @@ export default function WorkoutScreen() {
           </View>
         </Card>
 
-        {/* who builds the plan — the app, or you, Hevy-style */}
-        <Card label={t.workout.modeTitle}>
-          <View style={{ flexDirection: "row", gap: space.sm }}>
-            {(["auto", "custom"] as const).map((m) => {
-              const on = mode === m;
-              return (
-                <SelectTile
-                  key={m}
-                  selected={on}
-                  onPress={() => setMode(m)}
-                  style={{
-                    flex: 1,
-                    alignItems: "center",
-                    paddingVertical: space.md,
-                    paddingHorizontal: space.xs,
-                    borderRadius: radius.lg,
-                  }}
-                >
-                  <View style={{ alignItems: "center", gap: 2 }}>
-                    <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
-                      {m === "auto" ? t.workout.modeAuto : t.workout.modeCustom}
-                    </Text>
-                    <Text
-                      style={[
-                        type.small,
-                        { color: on ? colors.onAccent : colors.inkFaint, textAlign: "center" },
-                      ]}
-                    >
-                      {m === "auto" ? t.workout.modeAutoHint : t.workout.modeCustomHint}
-                    </Text>
-                  </View>
-                </SelectTile>
-              );
-            })}
-          </View>
-        </Card>
-
-        <Button icon="barbell" label={mode === "custom" ? t.workout.buildCustom : t.workout.build} onPress={build} />
+        {/* W-9: reopening the form used to be a one-way door — the only exit
+            was rebuilding, which silently discards every hand-picked exercise
+            whenever the number of days changes. Now the way out is on screen,
+            and the cost of going forward is stated before it is paid. */}
+        {training ? (
+          <>
+            {days !== training.days && Object.keys(training.planEdits ?? {}).length > 0 ? (
+              <Card tone="orange">
+                <Text style={[type.small, { color: colors.ink }]}>{t.workout.daysResetWarn}</Text>
+              </Card>
+            ) : null}
+            <Button
+              icon="arrow-undo"
+              label={t.workout.cancelSetup}
+              tone="quiet"
+              onPress={() => setForceSetup(false)}
+            />
+          </>
+        ) : (
+          <Button
+            icon="barbell"
+            label={mode === "custom" ? t.workout.buildCustom : t.workout.build}
+            onPress={build}
+          />
+        )}
 
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.workout.videoNote}
@@ -342,27 +406,18 @@ export default function WorkoutScreen() {
     >
       <Screen
         title={t.workout.heading}
-        subtitle={t.workout.body}
-        aside={
-          <PillButton icon="barbell" label={t.workout.buildShort} onPress={reopenSetup} />
-        }
+        subtitle={t.workout.bodyPlan}
       >
-        <Card tone="accent">
-          <Text style={[type.title, { color: colors.ink }]}>
+        <HeroCard>
+          <Text style={[type.display, { color: ON_HERO, fontSize: 22, lineHeight: 28 }]}>
             {goalLabel[plan.goal]} · {fill(t.workout.planFor, { days: plan.days })}
           </Text>
-          <Text style={[type.body, { color: colors.inkSoft, marginTop: 2 }]}>
-            <Text style={{ color: metricInk(colors, "sets") }}>
-              {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
-            </Text>
-            {plan.minutes ? (
-              <Text style={{ color: metricInk(colors, "duration") }}>
-                {` · ${fill(t.workout.session, { min: plan.minutes })}`}
-              </Text>
-            ) : null}
+          <Text style={[type.body, { color: ON_HERO_SOFT, marginTop: 2 }]}>
+            {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
+            {plan.minutes ? ` · ${fill(t.workout.session, { min: plan.minutes })}` : ""}
           </Text>
           {focusNote ? (
-            <Text style={[type.small, { color: colors.accent, fontWeight: "700", marginTop: 4 }]}>
+            <Text style={[type.small, { color: ON_HERO, fontWeight: "700", marginTop: 4 }]}>
               {focusNote}
             </Text>
           ) : null}
@@ -373,63 +428,64 @@ export default function WorkoutScreen() {
             {(["auto", "custom"] as const).map((m) => {
               const on = (training.mode ?? "auto") === m;
               return (
-                <SelectTile
+                <Pressable
                   key={m}
-                  selected={on}
                   onPress={() => setTrainingMode(m)}
-                  style={{
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={({ pressed }) => ({
                     flex: 1,
                     alignItems: "center",
                     paddingVertical: space.sm,
                     borderRadius: radius.pill,
-                  }}
+                    backgroundColor: on
+                      ? "#FFFFFF"
+                      : pressed
+                        ? "rgba(255,255,255,0.26)"
+                        : "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: on ? "#FFFFFF" : "rgba(255,255,255,0.22)",
+                  })}
                 >
-                  <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                  <Text style={[type.smallStrong, { color: on ? colors.accent : ON_HERO }]}>
                     {m === "auto" ? t.workout.modeAuto : t.workout.modeCustom}
                   </Text>
-                </SelectTile>
+                </Pressable>
               );
             })}
           </View>
 
           <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.sm }}>
-            <Button
-              label={t.workout.change}
-              tone="quiet"
-              onPress={reopenSetup}
-              style={{ flex: 1 }}
-            />
-            <PillButton
-              tone="soft"
-              icon="shuffle"
-              label={t.workout.regenerate}
-              onPress={regeneratePlan}
-            />
+            {(
+              [
+                ["options" as const, t.workout.change, reopenSetup],
+                ["shuffle" as const, t.workout.regenerate, regeneratePlan],
+              ] as const
+            ).map(([icon, label, onPress]) => (
+              <Pressable
+                key={label}
+                onPress={onPress}
+                accessibilityRole="button"
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 46,
+                  borderRadius: radius.pill,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  backgroundColor: pressed ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.16)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.22)",
+                })}
+              >
+                <Ionicons name={icon} size={17} color={ON_HERO} />
+                <Text style={[type.smallStrong, { color: ON_HERO }]}>{label}</Text>
+              </Pressable>
+            ))}
           </View>
-        </Card>
+        </HeroCard>
 
-        {workoutDays > 0 ? (
-          <Card>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              {(
-                [
-                  [workoutDays, t.workout.statsDays],
-                  [exercisesDone, t.workout.statsExercises],
-                  [thisWeek, t.workout.statsThisWeek],
-                ] as const
-              ).map(([value, label], i) => (
-                <View key={i} style={{ alignItems: "center", flex: 1 }}>
-                  <Text style={[type.figure, { color: metricInk(colors, "ticks") }]}>{value}</Text>
-                  <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        ) : null}
-
-        <RestTimer />
-
-        <CardioCard goal={training.goal} seed={seed} />
 
         {sessions.map((session, i) => {
           const dayExercises = [...session.exercises, ...(i === 0 ? extraExercises : [])];
@@ -487,18 +543,62 @@ export default function WorkoutScreen() {
               />
 
               {total > 0 ? (
-                <Button
-                  icon={done === total ? "checkmark-done" : "checkmark"}
-                  label={done === total ? t.workout.dayDone : t.workout.finishDay}
-                  tone="quiet"
-                  disabled={done === total}
-                  onPress={() => completeSession(dayExercises.map((e) => e.id))}
-                  style={{ marginTop: space.md }}
-                />
+                done === total ? (
+                  // a finished day is a state, not a disabled control: a greyed
+                  // button reads as something broken rather than something done
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      marginTop: space.md,
+                      paddingVertical: 11,
+                      borderRadius: radius.pill,
+                      backgroundColor: colors.accentWash,
+                    }}
+                  >
+                    <Ionicons name="checkmark-done" size={18} color={colors.accent} />
+                    <Text style={[type.smallStrong, { color: colors.accent }]}>
+                      {t.workout.dayDone}
+                    </Text>
+                  </View>
+                ) : (
+                  <Button
+                    icon="checkmark"
+                    label={t.workout.finishDay}
+                    tone="quiet"
+                    onPress={() => completeSession(dayExercises.map((e) => e.id))}
+                    style={{ marginTop: space.md }}
+                  />
+                )
               ) : null}
             </Card>
           );
         })}
+
+        {workoutDays > 0 ? (
+          <Card>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              {(
+                [
+                  [workoutDays, t.workout.statsDays],
+                  [exercisesDone, t.workout.statsExercises],
+                  [thisWeek, t.workout.statsThisWeek],
+                ] as const
+              ).map(([value, label], i) => (
+                <View key={i} style={{ alignItems: "center", flex: 1 }}>
+                  <Text style={[type.figure, { color: metricInk(colors, "ticks") }]}>{value}</Text>
+                  <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
+        <RestTimer />
+
+        <CardioCard goal={training.goal} seed={seed} />
 
         {custom.length > 0 ? (
           <Card label={t.workout.myExercises}>
@@ -527,6 +627,72 @@ export default function WorkoutScreen() {
         </Text>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * One box in the set table.
+ *
+ * The value lives here as text while it is being typed and only reaches the
+ * store when it reads as a whole number, because pushing every keystroke
+ * through the clamp and rendering the result back is what made "62.5"
+ * impossible to enter: the dot was stripped the instant it was typed. On blur
+ * the draft is dropped and the box goes back to showing the stored number, so
+ * whatever the store settled on is always what is finally displayed.
+ */
+function SetField({
+  value,
+  decimals,
+  onCommit,
+  placeholder,
+  accessibilityLabel,
+  ink,
+}: {
+  value: number;
+  decimals: boolean;
+  onCommit: (n: number) => void;
+  placeholder: string;
+  accessibilityLabel: string;
+  /** The metric's own colour — load and reps are different numbers. */
+  ink: string;
+}) {
+  const { colors, radius, font } = useTheme();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const shown = draft ?? (value ? String(value) : "");
+
+  return (
+    <TextInput
+      value={shown}
+      onChangeText={(raw) => {
+        const text = typedNumber(raw, decimals);
+        setDraft(text);
+        const n = typedValue(text);
+        // "62." is a real thing to have typed and not yet a number: leave the
+        // stored value alone rather than committing a half-finished one.
+        if (n !== null) onCommit(n);
+        else if (text === "") onCommit(0);
+      }}
+      onBlur={() => setDraft(null)}
+      keyboardType={decimals ? "decimal-pad" : "number-pad"}
+      placeholder={placeholder}
+      placeholderTextColor={colors.inkFaint}
+      accessibilityLabel={accessibilityLabel}
+      style={{
+        flex: 1,
+        // A web <input> carries an intrinsic width that flex will not shrink
+        // past unless min-width is cleared — without this the set row runs off
+        // the card and takes the tick box with it.
+        minWidth: 0,
+        textAlign: "center",
+        paddingVertical: 7,
+        borderRadius: radius.sm,
+        backgroundColor: colors.surfaceAlt,
+        color: ink,
+        fontFamily: font.bodyMedium,
+        fontSize: 15,
+      }}
+    />
   );
 }
 
@@ -716,6 +882,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   const { setsFor, updateSet, addSet, removeSet, lastSession, demoFor } = useStore();
   const [open, setOpen] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
+  const [videoNote, setVideoNote] = useState<string | null>(null);
 
   // Looking up the exact video takes one round trip the first time, so the
   // button says so rather than appearing to do nothing. It always ends in an
@@ -723,8 +890,13 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   // clip — so there is no failure branch to show.
   const openDemo = async () => {
     setLoadingVideo(true);
+    setVideoNote(null);
     try {
-      Linking.openURL(await demoFor(ex));
+      // demoFor always resolves — it degrades to the search page — but opening
+      // it can still fail: no handler for the URL, or a blocked popup on web.
+      await Linking.openURL(await demoFor(ex));
+    } catch {
+      setVideoNote(t.workout.videoFailed);
     } finally {
       setLoadingVideo(false);
     }
@@ -732,13 +904,11 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
 
   const name = locale === "he" ? ex.he : ex.en;
   const how = locale === "he" ? ex.howHe : ex.howEn;
+  const w = worked(ex);
   const rows = setsFor(ex.id, sets);
   const prev = lastSession(ex.id);
   const doneCount = rows.filter((r) => r.done).length;
   const prog = progress(rows, prev);
-
-  const toKg = (v: string) => clampKg(Number(v.replace(",", ".")));
-  const toReps = (v: string) => clampReps(Number(v.replace(",", ".")));
 
   return (
     <View
@@ -751,22 +921,59 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
     >
       {/* title line */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-        <ExerciseThumb ex={ex} size={52} />
-        <Pressable onPress={() => setOpen((v) => !v)} style={{ flex: 1 }}>
-          <Text style={[type.bodyStrong, { color: colors.ink }]}>{name}</Text>
-          <Text style={[type.small, { color: colors.inkFaint }]}>
-            {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
-          </Text>
-        </Pressable>
-
-        <PillButton
-          tone="soft"
-          icon="play"
-          label={loadingVideo ? t.workout.watchLoading : t.workout.watch}
+        {/* the picture is the most tappable thing in the row, so it opens the
+            demo rather than doing nothing */}
+        <Pressable
           onPress={openDemo}
           disabled={loadingVideo}
+          accessibilityRole="button"
           accessibilityLabel={t.workout.watch}
-        />
+        >
+          <ExerciseThumb ex={ex} size={52} />
+        </Pressable>
+        <Pressable
+          onPress={() => setOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={`${name} — ${t.workout.howToggle}`}
+          accessibilityState={{ expanded: open }}
+          style={{ flex: 1 }}
+        >
+          <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={2}>
+            {name}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+              {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
+            </Text>
+            {/* the only sign the row opens at all */}
+            <Ionicons
+              name={open ? "chevron-up" : "chevron-down"}
+              size={13}
+              color={colors.inkFaint}
+            />
+          </View>
+        </Pressable>
+
+        {/* the demo is a badge, not a bar: the exercise name needs the width
+            more than the word "watch" does */}
+        <Pressable
+          onPress={openDemo}
+          disabled={loadingVideo}
+          accessibilityRole="button"
+          accessibilityLabel={t.workout.watch}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 38,
+            height: 38,
+            borderRadius: radius.pill,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.accentWash,
+            opacity: loadingVideo ? 0.45 : pressed ? 0.85 : 1,
+          })}
+        >
+          <Ionicons name={loadingVideo ? "hourglass" : "play"} size={18} color={colors.accent} />
+        </Pressable>
         {onRemove ? (
           <Pressable
             onPress={onRemove}
@@ -779,6 +986,51 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
           </Pressable>
         ) : null}
       </View>
+
+      {videoNote ? (
+        <Text style={[type.small, { color: colors.orangeInk }]}>{videoNote}</Text>
+      ) : null}
+
+      {open ? (
+        <View style={{ gap: 4, marginTop: space.sm }}>
+          {/* the same diagram as the row's tile, at a size where the lit
+              muscles are actually readable, and named in words beside it for
+              anyone who would rather read than look */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <MuscleMap
+              primary={w.primary}
+              secondary={w.secondary}
+              view={view(ex.muscle)}
+              size={78}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+                {t.workout.worksTitle}
+              </Text>
+              <Text style={[type.bodyStrong, { color: colors.ink }]}>
+                {muscleLabel[w.primary]}
+              </Text>
+              {w.secondary.length > 0 ? (
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {t.workout.worksAlso} {w.secondary.map((m) => muscleLabel[m]).join(", ")}
+                </Text>
+              ) : null}
+              <Text style={[type.small, { color: colors.inkFaint }]}>
+                {view(ex.muscle) === "front" ? t.workout.viewFront : t.workout.viewBack}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase", marginTop: space.sm }]}>
+            {t.workout.howTitle}
+          </Text>
+          {how.map((step, i) => (
+            <Text key={i} style={[type.small, { color: colors.inkSoft }]}>
+              {i + 1}. {step}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       {/* set table */}
       <View style={{ gap: 4, marginTop: 4 }}>
@@ -813,49 +1065,21 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 {p && p.kg > 0 ? `${p.kg}×${p.reps}` : "—"}
               </Text>
 
-              <TextInput
-                value={row.kg ? String(row.kg) : ""}
-                onChangeText={(v) => updateSet(ex.id, i, { kg: toKg(v) }, sets)}
-                keyboardType="numeric"
+              <SetField
+                value={row.kg}
+                decimals
+                onCommit={(n) => updateSet(ex.id, i, { kg: clampKg(n) }, sets)}
                 placeholder={p && p.kg > 0 ? String(p.kg) : "0"}
-                placeholderTextColor={colors.inkFaint}
                 accessibilityLabel={`${name} ${t.workout.kgCol} ${i + 1}`}
-                style={{
-                  flex: 1,
-                  // A web <input> carries an intrinsic width that flex will not
-                  // shrink past unless min-width is cleared — without this the
-                  // set row runs off the card and takes the tick box with it.
-                  minWidth: 0,
-                  textAlign: "center",
-                  paddingVertical: 7,
-                  borderRadius: radius.sm,
-                  backgroundColor: colors.surfaceAlt,
-                  color: metricInk(colors, "load"),
-                  fontFamily: font.bodyMedium,
-                  fontSize: 15,
-                }}
+                ink={metricInk(colors, "load")}
               />
-              <TextInput
-                value={row.reps ? String(row.reps) : ""}
-                onChangeText={(v) => updateSet(ex.id, i, { reps: toReps(v) }, sets)}
-                keyboardType="numeric"
+              <SetField
+                value={row.reps}
+                decimals={false}
+                onCommit={(n) => updateSet(ex.id, i, { reps: clampReps(n) }, sets)}
                 placeholder={p && p.reps > 0 ? String(p.reps) : "0"}
-                placeholderTextColor={colors.inkFaint}
                 accessibilityLabel={`${name} ${t.workout.repsCol} ${i + 1}`}
-                style={{
-                  flex: 1,
-                  // A web <input> carries an intrinsic width that flex will not
-                  // shrink past unless min-width is cleared — without this the
-                  // set row runs off the card and takes the tick box with it.
-                  minWidth: 0,
-                  textAlign: "center",
-                  paddingVertical: 7,
-                  borderRadius: radius.sm,
-                  backgroundColor: colors.surfaceAlt,
-                  color: metricInk(colors, "reps"),
-                  fontFamily: font.bodyMedium,
-                  fontSize: 15,
-                }}
+                ink={metricInk(colors, "reps")}
               />
 
               <Pressable
@@ -889,6 +1113,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             icon="add"
             label={t.workout.addSet}
             onPress={() => addSet(ex.id, sets)}
+            disabled={rows.length >= MAX_SETS}
             style={{ flex: 1 }}
           />
           {rows.length > 1 ? (
@@ -908,6 +1133,9 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             </Pressable>
           ) : null}
         </View>
+        {rows.length >= MAX_SETS ? (
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.setCap}</Text>
+        ) : null}
       </View>
 
       {/* today against last time — the whole point of writing sets down */}
@@ -941,18 +1169,6 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
         </View>
       ) : null}
 
-      {open ? (
-        <View style={{ gap: 4, marginTop: space.sm }}>
-          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
-            {t.workout.howTitle}
-          </Text>
-          {how.map((step, i) => (
-            <Text key={i} style={[type.small, { color: colors.inkSoft }]}>
-              {i + 1}. {step}
-            </Text>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -1029,6 +1245,7 @@ function DayAdder({
                   opacity: already ? 0.5 : 1,
                 }}
               >
+                <ExerciseThumb ex={e} size={38} />
                 <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                   {locale === "he" ? e.he : e.en}
                 </Text>
@@ -1087,6 +1304,11 @@ function LibraryPicker({
       <View style={{ marginTop: space.sm }}>
         <TextField value={q} onChangeText={setQ} placeholder={t.workout.librarySearch} />
       </View>
+      {chosen.length > 0 ? (
+        <Text style={[type.smallStrong, { color: colors.accent, marginTop: space.sm }]}>
+          {t.workout.addedToDay}
+        </Text>
+      ) : null}
       {q.trim().length > 0 ? (
         hits.length === 0 ? (
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
@@ -1102,10 +1324,7 @@ function LibraryPicker({
                   disabled={already}
                   accessibilityRole="button"
                   accessibilityLabel={locale === "he" ? e.he : e.en}
-                  onPress={() => {
-                    onPick(e.id);
-                    setQ("");
-                  }}
+                  onPress={() => onPick(e.id)}
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
@@ -1117,6 +1336,7 @@ function LibraryPicker({
                     opacity: already ? 0.5 : 1,
                   }}
                 >
+                  <ExerciseThumb ex={e} size={38} />
                   <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                     {locale === "he" ? e.he : e.en}
                   </Text>
@@ -1145,13 +1365,20 @@ function AddExercise({
 }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
+  const { allowance } = useStore();
   const [name, setName] = useState("");
   const [yt, setYt] = useState("");
   const [muscle, setMuscle] = useState<Muscle>("core");
+  const [added, setAdded] = useState<string | null>(null);
+
+  // The same ceiling the library's "add your own" is under — two doors, one
+  // limit — and it stops only the next move, not the ones already saved.
+  const canAdd = allowance("customExercises").ok;
 
   function add() {
     const clean = name.trim();
     if (!clean) return;
+    if (!canAdd) return;
     const id = `custom-${Date.now().toString(36)}`;
     onAdd({
       id,
@@ -1167,6 +1394,10 @@ function AddExercise({
     });
     setName("");
     setYt("");
+    // W-7: the form used to blank itself and put the new move in a card
+    // rendered *above* this one, so from where the person was looking nothing
+    // happened at all.
+    setAdded(clean);
   }
 
   return (
@@ -1209,13 +1440,18 @@ function AddExercise({
           placeholder="squat form"
         />
       </View>
-      <Button
-        icon="add"
-        label={t.workout.addSave}
-        onPress={add}
-        disabled={!name.trim()}
-        style={{ marginTop: space.md }}
-      />
+      <View style={{ marginTop: space.md }}>
+        {canAdd ? (
+          <Button icon="add" label={t.workout.addSave} onPress={add} disabled={!name.trim()} />
+        ) : (
+          <ProGate feature="customExercises" />
+        )}
+      </View>
+      {added ? (
+        <Text style={[type.smallStrong, { color: colors.accent, marginTop: space.sm }]}>
+          {added} · {t.common.savedOk}
+        </Text>
+      ) : null}
     </Card>
   );
 }

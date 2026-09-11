@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
+import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -117,11 +118,14 @@ function TipOfTheDay() {
           marginTop: space.xs,
         }}
       >
-        {!aiTip ? (
-          <PillButton tone="soft" label={t.today.tipAnother} onPress={() => setOffset((o) => o + 1)} />
-        ) : (
-          <View />
-        )}
+        <PillButton
+          tone="soft"
+          label={t.today.tipAnother}
+          onPress={() => {
+            setOffset((o) => o + 1);
+            retry();
+          }}
+        />
 
         <Pressable
           onPress={() => router.push(`/habit/${habit.id}`)}
@@ -291,33 +295,56 @@ function TodayHub() {
 
       {/* the pillars as glass tiles on the hero — a shortcut into each */}
       <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.xs }}>
-        {tiles.map((tile) => (
-          <Pressable
-            key={tile.label}
-            onPress={tile.onPress}
-            disabled={!tile.onPress}
-            accessibilityRole={tile.onPress ? "button" : undefined}
-            style={({ pressed }) => ({
-              flex: 1,
-              alignItems: "center",
-              gap: 4,
-              paddingVertical: space.md,
-              paddingHorizontal: 2,
-              borderRadius: radius.md,
-              backgroundColor: pressed ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.18)",
-            })}
-          >
-            <Ionicons name={tile.icon} size={19} color={ON_HERO} />
-            <Text style={[type.smallStrong, { color: ON_HERO }]} numberOfLines={1}>
-              {tile.value}
-            </Text>
-            <Text style={[type.label, { color: ON_HERO_SOFT, letterSpacing: 0.3 }]} numberOfLines={1}>
-              {tile.label}
-            </Text>
-          </Pressable>
-        ))}
+        {tiles.map((tile) => {
+          const box = {
+            flex: 1,
+            alignItems: "center" as const,
+            gap: 4,
+            paddingVertical: space.md,
+            paddingHorizontal: 2,
+            borderRadius: radius.md,
+            borderWidth: 1,
+          };
+          const body = (
+            <>
+              <Ionicons name={tile.icon} size={19} color={ON_HERO} />
+              <Text style={[type.smallStrong, { color: ON_HERO }]} numberOfLines={1}>
+                {tile.value}
+              </Text>
+              <Text style={[type.label, { color: ON_HERO_SOFT, letterSpacing: 0.3 }]} numberOfLines={1}>
+                {tile.label}
+              </Text>
+            </>
+          );
+
+          // A tile with nowhere to go is a readout, not a shortcut. Drawn like
+          // the others it read as a button that ignores the tap, and the habit
+          // list it counts is the very next block anyway.
+          if (!tile.onPress) {
+            return (
+              <View key={tile.label} style={[box, { borderColor: "transparent" }]}>
+                {body}
+              </View>
+            );
+          }
+
+          return (
+            <Pressable
+              key={tile.label}
+              onPress={tile.onPress}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                box,
+                {
+                  backgroundColor: pressed ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.14)",
+                  borderColor: "rgba(255,255,255,0.18)",
+                },
+              ]}
+            >
+              {body}
+            </Pressable>
+          );
+        })}
       </View>
     </HeroCard>
   );
@@ -359,7 +386,7 @@ export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, toggleCompletion, archiveHabit, readyForAnotherHabit, consent } = useStore();
+  const { state, isDone, toggleCompletion, readyForAnotherHabit, allowance, consent } = useStore();
   // Reachability only, not a second sync loop — the store's sync lives in one
   // place and calling useCloud here would start a rival copy of it.
   const net = useConnectivity(consent().cloud);
@@ -378,16 +405,6 @@ export default function TodayScreen() {
     ? fill(t.today.greetingNamed, { greeting, name: state.profile.name })
     : greeting;
 
-  function confirmRemove(id: string, habitTitle: string) {
-    confirm({
-      title: t.habit.remove,
-      message: fill(t.habit.removeConfirm, { title: habitTitle }),
-      confirmLabel: t.habit.removeYes,
-      cancelLabel: t.common.cancel,
-      destructive: true,
-      onConfirm: () => archiveHabit(id),
-    });
-  }
 
   if (habits.length === 0) {
     return (
@@ -406,6 +423,9 @@ export default function TodayScreen() {
   }
 
   const ready = readyForAnotherHabit();
+  // Only the *next* habit is ever refused: the list above is untouched by this,
+  // and every habit already there stays tickable, openable and editable.
+  const canAdd = allowance("habits").ok;
 
   return (
     <Screen
@@ -422,6 +442,26 @@ export default function TodayScreen() {
       <UpdateBanner />
 
       <TodayHub />
+
+      {/* the core daily loop leads the screen: ticking a habit was the fourth
+          block down, at or below the fold on a phone */}
+      <Card label={t.today.listLabel}>
+        <View>
+          {habits.map((habit, index) => (
+            <TaskRow
+              key={habit.id}
+              first={index === 0}
+              label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
+              hint={habit.anchor}
+              done={isDone(habit.id)}
+              scan={scanTask(habit.title)}
+              onToggle={() => toggleCompletion(habit.id)}
+              onOpen={() => router.push(`/habit/${habit.id}`)}
+            />
+          ))}
+        </View>
+        <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
+      </Card>
 
       <RewardsEntry />
 
@@ -452,29 +492,6 @@ export default function TodayScreen() {
 
       <TipOfTheDay />
 
-      <Card label={t.today.listLabel}>
-        <View>
-          {habits.map((habit, index) => (
-            <Pressable
-              key={habit.id}
-              onLongPress={() => confirmRemove(habit.id, habit.title)}
-              delayLongPress={500}
-            >
-              <TaskRow
-                first={index === 0}
-                label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
-                hint={habit.anchor}
-                done={isDone(habit.id)}
-                scan={scanTask(habit.title)}
-                onToggle={() => toggleCompletion(habit.id)}
-                onOpen={() => router.push(`/habit/${habit.id}`)}
-              />
-            </Pressable>
-          ))}
-        </View>
-        <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
-      </Card>
-
       <View
         style={{
           backgroundColor: ready ? colors.accentWash : colors.orangeWash,
@@ -496,13 +513,23 @@ export default function TodayScreen() {
         <Text style={[type.small, { color: colors.inkSoft }]}>
           {ready ? t.today.readyBody : t.today.holdBody}
         </Text>
-        <Button
-          icon="add"
-          label={t.today.addCta}
-          tone={ready ? "primary" : "quiet"}
-          onPress={() => router.push("/habit/new")}
-          style={{ marginTop: space.xs }}
-        />
+        {/* The invitation to add one stays as it was; at the free ceiling the
+            button is replaced by the card that says which limit was hit, rather
+            than left on screen doing nothing. */}
+        {canAdd ? (
+          <>
+            <Button
+              icon="add"
+              label={t.today.addCta}
+              tone={ready ? "primary" : "quiet"}
+              onPress={() => router.push("/habit/new")}
+              style={{ marginTop: space.xs }}
+            />
+            <ProRemaining feature="habits" />
+          </>
+        ) : (
+          <ProGate feature="habits" />
+        )}
       </View>
     </Screen>
   );
