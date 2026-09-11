@@ -437,6 +437,9 @@ export const en: typeof he = {
   },
 
   kitchen: {
+    recentTitle: "You ate recently",
+    recentBody: "One tap logs it again.",
+    recentOften: "×{n} days",
     calcPortionOne: "1 portion",
     calcSearchHint: "e.g. rice, eggs, chicken breast",
     calcTitle: "Calorie calculator",

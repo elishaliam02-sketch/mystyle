@@ -75,6 +75,7 @@
     "test:billing": "node scripts/run-billing-tests.mjs",
     "test:export": "node scripts/run-export-tests.mjs",
     "test:net": "node scripts/run-net-tests.mjs",
+    "test:recent": "node scripts/run-recent-tests.mjs",
     "test:calc": "node scripts/run-calc-tests.mjs",
     "licenses": "node scripts/gen-licenses.mjs",
     "icons": "node scripts/gen-icons.mjs"

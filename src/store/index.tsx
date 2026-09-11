@@ -94,6 +94,8 @@ type Store = {
   removeMeal: (id: string) => void;
   /** Today's food log and its running totals. */
   todayIntake: () => { items: IntakeItem[]; kcal: number; protein: number };
+  /** Today, as the clock-safe date key the diary and logs are written under. */
+  todayKey: () => string;
   /** Adds (or, with a negative delta, removes) a glass of water today. */
   addWater: (delta: number) => void;
   /** Glasses of water logged today. */
@@ -1072,6 +1074,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logMeal,
       removeMeal,
       todayIntake,
+      todayKey: trustedToday,
       addWater,
       todayWater,
       waterGoal,

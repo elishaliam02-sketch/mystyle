@@ -751,6 +751,43 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await cctx.close();
 }
 
+// 20) RECENT MEALS — re-log what you ate before, in one tap. The button a
+// food diary lives or dies on, verified against the stored diary.
+{
+  const rctx = await browser.newContext({viewport:{width:393,height:852}});
+  const M = (label, kcal, protein) => ({ id: label + Math.random(), label, kcal, protein });
+  const withHistory = { ...seed, intake: {
+    [dayAgo(1)]: [M("קפה עם חלב", 60, 3), M("ביצים", 160, 12)],
+    [dayAgo(2)]: [M("קפה עם חלב", 60, 3)],
+    [dayAgo(3)]: [M("קפה עם חלב", 60, 3)],
+  } };
+  await rctx.addInitScript(s=>{try{
+    localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify(withHistory));
+  const rp = await rctx.newPage();
+  const rerr=[]; rp.on("pageerror",e=>rerr.push(String(e).slice(0,160)));
+  await rp.goto(`http://localhost:${PORT}/calc`,{waitUntil:"networkidle"});
+  await rp.waitForTimeout(1800);
+
+  check("recent meals are offered on the calculator",
+    await rp.getByText("אכלת לאחרונה").first().isVisible().catch(()=>false));
+  check("the most-eaten meal is offered",
+    await rp.getByRole("button",{name:"קפה עם חלב"}).first().isVisible().catch(()=>false));
+  check("it says how many days it was eaten",
+    await rp.getByText(/×3 ימים/).first().isVisible().catch(()=>false));
+
+  await rp.getByRole("button",{name:"קפה עם חלב"}).first().click(); await rp.waitForTimeout(1000);
+  { const s2 = JSON.parse(await rp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    const keys = Object.keys(s2.intake).sort();
+    const todayRows = s2.intake[keys[keys.length-1]] || [];
+    check("tapping it logs that exact meal today",
+      todayRows.some(r=>r.label==="קפה עם חלב" && r.kcal===60), JSON.stringify(todayRows.map(r=>r.label)));
+    check("and logs it once, not many times",
+      todayRows.filter(r=>r.label==="קפה עם חלב").length === 1, JSON.stringify(todayRows)); }
+  check("recent meals raise no page errors", rerr.length===0, rerr.join(" | "));
+  await rctx.close();
+}
+
 await browser.close(); server.close();
 report();
 

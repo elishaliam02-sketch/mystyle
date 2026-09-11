@@ -446,6 +446,9 @@ export const he = {
   },
 
   kitchen: {
+    recentTitle: "אכלת לאחרונה",
+    recentBody: "לחיצה אחת רושמת את זה שוב.",
+    recentOften: "×{n} ימים",
     calcPortionOne: "מנה אחת",
     calcSearchHint: "לדוגמה: אורז, ביצים, חזה עוף",
     calcTitle: "מחשבון קלוריות",

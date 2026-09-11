@@ -12,6 +12,7 @@ import {
   type CalcItem,
 } from "@/kitchen/calc";
 import { dailyTarget, searchFoods } from "@/kitchen";
+import { recentMeals } from "@/kitchen/recent";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
@@ -31,7 +32,7 @@ import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 export default function CalcScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal, state, goal: goalOf, todayIntake } = useStore();
+  const { logMeal, state, goal: goalOf, todayIntake, todayKey } = useStore();
   const router = useRouter();
   const params = useLocalSearchParams<{ items?: string }>();
 
@@ -58,6 +59,12 @@ export default function CalcScreen() {
   const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
   const target = dailyTarget(weightKg, goalOf());
   const eaten = todayIntake();
+
+  // The meals already in the diary, offered back for one-tap re-logging. Read
+  // from the same stored intake the diary is drawn from, so it can never show a
+  // meal that was not really eaten.
+  const today = todayKey();
+  const recent = useMemo(() => recentMeals(state.intake, today, 6), [state.intake, today]);
   const leftAfter = target.kcal - eaten.kcal - sums.kcal;
 
   function save() {
@@ -118,6 +125,46 @@ export default function CalcScreen() {
             {t.kitchen.calcEstimate}
           </Text>
         </HeroCard>
+
+        {recent.length > 0 ? (
+          <Card label={t.kitchen.recentTitle}>
+            <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.recentBody}</Text>
+            <View style={{ gap: 6, marginTop: space.sm }}>
+              {recent.map((m) => (
+                <Pressable
+                  key={`${m.label}-${m.kcal}`}
+                  onPress={() => {
+                    logMeal(m.label, m.kcal, m.protein);
+                    setSaved(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={m.label}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.sm,
+                    paddingVertical: 9,
+                    paddingHorizontal: space.md,
+                    borderRadius: radius.md,
+                    backgroundColor: pressed ? colors.accentWash : colors.surfaceAlt,
+                  })}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
+                      {m.label}
+                    </Text>
+                    <Text style={[type.small, { color: colors.inkFaint }]}>
+                      {m.kcal} {t.kitchen.kcal} · {m.protein}
+                      {t.kitchen.grams} {t.kitchen.protein}
+                      {m.count > 1 ? ` · ${fill(t.kitchen.recentOften, { n: m.count })}` : ""}
+                    </Text>
+                  </View>
+                  <Ionicons name="add-circle" size={22} color={colors.accent} />
+                </Pressable>
+              ))}
+            </View>
+          </Card>
+        ) : null}
 
         <Card label={t.kitchen.calcSearch}>
           <TextField
