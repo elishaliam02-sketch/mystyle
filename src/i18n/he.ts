@@ -566,6 +566,15 @@ export const he = {
   },
 
   kitchen: {
+    calcAddUnknown: "לא ברשימה? הוסף \"{q}\" לפי סוג:",
+    calcCatProtein: "חלבון",
+    calcCatCarb: "פחמימה",
+    calcCatVeg: "ירקות",
+    calcCatFat: "שומן",
+    calcEditGrams: "כמות בגרמים",
+    recentTitle: "אכלת לאחרונה",
+    recentBody: "לחיצה אחת רושמת את זה שוב.",
+    recentOften: "×{n} ימים",
     calcPortionOne: "מנה אחת",
     calcSearchHint: "לדוגמה: אורז, ביצים, חזה עוף",
     calcTitle: "מחשבון קלוריות",

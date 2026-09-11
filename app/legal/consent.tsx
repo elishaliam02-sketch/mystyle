@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -103,7 +104,7 @@ function DocLink({ label, onPress }: { label: string; onPress: () => void }) {
     >
       <Ionicons name="document-text-outline" size={18} color={colors.accent} />
       <Text style={[type.bodyStrong, { color: colors.ink, flex: 1 }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+      <Chevron size={18} color={colors.inkFaint} />
     </Pressable>
   );
 }

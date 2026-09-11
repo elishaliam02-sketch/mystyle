@@ -553,6 +553,15 @@ export const en: typeof he = {
   },
 
   kitchen: {
+    calcAddUnknown: "Not on the list? Add \"{q}\" as:",
+    calcCatProtein: "Protein",
+    calcCatCarb: "Carb",
+    calcCatVeg: "Veg",
+    calcCatFat: "Fat",
+    calcEditGrams: "Weight in grams",
+    recentTitle: "You ate recently",
+    recentBody: "One tap logs it again.",
+    recentOften: "×{n} days",
     calcPortionOne: "1 portion",
     calcSearchHint: "e.g. rice, eggs, chicken breast",
     calcTitle: "Calorie calculator",

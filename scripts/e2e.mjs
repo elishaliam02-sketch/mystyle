@@ -747,8 +747,63 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       rows[0]?.kcal === 165, JSON.stringify(rows[0]));
     check("and named after what was on the plate",
       String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
+  // a food outside the ~130-item library — pizza — must still be loggable
+  await cp.getByPlaceholder(/לדוגמה/).first().fill("פיצה"); await cp.waitForTimeout(600);
+  check("an unknown food offers a category to add it by",
+    (await cp.getByRole("button",{name:/פיצה · פחמימה/}).count())>0);
+  await cp.getByRole("button",{name:/פיצה · פחמימה/}).first().click(); await cp.waitForTimeout(600);
+  check("adding an unknown food puts it on the plate",
+    await cp.getByText("פיצה").first().isVisible().catch(()=>false));
+  // and its weight can be typed exactly, not only stepped
+  await cp.getByText(/גרם ·/).first().click(); await cp.waitForTimeout(400);
+  const gbox = cp.getByLabel("כמות בגרמים").first();
+  check("tapping the weight opens an exact-gram editor", (await gbox.count())>0);
+  if (await gbox.count()) {
+    await gbox.fill("250"); await cp.waitForTimeout(400);
+    await cp.mouse.click(20, 700); await cp.waitForTimeout(400);
+    const t = Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+    check("a typed weight recomputes the total", t === 325, String(t));
+  }
+
   check("the calculator raises no page errors", cerr.length===0, cerr.join(" | "));
   await cctx.close();
+}
+
+// 20) RECENT MEALS — re-log what you ate before, in one tap. The button a
+// food diary lives or dies on, verified against the stored diary.
+{
+  const rctx = await browser.newContext({viewport:{width:393,height:852}});
+  const M = (label, kcal, protein) => ({ id: label + Math.random(), label, kcal, protein });
+  const withHistory = { ...seed, intake: {
+    [dayAgo(1)]: [M("קפה עם חלב", 60, 3), M("ביצים", 160, 12)],
+    [dayAgo(2)]: [M("קפה עם חלב", 60, 3)],
+    [dayAgo(3)]: [M("קפה עם חלב", 60, 3)],
+  } };
+  await rctx.addInitScript(s=>{try{
+    localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify(withHistory));
+  const rp = await rctx.newPage();
+  const rerr=[]; rp.on("pageerror",e=>rerr.push(String(e).slice(0,160)));
+  await rp.goto(`http://localhost:${PORT}/calc`,{waitUntil:"networkidle"});
+  await rp.waitForTimeout(1800);
+
+  check("recent meals are offered on the calculator",
+    await rp.getByText("אכלת לאחרונה").first().isVisible().catch(()=>false));
+  check("the most-eaten meal is offered",
+    await rp.getByRole("button",{name:"קפה עם חלב"}).first().isVisible().catch(()=>false));
+  check("it says how many days it was eaten",
+    await rp.getByText(/×3 ימים/).first().isVisible().catch(()=>false));
+
+  await rp.getByRole("button",{name:"קפה עם חלב"}).first().click(); await rp.waitForTimeout(1000);
+  { const s2 = JSON.parse(await rp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    const keys = Object.keys(s2.intake).sort();
+    const todayRows = s2.intake[keys[keys.length-1]] || [];
+    check("tapping it logs that exact meal today",
+      todayRows.some(r=>r.label==="קפה עם חלב" && r.kcal===60), JSON.stringify(todayRows.map(r=>r.label)));
+    check("and logs it once, not many times",
+      todayRows.filter(r=>r.label==="קפה עם חלב").length === 1, JSON.stringify(todayRows)); }
+  check("recent meals raise no page errors", rerr.length===0, rerr.join(" | "));
+  await rctx.close();
 }
 
 await browser.close(); server.close();

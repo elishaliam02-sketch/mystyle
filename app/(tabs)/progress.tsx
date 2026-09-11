@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
@@ -288,7 +289,7 @@ export default function ProgressScreen() {
                   {fill(t.achievements.entryHint, { done: unlocked, total: achievements.length })}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+              <Chevron size={20} color={colors.inkFaint} />
             </View>
           </Card>
         </Pressable>

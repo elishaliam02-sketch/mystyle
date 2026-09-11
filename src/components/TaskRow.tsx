@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import { Pressable, Text, View } from "react-native";
 import { fill, useI18n } from "@/i18n";
 import type { Scan } from "@/tasks/difficulty";
@@ -97,7 +98,7 @@ export function TaskRow({ label, hint, done, onToggle, onOpen, first, scan }: Pr
           ) : null}
         </View>
         {onOpen ? (
-          <Ionicons name="chevron-back" size={18} color={colors.inkFaint} />
+          <Chevron size={18} color={colors.inkFaint} />
         ) : null}
       </Pressable>
     </View>

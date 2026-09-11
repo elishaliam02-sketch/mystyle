@@ -13,6 +13,7 @@ import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import {
   FOODS,
   MEALS,
@@ -103,7 +104,7 @@ export default function KitchenScreen() {
   // Everything the list named — recognised foods, plus anything unknown turned
   // into an ad-hoc ingredient — so nothing the person typed is dropped.
   const full = useMemo(() => readPantryFull(pantryText), [pantryText]);
-  const adhocs = useMemo(() => full.extras.map(adhocFood), [full.extras]);
+  const adhocs = useMemo(() => full.extras.map((w) => adhocFood(w)), [full.extras]);
   const allItems = useMemo(() => [...full.known, ...adhocs], [full.known, adhocs]);
   // A plate built from exactly what the person has — but sized and stocked for
   // the goal they chose, and with anything their diet rules out left off it.
@@ -249,7 +250,7 @@ export default function KitchenScreen() {
               <Text style={[type.title, { color: colors.ink }]}>{t.kitchen.calcTitle}</Text>
               <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.calcBody}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.inkFaint} />
+            <Chevron size={20} color={colors.inkFaint} />
           </View>
         </Card>
       </Pressable>

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Chevron } from "@/components/Chevron";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -60,7 +61,7 @@ export function ProGate({ feature }: { feature: Feature }) {
         <Text style={[type.small, { color: colors.ink }]}>{COPY[feature](t, v.limit)}</Text>
         <Text style={[type.smallStrong, { color: colors.accent }]}>{t.common.proSee}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+      <Chevron size={18} color={colors.accent} />
     </Pressable>
   );
 }
