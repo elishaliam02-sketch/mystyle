@@ -1,13 +1,24 @@
 import { Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import {
+  MARK_PEAK,
+  MARK_PEAK_WIDTH,
+  MARK_STEP,
+  MARK_STEP_WIDTH,
+  MARK_VIEWBOX,
+} from "@/theme/mark";
 import { useTheme } from "@/theme";
 
 /**
- * APEX — the mark is a summit: a bold "A" whose sharp peak reads as the top of
- * a mountain, with a level crossbar. Built from three clean strokes with a
- * vertical red gradient (lit at the peak, deep at the base), so it stays crisp
- * and premium at any size and never depends on rendered anatomy. The wordmark
- * is set in the app's display face with wide tracking for a confident lockup.
+ * APEX — a climb in two strokes. The geometry and the reasoning behind it live
+ * in `src/theme/mark.ts`, shared with the icon generator so the mark on the
+ * home screen is the same mark as the one in the app.
+ *
+ * The step is neon lime on a dark ground and `limeMark` on paper — the same
+ * hue at the weight a graphic needs, rather than the darker weight type needs,
+ * which read as olive next to the violet and made the lockup look muddy. The
+ * wordmark is set in the display face with wide tracking for a confident
+ * lockup, and can be dropped for the places that only want the glyph.
  */
 export function BrandLogo({
   size = 120,
@@ -19,45 +30,41 @@ export function BrandLogo({
   withWordmark?: boolean;
 }) {
   const { colors, font } = useTheme();
-  const mark = size;
+  const step = onBand ? colors.lime : colors.limeMark;
 
   return (
     <View style={{ alignItems: "center", gap: size * 0.11 }}>
-      <Svg width={mark} height={mark} viewBox="0 0 100 100">
+      <Svg width={size} height={size} viewBox={`0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`}>
         <Defs>
-          {/* userSpaceOnUse so the vertical gradient is defined over the whole
-              mark — a horizontal stroke has a zero-height box and would lose an
-              objectBoundingBox gradient entirely (the crossbar would vanish). */}
-          <LinearGradient
-            id="apexGrad"
-            gradientUnits="userSpaceOnUse"
-            x1="0"
-            y1="15"
-            x2="0"
-            y2="87"
-          >
-            <Stop offset="0" stopColor={colors.accent} />
-            <Stop offset="1" stopColor={colors.accentDeep} />
+          {/* userSpaceOnUse so the gradient is defined over the whole mark — a
+              stroke has no area of its own, and an objectBoundingBox gradient
+              on one would collapse. */}
+          <LinearGradient id="apexPeak" gradientUnits="userSpaceOnUse" x1="16" y1="18" x2="84" y2="58">
+            <Stop offset="0" stopColor={onBand ? colors.accentDeep : colors.accent} />
+            <Stop offset="1" stopColor={onBand ? colors.accent : colors.accentDeep} />
           </LinearGradient>
         </Defs>
-        {/* the peak: two legs meeting at a sharp apex */}
+
+        {/* the summit */}
         <Path
-          d="M13 87 L50 15 L87 87"
+          d={MARK_PEAK}
           fill="none"
-          stroke="url(#apexGrad)"
-          strokeWidth={15}
+          stroke="url(#apexPeak)"
+          strokeWidth={MARK_PEAK_WIDTH}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {/* the crossbar of the A */}
+        {/* the step taken today */}
         <Path
-          d="M33 60 L67 60"
+          d={MARK_STEP}
           fill="none"
-          stroke="url(#apexGrad)"
-          strokeWidth={13}
+          stroke={step}
+          strokeWidth={MARK_STEP_WIDTH}
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </Svg>
+
       {withWordmark ? (
         <Text
           style={{

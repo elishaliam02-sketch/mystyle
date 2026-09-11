@@ -227,6 +227,19 @@ export const en: typeof he = {
     licensesCount: "{count} packages",
   },
 
+  net: {
+    offlineTitle: "Can't reach the server",
+    offlineBody: "Nothing is blocked: everything is saved on this phone and every screen works as usual. The moment the connection is back, syncing runs by itself — nothing needs retyping.",
+    openSettings: "Network & internet settings",
+    retry: "Check again",
+    statusTitle: "Connection",
+    online: "Connected ✓",
+    offline: "Can't reach the server",
+    checking: "Checking the connection...",
+    unknown: "Sync is off — no connection needed.",
+    note: "Works the same on mobile data as on Wi-Fi — the app never asks which one you are using. It also can't connect you to a network itself, which is why the button opens your device's own network settings.",
+  },
+
   updates: {
     bannerTitle: "A new version is ready",
     bannerBody: "The update is already on your phone. Restarting takes a second.",

@@ -13,6 +13,7 @@ import {
 } from "./backup";
 import { pullBackup, pushBackup } from "./backupPort";
 import { syncRound } from "./round";
+import { useConnectivity } from "@/net";
 
 const nowIso = () => new Date().toISOString();
 
@@ -28,6 +29,8 @@ export function useCloud() {
   // there is no second path that could quietly keep uploading after someone
   // turned it off.
   const allowed = consent().cloud;
+  // Only asked while sync is on — see the note in src/net.
+  const net = useConnectivity(allowed);
   const [status, setStatus] = useState<CloudState>("connecting");
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [account, setAccount] = useState<AccountInfo | null>(null);
@@ -133,7 +136,24 @@ export function useCloud() {
     return () => sub.remove();
   }, [sync]);
 
-  return { status, lastSync, account, refreshAccount: () => void currentAccount().then(setAccount), sync };
+  // And the instant the connection comes back. Without this, a day's ticking
+  // done on a train waits for the next foreground — which, if the app never
+  // left the foreground, means it waits until tomorrow.
+  const wasOnline = useRef(net.online);
+  useEffect(() => {
+    if (net.online && !wasOnline.current) void sync();
+    wasOnline.current = net.online;
+  }, [net.online, sync]);
+
+  return {
+    status,
+    lastSync,
+    account,
+    refreshAccount: () => void currentAccount().then(setAccount),
+    sync,
+    /** Whether the server is reachable — "unknown" while sync is switched off. */
+    net,
+  };
 }
 
 /**

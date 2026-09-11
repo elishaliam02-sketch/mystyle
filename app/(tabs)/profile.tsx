@@ -11,6 +11,7 @@ import { Screen } from "@/components/Screen";
 import { SupportSignpost } from "@/components/SupportSignpost";
 import { StubNote } from "@/components/StubNote";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { TextField } from "@/components/TextField";
 import { useCloud } from "@/cloud/useCloud";
 import {
@@ -35,6 +36,7 @@ import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 import { useAppUpdate } from "@/updates";
+import { canOpenNetworkSettings, openNetworkSettings } from "@/net";
 import { LEGAL } from "@/legal";
 import { buildExport, exportFilename, serializeExport } from "@/legal/export";
 import { deliverExport } from "@/legal/deliver";
@@ -130,6 +132,7 @@ export default function ProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.profile.heading}>
+        <OfflineBanner state={cloud.net.state} onRetry={() => void cloud.net.recheck()} />
         <UpdateBanner />
         <View style={{ alignItems: "center", paddingVertical: space.md }}>
           <BrandLogo size={72} onBand={false} />
@@ -251,6 +254,38 @@ export default function ProfileScreen() {
         <AccountCard cloud={cloud} />
 
         <Card label={t.profile.cloudTitle}>
+          {/* What the sync status cannot tell you on its own: whether the
+              problem is the server or the room you are standing in. */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.sm }}>
+            <Ionicons
+              name={cloud.net.online ? "wifi" : cloud.net.offline ? "cloud-offline-outline" : "ellipse-outline"}
+              size={16}
+              color={cloud.net.offline ? colors.orangeInk : colors.inkFaint}
+            />
+            <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>
+              {cloud.net.state === "online"
+                ? t.net.online
+                : cloud.net.state === "offline"
+                  ? t.net.offline
+                  : cloud.net.state === "checking"
+                    ? t.net.checking
+                    : t.net.unknown}
+            </Text>
+            {cloud.net.offline && canOpenNetworkSettings ? (
+              <Pressable
+                onPress={() => void openNetworkSettings()}
+                accessibilityRole="button"
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: space.xs })}
+              >
+                <Text style={[type.smallStrong, { color: colors.accent }]}>{t.net.openSettings}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {cloud.net.offline ? (
+            <Text style={[type.small, { color: colors.inkFaint, marginBottom: space.sm }]}>
+              {t.net.note}
+            </Text>
+          ) : null}
           <Text
             style={[
               type.bodyStrong,

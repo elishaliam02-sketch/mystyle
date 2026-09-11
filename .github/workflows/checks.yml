@@ -47,7 +47,7 @@ jobs:
           set -e
           for suite in sync date insight kitchen clock workout achievements body \
                        projection video health reminders cardio backup sets coach \
-                       nutrition theme tasks rewards legal export; do
+                       nutrition theme tasks rewards legal export net; do
             echo "── $suite"
             npm run --silent "test:$suite"
           done

@@ -9,6 +9,8 @@ import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { useConnectivity } from "@/net";
 import { askDailyTip } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
@@ -357,7 +359,10 @@ export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, toggleCompletion, archiveHabit, readyForAnotherHabit } = useStore();
+  const { state, isDone, toggleCompletion, archiveHabit, readyForAnotherHabit, consent } = useStore();
+  // Reachability only, not a second sync loop — the store's sync lives in one
+  // place and calling useCloud here would start a rival copy of it.
+  const net = useConnectivity(consent().cloud);
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -412,6 +417,8 @@ export default function TodayScreen() {
           : fill(t.today.doneCount, { done: doneCount, total: habits.length })
       }
     >
+      <OfflineBanner state={net.state} onRetry={() => void net.recheck()} />
+
       <UpdateBanner />
 
       <TodayHub />

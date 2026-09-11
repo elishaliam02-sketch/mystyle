@@ -71,7 +71,9 @@
     "test:rewards": "node scripts/run-reward-tests.mjs",
     "test:legal": "node scripts/run-legal-tests.mjs",
     "test:export": "node scripts/run-export-tests.mjs",
-    "licenses": "node scripts/gen-licenses.mjs"
+    "test:net": "node scripts/run-net-tests.mjs",
+    "licenses": "node scripts/gen-licenses.mjs",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "private": true
 }

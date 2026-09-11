@@ -65,9 +65,9 @@ function hsl(hex: string): { hue: number; sat: number; light: number } {
  * Charcoal is the neutral, so anything desaturated counts as charcoal.
  */
 const HUE_BANDS: [string, number, number][] = [
-  ["electric blue", 200, 235],
-  ["neon lime", 70, 95],
-  ["vibrant orange", 12, 42],
+  ["electric violet", 232, 278],
+  ["volt lime", 70, 95],
+  ["hot orange", 12, 42],
 ];
 
 function family(hex: string): string | null {
@@ -89,9 +89,9 @@ for (const scheme of ["light", "dark"] as const) {
   }
 
   // Each bright is present, and is the hue it claims to be.
-  check(`${scheme}: accent is electric blue`, family(c.accent) === "electric blue", c.accent);
-  check(`${scheme}: orange is vibrant orange`, family(c.orange) === "vibrant orange", c.orange);
-  check(`${scheme}: lime is neon lime`, family(c.lime) === "neon lime", c.lime);
+  check(`${scheme}: accent is electric violet`, family(c.accent) === "electric violet", c.accent);
+  check(`${scheme}: orange is hot orange`, family(c.orange) === "hot orange", c.orange);
+  check(`${scheme}: lime is volt lime`, family(c.lime) === "volt lime", c.lime);
   // Charcoal is judged by chroma, not saturation: a near-white ink reads as
   // highly "saturated" in HSL while carrying almost no colour at all.
   const chroma = (hex: string) => {
@@ -139,6 +139,9 @@ for (const scheme of ["light", "dark"] as const) {
   // and dividers are decoration and carry no contrast requirement.
   const MARKS: [string, string, string][] = [
     ["limeInk fill on surface", c.limeInk, c.surface],
+    // The logo's lime, which is a graphic and not type.
+    ["limeMark on surface", c.limeMark, c.surface],
+    ["limeMark on ground", c.limeMark, c.ground],
     ["limeInk fill on ground", c.limeInk, c.ground],
     ["orange fill on surface", c.orange, c.surface],
     ["accent fill on surface", c.accent, c.surface],

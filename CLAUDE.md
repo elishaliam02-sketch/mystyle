@@ -10,8 +10,8 @@ deliberately does not.
 dark value, and `Colors` is a typed contract — adding a token to light and
 forgetting dark fails the typecheck. A hex literal in a component is a bug.
 
-**Four colours, and no fifth.** Electric blue, vibrant orange, neon lime, deep
-charcoal. Every neutral is charcoal thinned or lifted, so the greys belong to
+**Four colours, and no fifth.** Electric violet, hot orange, volt lime,
+violet-black. Every neutral is charcoal thinned or lifted, so the greys belong to
 the family too. Each bright ships in two weights: a vivid `fill` for solid
 blocks, and an `ink` (`orangeInk`, `limeInk`) that is the same hue darkened
 until it clears 4.5:1 as text on paper — neon lime on white is 1.2:1, so a
@@ -20,7 +20,7 @@ on a light theme instead. `npm run test:theme` measures every pairing and every
 hue: a stray colour or a bright that drifts under the bar fails a test.
 
 **Each metric family owns one hue, app-wide** (`src/theme/metrics.ts`). Load is
-blue (kg, volume, 1RM, bodyweight, water), counts are lime (reps, sets, steps,
+violet (kg, volume, 1RM, bodyweight, water), counts are lime (reps, sets, steps,
 ticks, the day score), time and cost are orange (the rest clock, minutes,
 pace, calories, streaks, a PR). Read a figure's colour with `metricInk` /
 `metricFill` / `onMetric` rather than picking a token by hand — the point is
@@ -47,6 +47,12 @@ every call in `src/ai/server.ts`. Raising `LEGAL.version` makes every existing
 user re-accept. Adding a network call means adding it to a gate and to the
 policy — `npm run test:legal` checks the documents stay in step, name every
 processor, and carry no placeholder text.
+
+**The logo is geometry, not a PNG.** `src/theme/mark.ts` holds the two chevrons
+— the summit ahead in violet, the step taken today in lime — and both the
+in-app `BrandLogo` and every launcher asset are drawn from it. Run
+`npm run icons` after changing the mark or the palette; the icons drifted to a
+stale red "A" once because a PNG cannot know the colours moved.
 
 **An off feature says it is off.** The AI coach is off until someone turns it
 on, so `AiState` distinguishes `declined` (off — the note names the switch and
@@ -107,6 +113,23 @@ and *offers* a restart — it never restarts on its own, and it no-ops in Expo G
 and on web. `runtimeVersion` follows `version` in app.json, so an update only
 ever reaches a build that can run it. JavaScript, strings, the palette and the
 food library ship this way; native changes still need a store build.
+
+## Network
+
+`src/net/` answers one question — can we reach the server — and only when
+cloud sync is on, because with it off there is nothing to reach and a ping
+would be exactly the traffic the consent gate exists to prevent. It is
+deliberately not a native connectivity module: the question that matters is
+reachability, not whether an interface is up, and a phone on a captive-portal
+Wi-Fi reports a fine connection and can reach nothing.
+
+Two rules learned the hard way: an unconfigured project answers `null`, not
+"offline" (reporting the second showed a no-internet banner to people who were
+online), and one failed probe is never enough — a cold cellular request can
+outlast a short timeout, so it takes two failures in a row and a 12-second
+budget. Mobile data is a connection like any other; nothing in the app asks
+which one is in use, and the Android settings button opens Network & internet
+rather than the Wi-Fi panel.
 
 ## Accounts
 

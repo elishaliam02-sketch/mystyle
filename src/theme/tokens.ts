@@ -24,7 +24,7 @@ export type Colors = {
    * colour. Everything below it is quiet paper, so this is what makes the
    * page read as designed rather than as a list of boxes. */
   band: string;
-  /** The two ends of the band's gradient — electric blue sunk into charcoal,
+  /** The two ends of the band's gradient — electric violet sunk into charcoal,
    * so the header reads as lit rather than flat. */
   bandTop: string;
   bandBottom: string;
@@ -36,7 +36,7 @@ export type Colors = {
   inkFaint: string;
   rule: string;
   ruleStrong: string;
-  /** Electric blue — the primary action, and the colour of load: kilos on the
+  /** Electric violet — the primary action, and the colour of load: kilos on the
    * bar, volume, bodyweight, water. */
   accent: string;
   accentDeep: string;
@@ -59,6 +59,11 @@ export type Colors = {
   /** A third weight of lime, for the drawn tiles that need two stops of the
    * same hue without dropping all the way to charcoal. */
   limeDeep: string;
+  /** Lime for a *mark* rather than for type: the logo stroke, an icon glyph.
+   * A graphic clears the bar at 3:1 where text needs 4.5:1, so this sits a
+   * step brighter than `limeInk` — which on paper is a text weight so dark it
+   * reads as olive beside the violet, and made the lockup look muddy. */
+  limeMark: string;
   limeWash: string;
   /** The ink that rides on a lime block — white on the paper-safe weight,
    * charcoal on the neon one. */
@@ -74,82 +79,93 @@ export type Colors = {
 };
 
 /**
- * VOLT palette — electric blue, vibrant orange, neon lime, deep charcoal.
- * Charcoal carries the weight and the type; the three brights are spent only
- * on numbers that have to land in a glance, mid-set, at arm's length. Because
- * each metric family owns one hue for the life of the app (see
+ * VOLT palette — electric violet, hot orange, volt lime, violet-black.
+ *
+ * The four colours are the same four roles as before, tuned to read young and
+ * loud rather than corporate: the primary moved off a safe blue and onto an
+ * ultraviolet that belongs to sportswear and music rather than to banking, the
+ * orange ran hotter, and the lime stayed exactly where it was because neon
+ * lime was already the youngest thing in the set. Even the greys are violet
+ * now — charcoal thinned toward the accent, so nothing on screen is a neutral
+ * borrowed from somewhere else.
+ *
+ * Charcoal still carries the weight and the type; the three brights are spent
+ * only on numbers that have to land in a glance, mid-set, at arm's length.
+ * Because each metric family owns one hue for the life of the app (see
  * `src/theme/metrics.ts`), colour alone tells you what a figure is before you
  * have read its label.
  */
 export const palette: Record<"light" | "dark", Colors> = {
   light: {
-    ground: "#F1F3F6",
+    ground: "#F4F3F8",
     surface: "#FFFFFF",
-    surfaceAlt: "#E4E8ED",
-    band: "#14171C",
-    bandTop: "#0B2C6B",
-    bandBottom: "#0B0D10",
+    surfaceAlt: "#E9E7F1",
+    band: "#12121A",
+    bandTop: "#2A0E6B",
+    bandBottom: "#0B0B12",
     bandInk: "#FFFFFF",
-    bandInkSoft: "#A9B4C4",
-    bandRule: "#2A3140",
-    ink: "#14171C",
-    inkSoft: "#545B66",
-    inkFaint: "#6B7380",
-    rule: "#E1E5EA",
-    ruleStrong: "#C6CCD4",
-    accent: "#0B5CFF",
-    accentDeep: "#0A44C2",
-    accentWash: "#E9F0FF",
+    bandInkSoft: "#B3ADC8",
+    bandRule: "#2E2A44",
+    ink: "#13121A",
+    inkSoft: "#565270",
+    inkFaint: "#6E6A85",
+    rule: "#E4E1EE",
+    ruleStrong: "#C9C4DC",
+    accent: "#6E2BFF",
+    accentDeep: "#4A17C4",
+    accentWash: "#EDE7FF",
     onAccent: "#FFFFFF",
-    orange: "#F55F00",
-    orangeInk: "#B34400",
-    orangeWash: "#FFEADD",
-    onOrange: "#14171C",
-    lime: "#B8FF29",
+    orange: "#FF5A1F",
+    orangeInk: "#C23B00",
+    orangeWash: "#FFEADF",
+    onOrange: "#12121A",
+    lime: "#C6FF3D",
     limeInk: "#4C7A00",
     limeDeep: "#3F6A00",
-    limeWash: "#EDFFD0",
+    limeMark: "#5E9400",
+    limeWash: "#EEFFD2",
     onLime: "#FFFFFF",
     alert: "#C23B00",
     alertDeep: "#8A2900",
-    heroFrom: "#1466FF",
-    heroTo: "#0A3AAE",
-    shadow: "#14171C",
+    heroFrom: "#7A3BFF",
+    heroTo: "#3A0FA8",
+    shadow: "#12121A",
   },
   dark: {
-    ground: "#0B0D10",
-    surface: "#14181D",
-    surfaceAlt: "#1D222A",
-    band: "#0B0D10",
-    bandTop: "#0E2350",
-    bandBottom: "#07080A",
-    bandInk: "#F3F5F8",
-    bandInkSoft: "#A3ADBB",
-    bandRule: "#232935",
-    ink: "#EBEFF4",
-    inkSoft: "#9AA4B2",
-    inkFaint: "#7C8695",
-    rule: "#232830",
-    ruleStrong: "#39404B",
-    accent: "#5B93FF",
-    accentDeep: "#8CB4FF",
-    accentWash: "#101E38",
-    // Charcoal on a lifted blue, not white: a blue bright enough to read on a
-    // black ground is too bright to carry white type.
-    onAccent: "#07080A",
-    orange: "#FF8A3C",
-    orangeInk: "#FFA265",
-    orangeWash: "#2A1809",
-    onOrange: "#14171C",
-    lime: "#C7FF3D",
-    limeInk: "#C7FF3D",
+    ground: "#0B0B12",
+    surface: "#15141F",
+    surfaceAlt: "#1F1D2E",
+    band: "#0B0B12",
+    bandTop: "#2A0E6B",
+    bandBottom: "#08080D",
+    bandInk: "#F5F3FA",
+    bandInkSoft: "#ADA6C4",
+    bandRule: "#272338",
+    ink: "#EDEAF6",
+    inkSoft: "#A09AB8",
+    inkFaint: "#837C9C",
+    rule: "#262336",
+    ruleStrong: "#3C3752",
+    accent: "#9B6BFF",
+    accentDeep: "#C3A6FF",
+    accentWash: "#1B1338",
+    // Charcoal on a lifted violet, not white: a violet bright enough to read
+    // on a black ground is too bright to carry white type.
+    onAccent: "#08080D",
+    orange: "#FF8248",
+    orangeInk: "#FFA275",
+    orangeWash: "#2C1710",
+    onLime: "#0B0B12",
+    lime: "#C6FF3D",
+    limeInk: "#C6FF3D",
     limeDeep: "#7CB000",
-    limeWash: "#17250A",
-    onLime: "#0B0D10",
-    alert: "#FF7A2E",
+    limeMark: "#C6FF3D",
+    limeWash: "#182609",
+    onOrange: "#12121A",
+    alert: "#FF7A44",
     alertDeep: "#E0621B",
-    heroFrom: "#1A5BD8",
-    heroTo: "#0C2A6B",
+    heroFrom: "#6A2BE0",
+    heroTo: "#2E0B8A",
     shadow: "#000000",
   },
 };
@@ -208,15 +224,15 @@ export function elevation(colors: Colors, level: 1 | 2 = 1) {
   };
 }
 
-/** The one accent gradient the whole app leans on — electric blue, lit-to-deep. */
+/** The one accent gradient the whole app leans on — violet, lit-to-deep. */
 export function accentGradient(colors: Colors): [string, string] {
   return [colors.accent, colors.accentDeep];
 }
 
 /**
- * The signature "hero" surface: electric blue bleeding into charcoal, lit from
+ * The signature "hero" surface: electric violet bleeding into black, lit from
  * one corner. This is the app's one loud gesture — the day score, an intro, a
- * result. White text sits on it, and a blue glow underneath lifts it clear off
+ * result. White text sits on it, and a violet glow underneath lifts it clear off
  * the paper so a hero card feels like the front of a product, not a box.
  */
 export function heroGradient(colors: Colors): [string, string, string] {

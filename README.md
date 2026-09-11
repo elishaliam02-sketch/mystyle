@@ -56,6 +56,7 @@ src/
   rewards/           points, levels and streak bonuses, from the ticks alone
   legal/             the privacy policy and terms, and what gates on them
   updates/           over-the-air updates, offered rather than forced
+  net/               can we reach the server, and what to say when we cannot
   ui/                confirm.ts — dialogs that work on web as well as native
   components/        Screen, Card, TaskRow, TaskScan, StubNote
 ```
@@ -68,9 +69,9 @@ in the other, and nobody notices until a user reports a white-on-white screen.
 `Colors` is a typed contract, so a token added to light and forgotten in dark
 fails the typecheck.
 
-The palette is four colours — electric blue, vibrant orange, neon lime, deep
-charcoal — and each metric family owns one of them for the life of the app:
-load is blue, counts are lime, time and cost are orange. Colour tells you what
+The palette is four colours — electric violet, hot orange, volt lime,
+violet-black — and each metric family owns one of them for the life of the app:
+load is violet, counts are lime, time and cost are orange. Colour tells you what
 a number is before you have read the word under it, which is the difference
 between glancing at your phone between sets and stopping to read it.
 `npm run test:theme` measures the contrast of every pairing and the hue of
