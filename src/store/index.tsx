@@ -26,6 +26,9 @@ import {
 } from "./types";
 import { isStorableWeight } from "./weight";
 import { acceptanceCurrent, LEGAL, publishAiConsent } from "@/legal";
+import { challengeFor, type Challenge } from "@/challenge";
+import { FOCUS_MAX_MS } from "@/focus";
+import type { Difficulty } from "@/tasks/difficulty";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
@@ -192,6 +195,19 @@ type Store = {
   exerciseLifts: (id: string) => Lift[];
   /** Advances the clock guard from a trusted server timestamp. */
   noteServerTime: (iso: string) => void;
+  /** Whether focus mode is on right now. */
+  focusOn: () => boolean;
+  /** Turns the app's colour off, or back on. */
+  toggleFocus: () => void;
+  /** Today's challenge, at the level this person chose. Null until the intro
+   * has asked, so a screen can offer the choice rather than guess. */
+  todayChallenge: () => Challenge | null;
+  /** The level itself, for the settings screen. */
+  challengeLevel: () => Difficulty | null;
+  setChallengeLevel: (level: Difficulty) => void;
+  /** Whether today's challenge is already done, and the toggle for it. */
+  isChallengeDone: (date?: string) => boolean;
+  toggleChallenge: () => void;
   /** Records acceptance of the current terms and privacy policy. */
   acceptLegal: () => void;
   /** Whether the accepted documents are still the current ones. */
@@ -1014,6 +1030,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  /**
+   * Focus mode lapses by itself. Someone who starts a session and forgets it
+   * should not find a grey app tomorrow morning wondering what broke, so a
+   * switch older than this simply reads as off.
+   */
+  const focusOn = useCallback(() => {
+    const since = state.focusSince;
+    if (!since) return false;
+    const age = Date.now() - Date.parse(since);
+    return Number.isFinite(age) && age >= 0 && age < FOCUS_MAX_MS;
+  }, [state.focusSince]);
+
+  const toggleFocus = useCallback(() => {
+    setState((s) => {
+      const since = s.focusSince;
+      const live = since ? Date.now() - Date.parse(since) < FOCUS_MAX_MS : false;
+      return { ...s, focusSince: live ? undefined : now() };
+    });
+  }, []);
+
+  const challengeLevel = useCallback(
+    (): Difficulty | null => state.challengeLevel ?? null,
+    [state.challengeLevel],
+  );
+
+  const setChallengeLevel = useCallback((level: Difficulty) => {
+    setState((s) => ({ ...s, challengeLevel: level }));
+  }, []);
+
+  const todayChallenge = useCallback((): Challenge | null => {
+    if (!state.challengeLevel) return null;
+    // The device's own salt, so two people at the same level on the same day
+    // are not handed the same dare.
+    return challengeFor(today(), state.challengeLevel, state.salt ?? "");
+  }, [state.challengeLevel, state.salt]);
+
+  const isChallengeDone = useCallback(
+    (date?: string) => !!state.challengesDone?.[date ?? today()],
+    [state.challengesDone],
+  );
+
+  const toggleChallenge = useCallback(() => {
+    const challenge = todayChallenge();
+    if (!challenge) return;
+    const day = today();
+    setState((s) => {
+      const done = { ...(s.challengesDone ?? {}) };
+      // Unticking removes the row rather than writing a false: a challenge is
+      // offered fresh each day and there is no history to contradict.
+      if (done[day]) delete done[day];
+      else done[day] = challenge.id;
+      return { ...s, challengesDone: done };
+    });
+  }, [todayChallenge]);
+
   const acceptLegal = useCallback(() => {
     setState((s) => ({ ...s, legal: { version: LEGAL.version, acceptedAt: now() } }));
   }, []);
@@ -1115,6 +1186,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logExerciseWeight,
       exerciseLifts,
       noteServerTime,
+      focusOn,
+      toggleFocus,
+      todayChallenge,
+      challengeLevel,
+      setChallengeLevel,
+      isChallengeDone,
+      toggleChallenge,
       acceptLegal,
       legalCurrent,
       consent,
@@ -1130,6 +1208,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
+     focusOn, toggleFocus,
+     todayChallenge, challengeLevel, setChallengeLevel, isChallengeDone, toggleChallenge,
      acceptLegal, legalCurrent, consent, setConsent, reset, replaceAll],
   );
 

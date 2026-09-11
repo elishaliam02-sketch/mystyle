@@ -5,16 +5,19 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
+import { SelectTile } from "@/components/SelectTile";
 import { StepDots } from "@/components/StepDots";
+import { difficultyColor } from "@/components/TaskScan";
 import { SupportPreview } from "@/components/SupportPreview";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import { checkGoalWeight, isHeightCm, MAX_HEIGHT_CM, MIN_HEIGHT_CM } from "@/health";
 import { isStorableWeight, MAX_KG, MIN_KG } from "@/store/weight";
 import { useStore, type Habit } from "@/store";
+import type { Difficulty } from "@/tasks/difficulty";
 import { useTheme } from "@/theme";
 
-const TOTAL = 3;
+const TOTAL = 4;
 const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
 
 export default function Onboarding() {
@@ -22,7 +25,7 @@ export default function Onboarding() {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, saveProfile, addHabit, addWeighIn } = useStore();
+  const { state, saveProfile, addHabit, addWeighIn, setChallengeLevel } = useStore();
 
   // Arrived here while already onboarded (a stale link, a re-mount): go home.
   // Checked once at mount, so finish() flipping the flag can never trigger it.
@@ -38,6 +41,9 @@ export default function Onboarding() {
   const [goalKg, setGoalKg] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [habit, setHabit] = useState("");
+  // Null is a real answer here — "no daily challenge" — so it is not the same
+  // as "not asked yet", which is what an undefined level in the store means.
+  const [level, setLevel] = useState<Difficulty | null>("moderate");
   const [slot, setSlot] = useState<Habit["slot"]>();
 
   const ideas = Object.values(t.onboarding.ideas);
@@ -73,6 +79,10 @@ export default function Onboarding() {
   }
 
   function finish() {
+    // The level is stored before the profile so the very first Today screen
+    // already has a challenge on it — arriving to an empty card and being told
+    // to come back tomorrow is a poor first minute.
+    if (level) setChallengeLevel(level);
     saveProfile({
       name: name.trim(),
       goalKg: num(goalKg),
@@ -87,6 +97,8 @@ export default function Onboarding() {
     router.replace(id ? `/habit/${id}` : "/");
   }
 
+  // The habit step is the only one that cannot be left empty; the challenge
+  // level has a default and "no challenge" is a valid choice.
   const canContinue = step === 2 ? habit.trim().length > 0 : true;
 
   return (
@@ -162,6 +174,60 @@ export default function Onboarding() {
             {note ? (
               <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
             ) : null}
+          </View>
+        ) : null}
+
+        {step === 3 ? (
+          <View style={{ gap: space.lg }}>
+            <View style={{ gap: space.xs }}>
+              <Text style={[type.hero, { color: colors.ink }]}>{t.challenge.levelTitle}</Text>
+              <Text style={[type.body, { color: colors.inkSoft }]}>{t.challenge.levelBody}</Text>
+            </View>
+            <View style={{ gap: space.sm }}>
+              {(
+                [
+                  ["easy", t.challenge.levelEasy, t.challenge.levelEasyBody],
+                  ["moderate", t.challenge.levelModerate, t.challenge.levelModerateBody],
+                  ["hard", t.challenge.levelHard, t.challenge.levelHardBody],
+                ] as const
+              ).map(([id, title, body]) => {
+                const on = level === id;
+                return (
+                  <SelectTile
+                    key={id}
+                    selected={on}
+                    onPress={() => setLevel(id)}
+                    style={{
+                      borderWidth: 1.5,
+                      borderColor: on ? difficultyColor(colors, id) : colors.rule,
+                      borderRadius: radius.lg,
+                      padding: space.lg,
+                    }}
+                  >
+                    <Text style={[type.title, { color: on ? colors.onAccent : colors.ink }]}>
+                      {title}
+                    </Text>
+                    <Text
+                      style={[
+                        type.small,
+                        { color: on ? colors.onAccent : colors.inkSoft, marginTop: 2 },
+                      ]}
+                    >
+                      {body}
+                    </Text>
+                  </SelectTile>
+                );
+              })}
+              <Pressable
+                onPress={() => setLevel(null)}
+                accessibilityRole="button"
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingVertical: space.sm })}
+              >
+                <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>
+                  {t.challenge.skip}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 

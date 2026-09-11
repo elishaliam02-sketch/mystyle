@@ -10,6 +10,7 @@
  */
 
 import { palette, type Colors } from "./tokens";
+import { desaturate } from "./grayscale";
 import { METRIC_FAMILY, metricFill, metricInk, metricWash, onMetric, type Metric } from "./metrics";
 
 const results: [string, boolean, string?][] = [];
@@ -184,6 +185,49 @@ for (const scheme of ["light", "dark"] as const) {
     check(`${scheme}: ${metric} fill carries its ink`, onFill >= 4.5, onFill.toFixed(2));
     const onWash = contrast(metricInk(c, metric), metricWash(c, metric));
     check(`${scheme}: ${metric} ink reads on its wash`, onWash >= 4.5, onWash.toFixed(2));
+  }
+}
+
+// --- focus mode: the same palette with the colour taken out
+//
+// Grey that cannot be read is worse than colour, so the accessible-contrast
+// bar applies to the drained palette exactly as it does to the real one. The
+// conversion is luminance-preserving for this reason: what was readable has
+// to stay readable, and three hues collapsing onto the same grey would make
+// the metric families indistinguishable rather than merely quiet.
+for (const scheme of ["light", "dark"] as const) {
+  const c = desaturate(palette[scheme]);
+
+  check(`${scheme} focus: every token is a true grey`,
+    (Object.values(c) as string[]).every((hex) => {
+      if (!hex.startsWith("#") || hex.length !== 7) return true;
+      return hex[1] === hex[3] && hex[3] === hex[5] && hex[2] === hex[4] && hex[4] === hex[6];
+    }),
+    (Object.entries(c) as [string, string][]) 
+      .filter(([, hex]) => hex.startsWith("#") && hex.length === 7 && !(hex[1] === hex[3] && hex[3] === hex[5]))
+      .map(([k]) => k).join(","));
+
+  const FOCUS_TEXT: [string, string, string][] = [
+    ["ink on ground", c.ink, c.ground],
+    ["ink on surface", c.ink, c.surface],
+    ["inkSoft on surface", c.inkSoft, c.surface],
+    ["inkFaint on surface", c.inkFaint, c.surface],
+    ["bandInk on band", c.bandInk, c.band],
+    ["onAccent on accent", c.onAccent, c.accent],
+    ["onLime on limeInk", c.onLime, c.limeInk],
+    ["onOrange on orange", c.onOrange, c.orange],
+    ["onAzure on azure", c.onAzure, c.azure],
+  ];
+  for (const [name, fg, bg] of FOCUS_TEXT) {
+    const ratio = contrast(fg, bg);
+    check(`${scheme} focus: ${name} still clears 4.5:1`, ratio >= 4.5, ratio.toFixed(2));
+  }
+
+  // Grey drains the hue but must not flatten the levels: a filled bar has to
+  // stay visible against the surface it sits on.
+  for (const [name, fill] of [["accent", c.accent], ["orange", c.orange], ["limeInk", c.limeInk]] as const) {
+    const ratio = contrast(fill, c.surface);
+    check(`${scheme} focus: a ${name} fill is still visible`, ratio >= 3, ratio.toFixed(2));
   }
 }
 

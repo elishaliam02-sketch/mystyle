@@ -55,6 +55,27 @@ export const DEFAULT_HOUR = 9;
  */
 export const MAX_DAILY = 6;
 
+/**
+ * Which weekdays a plan's sessions land on — 1 = Sunday … 7 = Saturday.
+ *
+ * A plan says how many days a week, not which ones, so the reminder has to
+ * choose. It spreads them as evenly as the week allows and starts on Sunday
+ * (the Israeli working week), which puts rest days between sessions instead of
+ * stacking them — and, more to the point, gives somebody a reason to believe
+ * the notification knows what day it is.
+ */
+export function trainingWeekdays(days: number): number[] {
+  const count = Math.max(1, Math.min(7, Math.round(days)));
+  if (count >= 7) return [1, 2, 3, 4, 5, 6, 7];
+  const out: number[] = [];
+  for (let i = 0; i < count; i++) {
+    // Evenly spaced across seven slots, rounded to whole days, deduplicated by
+    // construction because the step is always at least one.
+    out.push(1 + Math.round((i * 7) / count));
+  }
+  return [...new Set(out.map((d) => (d > 7 ? d - 7 : d)))].sort((a, b) => a - b);
+}
+
 /** Has this person used a part of the app enough to want reminding about it? */
 function used(map: Record<string, unknown> | undefined, days = 1): boolean {
   return Object.keys(map ?? {}).length >= days;
@@ -96,9 +117,21 @@ export function planReminders(state: AppState, copy: ReminderCopy): Reminder[] {
     daily.push({ id: "water", hour: 15, minute: 0, title: copy.waterTitle, body: copy.waterBody });
   }
 
-  // training, early evening — before the gym closes and before the sofa wins
+  // Training, early evening — before the gym closes and before the sofa wins.
+  // One reminder per training day rather than one every day: being told to
+  // train on a rest day teaches people that the reminder is not worth reading,
+  // and then the one that mattered gets swiped away with the rest.
   if (state.training) {
-    daily.push({ id: "train", hour: 17, minute: 30, title: copy.trainTitle, body: copy.trainBody });
+    for (const weekday of trainingWeekdays(state.training.days)) {
+      weekly.push({
+        id: `train-${weekday}`,
+        hour: 17,
+        minute: 30,
+        weekday,
+        title: copy.trainTitle,
+        body: copy.trainBody,
+      });
+    }
   }
 
   // steps, with an hour or two left in the day to fix it

@@ -14,6 +14,7 @@
 
 import type { AppState } from "@/store/types";
 import { scanTask, type Difficulty, type Scan } from "@/tasks/difficulty";
+import { challengeFor } from "@/challenge";
 
 export type Reward = {
   /** Everything earned, ever. */
@@ -89,6 +90,8 @@ export function earnings(state: AppState): {
   hardest: Reward["hardest"];
   /** Points earned per local date, for the day and week windows. */
   perDay: Map<string, number>;
+  /** How many daily challenges have been finished. */
+  challenges: number;
 } {
   const scans = new Map<string, Scan>();
   for (const habit of state.habits) scans.set(habit.id, scanTask(habit.title));
@@ -134,7 +137,24 @@ export function earnings(state: AppState): {
     }
   }
 
-  return { points, bonusPoints, ticks, hardest, perDay };
+  // Daily challenges: one a day at most, priced by the level the person chose
+  // and paid at the same rate the card promised. A challenge that was unticked
+  // leaves no row, so this needs no done flag.
+  let challenges = 0;
+  for (const [date, id] of Object.entries(state.challengesDone ?? {})) {
+    const level = state.challengeLevel ?? "easy";
+    const earned = challengeFor(date, level, state.salt ?? "").points;
+    // Priced from the level, not from the stored id: someone who changes level
+    // keeps the points they were shown at the time for days already done,
+    // which is why the id is stored at all — it names what was done.
+    if (!id) continue;
+    challenges += 1;
+    points += earned;
+    ticks[level] += 1;
+    perDay.set(date, (perDay.get(date) ?? 0) + earned);
+  }
+
+  return { points, bonusPoints, ticks, hardest, perDay, challenges };
 }
 
 /**

@@ -10,6 +10,7 @@ import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { ChallengeCard } from "@/components/ChallengeCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useConnectivity } from "@/net";
 import { askDailyTip } from "@/ai/prompts";
@@ -462,6 +463,8 @@ export default function TodayScreen() {
         </View>
         <Text style={[type.small, { color: colors.inkFaint }]}>{t.today.openHint}</Text>
       </Card>
+
+      <ChallengeCard />
 
       <RewardsEntry />
 

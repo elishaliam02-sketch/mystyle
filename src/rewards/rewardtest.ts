@@ -1,4 +1,4 @@
-import { computeRewards, levelAt, levelSpan, scoredTasks, todayOnOffer, STREAK_DAYS } from "./index";
+import { computeRewards, earnings, levelAt, levelSpan, scoredTasks, todayOnOffer, STREAK_DAYS } from "./index";
 import { POINTS } from "@/tasks/difficulty";
 import { EMPTY_STATE, type AppState, type Habit } from "@/store/types";
 
@@ -137,6 +137,37 @@ const stateWith = (patch: Partial<AppState>): AppState => ({ ...EMPTY_STATE, ...
   check("today's earned tracks what was ticked", offer.earned === POINTS.hard, String(offer.earned));
   const untouched = todayOnOffer(s, "2026-03-02");
   check("a fresh day starts at nothing earned", untouched.earned === 0 && untouched.available === POINTS.hard);
+}
+
+// Daily challenges pay into the same board, at the rate the card promised.
+{
+  const base = stateWith({
+    habits: [habit("h1", "Make the bed")],
+    completions: [tick("h1", "2026-03-01")],
+    challengeLevel: "hard",
+    salt: "s",
+  });
+  const without = computeRewards(base, "2026-03-01");
+  const withOne = computeRewards(
+    { ...base, challengesDone: { "2026-03-01": "run5k" } },
+    "2026-03-01",
+  );
+  check("a finished challenge pays", withOne.points > without.points,
+    `${without.points} → ${withOne.points}`);
+  check("it pays more than a habit of the same level",
+    withOne.points - without.points > POINTS.hard,
+    String(withOne.points - without.points));
+  check("it counts toward today", withOne.todayPoints > without.todayPoints);
+  check("the split records it at the chosen level",
+    withOne.ticks.hard === without.ticks.hard + 1);
+  check("the board counts how many challenges were finished",
+    earnings({ ...base, challengesDone: { "2026-03-01": "run5k", "2026-03-02": "steps12k" } }).challenges === 2);
+}
+
+// An unticked challenge leaves no row and pays nothing.
+{
+  const state = stateWith({ challengeLevel: "easy", challengesDone: {} });
+  check("no challenge rows, no challenge points", computeRewards(state, "2026-03-01").points === 0);
 }
 
 const failed = results.filter(([, ok]) => !ok);

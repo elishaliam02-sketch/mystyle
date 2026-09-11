@@ -226,6 +226,16 @@ export type AppState = {
   backupSig?: string;
   backupAt?: string;
   backupSeenAt?: string;
+  /** Focus mode: the app drains its own colour while someone trains. Holds
+   * the moment it was switched on, so a session forgotten overnight does not
+   * leave the app grey forever. Device-local; never synced. */
+  focusSince?: string;
+  /** How hard the daily challenge should be. Chosen in the intro, changed
+   * whenever they like; undefined means the intro has not asked yet. */
+  challengeLevel?: "easy" | "moderate" | "hard";
+  /** Local date → the id of the challenge finished that day. One a day, and
+   * the id is kept so the board can say *which* one was done. */
+  challengesDone?: Record<string, string>;
   /** The accepted version of the terms and privacy policy, device-local. */
   legal?: LegalAcceptance;
   /** Explicit opt-ins for anything that leaves the device, device-local. */
@@ -344,5 +354,8 @@ export function migrateState(raw: unknown): AppState {
     // correct behaviour for an upgrade, not a bug.
     legal: s.legal,
     consent: s.consent,
+    focusSince: s.focusSince,
+    challengeLevel: s.challengeLevel,
+    challengesDone: s.challengesDone,
   };
 }

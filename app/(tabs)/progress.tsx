@@ -25,6 +25,7 @@ import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
 import { computeAchievements, unlockedCount } from "@/achievements";
+import { ImproveCard } from "@/components/ImproveCard";
 import { fill, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
 import { checkWeight } from "@/store/weight";
@@ -291,6 +292,8 @@ export default function ProgressScreen() {
             </View>
           </Card>
         </Pressable>
+
+        <ImproveCard />
 
         {activeHabits.length > 0 ? (
           <Card label={t.progress.weekTitle} tone="accent">

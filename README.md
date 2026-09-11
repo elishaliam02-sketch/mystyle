@@ -32,6 +32,7 @@ npm run test:tasks                 # the difficulty scanner
 npm run test:rewards               # points and levels
 npm run test:legal                 # the legal documents and the consent gates
 npm run test:export                # the "download my data" copy is complete
+npm test                           # every suite, discovered automatically
 ```
 
 Every push runs all of it in CI, and the over-the-air publish waits for that
@@ -56,6 +57,8 @@ src/
   rewards/           points, levels and streak bonuses, from the ticks alone
   legal/             the privacy policy and terms, and what gates on them
   updates/           over-the-air updates, offered rather than forced
+  challenge/         one dare a day, at the level the person chose
+  focus/             what an app may and may not do to a phone
   net/               can we reach the server, and what to say when we cannot
   ui/                confirm.ts — dialogs that work on web as well as native
   components/        Screen, Card, TaskRow, TaskScan, StubNote

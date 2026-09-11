@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ProGate } from "@/components/ProGate";
 import { ConsentSwitch } from "@/components/ConsentSwitch";
+import { difficultyColor } from "@/components/TaskScan";
 import { Screen } from "@/components/Screen";
 import { SupportSignpost } from "@/components/SupportSignpost";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -381,6 +382,8 @@ export default function ProfileScreen() {
           </Card>
         </Pressable>
 
+        <ChallengeLevelCard />
+
         <PrivacyCard cloud={cloud} />
 
         <UpdatesCard />
@@ -402,6 +405,57 @@ export default function ProfileScreen() {
         </Card>
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * How hard the daily challenge should be — asked once in the intro, changed
+ * here whenever someone wants. "None" is a real answer: a dare nobody asked
+ * for is noise, and the app should take no for an answer the first time.
+ */
+function ChallengeLevelCard() {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { challengeLevel, setChallengeLevel } = useStore();
+  const level = challengeLevel();
+
+  const options = [
+    ["easy", t.challenge.levelEasy, t.challenge.levelEasyBody],
+    ["moderate", t.challenge.levelModerate, t.challenge.levelModerateBody],
+    ["hard", t.challenge.levelHard, t.challenge.levelHardBody],
+  ] as const;
+
+  return (
+    <Card label={t.challenge.levelTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.challenge.levelBody}</Text>
+      <View style={{ gap: space.sm, marginTop: space.md }}>
+        {options.map(([id, title, body]) => {
+          const on = level === id;
+          return (
+            <SelectTile
+              key={id}
+              selected={on}
+              onPress={() => setChallengeLevel(id)}
+              style={{
+                borderWidth: 1.5,
+                borderColor: on ? difficultyColor(colors, id) : colors.rule,
+                borderRadius: radius.md,
+                padding: space.md,
+              }}
+            >
+              <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>
+                {title}
+              </Text>
+              <Text
+                style={[type.small, { color: on ? colors.onAccent : colors.inkSoft, marginTop: 2 }]}
+              >
+                {body}
+              </Text>
+            </SelectTile>
+          );
+        })}
+      </View>
+    </Card>
   );
 }
 

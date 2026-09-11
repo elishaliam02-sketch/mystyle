@@ -153,22 +153,48 @@ const BUCKETS: Bucket[] = [
 
 /** A number with a unit, in either language. */
 type Quantity = { value: number; unit: UnitKind };
+/**
+ * Metric only, by design. This app is metric everywhere it speaks — kilometres
+ * and kilograms — so imperial units are not a separate scale to reason about;
+ * they are converted the moment they are read (`toMetric`) and never seen
+ * again. Lumping them in with the metric ones, which is what this did at
+ * first, is not a cosmetic slip: "run 3 miles" scored as three kilometres and
+ * "bench 200 lbs" as two hundred kilos, so one task was priced at 60% of its
+ * real size and the other at more than double.
+ */
 type UnitKind = "distance" | "minutes" | "hours" | "reps" | "mass" | "volume" | "count" | "pages";
+/** Read, converted, and gone. Never reaches the scoring ladder. */
+type ImperialKind = "miles" | "pounds";
+
+const KM_PER_MILE = 1.609;
+const KG_PER_POUND = 0.4536;
 
 /**
  * Units are bounded by spaces rather than by `\b`: a word boundary is defined
  * against ASCII word characters, so between a space and a Hebrew letter there
  * is no boundary at all and every Hebrew unit would silently never match.
  */
-const UNITS: [string[], UnitKind][] = [
-  [["km", "kms", "kilometer", "kilometers", "mile", "miles", "קמ", "קילומטר", "קילומטרים"], "distance"],
+const UNITS: [string[], UnitKind | ImperialKind][] = [
+  [["km", "kms", "kilometer", "kilometers", "kilometre", "kilometres", "קמ", "קילומטר", "קילומטרים"], "distance"],
+  [["mile", "miles", "מייל", "מיילים"], "miles"],
   [["min", "mins", "minute", "minutes", "דק", "דקה", "דקות"], "minutes"],
   [["hour", "hours", "hr", "hrs", "שעה", "שעות"], "hours"],
   [["rep", "reps", "repetition", "repetitions", "set", "sets", "חזרות", "חזרה", "סטים", "סט"], "reps"],
-  [["kg", "kgs", "kilo", "kilos", "lb", "lbs", "pound", "pounds", "קג", "קילו", "קילוגרם"], "mass"],
+  [["kg", "kgs", "kilo", "kilos", "קג", "קילו", "קילוגרם"], "mass"],
+  [["lb", "lbs", "pound", "pounds", "פאונד", "פאונדים"], "pounds"],
   [["l", "liter", "liters", "litre", "litres", "glass", "glasses", "cup", "cups", "ליטר", "כוסות", "כוס"], "volume"],
   [["page", "pages", "chapter", "chapters", "עמודים", "עמוד", "פרקים", "פרק"], "pages"],
 ];
+
+/**
+ * Converts an imperial reading to the metric one the ladder is written in.
+ * Everything downstream sees kilometres and kilograms and nothing else.
+ */
+function toMetric(value: number, unit: UnitKind | ImperialKind): Quantity {
+  if (unit === "miles") return { value: value * KM_PER_MILE, unit: "distance" };
+  if (unit === "pounds") return { value: value * KG_PER_POUND, unit: "mass" };
+  return { value, unit };
+}
 
 /**
  * Pulls "5 km", "50 reps", "שעה וחצי"-style pairs out of the text. Only the
@@ -184,7 +210,7 @@ function quantities(text: string): Quantity[] {
     if (!Number.isFinite(value)) continue;
     const word = m[2];
     const unit = UNITS.find(([words]) => words.includes(word));
-    found.push({ value, unit: unit ? unit[1] : "count" });
+    found.push(unit ? toMetric(value, unit[1]) : { value, unit: "count" });
   }
   // An hour written as a word rather than a number still means an hour.
   const hasTime = found.some((q) => q.unit === "minutes" || q.unit === "hours");
@@ -199,7 +225,27 @@ function weighQuantity(q: Quantity): number {
   const { value, unit } = q;
   switch (unit) {
     case "distance":
-      return value >= 15 ? 38 : value >= 10 ? 32 : value >= 5 ? 24 : value >= 2 ? 16 : 8;
+      // Finer than it first was. Coarse buckets meant two kilometres and five
+      // scored the same, which is wrong on its own and also hid the imperial
+      // conversion completely: three miles and three kilometres landed in one
+      // bucket and came out identical.
+      return value >= 15
+        ? 38
+        : value >= 10
+          ? 32
+          : value >= 7
+            ? 28
+            : value >= 5
+              ? 24
+              : value >= 3.5
+                ? 20
+                : value >= 2
+                  ? 16
+                  : value >= 1.5
+                    ? 12
+                    : value >= 1
+                      ? 10
+                      : 8;
     case "minutes":
     case "hours": {
       const minutes = unit === "hours" ? value * 60 : value;

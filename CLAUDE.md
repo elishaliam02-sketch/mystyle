@@ -64,6 +64,23 @@ links to it) from `unavailable` (not here at all). A feature that looks broken
 is worse than one that is plainly switched off, and nobody hunts a settings
 screen for something they think is unbuilt.
 
+**One challenge a day, at the level the person picked.** `src/challenge/`
+holds the pool; the words live in `src/i18n` like everything else, and a suite
+checks that every id has text in both languages and that no text is orphaned.
+The pick is deterministic from the date, the level and the device's salt — so
+it cannot change under somebody at lunchtime, and two people are not handed the
+same dare.
+
+**Metric, everywhere.** Kilometres and kilograms. Imperial units are read and
+converted at the door (`toMetric` in `src/tasks/difficulty.ts`) and never seen
+again — lumping them in with the metric ones priced "run 3 miles" at 60% of
+its real size and "bench 200 lbs" at more than double.
+
+**Focus mode is a palette transform.** `desaturate` greys the whole app while
+someone trains, and it is twenty lines *because* every colour comes from one
+file. An app may not turn a phone greyscale or block other apps — both are
+system-owned — so `src/focus/` says so plainly and opens the settings that do.
+
 **Screens that are not wired up yet render a `<StubNote>`** naming the
 roadmap phase where they get built, so a tester never reports an unbuilt
 phase as a bug.
@@ -87,7 +104,12 @@ npm run test:rewards   # points, levels and the streak bonus
 npm run test:legal     # the documents, both languages, and the consent mirror
 npm run test:export    # the data copy is complete and reloadable
 npm run test:kitchen   # the food library: no food shadows another's words
+npm run test:challenge # every challenge has words in both languages
+npm run test:improve   # the "where you can improve" reading
+npm run test:share     # what leaves the app when someone shares a score
 ```
+
+Or `npm test`, which discovers every suite in `scripts/` and runs the lot.
 
 CI runs all of this on every push (`.github/workflows/checks.yml`), and the OTA
 publish workflow waits for it — an update skips store review, so this is the

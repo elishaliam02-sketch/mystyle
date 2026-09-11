@@ -1,11 +1,15 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
+import { useStore } from "@/store";
+import { desaturate } from "./grayscale";
 import { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type, type Colors } from "./tokens";
 import { METRIC_FAMILY, metricFill, metricInk, metricWash, onMetric, type Metric, type MetricFamily } from "./metrics";
 
 type Theme = {
   colors: Colors;
   scheme: "light" | "dark";
+  /** True while focus mode has the app's colour switched off. */
+  focus: boolean;
   space: typeof space;
   radius: typeof radius;
   type: typeof type;
@@ -18,18 +22,26 @@ const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
+  // Focus mode drains the app's colour while somebody trains. It works as a
+  // single transform because every colour in the app comes from one file —
+  // the convention that looks like bookkeeping is what makes this possible at
+  // all, rather than a hunt through ninety screens.
+  const { focusOn } = useStore();
+  const focus = focusOn();
 
   const value = useMemo<Theme>(
     () => ({
-      colors: palette[scheme],
+      colors: focus ? desaturate(palette[scheme]) : palette[scheme],
       scheme,
       space,
       radius,
       type,
       font,
-      elevation: (level: 1 | 2 = 1) => elevation(palette[scheme], level),
+      focus,
+      elevation: (level: 1 | 2 = 1) =>
+        elevation(focus ? desaturate(palette[scheme]) : palette[scheme], level),
     }),
-    [scheme],
+    [scheme, focus],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -46,6 +58,7 @@ export function useTheme(): Theme {
   return theme;
 }
 
+export { desaturate };
 export {
   accentGradient,
   elevation,

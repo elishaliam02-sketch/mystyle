@@ -3,7 +3,7 @@
  * checked is mostly restraint: a person who has never used a feature must not
  * be nudged about it, and nobody gets a phone full of notifications.
  */
-import { MAX_DAILY, planReminders, type ReminderCopy } from "./plan";
+import { MAX_DAILY, planReminders, trainingWeekdays, type ReminderCopy } from "./plan";
 import { EMPTY_STATE, type AppState } from "@/store/types";
 
 const results: [string, boolean, string?][] = [];
@@ -46,8 +46,17 @@ const habit = (id: string, slot?: "morning" | "noon" | "evening") => ({
     ids({ ...base, intake: { "2026-03-01": [] as never[] } as AppState["intake"] }).includes("food"));
   check("logging steps earns a steps reminder",
     ids({ ...base, steps: { "2026-03-01": 9000 } }).includes("steps"));
-  check("having a plan earns a training reminder",
-    ids({ ...base, training: { goal: "cut", days: 3, log: {}, custom: [] } }).includes("train"));
+  check("having a plan earns a training reminder on each training day", (() => {
+    const list = ids({ ...base, training: { goal: "cut", days: 3, log: {}, custom: [] } });
+    return list.filter((id) => id.startsWith("train-")).length === 3;
+  })());
+  check("and none on the rest days", (() => {
+    const list = planReminders({ ...base, training: { goal: "cut", days: 3, log: {}, custom: [] } }, copy);
+    const trains = list.filter((r) => r.id.startsWith("train-"));
+    // Every one is pinned to a weekday; a daily "go and train" on a rest day
+    // is what teaches people to swipe the notification away unread.
+    return trains.every((r) => typeof r.weekday === "number");
+  })());
   check("a measurement earns the tape reminder",
     ids({ ...base, measurements: { waist: [{ date: "2026-03-01", cm: 90 }] } }).includes("measure"));
   check("a weigh-in earns the weekly weigh reminder",
@@ -91,7 +100,8 @@ const habit = (id: string, slot?: "morning" | "noon" | "evening") => ({
   check("a heavy user is still capped", daily.length <= MAX_DAILY, String(daily.length));
   check("the recap survives the cap", daily.some((r) => r.id === "recap"));
   check("the weekly ones are not counted against the daily cap",
-    all.filter((r) => r.weekday !== undefined).length === 2);
+    all.filter((r) => r.weekday !== undefined).length === 2 + trainingWeekdays(3).length,
+    String(all.filter((r) => r.weekday !== undefined).length));
   check("daily reminders are in the order they fire", (() => {
     for (let i = 1; i < daily.length; i++) {
       const a = daily[i - 1]!, b = daily[i]!;
@@ -111,6 +121,25 @@ const habit = (id: string, slot?: "morning" | "noon" | "evening") => ({
     JSON.stringify(planReminders(everything, copy)) === JSON.stringify(planReminders(everything, copy)));
   check("weekly reminders name a real weekday",
     all.filter((r) => r.weekday !== undefined).every((r) => r.weekday! >= 1 && r.weekday! <= 7));
+}
+
+// --- which days a plan's sessions land on
+{
+  for (let days = 1; days <= 7; days++) {
+    const week = trainingWeekdays(days);
+    check(`a ${days}-day plan yields ${days} training days`, week.length === days, week.join(","));
+    check(`a ${days}-day plan names real weekdays`, week.every((d) => d >= 1 && d <= 7), week.join(","));
+    check(`a ${days}-day plan never repeats a day`, new Set(week).size === week.length, week.join(","));
+    check(`a ${days}-day plan is in order`, week.every((d, i) => i === 0 || d > week[i - 1]!), week.join(","));
+  }
+  check("three days a week are spread, not stacked", (() => {
+    const week = trainingWeekdays(3);
+    // Gaps of at least one day between sessions is the whole point of
+    // spreading them: three in a row is not a three-day-a-week plan.
+    return week.every((d, i) => i === 0 || d - week[i - 1]! >= 2);
+  })(), trainingWeekdays(3).join(","));
+  check("a nonsense day count is still handled",
+    trainingWeekdays(0).length >= 1 && trainingWeekdays(99).length === 7);
 }
 
 const failed = results.filter(([, ok]) => !ok);

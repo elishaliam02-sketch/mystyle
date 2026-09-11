@@ -48,6 +48,30 @@ at("הליכה 30 דקות", "moderate");
   check("minutes are reported as a duration", scanTask("Row for 45 minutes").reasons.includes("duration"));
 }
 
+// Metric is the app's language. Imperial is read, converted and forgotten —
+// before the fix, "run 3 miles" was priced as three kilometres (60% of the
+// real thing) and "bench 200 lbs" as two hundred kilos (more than double).
+{
+  const km = (t: string) => scanTask(t).score;
+  check("3 miles outscores 3 km", km("Run 3 miles") > km("Run 3 km"),
+    `${km("Run 3 km")} → ${km("Run 3 miles")}`);
+  check("3 miles scores like the ~4.8 km it is",
+    km("Run 3 miles") === km("Run 4.8 km"), `${km("Run 3 miles")} vs ${km("Run 4.8 km")}`);
+  check("10 miles is hard, like the 16 km it is", level("Run 10 miles") === "hard");
+  check("1 mile is not 1 km", km("Walk 1 mile") > km("Walk 1 km"));
+
+  check("200 lbs is read as ~90 kg, not 200",
+    km("Bench press 200 lbs") === km("Bench press 91 kg"),
+    `${km("Bench press 200 lbs")} vs ${km("Bench press 91 kg")}`);
+  check("200 lbs scores lower than 200 kg",
+    km("Bench press 200 lbs") < km("Bench press 200 kg"));
+  check("a kilo is still a kilo", km("Bench press 100 kg") === km("Bench press 100 kilo"));
+
+  // Hebrew spellings of both, since people write them.
+  check("מייל converts too", km("ריצה 3 מייל") > km("ריצה 3 קמ"));
+  check("kilometre spelled out is the same as km", km("Run 5 kilometres") === km("Run 5 km"));
+}
+
 // Two tasks in one line cost more than one.
 {
   const one = scanTask("Walk 20 minutes").score;

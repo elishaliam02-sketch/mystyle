@@ -1,13 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { DifficultyBadge, difficultyColor, difficultyLabel } from "@/components/TaskScan";
 import { fill, useI18n } from "@/i18n";
-import { computeRewards, scoredTasks, STREAK_DAYS, todayOnOffer } from "@/rewards";
+import { computeRewards, earnings, scoredTasks, STREAK_DAYS, todayOnOffer } from "@/rewards";
+import { shareSubject, shareText } from "@/rewards/share";
+import { deliverShare } from "@/rewards/deliverShare";
+import { Button } from "@/components/Button";
 import { today, useStore } from "@/store";
 import type { Difficulty } from "@/tasks/difficulty";
 import { useTheme } from "@/theme";
@@ -23,15 +26,37 @@ import { useTheme } from "@/theme";
 export default function RewardsScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state } = useStore();
+  const { state, streak } = useStore();
   const router = useRouter();
 
   const day = today();
   const reward = useMemo(() => computeRewards(state, day), [state, day]);
   const offer = useMemo(() => todayOnOffer(state, day), [state, day]);
   const tasks = useMemo(() => scoredTasks(state), [state]);
+  const earned = useMemo(() => earnings(state), [state]);
 
   const levels: Difficulty[] = ["easy", "moderate", "hard"];
+  const [shareNote, setShareNote] = useState<string | null>(null);
+
+  /**
+   * Sends the score out. The message is built from the same numbers on screen,
+   * and says what was *done* as well as what it scored — a bare number means
+   * nothing to whoever receives it.
+   */
+  async function share() {
+    const habits = state.habits.filter((h) => !h.archived);
+    const best = habits.reduce((m, h) => Math.max(m, streak(h.id)), 0);
+    const text = shareText(t, {
+      reward,
+      streakDays: best,
+      challenges: earned.challenges,
+      name: state.profile.name,
+    });
+    const outcome = await deliverShare(text, shareSubject(t, reward.level));
+    setShareNote(
+      outcome === "copied" ? t.share.copied : outcome === "failed" ? t.share.failed : null,
+    );
+  }
   const pct = Math.round((reward.intoLevel / reward.levelSpan) * 100);
 
   return (
@@ -100,6 +125,19 @@ export default function RewardsScreen() {
         <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>
           {fill(t.rewards.todayLine, { earned: offer.earned, available: offer.available })}
         </Text>
+
+        <Button
+          icon="share-social-outline"
+          label={t.share.cta}
+          tone="quiet"
+          onPress={() => void share()}
+          style={{ marginTop: space.md }}
+        />
+        {shareNote ? (
+          <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
+            {shareNote}
+          </Text>
+        ) : null}
       </Card>
 
       {/* what kind of work it was — the honest mirror */}

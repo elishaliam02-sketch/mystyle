@@ -11,6 +11,7 @@ import { view, worked } from "@/workout/muscles";
 import { HeroCard } from "@/components/HeroCard";
 import { ProGate } from "@/components/ProGate";
 import { Card } from "@/components/Card";
+import { FocusCard } from "@/components/FocusCard";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -595,6 +596,8 @@ export default function WorkoutScreen() {
             </View>
           </Card>
         ) : null}
+
+        <FocusCard />
 
         <RestTimer />
 

@@ -76,6 +76,9 @@
     "test:export": "node scripts/run-export-tests.mjs",
     "test:net": "node scripts/run-net-tests.mjs",
     "test:calc": "node scripts/run-calc-tests.mjs",
+    "test:challenge": "node scripts/run-challenge-tests.mjs",
+    "test:share": "node scripts/run-share-tests.mjs",
+    "test:improve": "node scripts/run-improve-tests.mjs",
     "licenses": "node scripts/gen-licenses.mjs",
     "icons": "node scripts/gen-icons.mjs"
   },
