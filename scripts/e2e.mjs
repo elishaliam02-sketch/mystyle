@@ -51,11 +51,18 @@ const seed = {
 
 const browser = await chromium.launch({headless:true});
 const ctx = await browser.newContext({viewport:{width:412,height:915}});
+// The exercise tiles now hotlink real photos from a public CDN. On a phone that
+// loads fine, but on the CI runner the CDN host is unreachable and each request
+// hangs instead of failing fast — which would keep "networkidle" from ever
+// firing. Abort those requests so the suite stays hermetic: the app is built to
+// fall back to the drawn muscle map whenever an image fails, so this exercises
+// the exact path a phone with no signal would take.
+await ctx.route("**://cdn.jsdelivr.net/**", r=>r.abort());
 await ctx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
 const page = await ctx.newPage();
 const crashes=[]; page.on("pageerror",e=>crashes.push(String(e).slice(0,160)));
 
-const go = async (route)=>{ await page.goto(`http://localhost:${PORT}${route}`,{waitUntil:"networkidle"}); await page.waitForTimeout(1600); };
+const go = async (route)=>{ await page.goto(`http://localhost:${PORT}${route}`,{waitUntil:"load"}); await page.waitForTimeout(1600); };
 const st = async ()=> JSON.parse(await page.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
 const settle = ()=>page.waitForTimeout(700);
 // Tab screens stay mounted behind a pushed screen, and several of them reuse a
