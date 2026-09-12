@@ -884,6 +884,53 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await pctx.close();
 }
 
+// --- "I feel like eating…": a food, priced out of ten, with a picture
+//
+// The scorer has its own unit suite; what this proves is that the card is wired
+// to it — that typing a word moves the number on screen, and that the list
+// survives the app being closed.
+{
+  const ectx = await browser.newContext({ viewport:{width:440,height:1000}, colorScheme:"light" });
+  await ectx.route("**://commons.wikimedia.org/**", r=>r.abort());
+  await ectx.route("**://upload.wikimedia.org/**", r=>r.abort());
+  await ectx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","en");}catch{}},
+    JSON.stringify({ ...seed, pantry:"chicken, rice, tomato" }));
+  const ep = await ectx.newPage();
+  const eerr=[]; ep.on("pageerror",e=>eerr.push(String(e).slice(0,140)));
+  await ep.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"});
+  await ep.waitForTimeout(2200);
+
+  const field = ep.getByPlaceholder(/tuna, pizza/i).first();
+  check("the kitchen asks what you feel like eating", await field.isVisible().catch(()=>false));
+
+  const read = async (word)=>{
+    await field.fill("");
+    await field.type(word,{delay:15});
+    await ep.waitForTimeout(500);
+    const m = /(\d+\.\d)\s*\n?\s*(Great|Good|OK|Sometimes|Rarely)/i.exec(await ep.locator("body").innerText());
+    return m ? Number(m[1]) : null;
+  };
+
+  const tuna = await read("tuna");
+  check("a good food scores high and says so", tuna !== null && tuna >= 8, String(tuna));
+  const pizza = await read("pizza");
+  check("and a worse one scores lower", pizza !== null && pizza < tuna, `${pizza} vs ${tuna}`);
+  check("nothing is written off entirely", pizza !== null && pizza > 0, String(pizza));
+
+  await ep.getByRole("button",{name:/add to my list/i}).first().click();
+  await ep.waitForTimeout(500);
+  // Checked in the stored state rather than by reloading: this suite re-seeds
+  // localStorage on every navigation, so a reload here would wipe the very
+  // thing being tested and prove nothing either way.
+  const stored = JSON.parse(await ep.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("what you added is written down, not just drawn",
+    (stored.wishlist??[]).some(w=>/pizza/i.test(w.text)), JSON.stringify(stored.wishlist));
+  check("and it is listed back with its own score",
+    /pizza/i.test(await ep.locator("body").innerText()));
+  check("the eat card raises no page errors", eerr.length===0, eerr.join(" | "));
+  await ectx.close();
+}
+
 await browser.close(); server.close();
 report();
 

@@ -315,13 +315,52 @@ export function clearPhotoCache(): void {
  * is a complete picture in its own right.
  */
 export function fetchMealPhoto(meal: Meal, width: number): Promise<Photo | null> {
+  return fetchPhoto(photoQueries(meal), width);
+}
+
+/**
+ * A photo for a single food, typed by a person rather than chosen off the menu.
+ *
+ * The words they wrote lead, because "grilled chicken" is a thing photographers
+ * label pictures of and it is what they asked about. The library's name for the
+ * food comes next, for when they wrote something Commons has never heard of.
+ */
+export function foodPhotoQueries(text: string, food: Food | null): string[] {
+  const queries: string[] = [];
+  const add = (q: string) => {
+    const clean = q.trim().toLowerCase();
+    // Latin only: Commons is catalogued in English, and searching it in Hebrew
+    // finds nothing at all rather than finding the wrong thing.
+    if (!clean || /[א-ת]/.test(clean) || queries.includes(clean)) return;
+    queries.push(clean);
+  };
+
+  add(text);
+  if (food) {
+    add(`${food.en} dish`);
+    add(`cooked ${food.en}`);
+    add(`${food.en} food`);
+  }
+  return queries;
+}
+
+/** The photo for something somebody typed. Never throws; null means keep the drawing. */
+export function fetchFoodPhoto(
+  text: string,
+  food: Food | null,
+  width: number,
+): Promise<Photo | null> {
+  return fetchPhoto(foodPhotoQueries(text, food), width);
+}
+
+/** The shared body: gate, cache, de-duplicate, walk the ladder. */
+function fetchPhoto(queries: string[], width: number): Promise<Photo | null> {
   // The one gate, checked here rather than at the call sites, so there is no
   // second path out. Off means the drawn plate is the picture and no request is
   // made at all — and it reads false until the store has published the stored
   // answer, so a launch never fetches on a default the person overrode.
   if (!photoConsentGiven()) return Promise.resolve(null);
 
-  const queries = photoQueries(meal);
   if (queries.length === 0) return Promise.resolve(null);
 
   const key = `${queries.join("|")}@${Math.round(width)}`;

@@ -52,6 +52,16 @@ export type ProgressPhoto = {
   bf?: number;
 };
 
+/** Something the person wants to eat, and when they said so. */
+export type Wish = {
+  id: string;
+  /** Exactly what they typed — the score is recomputed from it, never stored.
+   * A stored number would go stale the moment the scale is tuned, and the whole
+   * point is that the reading is always the app's current reading. */
+  text: string;
+  addedAt: string;
+};
+
 /** One thing eaten and logged against the day's target. */
 export type IntakeItem = {
   id: string;
@@ -194,6 +204,12 @@ export type AppState = {
   training?: Training;
   /** What was eaten each day (YYYY-MM-DD → items), for the daily food log. */
   intake?: Record<string, IntakeItem[]>;
+  /**
+   * Foods the person said they want to eat, newest first, so the scores they
+   * looked up are still there tomorrow. Device-local like the pantry: it is a
+   * list of cravings, which is nobody's business but theirs.
+   */
+  wishlist?: Wish[];
   /** Glasses of water logged each day (YYYY-MM-DD → count). */
   water?: Record<string, number>;
   /** The person's chosen daily water goal, in cups. Undefined = derive from weight. */
@@ -340,6 +356,9 @@ export function migrateState(raw: unknown): AppState {
     clockHighWaterMs: s.clockHighWaterMs,
     training: s.training,
     intake: s.intake,
+    // Device-local, like the pantry: a list of cravings is nobody's business
+    // but the person's, and it rides through a sync untouched.
+    wishlist: Array.isArray(s.wishlist) ? s.wishlist : undefined,
     water: s.water,
     waterGoal: s.waterGoal,
     cupMl: s.cupMl,

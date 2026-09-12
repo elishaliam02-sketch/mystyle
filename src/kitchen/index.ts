@@ -16,6 +16,11 @@ export {
   PHOTO_HOSTS,
 } from "./photo";
 export type { CommonsPage, CommonsImage, Photo } from "./photo";
+export { fetchFoodPhoto, foodPhotoQueries } from "./photo";
+
+// "Can I eat this?" — any food, priced out of ten, on the device. See `score.ts`.
+export { scoreAnything, scoreFood, scoreWords, bandOf } from "./score";
+export type { FoodScore, ScoreBand, ScoreReason } from "./score";
 
 /**
  * The kitchen engine: read a shopping list the way a person wrote it, and rank

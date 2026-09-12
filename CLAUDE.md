@@ -55,6 +55,18 @@ passed over rather than shown bare. The drawn plate renders underneath
 instantly and stays whenever no photo is found, so there is no spinner and no
 empty card.
 
+**A food is priced, not policed.** `src/kitchen/score.ts` answers "can I eat
+this" out of ten — 8.6 for tuna, 2.4 for a sausage — from what the food *is*:
+its category, then the handful of lists that actually separate two foods within
+one (fibre, processing, whole grain, omega-3, added sugar). It is pure, offline
+and bilingual, so it answers on every keystroke without a word leaving the
+phone, and a food the library has never met is read off its own words and marked
+as a guess. Two rules hold the tone: nothing scores zero and nothing is
+forbidden — the low bands are "sometimes" and "rarely" — and praise is capped
+while blame is not, so a cooking method can ruin a food but never perfect one.
+`npm run test:score` checks the order rather than the exact numbers: if a
+sausage ever outscores a lentil the feature is broken whatever the decimal says.
+
 **Nothing leaves the device without an explicit opt-in.** `src/legal/` holds
 the privacy policy and terms (Hebrew first, `documents.en.ts` typed as
 `typeof he`), the accepted-version record, and the consent mirror the AI
@@ -126,6 +138,7 @@ npm run test:rewards   # points, levels and the streak bonus
 npm run test:legal     # the documents, both languages, and the consent mirror
 npm run test:export    # the data copy is complete and reloadable
 npm run test:kitchen   # the food library, and the meal-photo picker and credits
+npm run test:score     # "can I eat this" — the order foods come out in
 npm run test:challenge # every challenge has words in both languages
 npm run test:improve   # the "where you can improve" reading
 npm run test:share     # what leaves the app when someone shares a score

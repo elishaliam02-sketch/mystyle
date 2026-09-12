@@ -23,6 +23,7 @@ import {
   type Profile,
   type Training,
   type WeighIn,
+  type Wish,
 } from "./types";
 import { isStorableWeight } from "./weight";
 import { acceptanceCurrent, LEGAL, publishAiConsent, publishPhotoConsent } from "@/legal";
@@ -95,6 +96,12 @@ type Store = {
   logMeal: (label: string, kcal: number, protein: number) => void;
   /** Removes one logged item from today. */
   removeMeal: (id: string) => void;
+  /** Foods the person said they want to eat, newest first. */
+  wishes: () => Wish[];
+  /** Remembers something they want to eat. Returns false if it was already there. */
+  addWish: (text: string) => boolean;
+  /** Forgets one. */
+  removeWish: (id: string) => void;
   /** Today's food log and its running totals. */
   todayIntake: () => { items: IntakeItem[]; kcal: number; protein: number };
   /** Today, as the clock-safe date key the diary and logs are written under. */
@@ -537,6 +544,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const day = (s.intake?.[date] ?? []).filter((i) => i.id !== id);
       return { ...s, intake: { ...s.intake, [date]: day } };
     });
+  }, []);
+
+  const wishes = useCallback(() => state.wishlist ?? [], [state.wishlist]);
+
+  const addWish = useCallback((text: string) => {
+    const clean = text.trim();
+    if (!clean) return false;
+    let added = false;
+    setState((s) => {
+      const list = s.wishlist ?? [];
+      // The same craving twice is one craving. Compared case-insensitively,
+      // because "Pizza" and "pizza" are not two different questions.
+      if (list.some((w) => w.text.toLowerCase() === clean.toLowerCase())) return s;
+      added = true;
+      return { ...s, wishlist: [{ id: newId(), text: clean, addedAt: now() }, ...list].slice(0, 40) };
+    });
+    return added;
+  }, []);
+
+  const removeWish = useCallback((id: string) => {
+    setState((s) => ({ ...s, wishlist: (s.wishlist ?? []).filter((w) => w.id !== id) }));
   }, []);
 
   const todayIntake = useCallback(() => {
@@ -1175,6 +1203,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isFavorite,
       logMeal,
       removeMeal,
+      wishes,
+      addWish,
+      removeWish,
       todayIntake,
       todayKey: trustedToday,
       addWater,
@@ -1238,7 +1269,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
+     readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, wishes, addWish, removeWish, todayIntake,
      addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,

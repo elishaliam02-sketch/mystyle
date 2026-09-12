@@ -7,6 +7,7 @@ import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
+import { EatScore } from "@/components/EatScore";
 import { MealPhoto } from "@/components/MealPhoto";
 import { MealScanner } from "@/components/MealScanner";
 import { Screen } from "@/components/Screen";
@@ -404,6 +405,12 @@ export default function KitchenScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.kitchen.heading} subtitle={t.kitchen.body}>
+        {/* "Can I eat this?" sits at the top whatever else the screen is doing:
+            it answers the question somebody opened the kitchen to ask, and it
+            answers it about the food they were already thinking about rather
+            than about what happens to be in the fridge. */}
+        <EatScore />
+
         {dailyFirst ? (
           <>
             {dailyBlock}
