@@ -217,7 +217,7 @@ type Store = {
   /** The two opt-ins, with "off" as the answer when nothing was ever chosen. */
   consent: () => Consent;
   /** Turns one of them on or off, stamping when it changed. */
-  setConsent: (patch: Partial<Pick<Consent, "cloud" | "ai">>) => void;
+  setConsent: (patch: Partial<Pick<Consent, "cloud" | "ai" | "photos">>) => void;
   reset: () => void;
   /** Adopts a merged state wholesale — used after a cloud sync. */
   replaceAll: (next: AppState) => void;
@@ -1094,20 +1094,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const legalCurrent = useCallback(() => acceptanceCurrent(state.legal?.version), [state.legal]);
 
   const consent = useCallback(
-    (): Consent => state.consent ?? { cloud: false, ai: false, updatedAt: "" },
+    (): Consent => ({
+      cloud: state.consent?.cloud ?? false,
+      ai: state.consent?.ai ?? false,
+      // Photos are on unless turned off — see the note on `Consent`.
+      photos: state.consent?.photos ?? true,
+      updatedAt: state.consent?.updatedAt ?? "",
+    }),
     [state.consent],
   );
 
-  const setConsent = useCallback((patch: Partial<Pick<Consent, "cloud" | "ai">>) => {
-    setState((s) => ({
-      ...s,
-      consent: {
-        cloud: patch.cloud ?? s.consent?.cloud ?? false,
-        ai: patch.ai ?? s.consent?.ai ?? false,
-        updatedAt: now(),
-      },
-    }));
-  }, []);
+  const setConsent = useCallback(
+    (patch: Partial<Pick<Consent, "cloud" | "ai" | "photos">>) => {
+      setState((s) => ({
+        ...s,
+        consent: {
+          cloud: patch.cloud ?? s.consent?.cloud ?? false,
+          ai: patch.ai ?? s.consent?.ai ?? false,
+          photos: patch.photos ?? s.consent?.photos ?? true,
+          updatedAt: now(),
+        },
+      }));
+    },
+    [],
+  );
 
   // The AI transport is a plain module and cannot read this context, so the
   // answer is published to it whenever it changes. Withdrawing consent has to

@@ -201,6 +201,8 @@ export const en: typeof he = {
     cloudBody: "Keeps your habits, ticks and weigh-ins in your account so you cannot lose them and can carry on from another phone. Without it, everything stays on this device.",
     aiLabel: "AI coach",
     aiBody: "Sends your question and numbers from your log to a language-model provider, and a meal photo if you take one. Without it the coach still works — on the device, from written content.",
+    photosLabel: "Photos of the meals",
+    photosBody: "Fetches a real photograph of each suggested meal from a free service that generates it. What is sent is the dish name and its ingredients — nothing about you. Without it you see the illustration, and the app contacts no server.",
     consentTitle: "Privacy and data",
     consentBody: "Anything that leaves your phone is your choice, and you can take it back here at any time.",
     on: "On",

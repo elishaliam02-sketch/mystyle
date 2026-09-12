@@ -139,16 +139,29 @@ contact. The email above works for support.
 | Google (Gemini) and/or Anthropic (Claude) | the question, relevant numbers, a meal photo | only with the AI coach on |
 | Expo (EAS Update) | IP and basic device details on an update check | every launch, if updates are configured |
 | YouTube | IP, when a demo thumbnail loads or a video opens | when the training screen is used |
+| Pollinations (`image.pollinations.ai`) | IP, and the dish name and ingredients from the app's own cookbook | when the kitchen shows meals, unless the photos switch is off |
 
-All four are named in the privacy policy. The Gemini free tier's terms allow
+All five are named in the privacy policy. The Gemini free tier's terms allow
 human review of submitted content, and the policy says so plainly rather than
 implying otherwise — that sentence is deliberate, not an oversight.
+
+The meal photos are the one outbound call that starts on rather than off. What
+goes out is a line from the app's own recipe list — "chickpea & spinach stew" —
+and nothing a person wrote, weighed or photographed, so there is no personal
+data in it to consent to; the switch exists for the IP address and for anyone
+on a metered connection. It is disclosed in the same breath as the others, and
+nothing is requested until the stored answer to that switch has loaded.
 
 ## 6. Intellectual property
 
 - Every asset is drawn in code (`MealImage`, `ExerciseThumb`, `BrandLogo`,
   `WaterBottle`) or is an emoji-free vector from `@expo/vector-icons`. No stock
   photography, no borrowed brand marks.
+- The meal photographs are generated on request from a prompt describing the
+  dish, not taken from an image search. This matters: a photograph found online
+  belongs to whoever took it, and using one in a store listing or in the app is
+  somebody else's copyright, licence terms and takedown notice. Nothing here is
+  copied from anyone.
 - Exercise demos are **links to** YouTube, not copies of anyone's video.
 - Open-source licences are reproduced at `app/legal/licenses.tsx`, generated
   from the installed tree by `scripts/gen-licenses.mjs`. Re-run it after adding

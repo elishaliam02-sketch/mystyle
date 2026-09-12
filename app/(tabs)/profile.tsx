@@ -553,6 +553,12 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
           value={choices.ai}
           onChange={(next) => setConsent({ ai: next })}
         />
+        <ConsentSwitch
+          label={t.legal.photosLabel}
+          body={t.legal.photosBody}
+          value={choices.photos}
+          onChange={(next) => setConsent({ photos: next })}
+        />
       </View>
 
       <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>

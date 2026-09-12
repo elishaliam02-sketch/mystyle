@@ -42,15 +42,35 @@ ticks into points and levels the same way the achievements board works: a pure
 function of stored state, so unticking a day takes its points back and there is
 no ledger to keep in step.
 
+**The meal photographs are real, generated, and queued.** Each picture is made
+on request by a free image service from a prompt built out of the dish and its
+own ingredients (`src/kitchen/photo.ts`) — never taken from an image search,
+because a photograph found online is somebody's copyright. The drawn plate
+renders underneath instantly and stays if nothing arrives, so there is no
+spinner and no empty card. The queue is the feature: two requests in flight,
+newest-asked first, one per dish, a 28-second budget, two retries and a
+cool-off. The first version asked for ten at once and gave up after six
+seconds, which is why almost nobody ever saw a photo. `npm run test:photo` runs
+the whole policy against a fake clock and a fake network.
+
 **Nothing leaves the device without an explicit opt-in.** `src/legal/` holds
 the privacy policy and terms (Hebrew first, `documents.en.ts` typed as
 `typeof he`), the accepted-version record, and the consent mirror the AI
 transport reads. Two switches, both off by default and separate from accepting
 the terms: cloud backup gates every round in `useCloud`, the AI coach gates
-every call in `src/ai/server.ts`. Raising `LEGAL.version` makes every existing
-user re-accept. Adding a network call means adding it to a gate and to the
-policy — `npm run test:legal` checks the documents stay in step, name every
-processor, and carry no placeholder text.
+every call in `src/ai/server.ts`. A third, the meal photos, is the one that
+starts *on*: what it sends is a line out of the app's own cookbook rather than
+anything about the person, so the switch is there for the IP address and for a
+metered connection — and it is disclosed exactly like the rest. Raising
+`LEGAL.version` makes every existing user re-accept. Adding a network call means
+adding it to a gate and to the policy — `npm run test:legal` checks the
+documents stay in step, name every processor *and every hostname the app
+contacts*, and carry no placeholder text.
+
+A gate reads its answer from stored state, and that arrives a moment after the
+first render. Wait for `ready` before acting on it: a default applied while the
+real answer is still loading is not a default, it is a leak — which is exactly
+how the photos fetched for people who had switched them off.
 
 **The logo is geometry, not a PNG.** `src/theme/mark.ts` holds the two chevrons
 — the summit ahead in violet, the step taken today in lime — and both the
@@ -104,6 +124,7 @@ npm run test:rewards   # points, levels and the streak bonus
 npm run test:legal     # the documents, both languages, and the consent mirror
 npm run test:export    # the data copy is complete and reloadable
 npm run test:kitchen   # the food library: no food shadows another's words
+npm run test:photo     # the meal photo queue, against a fake clock and network
 npm run test:challenge # every challenge has words in both languages
 npm run test:improve   # the "where you can improve" reading
 npm run test:share     # what leaves the app when someone shares a score

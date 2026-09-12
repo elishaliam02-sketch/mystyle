@@ -12,7 +12,7 @@ const state: AppState = {
   completions: [{ habitId: "h1", date: "2026-09-01", done: true, updatedAt: "2026-09-01T00:00:00.000Z" }],
   pantry: "chicken, rice",
   water: { "2026-09-01": 6 },
-  consent: { cloud: true, ai: false, updatedAt: "2026-09-01T00:00:00.000Z" },
+  consent: { cloud: true, ai: false, photos: true, updatedAt: "2026-09-01T00:00:00.000Z" },
   legal: { version: LEGAL.version, acceptedAt: "2026-09-01T00:00:00.000Z" },
 };
 

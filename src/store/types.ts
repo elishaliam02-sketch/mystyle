@@ -131,16 +131,24 @@ export type LegalAcceptance = {
 };
 
 /**
- * The two things that can send personal data off the phone, each off until
- * the person turns it on. Kept apart from the acceptance record because
- * accepting the terms is not the same act as agreeing to cloud storage, and
- * consent that is bundled is not consent.
+ * What the app is allowed to send off the phone. Kept apart from the acceptance
+ * record because accepting the terms is not the same act as agreeing to cloud
+ * storage, and consent that is bundled is not consent.
+ *
+ * The two that carry personal data are off until the person turns them on.
+ * `photos` is the exception and starts on: what leaves the phone is the name of
+ * a dish from the app's own cookbook — "chickpea & spinach stew" — and nothing
+ * about the person. It is still a switch, because a request to an outside
+ * server reveals an IP address whatever it carries, and because somebody on a
+ * metered connection should be able to say no.
  */
 export type Consent = {
   /** Sync and back up to the account. */
   cloud: boolean;
   /** Send questions, numbers and meal photos to the AI provider. */
   ai: boolean;
+  /** Fetch the photographs of the suggested meals. On unless turned off. */
+  photos: boolean;
   updatedAt: string;
 };
 

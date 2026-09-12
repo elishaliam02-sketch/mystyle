@@ -8,6 +8,7 @@
  */
 
 import { LEGAL, acceptanceCurrent, aiConsentGiven, publishAiConsent } from "./index";
+import { PHOTO_HOST } from "@/kitchen";
 import { he } from "./documents.he";
 import { en } from "./documents.en";
 import type { LegalDocument } from "./types";
@@ -80,10 +81,15 @@ const docs = [
   const privacy = [he.privacy, en.privacy].map((d) =>
     d.sections.map((s) => `${s.heading} ${s.body.join(" ")}`).join(" "),
   );
-  for (const party of ["Supabase", "Expo", "YouTube", "Google", "Anthropic"]) {
+  for (const party of ["Supabase", "Expo", "YouTube", "Google", "Anthropic", "Pollinations"]) {
     check(`the privacy policy names ${party} in both languages`,
       privacy.every((text) => text.includes(party)), party);
   }
+  // A host the app actually contacts has to appear in the policy by the name it
+  // answers to, not only by a brand — this is the check that caught the meal
+  // photos being fetched from a service the document never mentioned.
+  check("every host the app calls is in the policy by hostname",
+    privacy.every((text) => text.includes(PHOTO_HOST)), PHOTO_HOST);
 }
 
 // --- the consent mirror the AI transport reads
