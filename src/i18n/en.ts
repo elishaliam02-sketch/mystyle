@@ -678,6 +678,8 @@ export const en: typeof he = {
   },
 
   water: {
+    cupSize: "Cup size",
+    cupMl: "{ml} ml",
     goalRecommended: "Recommended for your weight: {min}–{max}",
     heading: "Water",
     body: "Every cup counts. The bottle fills as you drink.",
@@ -701,6 +703,14 @@ export const en: typeof he = {
   },
 
   workout: {
+    pickTitle: "Add an exercise",
+    pickAll: "All",
+    pickSearch: "Search an exercise",
+    pickNone: "No exercise matches the filter.",
+    pickAdd: "Add {n}",
+    pickAdded: "Added",
+    pickCount: "{n} selected",
+    pickDone: "Done",
     worksTitle: "Works",
     worksAlso: "Also:",
     viewFront: "Front",

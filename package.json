@@ -75,6 +75,7 @@
     "test:billing": "node scripts/run-billing-tests.mjs",
     "test:export": "node scripts/run-export-tests.mjs",
     "test:net": "node scripts/run-net-tests.mjs",
+    "test:images": "node scripts/run-images-tests.mjs",
     "test:recent": "node scripts/run-recent-tests.mjs",
     "test:calc": "node scripts/run-calc-tests.mjs",
     "test:challenge": "node scripts/run-challenge-tests.mjs",

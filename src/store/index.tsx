@@ -41,7 +41,7 @@ import {
   DEFAULT_STEP_GOAL,
   isStorableGoal as isStorableStepGoal,
 } from "@/health/steps";
-import { defaultWaterGoal, isStorableWaterGoal } from "@/health/water";
+import { cupMlOf, defaultWaterGoal, isStorableCupMl, isStorableWaterGoal } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -106,6 +106,9 @@ type Store = {
   /** The daily water goal in cups — the person's own, or derived from weight. */
   waterGoal: () => number;
   setWaterGoal: (cups: number) => void;
+  /** The size of one cup in ml. */
+  cupMl: () => number;
+  setCupMl: (ml: number) => void;
   /** Records a tape-measure reading for a body part (today). */
   addMeasurement: (part: string, cm: number) => void;
   /** All readings for a body part, oldest first. */
@@ -565,6 +568,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state.profile.startKg;
     return defaultWaterGoal(kg);
   }, [state.waterGoal, state.weighIns, state.profile.startKg]);
+
+  const cupMl = useCallback(() => cupMlOf(state.cupMl), [state.cupMl]);
+  const setCupMl = useCallback((ml: number) => {
+    if (!isStorableCupMl(ml)) return;
+    setState((s) => ({ ...s, cupMl: Math.round(ml) }));
+  }, []);
 
   const setWaterGoal = useCallback((cups: number) => {
     if (!isStorableWaterGoal(cups)) return;
@@ -1150,6 +1159,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       todayWater,
       waterGoal,
       setWaterGoal,
+      cupMl,
+      setCupMl,
       addMeasurement,
       measurementSeries,
       setSex,
@@ -1206,7 +1217,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
+     addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,

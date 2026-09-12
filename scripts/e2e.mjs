@@ -97,6 +97,12 @@ check("the − turns itself off at zero rather than doing nothing",
 check("a recommended water range is shown",
   await page.getByText(/מומלץ .* כוסות ביום/).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"שנה יעד"}).first().click(); await settle();
+// the cup size lives in the same editor — the vessel the person drinks from
+check("the cup-size options are offered",
+  await page.getByText("גודל כוס").first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:/500 מ/}).first().click(); await settle();
+{ const s=await st(); check("a chosen cup size is stored", s.cupMl===500, String(s.cupMl)); }
+await page.getByRole("button",{name:/250 מ/}).first().click(); await settle();
 { // the goal chips are the whole numbers inside the recommended band; 14 is the
   // top of the band for the seeded weight and is a button, so it is unambiguous
   await page.getByRole("button",{name:"14",exact:true}).first().click(); await settle();
@@ -297,12 +303,22 @@ await page.getByLabel("הסר תרגיל").first().click(); await settle();
 { const s=await st(); const edits=Object.values(s.training?.planEdits??{});
   check("removing a move from a day is recorded in the plan",
     edits.some(e=>(e.remove??[]).length>0), JSON.stringify(s.training?.planEdits)); }
+// the Hevy-style browse-the-whole-library picker: open it, filter, pick, done
 await page.getByRole("button",{name:"הוסף תרגיל ליום זה"}).first().click(); await settle();
-await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill("פלאנק"); await settle();
-await page.getByRole("button",{name:"פלאנק",exact:true}).first().click(); await settle();
+check("the add-exercise sheet opens on the whole library",
+  await page.getByText("הוסף תרגיל",{exact:true}).first().isVisible().catch(()=>false));
+check("it offers muscle filters", (await page.getByRole("button",{name:"חזה"}).count())>0);
+check("and shows the catalogue with more than a handful of moves",
+  (await page.getByRole("button").filter({hasText:/לחיצת|סקוואט|חתירה|כפיפ/}).count())>3);
+// pick a specific move by its visible name, then commit
+const pickRow = page.getByRole("button").filter({hasText:"לחיצת חזה במוט"}).first();
+await pickRow.click(); await settle();
+check("selecting a move updates the add button to a count",
+  (await page.getByRole("button",{name:/הוסף 1/}).count())>0);
+await page.getByRole("button",{name:/הוסף 1/}).first().click(); await settle();
 { const s=await st(); const edits=Object.values(s.training?.planEdits??{});
   check("adding a move to a specific day sticks in the plan",
-    edits.some(e=>(e.add??[]).includes("plank")), JSON.stringify(s.training?.planEdits)); }
+    edits.some(e=>(e.add??[]).includes("bench-press")), JSON.stringify(s.training?.planEdits)); }
 
 // 11) WORKOUT — rest timer counts down
 await page.getByText("60",{exact:true}).first().click(); await page.waitForTimeout(1500);

@@ -1,8 +1,10 @@
-import { View } from "react-native";
+import { useState } from "react";
+import { Image, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Equipment, Exercise, Muscle } from "@/workout/exercises";
 import { MuscleMap } from "./MuscleMap";
+import { exerciseImage } from "@/workout/images";
 import { view, worked } from "@/workout/muscles";
 import { ON_HERO, useTheme, type Colors } from "@/theme";
 
@@ -114,6 +116,29 @@ export function ExerciseThumb({
   size?: number;
 }) {
   const { colors, radius } = useTheme();
+  const [broken, setBroken] = useState(false);
+  // A real photograph of the lift when we have an honest one for it, from the
+  // free-exercise-db over a CDN. If it fails to load — offline, or the CDN is
+  // unreachable — the drawn muscle map takes over, so a row is never empty and
+  // never waits on the network.
+  const photo = broken ? null : exerciseImage(ex.id);
+  if (photo) {
+    return (
+      <Image
+        source={{ uri: photo }}
+        onError={() => setBroken(true)}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius.md,
+          backgroundColor: colors.surfaceAlt,
+        }}
+      />
+    );
+  }
+
   const tiles = muscleColors(colors);
   const { from: baseFrom, to: baseTo, ink } = tiles[ex.muscle] ?? tiles.fullbody;
   const h = hash(ex.id);

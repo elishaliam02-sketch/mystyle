@@ -190,6 +190,9 @@ export type AppState = {
   water?: Record<string, number>;
   /** The person's chosen daily water goal, in cups. Undefined = derive from weight. */
   waterGoal?: number;
+  /** The size of one cup in ml, so the tracker counts the vessel the person
+   * actually drinks from. Undefined = 250 ml. */
+  cupMl?: number;
   /** Tape-measure readings per body part (part id → readings over time). */
   measurements?: Record<string, { date: string; cm: number }[]>;
   /** The single goal that drives the whole app — training, kitchen, cardio and
@@ -331,6 +334,7 @@ export function migrateState(raw: unknown): AppState {
     intake: s.intake,
     water: s.water,
     waterGoal: s.waterGoal,
+    cupMl: s.cupMl,
     measurements: s.measurements,
     // The canonical goal: prefer an explicit one, else adopt whatever the
     // kitchen or the plan was last set to, so an upgrade doesn't reset it.
