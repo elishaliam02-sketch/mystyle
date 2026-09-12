@@ -12,6 +12,17 @@ name: Meal photo contact sheet
 # Start it by hand after changing any `photo:` phrase in src/kitchen/data.ts.
 
 on:
+  # Whatever changes what the picker asks for, or how it picks, re-resolves the
+  # photos. The sheet it commits lands in docs/qa, which is deliberately not in
+  # this list — otherwise the workflow would keep waking itself up.
+  push:
+    paths:
+      - "src/kitchen/data.ts"
+      - "src/kitchen/photo.ts"
+      - "scripts/meal-photo-sheet.mjs"
+      - ".github/workflows/meal-photos.yml"
+  # Available by hand too, once this file is on the default branch — GitHub only
+  # offers a manual run for workflows it can see there.
   workflow_dispatch:
 
 permissions:
