@@ -1,0 +1,56 @@
+name: Meal photo contact sheet
+
+# Looks up every meal's photograph on Wikimedia Commons for real, and commits a
+# contact sheet of the results.
+#
+# The search phrases are the one part of the photo feature that cannot be unit
+# tested: a phrase can be well formed and still return a picture of the wrong
+# thing. This runs the app's own picker against the live API and lays out what
+# it chooses, so a wrong photo is caught by looking rather than by a user.
+#
+# It lives in CI because the development sandbox has no route to Wikimedia.
+# Start it by hand after changing any `photo:` phrase in src/kitchen/data.ts.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sheet:
+    name: Resolve every meal's photo and lay them out
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium, which composes the sheet
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Look up every meal on Commons
+        run: node scripts/meal-photo-sheet.mjs
+
+      - name: Commit the sheet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/qa/meal-photos.jpg docs/qa/meal-photos.json
+          if git diff --cached --quiet; then
+            echo "The photos resolve exactly as they did last time; nothing to commit."
+          else
+            git commit -m "Refresh the meal photo contact sheet"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
