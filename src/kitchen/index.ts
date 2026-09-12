@@ -3,6 +3,8 @@ import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
 export { FOODS, MEALS, portion, adhocFood, foodNutrition } from "./data";
 export type { Portion } from "./data";
+export { fetchMealPhoto, photoQueries, commonsSearchUrl, pickPhoto, clearPhotoCache } from "./photo";
+export type { CommonsPage, CommonsImage } from "./photo";
 
 /**
  * The kitchen engine: read a shopping list the way a person wrote it, and rank
@@ -155,6 +157,11 @@ export function yourPlate(items: Food[], slot: MealSlot): Meal {
     notes,
     kcal,
     protein,
+    // This plate has no name to search for — it is whatever the person bought.
+    // The two ingredients it leads with are the best description of it there
+    // is, and Commons has photos of most pairs ("chicken rice", "tuna salad").
+    // Failing that, `photoQueries` falls back to the lead ingredient alone.
+    photo: items.slice(0, 2).map((f) => f.en).join(" "),
   };
 }
 
@@ -479,39 +486,6 @@ export function slotForHour(hour: number): MealSlot {
   if (hour < 16) return "lunch";
   if (hour < 21) return "dinner";
   return "snack";
-}
-
-/**
- * A real photo for a meal, from a free image service — no key, no bill.
- *
- * The prompt is built from the dish and its actual ingredients, so the picture
- * is of this meal, not a stock stand-in, and it changes with the ingredients.
- * A stable seed per meal keeps the same dish looking the same across launches
- * (and lets the device cache it). English throughout: the model reads it best.
- *
- * This needs the network. The UI shows a drawn plate underneath and only swaps
- * to the photo once it loads, so offline the app still works — it just shows
- * the illustration instead.
- */
-export function mealPhotoUrl(meal: Meal, size: { width: number; height: number }): string {
-  const foods = meal.uses
-    .map((id) => FOODS.find((f) => f.id === id))
-    .filter((f): f is Food => !!f);
-  const ingredients = foods.map((f) => f.en).join(", ");
-  const prompt =
-    `professional food photography of a full plate of ${meal.en.title}, ` +
-    `made with ${ingredients}, the whole dish centred and fully in frame, ` +
-    `wide overhead shot, natural daylight, fresh, appetizing, sharp focus, no text`;
-  const seed = stableSeed(meal.id);
-  const q = `width=${size.width}&height=${size.height}&nologo=true&seed=${seed}`;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${q}`;
-}
-
-/** A small deterministic number from a string, so one meal keeps one image. */
-function stableSeed(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 100000;
 }
 
 /**

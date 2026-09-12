@@ -58,6 +58,12 @@ const ctx = await browser.newContext({viewport:{width:412,height:915}});
 // fall back to the drawn muscle map whenever an image fails, so this exercises
 // the exact path a phone with no signal would take.
 await ctx.route("**://cdn.jsdelivr.net/**", r=>r.abort());
+// Same for the meal photos, which search Wikimedia Commons and then load the
+// thumbnail it points at. Aborting both the search and the image is the
+// no-signal path the kitchen is built for: every meal card keeps the plate it
+// draws from its own ingredients.
+await ctx.route("**://commons.wikimedia.org/**", r=>r.abort());
+await ctx.route("**://upload.wikimedia.org/**", r=>r.abort());
 await ctx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
 const page = await ctx.newPage();
 const crashes=[]; page.on("pageerror",e=>crashes.push(String(e).slice(0,160)));
