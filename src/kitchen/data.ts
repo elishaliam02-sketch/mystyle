@@ -541,7 +541,7 @@ export const MEALS: Meal[] = [
   M("kohlrabi-tahini-sticks",
     { title: "מקלות קולרבי בטחינה", how: "חותכים קולרבי וצנוניות למקלות, טובלים בטחינה." },
     { title: "Kohlrabi sticks & tahini", how: "Cut kohlrabi and radish into sticks, dip in tahini." },
-    ["kohlrabi", "radish", "tahini"], "snack", ["light", "veg"], 180, 6, "vegetable sticks with dip"),
+    ["kohlrabi", "radish", "tahini"], "snack", ["light", "veg"], 180, 6, "crudites vegetable platter"),
   M("pumpkin-lentil-soup",
     { title: "מרק דלעת ועדשים", how: "מטגנים בצל בשמן זית, מוסיפים דלעת ועדשים ומבשלים עד שהכול רך." },
     { title: "Pumpkin & lentil soup", how: "Soften onion in olive oil, add pumpkin and lentils and simmer until tender." },
