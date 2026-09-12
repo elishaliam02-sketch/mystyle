@@ -74,6 +74,7 @@ const NOT_A_DISH =
         // of the ingredient — a field of barley, a market stall of kohlrabi —
         // and none of them is a plate.
         "fields?|crops?|plantations?|harvests?|farms?|orchards?|seedlings?|botanical|herbari(um|a)",
+        "greenhouses?|nurser(y|ies)|microgreens|sprouting|cultivation",
         "markets?|marketplaces?|stalls?|vendors?|greengrocers?|supermarkets?|groceries|shops?",
         // And places a picture of food can be taken that are not a meal.
         "refrigerators?|freezers?|museums?|galler(y|ies)|banknotes?|coins?|monuments?|statues?",
