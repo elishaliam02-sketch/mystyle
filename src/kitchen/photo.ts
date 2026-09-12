@@ -63,7 +63,24 @@ const NOT_A_PHOTO =
  * has to weigh up how appetising something looks.
  */
 const NOT_A_DISH =
-  /\b(insects?|moths?|butterfl(y|ies)|beetles?|caterpillars?|larvae?|bees?|wasps?|birds?|livestock|cattle|herds?|fields?|crops?|plantations?|harvests?|farms?|orchards?|seedlings?|botanical|herbarium|museums?|galler(y|ies)|banknotes?|coins?|monuments?|statues?)\b/i;
+  new RegExp(
+    "\\b(" +
+      [
+        // Living things. "mackerel on bread" returned a kitten, because a
+        // mackerel tabby is a cat — the animal words are not optional.
+        "insects?|moths?|butterfl(y|ies)|beetles?|caterpillars?|larvae?|bees?|wasps?",
+        "birds?|cats?|kittens?|dogs?|puppies|pets?|horses?|livestock|cattle|herds?|aquari(um|a)|zoos?",
+        // Where food grows, and where it is sold. Both are full of photographs
+        // of the ingredient — a field of barley, a market stall of kohlrabi —
+        // and none of them is a plate.
+        "fields?|crops?|plantations?|harvests?|farms?|orchards?|seedlings?|botanical|herbari(um|a)",
+        "markets?|marketplaces?|stalls?|vendors?|greengrocers?|supermarkets?|groceries|shops?",
+        // And places a picture of food can be taken that are not a meal.
+        "refrigerators?|freezers?|museums?|galler(y|ies)|banknotes?|coins?|monuments?|statues?",
+      ].join("|") +
+      ")\\b",
+    "i",
+  );
 
 /**
  * Nothing photographed before this is a picture of a meal somebody might cook

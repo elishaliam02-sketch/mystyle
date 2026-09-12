@@ -254,6 +254,16 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     pickPhoto([shot({ date: "1662" })]) === null);
   check("a modern photo with a date is kept", pickPhoto([shot({ date: "2019-04-11 13:20:02" })]) !== null);
   check("a museum plate is rejected", pickPhoto([shot({ categories: "Rijksmuseum|Museums of Amsterdam" })]) === null);
+
+  // The second contact sheet's own findings: a mackerel tabby over the mackerel
+  // toast, a market stall over the kohlrabi, the inside of a fridge over the
+  // pear and cheese. Every one of them a photograph, none of them a meal.
+  check("a cat is not a mackerel",
+    pickPhoto([shot({ title: "File:Mackerel tabby.jpg", categories: "Cats|Kittens" })]) === null);
+  check("a market stall is not a snack",
+    pickPhoto([shot({ categories: "Vegetable stalls|Farmers' markets in Canada" })]) === null);
+  check("the inside of a fridge is not a plate",
+    pickPhoto([shot({ categories: "Refrigerators" })]) === null);
 }
 
 

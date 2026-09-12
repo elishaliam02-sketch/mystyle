@@ -339,7 +339,7 @@ export const MEALS: Meal[] = [
   M("nuts-banana",
     { title: "בננה עם אגוזים", how: "בננה וחופן אגוזים — אנרגיה מהירה לפני או אחרי אימון." },
     { title: "Banana & nuts", how: "A banana and a handful of nuts — quick energy before or after a workout." },
-    ["banana", "nuts"], "snack", ["hearty", "balanced"], 260, 7, "banana walnuts bowl"),
+    ["banana", "nuts"], "snack", ["hearty", "balanced"], 260, 7, "banana with walnuts"),
   // Dishes the dietary filters actually remove. Without these the menu was
   // entirely kosher already, so turning the kosher filter on changed nothing
   // on screen — a filter that hides nothing reads as a filter that is broken.
@@ -493,7 +493,7 @@ export const MEALS: Meal[] = [
   M("pear-cheese",
     { title: "אגס עם גבינה", how: "אגס פרוס עם גבינה לבנה." },
     { title: "Pear & cheese", how: "Sliced pear with white cheese." },
-    ["pear", "whiteCheese"], "snack", ["light"], 190, 10, "pear slices cheese plate"),
+    ["pear", "whiteCheese"], "snack", ["light"], 190, 10, "cheese and pear board"),
   M("pomegranate-yogurt",
     { title: "רימון עם יוגורט", how: "יוגורט יווני עם גרגירי רימון." },
     { title: "Pomegranate yogurt", how: "Greek yogurt with pomegranate seeds." },
@@ -501,7 +501,7 @@ export const MEALS: Meal[] = [
   M("mango-cottage",
     { title: "מנגו עם קוטג'", how: "מנגו חתוך עם קוטג'." },
     { title: "Mango & cottage", how: "Chopped mango with cottage cheese." },
-    ["mango", "cottage"], "snack", ["light", "protein"], 210, 15, "mango cottage cheese"),
+    ["mango", "cottage"], "snack", ["light", "protein"], 210, 15, "cottage cheese mango bowl"),
   // -- dishes built on the staples added later: whole grains that are not
   //    white rice, oily fish, pulses, dark leaves and cultured dairy. These
   //    are the plates a Mediterranean diet is actually made of, and every one
@@ -537,7 +537,7 @@ export const MEALS: Meal[] = [
   M("mackerel-toast",
     { title: "מקרל על לחם מלא", how: "פילה מקרל על פרוסת לחם מלא, עלי רוקט וסחיטת לימון." },
     { title: "Mackerel on rye toast", how: "Mackerel on whole-grain bread with rocket and a squeeze of lemon." },
-    ["mackerel", "wholeBread", "arugula", "lemon"], "lunch", ["protein", "balanced"], 420, 28, "mackerel on bread"),
+    ["mackerel", "wholeBread", "arugula", "lemon"], "lunch", ["protein", "balanced"], 420, 28, "smoked mackerel sandwich"),
   M("kohlrabi-tahini-sticks",
     { title: "מקלות קולרבי בטחינה", how: "חותכים קולרבי וצנוניות למקלות, טובלים בטחינה." },
     { title: "Kohlrabi sticks & tahini", how: "Cut kohlrabi and radish into sticks, dip in tahini." },
@@ -587,7 +587,7 @@ export const MEALS: Meal[] = [
   M("cottage-pasta",
     { title: "פסטה עם קוטג׳", how: "מערבבים קוטג׳ חם לתוך הפסטה עם עגבנייה ושום — רוטב קרמי בלי שמנת." },
     { title: "Cottage cheese pasta", how: "Stir warm cottage cheese through the pasta with tomato and garlic — creamy, without cream." },
-    ["pasta", "cottage", "tomato", "garlic"], "dinner", ["protein", "hearty"], 540, 32, "pasta cottage cheese"),
+    ["pasta", "cottage", "tomato", "garlic"], "dinner", ["protein", "hearty"], 540, 32, "pasta with cottage cheese"),
   M("tuna-bean-salad",
     { title: "סלט טונה ושעועית", how: "טונה, שעועית לבנה, בצל דק ופטרוזיליה, עם שמן זית ולימון." },
     { title: "Tuna & white bean salad", how: "Tuna, white beans, thin onion and parsley, with olive oil and lemon." },
@@ -623,7 +623,7 @@ export const MEALS: Meal[] = [
   M("overnight-oats-skyr",
     { title: "שיבולת שועל ללילה עם סקיר", how: "מערבבים שיבולת שועל, סקיר, פירות יער וכף צ׳יה בערב. בבוקר זה מוכן." },
     { title: "Overnight oats with skyr", how: "Mix oats, skyr, berries and a spoon of chia at night. It's ready in the morning." },
-    ["oats", "skyr", "berries", "chia"], "breakfast", ["protein", "balanced"], 420, 28, "overnight oats jar"),
+    ["oats", "skyr", "berries", "chia"], "breakfast", ["protein", "balanced"], 420, 28, "overnight oats"),
   M("barley-pepper-salad",
     { title: "סלט גריסים ופלפל קלוי", how: "גריסי פנינה חמימים עם פלפל קלוי, פטה ופטרוזיליה, ושמן זית מעל." },
     { title: "Warm barley & roast pepper salad", how: "Warm pearl barley with roasted pepper, feta and parsley, olive oil over the top." },
