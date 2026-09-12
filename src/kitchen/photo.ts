@@ -46,11 +46,33 @@ const MIN_SOURCE_WIDTH = 640;
 /**
  * Commons is a media archive, not a food site: "chicken" matches poultry
  * diagrams, "corn" matches crop maps, and almost every food word matches some
- * municipality's coat of arms. These words in a file name mean the image is a
- * document about the subject rather than a picture of it on a plate.
+ * municipality's coat of arms. These words mean the image is a document about
+ * the subject rather than a picture of it on a plate.
  */
 const NOT_A_PHOTO =
-  /\b(logo|icon|map|diagram|chart|graph|coat[_ ]of[_ ]arms|flag|stamp|seal|poster|label|sign|banner|drawing|illustration|painting|engraving|sketch|clipart)\b/i;
+  /\b(logos?|icons?|maps?|diagrams?|charts?|graphs?|coat[_ ]of[_ ]arms|flags?|stamps?|seals?|posters?|labels?|signs?|banners?|drawings?|illustrations?|paintings?|engravings?|etchings?|lithographs?|woodcuts?|sketch(es)?|clipart|artwork|still[_ ]life|manuscripts?|frescos?|mosaics?)\b/i;
+
+/**
+ * And a media archive has a great deal of food that is not a meal. "oats"
+ * returns a moth sitting on an oat stalk, "chickpeas" a sack of dried ones,
+ * "salmon" a fish in a river. All are photographs, and none is dinner.
+ *
+ * These words are checked against the title and the file's categories, which is
+ * where Commons actually records what a picture is of. The list only holds
+ * things that cannot be on a plate — an insect, a field, a museum — so it never
+ * has to weigh up how appetising something looks.
+ */
+const NOT_A_DISH =
+  /\b(insects?|moths?|butterfl(y|ies)|beetles?|caterpillars?|larvae?|bees?|wasps?|birds?|livestock|cattle|herds?|fields?|crops?|plantations?|harvests?|farms?|orchards?|seedlings?|botanical|herbarium|museums?|galler(y|ies)|banknotes?|coins?|monuments?|statues?)\b/i;
+
+/**
+ * Nothing photographed before this is a picture of a meal somebody might cook
+ * tonight — it is a painting, an engraving or a museum plate. Commons records
+ * the capture date, and an old one is the single most reliable signal that a
+ * file which passed every other test is artwork: a seventeenth-century still
+ * life of fish is a JPEG of 2000 pixels like any other.
+ */
+const OLDEST_USEFUL_YEAR = 1970;
 
 export type CommonsImage = {
   /** A thumbnail at (about) the width we asked for. */
@@ -182,8 +204,28 @@ function isPhoto(p: CommonsPage): boolean {
   // Commons are overwhelmingly diagrams, logos and screenshots.
   if (info.mime !== "image/jpeg") return false;
   if ((info.width ?? 0) < MIN_SOURCE_WIDTH) return false;
-  if (p.title && NOT_A_PHOTO.test(p.title)) return false;
+
+  // The file name, plus what Commons says the picture is of. Categories are
+  // where "Still life paintings of fish" is actually written down; the title is
+  // often just a camera's filename.
+  const said = [
+    p.title ?? "",
+    plainText(info.extmetadata?.Categories?.value ?? ""),
+    plainText(info.extmetadata?.ObjectName?.value ?? ""),
+  ].join(" ");
+  if (NOT_A_PHOTO.test(said)) return false;
+  if (NOT_A_DISH.test(said)) return false;
+
+  const year = yearOf(info);
+  if (year !== null && year < OLDEST_USEFUL_YEAR) return false;
   return true;
+}
+
+/** The year a picture was taken, when Commons knows it. */
+function yearOf(info: CommonsImage): number | null {
+  const raw = plainText(info.extmetadata?.DateTimeOriginal?.value ?? "");
+  const match = /\b(1[0-9]{3}|20[0-9]{2})\b/.exec(raw);
+  return match ? Number(match[1]) : null;
 }
 
 /**
@@ -191,10 +233,17 @@ function isPhoto(p: CommonsPage): boolean {
  *
  * The dish's own curated phrase leads, because it names the thing a
  * photographer would have labelled the picture. When Commons has no photo of
- * that exact dish — and it has no "cottage cheese on toast" — the ladder falls
- * back to the ingredient the plate is built on, which it certainly does have.
- * A photo of grilled chicken over a dish card that says chicken and rice is a
- * fair picture of the meal; a cartoon is not.
+ * that exact dish — and it has no "cottage cheese on toast" — the ladder walks
+ * down toward the ingredients the plate is built on. A photo of grilled chicken
+ * over a card that says chicken and rice is a fair picture of the meal.
+ *
+ * The rungs below the dish are the lesson of the first contact sheet. Falling
+ * straight to one ingredient plus the word "food" returned a moth on an oat
+ * stalk, a sack of dried chickpeas and a bag of pearl barley: on Commons, a
+ * lone ingredient is a crop, not a meal. Two ingredients together nearly always
+ * mean somebody cooked them, and "cooked" or "dish" says it outright — so those
+ * come first, and the bare ingredient is only ever the last resort it should
+ * always have been.
  */
 export function photoQueries(meal: Meal): string[] {
   const queries: string[] = [];
@@ -205,8 +254,12 @@ export function photoQueries(meal: Meal): string[] {
 
   if (meal.photo) add(meal.photo);
 
-  // The lead ingredient, which `uses` puts first by convention.
-  const lead = meal.uses.map(foodById).find((f): f is Food => !!f);
+  // The ingredients the dish leads with — `uses` puts them in that order.
+  const [lead, second] = meal.uses.map(foodById).filter((f): f is Food => !!f);
+  if (lead && second) add(`${lead.en} ${second.en} cooked`);
+  if (lead && second) add(`${lead.en} ${second.en}`);
+  if (lead) add(`${lead.en} dish`);
+  if (lead) add(`cooked ${lead.en}`);
   if (lead) add(`${lead.en} food`);
 
   return queries;

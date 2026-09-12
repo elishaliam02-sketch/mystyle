@@ -223,6 +223,54 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 }
 
 
+// --- a media archive is full of food that is not a meal, and art that is not a photo
+{
+  const shot = (over: { title?: string; categories?: string; date?: string }): CommonsPage => ({
+    title: over.title ?? "File:Some dish.jpg",
+    index: 1,
+    imageinfo: [{
+      thumburl: "https://upload.wikimedia.org/x.jpg", mime: "image/jpeg", width: 2000, height: 1400,
+      extmetadata: {
+        LicenseShortName: { value: "CC0" },
+        ...(over.categories ? { Categories: { value: over.categories } } : {}),
+        ...(over.date ? { DateTimeOriginal: { value: over.date } } : {}),
+      },
+    }],
+  });
+
+  check("an ordinary photo still passes", pickPhoto([shot({})]) !== null);
+
+  // The first contact sheet put a moth on the oats card and a sack of dried
+  // chickpeas on the stew — both real photographs, neither of them dinner.
+  check("a moth on an oat stalk is not a meal",
+    pickPhoto([shot({ title: "File:Oat plant.jpg", categories: "Insects on plants|Moths" })]) === null);
+  check("nor is a field of a crop",
+    pickPhoto([shot({ categories: "Barley fields in Germany" })]) === null);
+
+  // And a seventeenth-century still life of fish is a JPEG like any other.
+  check("a painting is rejected even when the file name says nothing",
+    pickPhoto([shot({ categories: "Still life paintings of fish" })]) === null);
+  check("so is anything photographed before food photography existed",
+    pickPhoto([shot({ date: "1662" })]) === null);
+  check("a modern photo with a date is kept", pickPhoto([shot({ date: "2019-04-11 13:20:02" })]) !== null);
+  check("a museum plate is rejected", pickPhoto([shot({ categories: "Rijksmuseum|Museums of Amsterdam" })]) === null);
+}
+
+
+// --- the query ladder falls toward a cooked plate, not toward a raw ingredient
+{
+  const stew = MEALS.find((m) => m.id === "chickpea-stew") ?? MEALS[0];
+  const q = photoQueries(stew);
+  check("the dish's own phrase still leads", q[0] === stew.photo, q[0]);
+  check("two ingredients, cooked, come before one ingredient alone",
+    q.findIndex((s) => s.includes(" cooked")) < q.findIndex((s) => s.endsWith(" food")),
+    q.join(" | "));
+  check("the bare ingredient is the last resort", q[q.length - 1].endsWith(" food"), q.join(" | "));
+  check("no query is repeated", new Set(q).size === q.length, q.join(" | "));
+  check("every meal still has a ladder to walk", MEALS.every((m) => photoQueries(m).length >= 2));
+}
+
+
 // --- a photo we cannot credit is a photo we cannot use
 {
   const img = (extmetadata: Record<string, { value?: string }>) => ({
