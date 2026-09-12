@@ -69,7 +69,7 @@ export const en: typeof he = {
           "• Supabase — storage, accounts, and the function that talks to the model.",
           "• Expo (EAS Update) — when the app checks for an update, that server sees an IP address and basic device details.",
           "• YouTube — exercise demo thumbnails load from YouTube's servers, and a demo opens there. Loading or tapping one exposes your IP address to Google.",
-          "• Pollinations (image.pollinations.ai) — the photographs of the suggested meals are generated there. What is sent is the dish name and its ingredients from the app's own cookbook, for example \"chickpea & spinach stew\" — never anything you wrote, photographed or measured. As with any request to a server, your IP address is exposed. You can switch this off in the profile screen (\"Photos of the meals\"), and then you see the illustration drawn on the device instead.",
+          "• Wikimedia (commons.wikimedia.org, upload.wikimedia.org) — the pictures of the suggested meals are real photographs from Wikimedia Commons, looked up by the name of the dish. What is sent is that name, out of the app's own cookbook — for example \"chickpea stew\" — and never anything you wrote, photographed or measured. As with any request to a server, your IP address is exposed. You can switch this off in the profile screen (\"Photos of the meals\"); the app then shows the illustration drawn on the device and makes no request at all.",
           "There is no analytics tool in this app, no advertising SDK, and no advertising identifier. We do not sell or rent information to anyone.",
         ],
       },

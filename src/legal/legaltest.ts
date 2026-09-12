@@ -7,8 +7,15 @@
  * to discover in review.
  */
 
-import { LEGAL, acceptanceCurrent, aiConsentGiven, publishAiConsent } from "./index";
-import { PHOTO_HOST } from "@/kitchen";
+import {
+  LEGAL,
+  acceptanceCurrent,
+  aiConsentGiven,
+  photoConsentGiven,
+  publishAiConsent,
+  publishPhotoConsent,
+} from "./index";
+import { PHOTO_HOSTS } from "@/kitchen";
 import { he } from "./documents.he";
 import { en } from "./documents.en";
 import type { LegalDocument } from "./types";
@@ -81,15 +88,27 @@ const docs = [
   const privacy = [he.privacy, en.privacy].map((d) =>
     d.sections.map((s) => `${s.heading} ${s.body.join(" ")}`).join(" "),
   );
-  for (const party of ["Supabase", "Expo", "YouTube", "Google", "Anthropic", "Pollinations"]) {
+  for (const party of ["Supabase", "Expo", "YouTube", "Google", "Anthropic", "Wikimedia"]) {
     check(`the privacy policy names ${party} in both languages`,
       privacy.every((text) => text.includes(party)), party);
   }
   // A host the app actually contacts has to appear in the policy by the name it
-  // answers to, not only by a brand — this is the check that caught the meal
-  // photos being fetched from a service the document never mentioned.
-  check("every host the app calls is in the policy by hostname",
-    privacy.every((text) => text.includes(PHOTO_HOST)), PHOTO_HOST);
+  // answers to, not only by a brand. This is the check that caught the meal
+  // photos being fetched from a service the documents never mentioned at all.
+  for (const host of PHOTO_HOSTS) {
+    check(`the privacy policy names the host ${host}`,
+      privacy.every((text) => text.includes(host)), host);
+  }
+}
+
+// --- and the photo gate, which that service is behind
+{
+  publishPhotoConsent(false);
+  check("photos are not fetched until the stored answer says so", !photoConsentGiven());
+  publishPhotoConsent(true);
+  check("turning them on reaches the kitchen", photoConsentGiven());
+  publishPhotoConsent(false);
+  check("turning them off takes effect immediately", !photoConsentGiven());
 }
 
 // --- the consent mirror the AI transport reads

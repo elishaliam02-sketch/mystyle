@@ -7,7 +7,7 @@ import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { WaterBottle } from "@/components/WaterBottle";
 import {
-  CUP_ML,
+  CUP_SIZES,
   fillFraction,
   MAX_WATER_GOAL,
   MIN_WATER_GOAL,
@@ -22,15 +22,16 @@ import { useTheme } from "@/theme";
 export default function WaterScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addWater, todayWater, waterGoal, setWaterGoal } = useStore();
+  const { state, addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl } = useStore();
   const [editing, setEditing] = useState(false);
 
   const cups = todayWater();
   const goal = waterGoal();
+  const ml = cupMl();
   const weightKg =
     [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
     state.profile.startKg;
-  const range = recommendedRange(weightKg);
+  const range = recommendedRange(weightKg, ml);
   const status = waterStatus(cups, goal, weightKg);
   const pct = fillFraction(cups, goal);
 
@@ -78,7 +79,7 @@ export default function WaterScreen() {
               {fill(t.water.range, { min: range.min, max: range.max })}
             </Text>
             <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-              ≈ {fill(t.water.ml, { ml: (cups * CUP_ML).toLocaleString() })}
+              ≈ {fill(t.water.ml, { ml: (cups * ml).toLocaleString() })}
             </Text>
           </View>
         </View>
@@ -153,6 +154,28 @@ export default function WaterScreen() {
 
       {editing ? (
         <Card label={t.water.editGoal}>
+          {/* the size of the glass the person actually drinks from, so a cup
+              means their cup — everything downstream counts in it */}
+          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+            {t.water.cupSize}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.xs, marginBottom: space.md }}>
+            {CUP_SIZES.map((size) => {
+              const on = ml === size;
+              return (
+                <SelectTile
+                  key={size}
+                  selected={on}
+                  onPress={() => setCupMl(size)}
+                  style={{ borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14 }}
+                >
+                  <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
+                    {fill(t.water.cupMl, { ml: size })}
+                  </Text>
+                </SelectTile>
+              );
+            })}
+          </View>
           <Text style={[type.small, { color: colors.inkSoft }]}>
             {fill(t.water.goalRecommended, { min: range.min, max: range.max })}
           </Text>

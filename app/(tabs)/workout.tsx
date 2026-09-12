@@ -21,6 +21,7 @@ import { metricFill, metricInk, onMetric, ON_HERO, ON_HERO_SOFT, useTheme } from
 import {
   EXERCISES,
   MUSCLES,
+  type Equipment,
   type Exercise,
   type Muscle,
 } from "@/workout/exercises";
@@ -28,6 +29,7 @@ import { applyDayEdits, buildPlan, type DayType } from "@/workout/plan";
 import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
 import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
+import { ExercisePicker } from "@/components/ExercisePicker";
 
 const GOALS: Goal[] = ["cut", "recomp", "maintain", "bulk"];
 const DAYS = [2, 3, 4, 5, 6];
@@ -85,6 +87,18 @@ export default function WorkoutScreen() {
     fullbody: t.workout.muscleFullbody,
     cardio: t.workout.muscleCardio,
   };
+  const kitLabel: Record<Equipment, string> = {
+    barbell: t.library.kitBarbell,
+    dumbbell: t.library.kitDumbbell,
+    machine: t.library.kitMachine,
+    cable: t.library.kitCable,
+    bodyweight: t.library.kitBodyweight,
+    kettlebell: t.library.kitKettlebell,
+    smith: t.library.kitSmith,
+    band: t.library.kitBand,
+  };
+  // Which day's "add exercise" sheet is open, with the moves already on it.
+  const [picker, setPicker] = useState<{ day: number; have: string[] } | null>(null);
 
   const seed = planSeed();
   const plan = useMemo(
@@ -536,11 +550,14 @@ export default function WorkoutScreen() {
                 ))
               )}
 
-              {/* add any move to this exact day — the plan is yours to edit */}
-              <DayAdder
-                muscleLabel={muscleLabel}
-                have={dayExercises.map((e) => e.id)}
-                onPick={(id) => addToDay(i, id)}
+              {/* add any move to this exact day — the whole library, browsable,
+                  with a picture beside each, the way a plan is built in Hevy */}
+              <PillButton
+                tone="soft"
+                icon="add"
+                label={t.workout.dayAdd}
+                onPress={() => setPicker({ day: i, have: dayExercises.map((e) => e.id) })}
+                style={{ marginTop: space.md, alignSelf: "flex-start" }}
               />
 
               {total > 0 ? (
@@ -621,6 +638,18 @@ export default function WorkoutScreen() {
           muscleLabel={muscleLabel}
           chosen={extraIds}
           onPick={addExerciseToday}
+        />
+
+        <ExercisePicker
+          visible={picker !== null}
+          onClose={() => setPicker(null)}
+          have={picker?.have ?? []}
+          custom={custom}
+          muscleLabel={muscleLabel}
+          kitLabel={kitLabel}
+          onPick={(id) => {
+            if (picker) addToDay(picker.day, id);
+          }}
         />
 
         <AddExercise muscleLabel={muscleLabel} onAdd={addCustomExercise} />
@@ -1176,101 +1205,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   );
 }
 
-/**
- * Add any move to one specific plan day, for good — the Hevy way of shaping a
- * plan into yours. Collapsed to a single button until tapped, so a day that is
- * already right stays tidy; open it and any of the library's moves is a search
- * and a tap away, added permanently to this day (a re-roll keeps it).
- */
-function DayAdder({
-  muscleLabel,
-  have,
-  onPick,
-}: {
-  muscleLabel: Record<Muscle, string>;
-  have: string[];
-  onPick: (id: string) => void;
-}) {
-  const { t, locale } = useI18n();
-  const { colors, space, radius, type } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
 
-  const hits = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return [];
-    return EXERCISES.filter((e) => {
-      const hay = `${e.he} ${e.en} ${muscleLabel[e.muscle]}`.toLowerCase();
-      return hay.includes(term);
-    }).slice(0, 8);
-  }, [q, muscleLabel]);
-
-  if (!open) {
-    return (
-      <PillButton
-        tone="soft"
-        icon="add"
-        label={t.workout.dayAdd}
-        onPress={() => setOpen(true)}
-        style={{ marginTop: space.md, alignSelf: "flex-start" }}
-      />
-    );
-  }
-
-  return (
-    <View style={{ marginTop: space.md, gap: space.sm }}>
-      <TextField value={q} onChangeText={setQ} placeholder={t.workout.librarySearch} />
-      {q.trim().length > 0 ? (
-        hits.length === 0 ? (
-          <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.libraryNone}</Text>
-        ) : (
-          hits.map((e) => {
-            const already = have.includes(e.id);
-            return (
-              <Pressable
-                key={e.id}
-                disabled={already}
-                accessibilityRole="button"
-                accessibilityLabel={locale === "he" ? e.he : e.en}
-                onPress={() => {
-                  onPick(e.id);
-                  setQ("");
-                  setOpen(false);
-                }}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: space.sm,
-                  paddingVertical: 9,
-                  paddingHorizontal: 10,
-                  borderRadius: radius.md,
-                  backgroundColor: colors.surfaceAlt,
-                  opacity: already ? 0.5 : 1,
-                }}
-              >
-                <ExerciseThumb ex={e} size={38} />
-                <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
-                  {locale === "he" ? e.he : e.en}
-                </Text>
-                <Text style={[type.small, { color: colors.inkFaint }]}>{muscleLabel[e.muscle]}</Text>
-                <Text style={[type.smallStrong, { color: colors.accent }]}>{already ? "✓" : "+"}</Text>
-              </Pressable>
-            );
-          })
-        )
-      ) : null}
-      <Pressable onPress={() => { setOpen(false); setQ(""); }} accessibilityRole="button" hitSlop={6}>
-        <Text style={[type.smallStrong, { color: colors.inkFaint }]}>{t.common.cancel}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-/**
- * Pull any move out of the exercise library into today's session — the
- * everyday case the plan cannot predict ("the squat rack is taken, I'll do leg
- * press"). Searching by name or muscle keeps it to a couple of taps.
- */
 function LibraryPicker({
   muscleLabel,
   chosen,

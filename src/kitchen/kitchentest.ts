@@ -3,7 +3,8 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, mealPhotoUrl, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
+import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
+import type { CommonsPage } from "./index";
 import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition, portion } from "./data";
 
@@ -140,18 +141,135 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 }
 
 
-// --- every meal builds a valid, distinct photo URL from its ingredients
+// --- every meal can be searched for as a real photograph
 {
-  const urls = MEALS.map((m) => mealPhotoUrl(m, { width: 320, height: 150 }));
-  check("every photo url is https and from the free service",
-    urls.every((u) => u.startsWith("https://image.pollinations.ai/prompt/")));
-  check("every photo url carries size and a seed",
-    urls.every((u) => /width=\d+/.test(u) && /height=\d+/.test(u) && /seed=\d+/.test(u)));
-  check("photo urls are per-meal distinct", new Set(urls).size === urls.length);
-  check("a meal's url mentions its own ingredients",
-    mealPhotoUrl(MEALS.find((m) => m.id === "tuna-salad")!, { width: 10, height: 10 })
-      .includes(encodeURIComponent("tuna")));
-  check("the url is properly encoded (no raw spaces)", urls.every((u) => !u.includes(" ")));
+  check("every meal carries a photo search phrase",
+    MEALS.every((m) => m.photo.trim().length > 0));
+  check("photo phrases are English (the search is against Commons)",
+    MEALS.every((m) => !/[א-ת]/.test(m.photo)));
+
+  const urls = MEALS.map((m) => commonsSearchUrl(m.photo, 320));
+  check("every search url is https and goes to Commons",
+    urls.every((u) => u.startsWith("https://commons.wikimedia.org/w/api.php?")));
+  check("the search url is properly encoded (no raw spaces)",
+    urls.every((u) => !u.includes(" ")));
+  check("the search url asks for files only, at the width we want",
+    urls.every((u) => u.includes("gsrnamespace=6") && u.includes("iiurlwidth=320")));
+  check("the search url is readable cross-origin (web builds need this)",
+    urls.every((u) => u.includes("origin=*")));
+
+  // A dish Commons cannot picture must still have something to fall back to.
+  const tuna = MEALS.find((m) => m.id === "tuna-salad")!;
+  const queries = photoQueries(tuna);
+  check("a meal's own phrase is searched first", queries[0] === "tuna salad");
+  check("the lead ingredient is the fallback query", queries.includes("tuna food"));
+  check("every meal has at least one query", MEALS.every((m) => photoQueries(m).length >= 1));
+
+  // "Your plate" keeps one id while its ingredients change under it, so the
+  // queries — which is what the photo cache is keyed on — have to change with
+  // them. Keyed by id instead, that card kept the first fridge's photo.
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  const chicken = yourPlate([f("chicken"), f("rice")], "lunch");
+  const fish = yourPlate([f("salmon"), f("broccoli")], "lunch");
+  check("your-plate reuses the one id", chicken.id === fish.id);
+  check("but a different fridge searches for something different",
+    photoQueries(chicken).join("|") !== photoQueries(fish).join("|"));
+  check("your-plate searches for its own ingredients",
+    photoQueries(chicken)[0] === "chicken breast rice");
+}
+
+// --- the picker keeps photographs and rejects everything else
+{
+  // Every fixture carries a licence that needs no credit, so these checks stay
+  // about "is this a photograph"; the licence rules get their own block below.
+  const free = { LicenseShortName: { value: "CC0" } };
+  const page = (over: Partial<CommonsPage> & { info?: Record<string, unknown> }): CommonsPage => ({
+    title: "File:Some dish.jpg",
+    index: 1,
+    imageinfo: [{ thumburl: "https://upload.wikimedia.org/x.jpg", mime: "image/jpeg", width: 2000, height: 1400, extmetadata: free, ...over.info }],
+    ...over,
+  });
+
+  check("a plain photograph is taken", pickPhoto([page({})])?.url === "https://upload.wikimedia.org/x.jpg");
+  check("nothing at all yields null", pickPhoto([]) === null);
+  check("a diagram (png) is rejected", pickPhoto([page({ info: { mime: "image/png" } })]) === null);
+  check("an svg is rejected", pickPhoto([page({ info: { mime: "image/svg+xml" } })]) === null);
+  check("a too-small image is rejected", pickPhoto([page({ info: { width: 120 } })]) === null);
+  check("an entry with no thumbnail is rejected",
+    pickPhoto([page({ info: { thumburl: undefined } })]) === null);
+  check("a coat of arms is rejected by name",
+    pickPhoto([page({ title: "File:Coat of arms of Tomato.jpg" })]) === null);
+  check("a logo is rejected by name", pickPhoto([page({ title: "File:Chicken logo.jpg" })]) === null);
+
+  // Search rank leads; a landscape frame breaks a tie because the card crops wide.
+  const ranked = pickPhoto([
+    page({ index: 2, info: { thumburl: "https://upload.wikimedia.org/second.jpg" } }),
+    page({ index: 1, info: { thumburl: "https://upload.wikimedia.org/first.jpg" } }),
+  ]);
+  check("the best-ranked photo wins", ranked?.url === "https://upload.wikimedia.org/first.jpg");
+
+  const tall = pickPhoto([
+    page({ index: 1, info: { thumburl: "https://upload.wikimedia.org/tall.jpg", width: 900, height: 1600 } }),
+    page({ index: 1, info: { thumburl: "https://upload.wikimedia.org/wide.jpg", width: 1600, height: 900 } }),
+  ]);
+  check("a landscape frame breaks a tie", tall?.url === "https://upload.wikimedia.org/wide.jpg");
+
+  // The first usable one is taken even when junk outranks it.
+  const skipped = pickPhoto([
+    page({ index: 0, title: "File:Salad diagram.jpg" }),
+    page({ index: 1, info: { thumburl: "https://upload.wikimedia.org/real.jpg" } }),
+  ]);
+  check("junk is skipped rather than returned", skipped?.url === "https://upload.wikimedia.org/real.jpg");
+}
+
+
+// --- a photo we cannot credit is a photo we cannot use
+{
+  const img = (extmetadata: Record<string, { value?: string }>) => ({
+    thumburl: "https://upload.wikimedia.org/x.jpg",
+    mime: "image/jpeg",
+    width: 2000,
+    height: 1400,
+    extmetadata,
+  });
+  const pageOf = (extmetadata: Record<string, { value?: string }>): CommonsPage => ({
+    title: "File:Some dish.jpg", index: 1, imageinfo: [img(extmetadata)],
+  });
+
+  check("a public-domain photo needs no credit line",
+    creditFor(img({ LicenseShortName: { value: "Public domain" } })) === null);
+  check("so does CC0", creditFor(img({ LicenseShortName: { value: "CC0" } })) === null);
+
+  const by = creditFor(img({
+    LicenseShortName: { value: "CC BY-SA 4.0" },
+    Artist: { value: '<a href="//commons.wikimedia.org/wiki/User:Someone">Jane Doe</a>' },
+  }));
+  check("a CC BY-SA photo is credited to its photographer", by === "Jane Doe · CC BY-SA 4.0", String(by));
+  check("the credit is plain text, not the markup Commons stores",
+    typeof by === "string" && !by.includes("<"), String(by));
+
+  check("a licence that asks for credit, with nobody named, cannot be used",
+    creditFor(img({ LicenseShortName: { value: "CC BY 3.0" } })) === undefined);
+  check("and an image with no licence at all cannot be used either",
+    creditFor(img({ Artist: { value: "Jane Doe" } })) === undefined);
+
+  check("the picker passes over a photo it cannot credit",
+    pickPhoto([pageOf({ LicenseShortName: { value: "CC BY 3.0" } })]) === null);
+
+  const chosen = pickPhoto([
+    pageOf({ LicenseShortName: { value: "CC BY 4.0" } }), // no artist — unusable
+    { title: "File:Other dish.jpg", index: 2, imageinfo: [{
+      ...img({ LicenseShortName: { value: "CC0" } }),
+      thumburl: "https://upload.wikimedia.org/free.jpg",
+    }] },
+  ]);
+  check("and takes the next one it can",
+    chosen?.url === "https://upload.wikimedia.org/free.jpg", String(chosen?.url));
+  check("a photographer's whole upload template is trimmed to a name",
+    (creditFor(img({
+      LicenseShortName: { value: "CC BY 4.0" },
+      Artist: { value: "x".repeat(200) },
+    })) ?? "").length < 80);
 }
 
 
@@ -199,7 +317,7 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 {
   const mk = (uses: string[]): Meal => ({
     id: "t", he: { title: "", how: "" }, en: { title: "", how: "" },
-    uses, slot: "lunch", notes: [], kcal: 0, protein: 0,
+    uses, slot: "lunch", notes: [], kcal: 0, protein: 0, photo: "",
   });
   check("everything passes the 'all' filter", dietOk(mk(["pork", "milk"]), "all"));
   check("pork is not kosher", !dietOk(mk(["pork", "rice"]), "kosher"));
@@ -218,7 +336,7 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 {
   const f = (id: string) => FOODS.find((x) => x.id === id)!;
   const match = (missing: string[]) => ({
-    meal: { id: "m", he: { title: "", how: "" }, en: { title: "", how: "" }, uses: [], slot: "lunch" as const, notes: [], kcal: 0, protein: 0 },
+    meal: { id: "m", he: { title: "", how: "" }, en: { title: "", how: "" }, uses: [], slot: "lunch" as const, notes: [], kcal: 0, protein: 0, photo: "" },
     have: [], missing: missing.map(f), ready: false, fit: 0,
   });
   const list = shoppingList([match(["rice", "egg"]), match(["rice"]), match(["tuna"])]);

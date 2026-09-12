@@ -25,7 +25,7 @@ import {
   type WeighIn,
 } from "./types";
 import { isStorableWeight } from "./weight";
-import { acceptanceCurrent, LEGAL, publishAiConsent } from "@/legal";
+import { acceptanceCurrent, LEGAL, publishAiConsent, publishPhotoConsent } from "@/legal";
 import { challengeFor, type Challenge } from "@/challenge";
 import { FOCUS_MAX_MS } from "@/focus";
 import type { Difficulty } from "@/tasks/difficulty";
@@ -41,7 +41,7 @@ import {
   DEFAULT_STEP_GOAL,
   isStorableGoal as isStorableStepGoal,
 } from "@/health/steps";
-import { defaultWaterGoal, isStorableWaterGoal } from "@/health/water";
+import { cupMlOf, defaultWaterGoal, isStorableCupMl, isStorableWaterGoal } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
@@ -106,6 +106,9 @@ type Store = {
   /** The daily water goal in cups — the person's own, or derived from weight. */
   waterGoal: () => number;
   setWaterGoal: (cups: number) => void;
+  /** The size of one cup in ml. */
+  cupMl: () => number;
+  setCupMl: (ml: number) => void;
   /** Records a tape-measure reading for a body part (today). */
   addMeasurement: (part: string, cm: number) => void;
   /** All readings for a body part, oldest first. */
@@ -565,6 +568,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state.profile.startKg;
     return defaultWaterGoal(kg);
   }, [state.waterGoal, state.weighIns, state.profile.startKg]);
+
+  const cupMl = useCallback(() => cupMlOf(state.cupMl), [state.cupMl]);
+  const setCupMl = useCallback((ml: number) => {
+    if (!isStorableCupMl(ml)) return;
+    setState((s) => ({ ...s, cupMl: Math.round(ml) }));
+  }, []);
 
   const setWaterGoal = useCallback((cups: number) => {
     if (!isStorableWaterGoal(cups)) return;
@@ -1126,6 +1135,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     publishAiConsent(state.consent?.ai ?? false);
   }, [state.consent?.ai]);
 
+  // Likewise for the meal photographs — but published during render rather than
+  // from an effect. Effects run child-first, so a meal card's effect asks before
+  // this provider's effect has answered, and on the one render that matters —
+  // the launch where `ready` flips true — every card would be told no and never
+  // ask again. The assignment is idempotent, so doing it on every render costs
+  // nothing.
+  //
+  // `ready` is part of the condition, not an afterthought: until the stored
+  // state has loaded there is no answer to publish, and publishing the default
+  // instead would fetch for someone who had turned photos off.
+  publishPhotoConsent(ready && (state.consent?.photos ?? true));
+
   const reset = useCallback(() => setState(EMPTY_STATE), []);
 
   const replaceAll = useCallback((next: AppState) => setState(next), []);
@@ -1160,6 +1181,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       todayWater,
       waterGoal,
       setWaterGoal,
+      cupMl,
+      setCupMl,
       addMeasurement,
       measurementSeries,
       setSex,
@@ -1216,7 +1239,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, todayIntake,
-     addWater, todayWater, waterGoal, setWaterGoal, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
+     addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,

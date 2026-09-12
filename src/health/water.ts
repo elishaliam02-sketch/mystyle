@@ -8,20 +8,43 @@
  * refuses a goal outside a livable range. Pure and testable.
  */
 
-/** One cup is 250 ml — the unit the tracker counts in. */
+/** One cup is 250 ml by default — the unit the tracker counts in. A person can
+ * change it to match the glass or bottle they actually drink from. */
 export const CUP_ML = 250;
+
+/** The cup sizes offered, in ml — a small glass through a large sports bottle. */
+export const CUP_SIZES = [200, 250, 330, 500, 750] as const;
+
+export const MIN_CUP_ML = 100;
+export const MAX_CUP_ML = 1500;
+
+/** A stored cup size is sane: a real vessel, not a typo. */
+export function isStorableCupMl(n: number): boolean {
+  return Number.isFinite(n) && n >= MIN_CUP_ML && n <= MAX_CUP_ML;
+}
+
+/** The cup size to count in, defaulting to 250 ml when none is chosen or the
+ * stored one makes no sense. */
+export function cupMlOf(stored?: number): number {
+  return stored && isStorableCupMl(stored) ? Math.round(stored) : CUP_ML;
+}
 
 /** The goal a person may set for themselves, in cups. */
 export const MIN_WATER_GOAL = 4;
 export const MAX_WATER_GOAL = 16;
 
 /** The recommended daily range in cups, from body weight. */
-export function recommendedRange(weightKg?: number): { min: number; max: number } {
+export function recommendedRange(
+  weightKg?: number,
+  cupMl: number = CUP_ML,
+): { min: number; max: number } {
   const w = weightKg && weightKg > 0 ? weightKg : 70;
+  const cup = isStorableCupMl(cupMl) ? cupMl : CUP_ML;
   const lowMl = w * 30;
   const highMl = w * 40;
-  const min = Math.max(MIN_WATER_GOAL, Math.round(lowMl / CUP_ML));
-  const max = Math.min(MAX_WATER_GOAL, Math.max(min + 1, Math.round(highMl / CUP_ML)));
+  // The band is in cups, so a bigger cup means fewer of them for the same ml.
+  const min = Math.max(MIN_WATER_GOAL, Math.round(lowMl / cup));
+  const max = Math.min(MAX_WATER_GOAL, Math.max(min + 1, Math.round(highMl / cup)));
   return { min, max };
 }
 

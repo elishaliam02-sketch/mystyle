@@ -52,10 +52,18 @@ jobs:
       - name: Web bundle
         run: npx expo export --platform web
 
-      - name: Install a browser for the end-to-end suite
-        run: npx --yes playwright@1 install --with-deps chromium
+      # Install Playwright into node_modules (not saved to package.json — the
+      # package stays out of the app's dependencies) so the e2e script's plain
+      # `import("playwright")` resolves the same way on the runner as it does
+      # locally. Running it through `npx --package` instead left the module in
+      # a temp cache that a bare import cannot see, which is the one thing that
+      # can silently gate every over-the-air update behind a red check.
+      - name: Install Playwright for the end-to-end suite
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
 
       # Unit tests prove the engines; this proves the buttons are wired to
       # them, in a real browser, against the real bundle.
       - name: End-to-end
-        run: npx --yes --package=playwright@1 -- node scripts/e2e.mjs
+        run: node scripts/e2e.mjs

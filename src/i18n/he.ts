@@ -693,6 +693,8 @@ export const he = {
   },
 
   water: {
+    cupSize: "גודל כוס",
+    cupMl: "{ml} מ״ל",
     goalRecommended: "מומלץ למשקל שלך: {min}–{max}",
     heading: "מים",
     body: "כל כוס נספרת. הבקבוק מתמלא ככל שאתה שותה.",
@@ -716,6 +718,14 @@ export const he = {
   },
 
   workout: {
+    pickTitle: "הוסף תרגיל",
+    pickAll: "הכל",
+    pickSearch: "חפש תרגיל",
+    pickNone: "אין תרגיל שמתאים לסינון.",
+    pickAdd: "הוסף {n}",
+    pickAdded: "נוסף",
+    pickCount: "{n} נבחרו",
+    pickDone: "סיום",
     worksTitle: "עובד על",
     worksAlso: "ועוזרים:",
     viewFront: "מלפנים",

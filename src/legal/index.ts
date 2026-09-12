@@ -37,5 +37,25 @@ export function aiConsentGiven(): boolean {
   return aiAllowed;
 }
 
+/**
+ * The same mirror for the meal photographs, which `src/kitchen/photo.ts` reads
+ * before it searches Commons.
+ *
+ * It starts `false` rather than `true`, even though the switch itself defaults
+ * to on. The store publishes the stored answer once it has loaded, and until
+ * then nothing should go out: a default applied while the real answer is still
+ * being read is not a default, it is a leak — which is exactly how the photos
+ * fetched for people who had turned them off.
+ */
+let photosAllowed = false;
+
+export function publishPhotoConsent(allowed: boolean): void {
+  photosAllowed = allowed;
+}
+
+export function photoConsentGiven(): boolean {
+  return photosAllowed;
+}
+
 export { LEGAL, acceptanceCurrent };
 export type { LegalDocument, LegalDocuments, LegalSection };

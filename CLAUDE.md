@@ -42,16 +42,18 @@ ticks into points and levels the same way the achievements board works: a pure
 function of stored state, so unticking a day takes its points back and there is
 no ledger to keep in step.
 
-**The meal photographs are real, generated, and queued.** Each picture is made
-on request by a free image service from a prompt built out of the dish and its
-own ingredients (`src/kitchen/photo.ts`) — never taken from an image search,
-because a photograph found online is somebody's copyright. The drawn plate
-renders underneath instantly and stays if nothing arrives, so there is no
-spinner and no empty card. The queue is the feature: two requests in flight,
-newest-asked first, one per dish, a 28-second budget, two retries and a
-cool-off. The first version asked for ten at once and gave up after six
-seconds, which is why almost nobody ever saw a photo. `npm run test:photo` runs
-the whole policy against a fake clock and a fake network.
+**The meal photographs are real, licensed, and credited.** Each card looks its
+dish up on Wikimedia Commons (`src/kitchen/photo.ts`) — free, no API key, and
+openly licensed, which an image search is not: a photo found on Google belongs
+to whoever took it. Commons is a media archive rather than a food site, so the
+picker is most of the file: JPEG only, above 640px, no coats of arms or
+diagrams, search rank leading and a landscape frame breaking ties. Licences are
+honoured, not assumed — the search asks who took each photo and under what
+terms, `creditFor` decides whether a credit is owed, the card prints it along
+the bottom, and a picture whose licence wants a credit that cannot be written is
+passed over rather than shown bare. The drawn plate renders underneath
+instantly and stays whenever no photo is found, so there is no spinner and no
+empty card.
 
 **Nothing leaves the device without an explicit opt-in.** `src/legal/` holds
 the privacy policy and terms (Hebrew first, `documents.en.ts` typed as
@@ -123,8 +125,7 @@ npm run test:tasks     # the difficulty scanner, in both languages
 npm run test:rewards   # points, levels and the streak bonus
 npm run test:legal     # the documents, both languages, and the consent mirror
 npm run test:export    # the data copy is complete and reloadable
-npm run test:kitchen   # the food library: no food shadows another's words
-npm run test:photo     # the meal photo queue, against a fake clock and network
+npm run test:kitchen   # the food library, and the meal-photo picker and credits
 npm run test:challenge # every challenge has words in both languages
 npm run test:improve   # the "where you can improve" reading
 npm run test:share     # what leaves the app when someone shares a score

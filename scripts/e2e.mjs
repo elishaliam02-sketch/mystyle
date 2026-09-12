@@ -51,11 +51,24 @@ const seed = {
 
 const browser = await chromium.launch({headless:true});
 const ctx = await browser.newContext({viewport:{width:412,height:915}});
+// The exercise tiles now hotlink real photos from a public CDN. On a phone that
+// loads fine, but on the CI runner the CDN host is unreachable and each request
+// hangs instead of failing fast — which would keep "networkidle" from ever
+// firing. Abort those requests so the suite stays hermetic: the app is built to
+// fall back to the drawn muscle map whenever an image fails, so this exercises
+// the exact path a phone with no signal would take.
+await ctx.route("**://cdn.jsdelivr.net/**", r=>r.abort());
+// Same for the meal photos, which search Wikimedia Commons and then load the
+// thumbnail it points at. Aborting both the search and the image is the
+// no-signal path the kitchen is built for: every meal card keeps the plate it
+// draws from its own ingredients.
+await ctx.route("**://commons.wikimedia.org/**", r=>r.abort());
+await ctx.route("**://upload.wikimedia.org/**", r=>r.abort());
 await ctx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
 const page = await ctx.newPage();
 const crashes=[]; page.on("pageerror",e=>crashes.push(String(e).slice(0,160)));
 
-const go = async (route)=>{ await page.goto(`http://localhost:${PORT}${route}`,{waitUntil:"networkidle"}); await page.waitForTimeout(1600); };
+const go = async (route)=>{ await page.goto(`http://localhost:${PORT}${route}`,{waitUntil:"load"}); await page.waitForTimeout(1600); };
 const st = async ()=> JSON.parse(await page.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
 const settle = ()=>page.waitForTimeout(700);
 // Tab screens stay mounted behind a pushed screen, and several of them reuse a
@@ -97,6 +110,12 @@ check("the − turns itself off at zero rather than doing nothing",
 check("a recommended water range is shown",
   await page.getByText(/מומלץ .* כוסות ביום/).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"שנה יעד"}).first().click(); await settle();
+// the cup size lives in the same editor — the vessel the person drinks from
+check("the cup-size options are offered",
+  await page.getByText("גודל כוס").first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:/500 מ/}).first().click(); await settle();
+{ const s=await st(); check("a chosen cup size is stored", s.cupMl===500, String(s.cupMl)); }
+await page.getByRole("button",{name:/250 מ/}).first().click(); await settle();
 { // the goal chips are the whole numbers inside the recommended band; 14 is the
   // top of the band for the seeded weight and is a button, so it is unambiguous
   await page.getByRole("button",{name:"14",exact:true}).first().click(); await settle();
@@ -297,12 +316,22 @@ await page.getByLabel("הסר תרגיל").first().click(); await settle();
 { const s=await st(); const edits=Object.values(s.training?.planEdits??{});
   check("removing a move from a day is recorded in the plan",
     edits.some(e=>(e.remove??[]).length>0), JSON.stringify(s.training?.planEdits)); }
+// the Hevy-style browse-the-whole-library picker: open it, filter, pick, done
 await page.getByRole("button",{name:"הוסף תרגיל ליום זה"}).first().click(); await settle();
-await page.getByPlaceholder("חפש תרגיל או קבוצת שריר").first().fill("פלאנק"); await settle();
-await page.getByRole("button",{name:"פלאנק",exact:true}).first().click(); await settle();
+check("the add-exercise sheet opens on the whole library",
+  await page.getByText("הוסף תרגיל",{exact:true}).first().isVisible().catch(()=>false));
+check("it offers muscle filters", (await page.getByRole("button",{name:"חזה"}).count())>0);
+check("and shows the catalogue with more than a handful of moves",
+  (await page.getByRole("button").filter({hasText:/לחיצת|סקוואט|חתירה|כפיפ/}).count())>3);
+// pick a specific move by its visible name, then commit
+const pickRow = page.getByRole("button").filter({hasText:"לחיצת חזה במוט"}).first();
+await pickRow.click(); await settle();
+check("selecting a move updates the add button to a count",
+  (await page.getByRole("button",{name:/הוסף 1/}).count())>0);
+await page.getByRole("button",{name:/הוסף 1/}).first().click(); await settle();
 { const s=await st(); const edits=Object.values(s.training?.planEdits??{});
   check("adding a move to a specific day sticks in the plan",
-    edits.some(e=>(e.add??[]).includes("plank")), JSON.stringify(s.training?.planEdits)); }
+    edits.some(e=>(e.add??[]).includes("bench-press")), JSON.stringify(s.training?.planEdits)); }
 
 // 11) WORKOUT — rest timer counts down
 await page.getByText("60",{exact:true}).first().click(); await page.waitForTimeout(1500);
@@ -804,6 +833,55 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       todayRows.filter(r=>r.label==="קפה עם חלב").length === 1, JSON.stringify(todayRows)); }
   check("recent meals raise no page errors", rerr.length===0, rerr.join(" | "));
   await rctx.close();
+}
+
+// --- the meal photos: fetched when allowed, credited, and never when refused
+//
+// The rest of the suite aborts Commons to stay hermetic, so this block gets its
+// own context and answers the search itself. What is being checked is not that
+// an image decodes — it is the gate: photos off must make no request at all,
+// and a photo whose licence asks for a credit must carry one on screen.
+{
+  const pctx = await browser.newContext({ viewport:{width:440,height:1000}, colorScheme:"light" });
+  const searches = [];
+  await pctx.route("**://commons.wikimedia.org/**", async (r)=>{
+    const q = new URL(r.request().url()).searchParams.get("gsrsearch") ?? "";
+    searches.push(q);
+    await r.fulfill({ status:200, contentType:"application/json", body: JSON.stringify({ query:{ pages:[{
+      title:`File:${q}.jpg`, index:1, imageinfo:[{
+        thumburl:"https://upload.wikimedia.org/stand-in.jpg", mime:"image/jpeg", width:2400, height:1600,
+        extmetadata:{ LicenseShortName:{value:"CC BY-SA 4.0"},
+          Artist:{value:'<a href="//commons.wikimedia.org/wiki/User:Cook">Rina Cook</a>'} },
+      }],
+    }] } }) });
+  });
+  await pctx.route("**://upload.wikimedia.org/**", (r)=>r.fulfill({ status:200, contentType:"image/svg+xml",
+    body:'<svg xmlns="http://www.w3.org/2000/svg" width="512" height="240"><rect width="512" height="240" fill="#8a4b1e"/></svg>' }));
+
+  const photoSeed = (photos)=>JSON.stringify({ ...seed,
+    consent:{ cloud:false, ai:false, photos, updatedAt:"2026-09-01T00:00:00.000Z" },
+    pantry:"chicken, rice, broccoli, eggs, tomato, cucumber, olive oil, lentils, onion" });
+
+  const visit = async (photos)=>{
+    searches.length = 0;
+    const pg = await pctx.newPage();
+    await pg.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}}, photoSeed(photos));
+    await pg.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"});
+    await pg.waitForTimeout(3200);
+    const body = await pg.locator("body").innerText().catch(()=>"");
+    await pg.close();
+    return { asked: searches.length, body };
+  };
+
+  const on = await visit(true);
+  check("with photos on, the kitchen looks a dish up on Commons", on.asked > 0, String(on.asked));
+  check("a CC BY-SA photo is shown with its credit", on.body.includes("Rina Cook · CC BY-SA 4.0"),
+    on.body.slice(0,120));
+
+  const off = await visit(false);
+  check("with photos off, nothing is asked of Commons at all", off.asked === 0, String(off.asked));
+  check("and no credit line is on screen either", !off.body.includes("CC BY-SA"));
+  await pctx.close();
 }
 
 await browser.close(); server.close();

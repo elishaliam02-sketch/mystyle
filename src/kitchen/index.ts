@@ -3,21 +3,19 @@ import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
 export { FOODS, MEALS, portion, adhocFood, foodNutrition } from "./data";
 export type { Portion } from "./data";
-
-// The meal photographs: the URL a dish's picture comes from, and the queue that
-// fetches them two at a time without drowning a free service. See `photo.ts`.
+// The meal photographs: real pictures from Wikimedia Commons, the hosts they
+// come from (which the privacy policy has to name), and the picker that keeps a
+// media archive's diagrams and coats of arms off the plate. See `photo.ts`.
 export {
-  mealPhotoUrl,
-  photoPrompt,
-  PhotoLoader,
-  PHOTO_HOST,
-  PHOTO_SIZE,
-  MAX_INFLIGHT,
-  ATTEMPT_TIMEOUT_MS,
-  RETRY_DELAYS_MS,
-  COOLDOWN_MS,
+  fetchMealPhoto,
+  photoQueries,
+  commonsSearchUrl,
+  pickPhoto,
+  clearPhotoCache,
+  creditFor,
+  PHOTO_HOSTS,
 } from "./photo";
-export type { PhotoState, Prefetch, Schedule } from "./photo";
+export type { CommonsPage, CommonsImage, Photo } from "./photo";
 
 /**
  * The kitchen engine: read a shopping list the way a person wrote it, and rank
@@ -170,6 +168,11 @@ export function yourPlate(items: Food[], slot: MealSlot): Meal {
     notes,
     kcal,
     protein,
+    // This plate has no name to search for — it is whatever the person bought.
+    // The two ingredients it leads with are the best description of it there
+    // is, and Commons has photos of most pairs ("chicken rice", "tuna salad").
+    // Failing that, `photoQueries` falls back to the lead ingredient alone.
+    photo: items.slice(0, 2).map((f) => f.en).join(" "),
   };
 }
 

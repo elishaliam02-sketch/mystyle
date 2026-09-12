@@ -26,6 +26,9 @@ import {
   MIN_WATER_GOAL,
   recommendedRange,
   waterStatus,
+  cupMlOf,
+  isStorableCupMl,
+  CUP_SIZES,
 } from "./water";
 import {
   averageSteps,
@@ -304,6 +307,25 @@ function check(name: string, pass: boolean, detail?: string) {
   })());
   check("below the band reads 'below'", fatTier(6, bodyFatTarget("recomp", "male")) === "below");
   check("above the band reads 'above'", fatTier(30, bodyFatTarget("recomp", "male")) === "above");
+}
+
+// ---- cup size: a person counts in the vessel they actually drink from
+{
+  check("the default cup is 250 ml", cupMlOf(undefined) === 250);
+  check("a chosen cup is kept", cupMlOf(500) === 500);
+  check("a nonsense cup falls back to 250", cupMlOf(NaN) === 250 && cupMlOf(0) === 250 && cupMlOf(-5) === 250);
+  check("an absurd cup is refused", !isStorableCupMl(5000) && !isStorableCupMl(10));
+  check("a real cup is accepted", isStorableCupMl(330) && isStorableCupMl(750));
+  check("every offered size is storable", CUP_SIZES.every((n) => isStorableCupMl(n)));
+  // the recommended band is in cups, so a bigger cup means fewer of them
+  const small = recommendedRange(80, 250);
+  const big = recommendedRange(80, 500);
+  check("a bigger cup lowers the recommended count", big.max <= small.max, `${big.max} vs ${small.max}`);
+  check("the band is still a real range for a big cup", big.max > big.min || big.max === big.min + 1 || big.min >= 4);
+  check("the default range matches the 250 ml range", (() => {
+    const a = recommendedRange(80); const b = recommendedRange(80, 250);
+    return a.min === b.min && a.max === b.max;
+  })());
 }
 
 const failed = results.filter(([, ok]) => !ok);

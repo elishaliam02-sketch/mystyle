@@ -1,233 +1,324 @@
+import { photoConsentGiven } from "@/legal";
 import { FOODS, type Food, type Meal } from "./data";
 
 /**
- * Real photographs of the meals — and the queue that gets them onto the screen.
+ * Real photographs for meals, from Wikimedia Commons.
  *
- * The pictures are generated on demand by a free image service from a prompt
- * built out of the dish and its actual ingredients, so a plate is a photo of
- * *this* meal rather than a stock stand-in, and nobody's copyrighted shot is
- * borrowed to do it. The drawn plate in `MealImage` stays underneath as the
- * base layer, which is what lets this be slow without ever showing a spinner.
+ * This replaces an AI image generator. That version wrote a prompt describing
+ * the dish and let a model paint it, and the results were the problem: plates
+ * with six-pronged forks, food that is not quite any real food, a shine no
+ * kitchen produces. A picture of dinner has to look like dinner or the whole
+ * screen reads as fake, so these are photographs taken by people of actual
+ * plates — nothing is generated.
  *
- * The first version asked for every visible card at once and gave up after six
- * seconds. Both halves of that were wrong, and together they meant almost
- * nobody ever saw a photo:
+ * Commons is the source because it is free, needs no API key and no billing
+ * account, and everything on it is openly licensed, so shipping the photos in
+ * a real app is not a legal problem. (Google Images has no such API: the
+ * thumbnails are not licensed for reuse and Custom Search needs a paid key
+ * past 100 queries a day. Commons is the honest version of the same idea.)
  *
- * - Generating an image takes a while — ten, fifteen, occasionally twenty-five
- *   seconds on a cold prompt. Six seconds is a guaranteed miss, so the app
- *   looked like it had no photos at all while quietly fetching ten of them.
- * - Ten simultaneous requests is how a free service decides you are abusing it.
- *   Two at a time, newest asked first, serves the card somebody is actually
- *   looking at and keeps the rest in line behind it.
- *
- * So: one request per dish, two in flight, a generous timeout, two retries with
- * a growing gap, and a cool-off before a dish that failed outright is tried
- * again. A failure is never fatal — the drawing is a finished picture, not a
- * placeholder.
- *
- * Everything goes through an injectable `prefetch`, `schedule` and `now`, so
- * the whole policy is testable in plain Node with no network and no clock.
+ * The search is an API call, so it can fail or find nothing. Every caller
+ * keeps the drawn plate underneath and only swaps once a photo is in hand —
+ * offline the app is exactly as it was.
  */
 
 /**
- * One size for every device, so every phone asks for the same URL and hits the
- * service's own cache instead of paying for a fresh generation. It matches the
- * card's 320x150 aspect and is scaled down on display — asking for the full 3x
- * pixel size would multiply the generation time for no visible gain.
+ * The two hosts this reaches: the API answers the search, and the thumbnails it
+ * names are served from the upload host. Both are exported because the privacy
+ * policy has to name every host the app contacts, and a test checks that it
+ * does — a service the documents never mention is a compliance bug however
+ * innocuous what it is sent.
  */
-export const PHOTO_SIZE = { width: 512, height: 240 } as const;
+export const PHOTO_HOSTS = ["commons.wikimedia.org", "upload.wikimedia.org"] as const;
 
-/** At most this many generations in flight. More is what gets you throttled. */
-export const MAX_INFLIGHT = 2;
-/** How long one attempt is given before the slot passes to the next dish. */
-export const ATTEMPT_TIMEOUT_MS = 28_000;
-/** The gaps before the second and third attempts. Three strikes, then a rest. */
-export const RETRY_DELAYS_MS = [5_000, 20_000] as const;
-/** How long a dish that failed every attempt is left alone. */
-export const COOLDOWN_MS = 180_000;
+/** Commons' API endpoint. `origin=*` is what makes it work on web too. */
+const API = `https://${PHOTO_HOSTS[0]}/w/api.php`;
+
+/** How many search hits to consider before giving up on a query. */
+const CANDIDATES = 12;
 
 /**
- * `pending` means keep the drawing up and keep hoping; `ready` means the photo
- * is in the image cache and can be shown without a flash; `missing` means the
- * drawing is the picture, for now.
+ * Below this, an image is a thumbnail, a sprite or an icon rather than a photo
+ * somebody took. Real camera uploads clear it easily.
  */
-export type PhotoState = "pending" | "ready" | "missing";
+const MIN_SOURCE_WIDTH = 640;
 
-/** Fetch an image into the platform's cache. `Image.prefetch`, in practice. */
-export type Prefetch = (uri: string) => Promise<unknown>;
-/** Run something later, returning a way to call it off. `setTimeout`, normally. */
-export type Schedule = (fn: () => void, ms: number) => () => void;
+/**
+ * Commons is a media archive, not a food site: "chicken" matches poultry
+ * diagrams, "corn" matches crop maps, and almost every food word matches some
+ * municipality's coat of arms. These words in a file name mean the image is a
+ * document about the subject rather than a picture of it on a plate.
+ */
+const NOT_A_PHOTO =
+  /\b(logo|icon|map|diagram|chart|graph|coat[_ ]of[_ ]arms|flag|stamp|seal|poster|label|sign|banner|drawing|illustration|painting|engraving|sketch|clipart)\b/i;
 
-type Entry = {
-  url: string;
-  state: PhotoState;
-  attempts: number;
-  inflight: boolean;
-  /** Nothing before this moment: a dish that just failed an attempt rests. */
-  readyAt: number;
-  listeners: Set<(state: PhotoState) => void>;
+export type CommonsImage = {
+  /** A thumbnail at (about) the width we asked for. */
+  thumburl?: string;
+  mime?: string;
+  width?: number;
+  height?: number;
+  /** Commons' own metadata block: who took it, and under what licence. */
+  extmetadata?: Record<string, { value?: string } | undefined>;
+};
+
+export type CommonsPage = {
+  title?: string;
+  /** Search rank — lower is a better hit. `generator=search` sets it. */
+  index?: number;
+  imageinfo?: CommonsImage[];
 };
 
 /**
- * The prompt. English throughout — the model reads it best — and built from the
- * meal's own ingredient list, so changing what a dish is made of changes its
- * photo. "no text" matters: image models love to caption a plate.
+ * The API call for one search phrase. Pure and exported so the tests can check
+ * the URL without a network — this file is the only place the endpoint shape
+ * is written down.
  */
-export function photoPrompt(meal: Meal): string {
-  const ingredients = meal.uses
-    .map((id) => FOODS.find((f) => f.id === id))
-    .filter((f): f is Food => !!f)
-    .map((f) => f.en)
-    .join(", ");
-  return (
-    `professional food photography of a full plate of ${meal.en.title}, ` +
-    `made with ${ingredients}, the whole dish centred and fully in frame, ` +
-    `wide overhead shot, natural daylight, fresh, appetizing, sharp focus, no text`
-  );
+export function commonsSearchUrl(query: string, width: number): string {
+  const params = [
+    "action=query",
+    "format=json",
+    "formatversion=2",
+    // Let a browser read the response; without it web builds fail CORS.
+    "origin=*",
+    "generator=search",
+    "gsrnamespace=6", // File: pages only
+    `gsrsearch=${encodeURIComponent(query)}`,
+    `gsrlimit=${CANDIDATES}`,
+    "prop=imageinfo",
+    // extmetadata carries the licence and the photographer. It is not optional:
+    // most Commons licences (CC BY, CC BY-SA) are only honoured if the credit
+    // travels with the picture, so a photo we cannot name is a photo we cannot
+    // use. See `creditFor`.
+    `iiprop=${encodeURIComponent("url|mime|size|extmetadata")}`,
+    `iiurlwidth=${Math.max(1, Math.round(width))}`,
+  ];
+  return `${API}?${params.join("&")}`;
+}
+
+/** A photograph and the credit line that has to be shown with it, if any. */
+export type Photo = {
+  url: string;
+  /**
+   * "Jane Doe · CC BY-SA 4.0", or null when the licence asks for nothing (a
+   * public-domain or CC0 image). Never a licence with no name attached: that
+   * combination is rejected rather than shown uncredited.
+   */
+  credit: string | null;
+};
+
+/**
+ * Licences that ask for nothing back. Everything else on Commons wants the
+ * photographer named — CC BY and CC BY-SA both do — and "everything else"
+ * includes anything we do not recognise, because guessing in the permissive
+ * direction is how you end up using someone's work against their terms.
+ */
+const NO_CREDIT_NEEDED = /^(cc0|public domain|pd|no restrictions)/i;
+
+/** Commons writes these fields as HTML — a link around the photographer's name. */
+function plainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
- * A photo for a meal. The seed comes from the meal id, so the same dish keeps
- * the same photograph across launches and devices rather than becoming a
- * different lunch every time the list scrolls.
+ * The credit line for an image: who to name and under what licence.
+ *
+ * Returns `null` when none is needed, and `undefined` when one is needed and
+ * cannot be built — the caller drops that photo. Showing a CC BY picture with
+ * no photographer's name is a licence breach, and the drawn plate underneath is
+ * a perfectly good picture, so there is never a reason to take the risk.
  */
-export function mealPhotoUrl(
-  meal: Meal,
-  size: { width: number; height: number } = PHOTO_SIZE,
-): string {
-  const q = `width=${size.width}&height=${size.height}&nologo=true&seed=${stableSeed(meal.id)}`;
-  return `https://${PHOTO_HOST}/prompt/${encodeURIComponent(photoPrompt(meal))}?${q}`;
+export function creditFor(info: CommonsImage): string | null | undefined {
+  const licence = plainText(info.extmetadata?.LicenseShortName?.value ?? "");
+  const artist = plainText(info.extmetadata?.Artist?.value ?? "");
+  if (licence && NO_CREDIT_NEEDED.test(licence)) return null;
+  if (!licence || !artist) return undefined;
+  // A wall of text where a name should be is somebody's whole upload template.
+  const name = artist.length > 60 ? `${artist.slice(0, 57).trimEnd()}…` : artist;
+  return `${name} · ${licence}`;
 }
 
-/** A small deterministic number from a string, so one meal keeps one image. */
-function stableSeed(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 100000;
+/**
+ * The best real photograph in a Commons response, or null if it holds none.
+ *
+ * Search rank leads — Commons' own relevance is better than anything we could
+ * re-derive — and the rest is a filter for "is this a photograph of the food",
+ * with one nudge: a landscape frame survives the wide crop on the card, where
+ * a tall one loses its top and bottom to it. The first hit we can both use and
+ * credit wins; one we cannot credit is passed over, not shown bare.
+ */
+export function pickPhoto(pages: CommonsPage[]): Photo | null {
+  const usable = pages
+    .filter((p) => isPhoto(p))
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0) - landscapeBonus(a) + landscapeBonus(b));
+  for (const page of usable) {
+    const info = page.imageinfo?.[0];
+    if (!info?.thumburl) continue;
+    const credit = creditFor(info);
+    if (credit === undefined) continue; // cannot be credited, so cannot be used
+    return { url: info.thumburl, credit };
+  }
+  return null;
 }
 
-/** The only host photos come from — named in the privacy policy, by this name. */
-export const PHOTO_HOST = "image.pollinations.ai";
+/** Worth up to one rank position — a tie-breaker, never a re-ranking. */
+function landscapeBonus(p: CommonsPage): number {
+  const info = p.imageinfo?.[0];
+  if (!info?.width || !info.height) return 0;
+  return info.width >= info.height ? 1 : 0;
+}
 
-export class PhotoLoader {
-  private readonly entries = new Map<string, Entry>();
-  /** Dish ids waiting for a slot. Served from the back: newest asked, first served. */
-  private queue: string[] = [];
-  private inflight = 0;
+function isPhoto(p: CommonsPage): boolean {
+  const info = p.imageinfo?.[0];
+  if (!info?.thumburl) return false;
+  // JPEG is the giveaway: cameras write JPEG, while the PNGs and SVGs on
+  // Commons are overwhelmingly diagrams, logos and screenshots.
+  if (info.mime !== "image/jpeg") return false;
+  if ((info.width ?? 0) < MIN_SOURCE_WIDTH) return false;
+  if (p.title && NOT_A_PHOTO.test(p.title)) return false;
+  return true;
+}
 
-  constructor(
-    private readonly deps: {
-      prefetch: Prefetch;
-      schedule: Schedule;
-      now: () => number;
-    },
-  ) {}
+/**
+ * What to search for, best phrase first.
+ *
+ * The dish's own curated phrase leads, because it names the thing a
+ * photographer would have labelled the picture. When Commons has no photo of
+ * that exact dish — and it has no "cottage cheese on toast" — the ladder falls
+ * back to the ingredient the plate is built on, which it certainly does have.
+ * A photo of grilled chicken over a dish card that says chicken and rice is a
+ * fair picture of the meal; a cartoon is not.
+ */
+export function photoQueries(meal: Meal): string[] {
+  const queries: string[] = [];
+  const add = (q: string) => {
+    const clean = q.trim();
+    if (clean && !queries.includes(clean)) queries.push(clean);
+  };
 
-  /** What is known about this dish right now, without asking for anything. */
-  stateOf(meal: Meal): PhotoState {
-    return this.entries.get(meal.id)?.state ?? "pending";
+  if (meal.photo) add(meal.photo);
+
+  // The lead ingredient, which `uses` puts first by convention.
+  const lead = meal.uses.map(foodById).find((f): f is Food => !!f);
+  if (lead) add(`${lead.en} food`);
+
+  return queries;
+}
+
+function foodById(id: string): Food | undefined {
+  return FOODS.find((f) => f.id === id);
+}
+
+/** Stop waiting on a search this long in; the drawn plate is already on screen. */
+const TIMEOUT_MS = 5000;
+
+/**
+ * Resolved photos, so a dish is looked up once per launch however many cards
+ * show it. A null is cached too: a dish Commons cannot picture should not cost
+ * a request every time it scrolls past.
+ *
+ * Keyed on the queries, not on the meal id, because "your plate" keeps the one
+ * id while its ingredients change underneath it — key it by id and that card
+ * shows the photo of the first fridge it ever saw.
+ */
+const cache = new Map<string, Photo | null>();
+/** Lookups in flight, so two cards for one dish share a single request. */
+const inFlight = new Map<string, Promise<Photo | null>>();
+
+/** For the tests, and for a manual refresh if one is ever wanted. */
+export function clearPhotoCache(): void {
+  cache.clear();
+  inFlight.clear();
+}
+
+/**
+ * A real photo for a meal, or null when there is none to be had. Never throws:
+ * a failure here means the card keeps the drawing it is already showing, which
+ * is a complete picture in its own right.
+ */
+export function fetchMealPhoto(meal: Meal, width: number): Promise<Photo | null> {
+  // The one gate, checked here rather than at the call sites, so there is no
+  // second path out. Off means the drawn plate is the picture and no request is
+  // made at all — and it reads false until the store has published the stored
+  // answer, so a launch never fetches on a default the person overrode.
+  if (!photoConsentGiven()) return Promise.resolve(null);
+
+  const queries = photoQueries(meal);
+  if (queries.length === 0) return Promise.resolve(null);
+
+  const key = `${queries.join("|")}@${Math.round(width)}`;
+  const done = cache.get(key);
+  if (done !== undefined) return Promise.resolve(done);
+
+  const running = inFlight.get(key);
+  if (running) return running;
+
+  const job = resolve(queries, width)
+    .catch(() => null)
+    .then((photo) => {
+      cache.set(key, photo);
+      inFlight.delete(key);
+      return photo;
+    });
+  inFlight.set(key, job);
+  return job;
+}
+
+async function resolve(queries: string[], width: number): Promise<Photo | null> {
+  for (const query of queries) {
+    const pages = await search(query, width);
+    const photo = pickPhoto(pages);
+    if (photo) return photo;
   }
+  return null;
+}
 
-  url(meal: Meal): string {
-    return this.entry(meal).url;
+/**
+ * How many searches may be in the air at once.
+ *
+ * The kitchen opens with a dozen meal cards, each willing to try two queries,
+ * so an ungated screen fires two dozen requests at a free public API the
+ * instant it renders. Four at a time is polite, and it reads better too: the
+ * photos land in a steady trickle rather than all at once several seconds in.
+ */
+const MAX_PARALLEL = 4;
+let active = 0;
+const waiting: (() => void)[] = [];
+
+async function gate<T>(job: () => Promise<T>): Promise<T> {
+  if (active >= MAX_PARALLEL) await new Promise<void>((go) => waiting.push(go));
+  active++;
+  try {
+    return await job();
+  } finally {
+    active--;
+    waiting.shift()?.();
   }
+}
 
-  /**
-   * Ask for a dish's photo and hear about it. Called as a card appears; the
-   * returned function is called as it goes away. Asking again for a dish that
-   * already loaded costs nothing — the answer comes straight back.
-   */
-  watch(meal: Meal, onState: (state: PhotoState) => void): () => void {
-    const entry = this.entry(meal);
-    entry.listeners.add(onState);
-    onState(entry.state);
-    if (entry.state !== "ready") this.enqueue(meal.id);
-    return () => {
-      entry.listeners.delete(onState);
-    };
-  }
+function search(query: string, width: number): Promise<CommonsPage[]> {
+  return gate(() => searchNow(query, width));
+}
 
-  /** For the tests, and for anything that wants to know how busy this is. */
-  get busy(): { inflight: number; waiting: number } {
-    return { inflight: this.inflight, waiting: this.queue.length };
-  }
-
-  private entry(meal: Meal): Entry {
-    const found = this.entries.get(meal.id);
-    if (found) return found;
-    const made: Entry = {
-      url: mealPhotoUrl(meal),
-      state: "pending",
-      attempts: 0,
-      inflight: false,
-      readyAt: 0,
-      listeners: new Set(),
-    };
-    this.entries.set(meal.id, made);
-    return made;
-  }
-
-  private enqueue(id: string): void {
-    const entry = this.entries.get(id);
-    if (!entry || entry.inflight || entry.state === "ready") return;
-    if (entry.readyAt > this.deps.now()) return; // resting after a failure
-    // Asked for again moves a dish to the front of the line, which is what
-    // makes scrolling back to a card jump it ahead of whatever is off screen.
-    this.queue = this.queue.filter((q) => q !== id);
-    this.queue.push(id);
-    this.pump();
-  }
-
-  private pump(): void {
-    while (this.inflight < MAX_INFLIGHT && this.queue.length > 0) {
-      const id = this.queue.pop()!;
-      const entry = this.entries.get(id);
-      if (!entry || entry.inflight || entry.state === "ready") continue;
-      if (entry.readyAt > this.deps.now()) continue;
-      this.start(id, entry);
-    }
-  }
-
-  private start(id: string, entry: Entry): void {
-    entry.inflight = true;
-    entry.attempts += 1;
-    this.inflight += 1;
-
-    let settled = false;
-    const finish = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      cancelTimeout();
-      entry.inflight = false;
-      this.inflight -= 1;
-      if (ok) {
-        this.set(entry, "ready");
-      } else {
-        const gap = RETRY_DELAYS_MS[entry.attempts - 1];
-        if (gap === undefined) {
-          // Out of attempts. Say so, so the card stops waiting, and leave the
-          // dish alone for a while: a service that has failed three times in a
-          // row will not be fixed by a fourth request this minute.
-          entry.readyAt = this.deps.now() + COOLDOWN_MS;
-          this.set(entry, "missing");
-        } else {
-          entry.readyAt = this.deps.now() + gap;
-          this.deps.schedule(() => this.enqueue(id), gap);
-        }
-      }
-      this.pump();
-    };
-
-    const cancelTimeout = this.deps.schedule(() => finish(false), ATTEMPT_TIMEOUT_MS);
-    this.deps
-      .prefetch(entry.url)
-      .then(() => finish(true))
-      .catch(() => finish(false));
-  }
-
-  private set(entry: Entry, state: PhotoState): void {
-    if (entry.state === state) return;
-    entry.state = state;
-    for (const listener of entry.listeners) listener(state);
+async function searchNow(query: string, width: number): Promise<CommonsPage[]> {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(commonsSearchUrl(query, width), { signal: stop.signal });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { query?: { pages?: CommonsPage[] } };
+    // formatversion=2 makes pages an array; a search with no hits omits it.
+    return body.query?.pages ?? [];
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
   }
 }

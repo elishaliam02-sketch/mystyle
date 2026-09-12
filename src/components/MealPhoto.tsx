@@ -1,41 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Text, View } from "react-native";
 import { MealImage } from "@/components/MealImage";
-import { PhotoLoader, type Food, type Meal, type PhotoState } from "@/kitchen";
+import { fetchMealPhoto, type Food, type Meal, type Photo } from "@/kitchen";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 
 /**
- * A meal's picture: a real photograph of the dish, with the drawn plate under it.
+ * A meal's picture: a real photograph of the dish, with the drawn plate
+ * underneath.
  *
- * The drawing shows *immediately* and is a complete picture in its own right, so
- * there is no spinner and never a "loading" state on screen. The photograph —
- * generated from this dish and its ingredients, see `src/kitchen/photo.ts` —
- * fades in over it when it arrives, which on a free service can take twenty
- * seconds. If it never arrives, the drawing simply stays. That is what makes the
- * card feel finished the moment it renders instead of "updating slowly".
+ * The drawing shows *immediately* and is a complete picture in its own right —
+ * so there is no spinner and never a "loading" state on screen. The photograph
+ * is searched for on Wikimedia Commons and fades in quietly over the drawing
+ * once it arrives; if it never does (offline, the photos switch off, or Commons
+ * has no photo of this dish) the drawing simply stays. That is what makes the
+ * card feel instant instead of "updating slowly": you always see a finished
+ * plate the moment it renders.
  *
- * The loader is shared by every card on the screen, because the thing that has
- * to be managed is not one image but the handful of requests the whole list
- * would otherwise fire at once.
+ * Photographs rather than generated images is the whole point — see
+ * `src/kitchen/photo.ts`, which also holds the consent gate this depends on.
  */
-
-/**
- * One queue for the whole app: the limit that matters is across cards, not per
- * card. Prefetching first is what lets the queue decide *when* a request goes
- * out — an `<Image>` left to itself fires the moment it renders, and a list of
- * ten would go out as ten. The rendered image then reads the cache the prefetch
- * filled (on the web, a second conditional request the browser serves from its
- * own cache).
- */
-const loader = new PhotoLoader({
-  prefetch: (uri) => Image.prefetch(uri),
-  schedule: (fn, ms) => {
-    const id = setTimeout(fn, ms);
-    return () => clearTimeout(id);
-  },
-  now: () => Date.now(),
-});
 
 type Props = {
   meal: Meal;
@@ -48,56 +32,91 @@ type Props = {
 export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
   const { colors } = useTheme();
   const { consent, ready } = useStore();
-  // A photo is a request to an outside server, so it waits on the switch. With
-  // it off the drawing is the picture and nothing is fetched at all.
-  //
-  // And it waits for `ready` first. The stored answer arrives a moment after the
-  // first render, and until it does the default reads as on — so a card that
-  // asked straight away fetched photos for somebody who had turned them off.
-  // A consent default that applies before the real answer is loaded is not a
-  // default, it is a leak.
+  // A photo is a request to an outside server, so it waits on the switch — and
+  // on `ready`, because the stored answer arrives a moment after the first
+  // render and the default reads as on until it does. `fetchMealPhoto` checks
+  // the same thing again through the consent mirror; this half only spares the
+  // work of asking.
   const allowed = ready && consent().photos;
-  const [state, setState] = useState<PhotoState>(() =>
-    allowed ? loader.stateOf(meal) : "pending",
-  );
-  const fade = useRef(new Animated.Value(loader.stateOf(meal) === "ready" ? 1 : 0)).current;
-  const uri = useMemo(() => loader.url(meal), [meal]);
+  const [photo, setPhoto] = useState<Photo | null>(null);
+  const fade = useRef(new Animated.Value(0)).current;
+
+  // Ask for roughly the display size, not 1.4x: Commons renders the thumbnail
+  // on demand, and a smaller one arrives sooner and still looks sharp here.
+  const want = Math.round(width);
+
+  // What the photo actually depends on. Not the meal object: "your plate" is
+  // rebuilt on every goal or diet change, and re-running on identity alone
+  // would blink the photo out and back for a dish that has not changed.
+  const subject = `${meal.id}|${meal.photo}`;
 
   useEffect(() => {
     if (!allowed) {
-      setState("missing");
+      setPhoto(null);
+      fade.setValue(0);
       return;
     }
-    return loader.watch(meal, setState);
-  }, [meal, allowed]);
+    let live = true;
+    setPhoto(null);
+    fade.setValue(0);
+    fetchMealPhoto(meal, want).then((found) => {
+      // A card that scrolled away or changed dish must not adopt this photo.
+      if (live) setPhoto(found);
+    });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, want, fade, allowed]);
 
   useEffect(() => {
-    if (state !== "ready") return;
-    // Already in the image cache by now, so this is a fade, not a wait.
-    Animated.timing(fade, { toValue: 1, duration: 420, useNativeDriver: true }).start();
-  }, [state, fade]);
+    if (photo) {
+      Animated.timing(fade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }
+  }, [photo, fade]);
 
   return (
-    <View
-      style={{
-        width,
-        height,
-        borderRadius: 18,
-        overflow: "hidden",
-        backgroundColor: colors.surfaceAlt,
-      }}
-    >
+    <View style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surfaceAlt }}>
       {/* the drawn plate — always there, instantly, as the base layer */}
       <MealImage foods={foods} haveIds={haveIds} width={width} height={height} />
 
-      {state === "ready" ? (
-        <Animated.Image
-          accessibilityIgnoresInvertColors
-          accessibilityLabel={meal.en.title}
-          source={{ uri }}
-          resizeMode="cover"
-          style={{ position: "absolute", top: 0, left: 0, width, height, opacity: fade }}
-        />
+      {/* the photograph fades in over it once found; nothing shows until then */}
+      {photo ? (
+        <Animated.View style={{ position: "absolute", top: 0, left: 0, opacity: fade }}>
+          <Animated.Image
+            accessibilityIgnoresInvertColors
+            source={{ uri: photo.url }}
+            resizeMode="cover"
+            // A URL that resolves but will not decode leaves the drawing up.
+            onError={() => setPhoto(null)}
+            style={{ width, height }}
+          />
+          {/*
+            The credit, when the licence asks for one. It is small, but it is
+            not optional and it is not a tooltip: a CC BY photo shown without
+            the photographer's name is used outside its licence. `pickPhoto`
+            drops any picture this line could not be written for.
+          */}
+          {photo.credit ? (
+            <Text
+              numberOfLines={1}
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingHorizontal: 6,
+                paddingVertical: 3,
+                fontSize: 9,
+                textAlign: "right",
+                color: "rgba(255,255,255,0.92)",
+                backgroundColor: "rgba(0,0,0,0.42)",
+              }}
+            >
+              {photo.credit}
+            </Text>
+          ) : null}
+        </Animated.View>
       ) : null}
     </View>
   );
