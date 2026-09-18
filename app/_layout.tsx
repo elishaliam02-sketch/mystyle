@@ -12,12 +12,16 @@ import { useFonts } from "expo-font";
 import { configure as configureNotifications } from "@/notifications";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { accessForAccount } from "@/billing/access";
+import { SUBSCRIPTION_REQUIRED } from "@/billing/launch";
+import { currentAccount } from "@/cloud/client";
 import { I18nProvider } from "@/i18n";
 import { StoreProvider, useStore } from "@/store";
 import { ThemeProvider, useTheme } from "@/theme";
+import { trustedNowMs } from "@/time/clock";
 
 /**
  * Sends a first-time user into onboarding, and anyone who has not accepted the
@@ -40,23 +44,76 @@ function OnboardingGate() {
   const segments = useSegments();
   const router = useRouter();
 
+  // Whether there is a real, recoverable account. Only ever asked when the
+  // subscriber-only gate is switched on (SUBSCRIPTION_REQUIRED); while it is
+  // off — every build before launch — this stays true and no account lookup,
+  // and no network, ever happens, so nothing about the app changes.
+  const [hasAccount, setHasAccount] = useState<boolean | null>(
+    SUBSCRIPTION_REQUIRED ? null : true,
+  );
+  const section = segments[0];
+
+  useEffect(() => {
+    if (!SUBSCRIPTION_REQUIRED || !ready) return;
+    let alive = true;
+    void currentAccount().then((a) => {
+      if (alive) setHasAccount(!!a && !a.anonymous);
+    });
+    return () => {
+      alive = false;
+    };
+    // Re-checked on every navigation and once ready: signing in on /auth is
+    // what flips this, and the gate has to notice and move the person on.
+  }, [ready, section]);
+
   useEffect(() => {
     if (!ready) return;
-    const inLegal = segments[0] === "legal";
+    const inLegal = section === "legal";
     // A password-reset link is time-limited and arrives from outside the app.
     // Bouncing it to the consent gate or to onboarding would spend the link on
     // a screen that cannot use it, so this one route is always allowed
     // through — it neither reads nor writes anything but the password.
-    if (segments[0] === "reset") return;
+    if (section === "reset") return;
+
+    // The subscribers-only gate. Dormant unless launched. Identity and payment
+    // come before onboarding: there is no point setting up a first habit for
+    // someone who cannot get into the app. Legal stays reachable throughout so
+    // the terms and privacy links on the paywall and sign-in work.
+    if (SUBSCRIPTION_REQUIRED && hasAccount !== null) {
+      const nowIso = new Date(trustedNowMs(Date.now(), state.clockHighWaterMs ?? 0)).toISOString();
+      const access = accessForAccount({ hasAccount, nowIso, subscription: state.subscription });
+      if (access !== "app") {
+        if (inLegal) return;
+        if (access === "auth") {
+          if (section !== "auth") router.replace("/auth");
+          return;
+        }
+        // access === "subscribe": signed in, but nothing live — to the paywall.
+        if (section !== "paywall") router.replace("/paywall");
+        return;
+      }
+      // access === "app": fall through to the normal consent + onboarding flow.
+    }
+
     if (!legalCurrent() && !inLegal) {
       router.replace("/legal/consent");
       return;
     }
-    const inSetup = segments[0] === "welcome" || segments[0] === "onboarding" || inLegal;
+    const inSetup = section === "welcome" || section === "onboarding" || inLegal;
     if (!state.profile.onboarded && !inSetup) {
       router.replace("/welcome");
     }
-  }, [ready, legalCurrent, state.profile.onboarded, segments, router]);
+  }, [
+    ready,
+    legalCurrent,
+    state.profile.onboarded,
+    state.subscription,
+    state.clockHighWaterMs,
+    hasAccount,
+    section,
+    segments,
+    router,
+  ]);
 
   return null;
 }
@@ -71,6 +128,7 @@ function Shell() {
       {ready ? <OnboardingGate /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth" />
         <Stack.Screen name="welcome" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="habit/new" options={{ presentation: "modal" }} />

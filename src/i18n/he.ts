@@ -973,6 +973,13 @@ export const he = {
     errLocal: "אין חיבור לשרת כרגע — נסה שוב מאוחר יותר.",
     errGeneric: "משהו השתבש. נסה שוב.",
   },
+  authScreen: {
+    eyebrow: "APEX",
+    title: "התחברות",
+    subtitle: "התחבר או צור חשבון כדי להמשיך.",
+    checking: "בודק חשבון…",
+    guestGone: "השימוש ב־APEX דורש חשבון ומנוי פעיל.",
+  },
   profile: {
     saveAction: "שמור",
     savedNote: "נשמר ✓",

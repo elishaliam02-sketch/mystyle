@@ -960,6 +960,13 @@ export const en: typeof he = {
     errLocal: "No connection to the server right now — try again later.",
     errGeneric: "Something went wrong. Try again.",
   },
+  authScreen: {
+    eyebrow: "APEX",
+    title: "Sign in",
+    subtitle: "Sign in or create an account to continue.",
+    checking: "Checking your account…",
+    guestGone: "Using APEX needs an account and an active subscription.",
+  },
   profile: {
     saveAction: "Save",
     savedNote: "Saved ✓",
