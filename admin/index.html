@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>APEX — ניהול</title>
+<!--
+  APEX owner console — the monitoring window.
+
+  A single self-contained page. It signs in with an ADMIN account (an account
+  whose id is in the `admins` table), then calls the `admin` edge function,
+  which is the only thing that can read across users and which checks the admin
+  allowlist itself on every call. This page holds no secret: the key below is
+  the public publishable key the app already ships, and it grants nothing on its
+  own — every privileged read is gated server-side by the admin check.
+
+  To use it: host this file anywhere (Supabase Storage, Netlify, Vercel, or even
+  open it locally) and sign in with the admin email + password. It refreshes
+  itself every 30 seconds.
+-->
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #141821; --panel2: #1b212c; --line: #263041;
+    --ink: #eef2f8; --soft: #9aa7bd; --faint: #6b7688;
+    --violet: #9b6bff; --green: #46d19b; --blue: #4aa3ff; --amber: #f2b34a;
+    --red: #ff6b6b; --gray: #8b95a7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, "Segoe UI", Heebo, Arial, sans-serif; }
+  a { color: var(--violet); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
+
+  /* login */
+  .login { max-width: 360px; margin: 12vh auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .login h1 { margin: 0 0 4px; font-size: 22px; }
+  .login p { margin: 0 0 18px; color: var(--soft); font-size: 14px; }
+  input { width: 100%; padding: 12px 14px; margin: 6px 0; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 15px; }
+  button { cursor: pointer; border: 0; border-radius: 10px; padding: 12px 16px;
+    background: var(--violet); color: #fff; font-weight: 700; font-size: 15px; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--soft); }
+  .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; }
+
+  /* dashboard */
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 18px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .who { color: var(--soft); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .muted { color: var(--faint); font-size: 12px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; }
+  .card .n { font-size: 30px; font-weight: 800; }
+  .card .l { color: var(--soft); font-size: 13px; margin-top: 2px; }
+
+  .section-title { font-size: 15px; color: var(--soft); margin: 22px 0 10px; font-weight: 700; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; }
+  th, td { text-align: right; padding: 11px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--faint); font-weight: 600; font-size: 12px; background: var(--panel); position: sticky; top: 0; }
+  tr:last-child td { border-bottom: 0; }
+  td.email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .b-on-track { background: rgba(70,209,155,.16); color: var(--green); }
+  .b-slow { background: rgba(74,163,255,.16); color: var(--blue); }
+  .b-fast { background: rgba(242,179,74,.18); color: var(--amber); }
+  .b-stalled { background: rgba(139,149,167,.18); color: var(--gray); }
+  .b-off-track { background: rgba(255,107,107,.16); color: var(--red); }
+  .b-no-data { background: rgba(139,149,167,.1); color: var(--faint); }
+
+  .sub-active { color: var(--green); }
+  .sub-trialing { color: var(--blue); }
+  .sub-past_due, .sub-canceled, .sub-expired { color: var(--amber); }
+  .sub-none { color: var(--faint); }
+
+  .audit { display: grid; gap: 6px; }
+  .audit .row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-size: 13px; display: flex; gap: 10px; }
+  .audit .k { color: var(--violet); font-weight: 700; }
+  .audit .t { color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- LOGIN -->
+  <div id="login" class="login">
+    <h1>APEX — ניהול</h1>
+    <p>התחבר עם חשבון האדמין.</p>
+    <input id="email" type="email" placeholder="אימייל" autocomplete="username" />
+    <input id="password" type="password" placeholder="סיסמה" autocomplete="current-password" />
+    <button id="signin" style="width:100%; margin-top:8px;">התחבר</button>
+    <div id="loginErr" class="err"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash" hidden>
+    <header>
+      <h1>לוח בקרה</h1>
+      <span id="who" class="who"></span>
+      <span class="spacer"></span>
+      <span id="refreshInfo" class="muted"></span>
+      <button id="signout" class="ghost">התנתק</button>
+    </header>
+
+    <div id="cards" class="cards"></div>
+
+    <div class="section-title">משתמשים</div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>אימייל</th><th>נרשם</th><th>חובר לאחרונה</th>
+            <th>מנוי</th><th>מגמה</th><th>שקילה אחרונה</th><th>שינוי/שבוע</th>
+          </tr>
+        </thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">יומן פעילות (audit)</div>
+    <div id="audit" class="audit"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://vesdfboxetdwymsulpsc.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_QJJEFeAVnwdJDwdVpOHjFA_un6l0Of_";
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true },
+  });
+
+  const $ = (id) => document.getElementById(id);
+  const TRAJ_HE = { "on-track": "במסלול", slow: "איטי", fast: "מהיר", stalled: "תקוע", "off-track": "סוטה", "no-data": "אין נתונים" };
+  const SUB_HE = { active: "פעיל", trialing: "ניסיון", past_due: "חוב", canceled: "בוטל", expired: "פג", none: "—" };
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(+d)) return "—";
+    return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  }
+  function fmtAgo(iso) {
+    if (!iso) return "מעולם";
+    const d = new Date(iso);
+    if (isNaN(+d)) return "—";
+    const mins = Math.floor((Date.now() - +d) / 60000);
+    if (mins < 1) return "עכשיו";
+    if (mins < 60) return `לפני ${mins} דק׳`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `לפני ${hrs} ש׳`;
+    const days = Math.floor(hrs / 24);
+    return `לפני ${days} ימים`;
+  }
+
+  async function call(action, extra) {
+    const { data, error } = await db.functions.invoke("admin", { body: { action, ...(extra || {}) } });
+    if (error) throw error;
+    return data;
+  }
+
+  async function refresh() {
+    try {
+      const [ov, us, au] = await Promise.all([call("overview"), call("users", { page: 1 }), call("audit", { limit: 60 })]);
+      renderCards(ov);
+      renderUsers(us.users || []);
+      renderAudit(au.events || []);
+      $("refreshInfo").textContent = "עודכן " + new Date().toLocaleTimeString("he-IL");
+    } catch (e) {
+      $("refreshInfo").textContent = "שגיאה בטעינה — " + (e && e.message ? e.message : "נסה שוב");
+    }
+  }
+
+  function renderCards(ov) {
+    const t = ov.trajectory || {};
+    const cards = [
+      { n: ov.totalUsers ?? 0, l: "משתמשים" },
+      { n: ov.paying ?? 0, l: "מנויים פעילים (כולל ניסיון)" },
+      { n: ov.progressing ?? 0, l: "בתהליך ירידה טוב" },
+      { n: (t["off-track"] ?? 0) + (t.stalled ?? 0), l: "תקועים / סוטים" },
+    ];
+    $("cards").innerHTML = cards.map((c) => `<div class="card"><div class="n">${c.n}</div><div class="l">${c.l}</div></div>`).join("");
+  }
+
+  function renderUsers(users) {
+    if (!users.length) { $("usersBody").innerHTML = `<tr><td colspan="7" class="muted">אין עדיין משתמשים</td></tr>`; return; }
+    $("usersBody").innerHTML = users.map((u) => {
+      const traj = u.trajectory || "no-data";
+      const sub = (u.subscription && u.subscription.status) || "none";
+      const perWeek = (u.perWeek == null) ? "—" : (u.perWeek > 0 ? "+" : "") + u.perWeek + " ק״ג";
+      const lastW = (u.lastWeighInDaysAgo == null) ? "—" : (u.lastWeighInDaysAgo === 0 ? "היום" : `לפני ${u.lastWeighInDaysAgo} ימים`);
+      return `<tr>
+        <td class="email">${escapeHtml(u.email || "—")}</td>
+        <td>${fmtDate(u.createdAt)}</td>
+        <td>${fmtAgo(u.lastSignInAt)}</td>
+        <td class="sub-${sub}">${SUB_HE[sub] || sub}</td>
+        <td><span class="badge b-${traj}">${TRAJ_HE[traj] || traj}</span></td>
+        <td>${lastW}</td>
+        <td>${perWeek}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderAudit(events) {
+    if (!events.length) { $("audit").innerHTML = `<div class="muted">אין עדיין רשומות</div>`; return; }
+    $("audit").innerHTML = events.map((e) => `<div class="row">
+      <span class="k">${escapeHtml(e.kind || "")}</span>
+      <span class="t">${fmtAgo(e.at)}</span>
+    </div>`).join("");
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  let timer = null;
+  async function showDash(session) {
+    $("login").hidden = true;
+    $("dash").hidden = false;
+    $("who").textContent = "מחובר כ־" + (session.user.email || "");
+    await refresh();
+    if (timer) clearInterval(timer);
+    timer = setInterval(refresh, 30000);
+  }
+  function showLogin() {
+    if (timer) clearInterval(timer);
+    $("dash").hidden = true;
+    $("login").hidden = false;
+  }
+
+  $("signin").addEventListener("click", async () => {
+    $("loginErr").textContent = "";
+    const email = $("email").value.trim();
+    const password = $("password").value;
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) { $("loginErr").textContent = "התחברות נכשלה — בדוק מייל וסיסמה."; return; }
+    // Prove the account is actually an admin before showing anything.
+    try { await call("overview"); }
+    catch { $("loginErr").textContent = "החשבון הזה אינו אדמין."; await db.auth.signOut(); return; }
+    showDash(data.session);
+  });
+  $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("signin").click(); });
+  $("signout").addEventListener("click", async () => { await db.auth.signOut(); showLogin(); });
+
+  // Resume a stored session on load.
+  db.auth.getSession().then(({ data }) => { if (data.session) showDash(data.session); });
+</script>
+</body>
+</html>
