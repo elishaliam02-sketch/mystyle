@@ -75,6 +75,8 @@
     "test:gate": "node scripts/run-gate-tests.mjs",
     "test:billing": "node scripts/run-billing-tests.mjs",
     "test:access": "node scripts/run-access-tests.mjs",
+    "test:trajectory": "node scripts/run-trajectory-tests.mjs",
+    "test:audit": "node scripts/run-audit-tests.mjs",
     "test:export": "node scripts/run-export-tests.mjs",
     "test:net": "node scripts/run-net-tests.mjs",
     "test:images": "node scripts/run-images-tests.mjs",
