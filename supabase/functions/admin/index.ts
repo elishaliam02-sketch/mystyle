@@ -27,8 +27,13 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  // supabase-js sends apikey and x-client-info (and a version header) on every
+  // functions.invoke call. A preflight that does not list them makes the
+  // browser refuse the request — the "Failed to send a request" error — before
+  // the function ever runs. List everything the client actually sends.
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 type ErrorCode = "method" | "bad-json" | "unauthorized" | "forbidden" | "unknown-action" | "server";
