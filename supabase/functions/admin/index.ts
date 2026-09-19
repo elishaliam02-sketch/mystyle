@@ -100,26 +100,34 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return fail("method", 405);
 
-  // 1. Who is calling — from the verified token, never the body.
-  const auth = req.headers.get("Authorization") ?? "";
-  const asUser = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: auth } } },
-  );
-  const { data: userData } = await asUser.auth.getUser();
-  const user = userData.user;
-  if (!user) return fail("unauthorized", 401);
+  // 1. Who is calling. The bearer token is validated directly with the service
+  //    key, rather than through an anon-key client — a new-API-key project does
+  //    not always inject the legacy anon key, and depending on it made every
+  //    call fail as "unauthorized" even for a real admin.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.replace(/^[Bb]earer\s+/, "").trim();
+  const db = admin();
+  const { data: userData, error: userErr } = await db.auth.getUser(jwt);
+  const user = userData?.user;
+  if (userErr || !user) {
+    console.error("admin: could not identify caller:", userErr?.message ?? "no user for token");
+    return fail("unauthorized", 401);
+  }
 
   // 2. Are they an admin? Checked with the service key against the allowlist.
-  const db = admin();
   const { data: adminRow, error: adminErr } = await db
     .from("admins")
     .select("user_id")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (adminErr) return fail("server", 500);
-  if (!adminRow) return fail("forbidden", 403);
+  if (adminErr) {
+    console.error("admin: allowlist read failed:", adminErr.message);
+    return fail("server", 500);
+  }
+  if (!adminRow) {
+    console.error("admin: caller is not in the allowlist:", user.id, user.email ?? "");
+    return fail("forbidden", 403);
+  }
 
   let body: { action?: unknown; page?: unknown; limit?: unknown };
   try {
