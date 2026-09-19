@@ -162,7 +162,21 @@
 
   async function call(action, extra) {
     const { data, error } = await db.functions.invoke("admin", { body: { action, ...(extra || {}) } });
-    if (error) throw error;
+    if (error) {
+      // Surface the real reason (status + the function's error code) rather than
+      // collapsing everything to a blank failure.
+      let detail = error.message || "שגיאה";
+      try {
+        if (error.context && typeof error.context.json === "function") {
+          const status = error.context.status;
+          const b = await error.context.json();
+          detail = (status ? status + " · " : "") + (b && b.error ? b.error : JSON.stringify(b));
+        } else if (error.context && typeof error.context.status !== "undefined") {
+          detail = String(error.context.status);
+        }
+      } catch (_) { /* keep error.message */ }
+      throw new Error(detail);
+    }
     return data;
   }
 
@@ -238,10 +252,10 @@
     const email = $("email").value.trim();
     const password = $("password").value;
     const { data, error } = await db.auth.signInWithPassword({ email, password });
-    if (error) { $("loginErr").textContent = "התחברות נכשלה — בדוק מייל וסיסמה."; return; }
+    if (error) { $("loginErr").textContent = "התחברות נכשלה: " + (error.message || "בדוק מייל וסיסמה"); return; }
     // Prove the account is actually an admin before showing anything.
     try { await call("overview"); }
-    catch { $("loginErr").textContent = "החשבון הזה אינו אדמין."; await db.auth.signOut(); return; }
+    catch (e) { $("loginErr").textContent = "שגיאת שרת: " + (e && e.message ? e.message : e); await db.auth.signOut(); return; }
     showDash(data.session);
   });
   $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("signin").click(); });
