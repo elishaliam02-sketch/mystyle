@@ -454,7 +454,7 @@ export default function TodayScreen() {
             <TaskRow
               key={habit.id}
               first={index === 0}
-              label={habit.slot ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
+              label={habit.slot && t.slots[habit.slot] ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
               hint={habit.anchor}
               done={isDone(habit.id)}
               scan={scanTask(habit.title)}

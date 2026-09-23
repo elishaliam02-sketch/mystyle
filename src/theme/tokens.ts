@@ -41,6 +41,9 @@ export type Colors = {
   accent: string;
   accentDeep: string;
   accentWash: string;
+  /** A chart bar that is not the highlighted one. The wash is a background
+   * tint and all but vanished on a dark card — a chart you cannot read. */
+  chartBar: string;
   onAccent: string;
   /** Vibrant orange — time and intensity: the rest clock, session minutes,
    * pace, streaks, a personal best, calories. `orange` fills, `orangeInk`
@@ -111,6 +114,7 @@ export const palette: Record<"light" | "dark", Colors> = {
     accent: "#6E2BFF",
     accentDeep: "#4A17C4",
     accentWash: "#EDE7FF",
+    chartBar: "#C9B6FF",
     onAccent: "#FFFFFF",
     azure: "#0063C0",
     azureInk: "#0063C0",
@@ -150,6 +154,7 @@ export const palette: Record<"light" | "dark", Colors> = {
     accent: "#9B6BFF",
     accentDeep: "#C3A6FF",
     accentWash: "#1B1338",
+    chartBar: "#4B3A86",
     // Charcoal on a lifted violet, not white: a violet bright enough to read
     // on a black ground is too bright to carry white type.
     onAccent: "#08080D",

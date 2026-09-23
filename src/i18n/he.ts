@@ -6,6 +6,7 @@ export const he = {
   // date that silently renders as nothing is worse than no date at all.
   calendar: {
     weekdays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+    weekdaysShort: ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"],
     months: [
       "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
       "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
@@ -752,6 +753,7 @@ export const he = {
     low: "עוד קצת — אתה מתחת לחצי.",
     editGoal: "שנה יעד",
     addOne: "הוסף כוס מים",
+    addCupLabel: "כוס · {ml} מ״ל",
     removeOne: "הורד כוס מים",
     weekTitle: "השבוע האחרון",
     weekAverage: "ממוצע {avg} כוסות ביום",
@@ -781,8 +783,15 @@ export const he = {
     howToggle: "הצג הסבר",
     cancelSetup: "חזור לתוכנית",
     heading: "האימון",
-    body: "בחר מטרה וכמה ימים בשבוע — ואבנה לך תוכנית מלאה.",
+    body: "בחר רמה, מטרה וכמה ימים בשבוע — ואבנה לך תוכנית מלאה שמתאימה לך.",
     goalTitle: "מה המטרה?",
+    levelTitle: "מה הרמה שלך?",
+    levelBeginner: "מתחיל",
+    levelBeginnerHint: "פחות משנה של אימונים. תרגילים פשוטים ובטוחים — מכונות, משקולות ומשקל גוף — ופחות סטים.",
+    levelIntermediate: "בינוני",
+    levelIntermediateHint: "מתאמן באופן קבוע שנה ומעלה. תרגילי הבסיס עם משקולות חופשיות.",
+    levelAdvanced: "מתקדם",
+    levelAdvancedHint: "כמה שנים של ניסיון. תרגילים כבדים וטכניים — דדליפט, מתח, מקבילים — ויותר סטים.",
     goalCut: "חיטוב",
     goalRecomp: "מיצוק",
     goalMaintain: "שמירה",

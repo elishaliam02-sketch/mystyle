@@ -35,3 +35,10 @@ export const SUBSCRIPTION_REQUIRED = false;
  * login screen can be exercised on its own before the full gate is switched on.
  */
 export const ACCOUNT_REQUIRED = SUBSCRIPTION_REQUIRED;
+
+/**
+ * Whether a payment processor is actually connected. Until it is, the paywall's
+ * button says so plainly — "opening soon" — instead of trying a checkout that
+ * can only fail and telling the person to check their internet.
+ */
+export const PAYMENTS_LIVE = false;

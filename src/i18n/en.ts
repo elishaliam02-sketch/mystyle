@@ -5,6 +5,7 @@ export const en: typeof he = {
 
   calendar: {
     weekdays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    weekdaysShort: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
     months: [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December",
@@ -739,6 +740,7 @@ export const en: typeof he = {
     low: "A bit more — you're under halfway.",
     editGoal: "Change goal",
     addOne: "Add a cup of water",
+    addCupLabel: "Cup · {ml} ml",
     removeOne: "Remove a cup of water",
     weekTitle: "This week",
     weekAverage: "Averaging {avg} cups a day",
@@ -768,8 +770,15 @@ export const en: typeof he = {
     howToggle: "Show how-to",
     cancelSetup: "Back to my plan",
     heading: "Your training",
-    body: "Pick a goal and how many days a week — I'll build the full plan.",
+    body: "Pick your level, goal and days a week — I'll build a full plan that fits you.",
     goalTitle: "What's the goal?",
+    levelTitle: "What's your level?",
+    levelBeginner: "Beginner",
+    levelBeginnerHint: "Under a year of training. Simple, safe moves — machines, dumbbells, bodyweight — and fewer sets.",
+    levelIntermediate: "Intermediate",
+    levelIntermediateHint: "Training regularly for a year or more. The core free-weight lifts.",
+    levelAdvanced: "Advanced",
+    levelAdvancedHint: "Several years in. Heavy, technical lifts — deadlifts, pull-ups, dips — and more sets.",
     goalCut: "Cut",
     goalRecomp: "Recomp",
     goalMaintain: "Maintain",

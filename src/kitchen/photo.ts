@@ -461,10 +461,13 @@ async function searchNow(query: string, width: number): Promise<CommonsPage[]> {
  * it changes: chicken, rice and tomato look like chicken with rice, and swap
  * the chicken for salmon and the photo turns to salmon too.
  *
- * Overlap has to be real: at least two shared ingredients (or the only one a
- * one-ingredient plate has), and the lead ingredient breaks ties, so tomato
- * alone never dresses a chicken plate as a salad. Null means no dish is close
- * enough, and the card falls back to searching or to its drawing.
+ * The closest dish wins: the most shared ingredients, then the one that shares
+ * the plate's lead ingredient, then the one showing the fewest things the plate
+ * does not have. Two shared ingredients is a close match; one — as long as it
+ * is there — is still a real photo of real food with that ingredient on it
+ * (yogurt and dates wears yogurt with berries), which beats a drawing: a card
+ * without a photo was the one thing people noticed. Null only when no dish
+ * shares a single ingredient.
  */
 export function closestBundled(
   meal: Pick<Meal, "id" | "uses">,
@@ -475,17 +478,16 @@ export function closestBundled(
   const uses = new Set(meal.uses);
   if (uses.size === 0) return null;
   const lead = meal.uses[0];
-  const need = Math.min(2, uses.size);
   let best: { id: string; shared: number; lead: number; extra: number } | null = null;
   for (const other of meals) {
     if (!bundled.has(other.id)) continue;
     let shared = 0;
     for (const id of other.uses) if (uses.has(id)) shared++;
-    if (shared < need) continue;
+    if (shared === 0) continue;
     const cand = {
       id: other.id,
       shared,
-      lead: other.uses.includes(lead) ? 1 : 0,
+      lead: other.uses.includes(lead!) ? 1 : 0,
       // ingredients the photo shows that the plate does not have
       extra: other.uses.length - shared,
     };

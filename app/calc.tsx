@@ -238,6 +238,8 @@ export default function CalcScreen() {
                       height: 26,
                       borderRadius: radius.pill,
                       backgroundColor: f.color,
+                      borderWidth: 1,
+                      borderColor: colors.ruleStrong,
                     }}
                   />
                   <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
@@ -388,6 +390,8 @@ export default function CalcScreen() {
                       height: 30,
                       borderRadius: radius.pill,
                       backgroundColor: item.food.color,
+                      borderWidth: 1,
+                      borderColor: colors.ruleStrong,
                     }}
                   />
                   <View style={{ flex: 1 }}>
@@ -498,11 +502,6 @@ export default function CalcScreen() {
             disabled={items.length === 0}
             style={{ marginTop: space.md }}
           />
-          {items.length === 0 && !saved ? (
-            <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
-              {t.kitchen.calcEmpty}
-            </Text>
-          ) : null}
           {saved ? (
             <Text style={[type.smallStrong, { color: colors.accent, marginTop: space.sm }]}>
               {t.kitchen.calcSaved}

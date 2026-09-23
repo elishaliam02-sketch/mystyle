@@ -164,7 +164,7 @@ export default function WaterScreen() {
             }}
           >
             <Ionicons name="add" size={26} color={colors.accent} />
-            <Text style={[type.bodyStrong, { color: colors.accent }]}>{t.water.cups}</Text>
+            <Text style={[type.bodyStrong, { color: colors.accent }]}>{fill(t.water.addCupLabel, { ml })}</Text>
           </Pressable>
           <Pressable
             onPress={() => setEditing((e) => !e)}
@@ -244,7 +244,7 @@ export default function WaterScreen() {
             flexDirection: "row",
             alignItems: "flex-end",
             gap: space.sm,
-            height: 90,
+            height: 110,
             marginTop: space.xs,
           }}
         >
@@ -255,10 +255,15 @@ export default function WaterScreen() {
                   width: "100%",
                   height: Math.max(4, Math.round((d.cups / peak) * 70)),
                   borderRadius: radius.sm,
-                  backgroundColor: d.cups >= goal ? colors.accent : colors.accentWash,
+                  backgroundColor: d.cups >= goal ? colors.accent : colors.chartBar,
                 }}
               />
-              <Text style={[type.label, { color: colors.inkFaint }]}>{d.cups}</Text>
+              <Text style={[type.label, { color: colors.inkSoft }]}>{d.cups}</Text>
+              {/* which day each bar is — without it the chart is seven
+                  anonymous columns */}
+              <Text style={[type.label, { color: colors.inkFaint }]}>
+                {t.calendar.weekdaysShort[new Date(`${d.date}T12:00:00`).getDay()]}
+              </Text>
             </View>
           ))}
         </View>

@@ -201,7 +201,7 @@ export default function KitchenScreen() {
                   paddingHorizontal: 10,
                 }}
               >
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color }} />
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
                 <Text style={[type.small, { color: colors.ink }]}>{locale === "he" ? f.he : f.en}</Text>
               </View>
             ))}
@@ -681,7 +681,7 @@ function ShoppingCard({ items }: { items: ShoppingItem[] }) {
             key={food.id}
             style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
           >
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: food.color }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: food.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
             <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
               {locale === "he" ? food.he : food.en}
             </Text>
@@ -769,7 +769,7 @@ function QuickLog({ goalKcal }: { goalKcal: number }) {
                     backgroundColor: colors.surfaceAlt,
                   }}
                 >
-                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color }} />
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
                   <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                     {name}
                   </Text>
@@ -948,7 +948,7 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
               key={f.id}
               style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: f.color }} />
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
               <Text style={[type.small, { color: colors.ink, flex: 1 }]}>
                 {locale === "he" ? f.he : f.en}
               </Text>

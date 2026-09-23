@@ -97,6 +97,9 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
             accessibilityIgnoresInvertColors
             source={bundled.source}
             resizeMode="cover"
+            // Android fades every image in over 300 ms by default; a photo that
+            // is already on the phone should simply be there.
+            fadeDuration={0}
             style={{ width, height }}
           />
           <Credit text={bundled.credit} />

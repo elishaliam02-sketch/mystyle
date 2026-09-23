@@ -57,7 +57,7 @@ function Heatmap() {
   const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
 
   const shade = (n: number) =>
-    n === 0 ? colors.surfaceAlt : n === 1 ? colors.accentWash : colors.accent;
+    n === 0 ? colors.surfaceAlt : n === 1 ? colors.chartBar : colors.accent;
 
   return (
     <Card label={t.heatmap.title}>
@@ -109,7 +109,7 @@ function TrendChart({ values }: { values: WeighIn[] }) {
             flex: 1,
             height: 20 + ((v.kg - min) / range) * 80,
             borderRadius: radius.sm,
-            backgroundColor: index === values.length - 1 ? colors.accent : colors.accentWash,
+            backgroundColor: index === values.length - 1 ? colors.accent : colors.chartBar,
           }}
         />
       ))}
@@ -600,7 +600,7 @@ function WeeklyAverageCard() {
                 flex: 1,
                 height: 14 + ((w.avgKg - low) / span) * 60,
                 borderRadius: radius.sm,
-                backgroundColor: i === arr.length - 1 ? colors.accent : colors.accentWash,
+                backgroundColor: i === arr.length - 1 ? colors.accent : colors.chartBar,
               }}
             />
           ))}
@@ -939,7 +939,7 @@ function MeasureSparkline({ values }: { values: number[] }) {
             flex: 1,
             height: 8 + ((v - min) / range) * 30,
             borderRadius: radius.sm,
-            backgroundColor: i === values.length - 1 ? colors.accent : colors.accentWash,
+            backgroundColor: i === values.length - 1 ? colors.accent : colors.chartBar,
           }}
         />
       ))}

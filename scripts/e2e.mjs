@@ -545,8 +545,17 @@ check("the coach answers about the plan using the goal",
     (await p2.getByRole("button",{name:"תבנה לי"}).count())>0 &&
     (await p2.getByRole("button",{name:"אני אבנה"}).count())>0);
 
+  // the level decides what the plan asks of the body: a beginner is not handed
+  // deadlifts and pull-ups
+  check("the setup asks for your level", await p2.getByText("מה הרמה שלך?").first().isVisible().catch(()=>false));
+  await p2.getByText("מתחיל", { exact: true }).first().click(); await p2.waitForTimeout(300);
+
   await build.click(); await p2.waitForTimeout(1400);
   const st2 = JSON.parse(await p2.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("the chosen level is saved with the plan", st2.training?.level === "beginner", String(st2.training?.level));
+  check("the plan says it is a beginner plan", /מתחיל · 2 סטים/.test(await p2.locator("body").innerText()));
+  check("and hands a beginner no deadlift or pull-ups",
+    !/דדליפט במוט|^מתח$/m.test(await p2.locator("body").innerText()));
   check("pressing it actually writes a plan", !!st2.training && st2.training.days>0,
     JSON.stringify(st2.training??null));
   // the plan is real when its set table is on screen, not just a heading

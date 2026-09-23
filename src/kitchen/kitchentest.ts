@@ -689,8 +689,12 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     closestBundled({ id: "your-plate", uses: ["chickenBreast", "rice", "tomato"] }, lib, have) === "chicken-rice");
   check("…and the photo follows when the lead ingredient changes",
     closestBundled({ id: "your-plate", uses: ["salmon", "rice", "tomato"] }, lib, have) === "salmon-rice");
-  check("one shared ingredient is not enough",
-    closestBundled({ id: "your-plate", uses: ["tomato", "egg"] }, lib, have) === null);
+  check("one shared ingredient still beats a drawing",
+    closestBundled({ id: "your-plate", uses: ["tomato", "egg"] }, lib, have) === "greek-salad");
+  check("…and the lead ingredient decides between single matches",
+    closestBundled({ id: "your-plate", uses: ["salmon", "tomato"] }, lib, have) === "salmon-rice");
+  check("no shared ingredient at all is no photo",
+    closestBundled({ id: "your-plate", uses: ["dates"] }, lib, have) === null);
   check("a dish without a bundled photo is never chosen",
     closestBundled({ id: "x", uses: ["chickenBreast", "rice", "tomato"] }, lib, new Set(["no-photo-x"])) === null);
   check("an empty plate has no photo", closestBundled({ id: "x", uses: [] }, lib, have) === null);

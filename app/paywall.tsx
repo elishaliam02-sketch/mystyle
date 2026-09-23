@@ -8,6 +8,7 @@ import { HeroCard } from "@/components/HeroCard";
 import { PillButton } from "@/components/PillButton";
 import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
+import { PAYMENTS_LIVE } from "@/billing/launch";
 import { supabase } from "@/cloud/client";
 import { parseEntitlement } from "@/cloud/entitlementPort";
 import { useStore } from "@/store";
@@ -83,6 +84,7 @@ type Copy = {
   privacy: string;
   needAccount: string;
   failed: string;
+  soon: string;
   manage: string;
 };
 
@@ -124,13 +126,14 @@ const COPY: Record<"he" | "en", Copy> = {
     afterTrial: (price, period) => `בתום הניסיון: ${price} ${period}. אפשר לבטל לפני, בלי חיוב.`,
     renews: "המנוי מתחדש אוטומטית בסוף כל תקופה באותו אמצעי תשלום, עד שמבטלים אותו.",
     cancel:
-      "לביטול: פרופיל ← מנוי, או דרך קישור הניהול שנשלח אליך במייל מ‑Stripe. הביטול עוצר את החידוש הבא, והמנוי נשאר פתוח עד סוף התקופה ששילמת עליה.",
+      "לביטול: פרופיל ← מנוי, או דרך קישור הניהול שנשלח אליך במייל. הביטול עוצר את החידוש הבא, והמנוי נשאר פתוח עד סוף התקופה ששילמת עליה.",
     vat: "המחירים בשקלים חדשים וכוללים מע״מ.",
     terms: "תנאי שימוש",
     privacy: "מדיניות פרטיות",
     needAccount: "כדי שהמנוי יתחבר אליך צריך חשבון. פרופיל ← חשבון, ואז חוזרים לכאן.",
     failed: "לא הצלחנו לפתוח את דף התשלום. בדוק את החיבור לאינטרנט ונסה שוב.",
-    manage: "ניהול המנוי נפתח בדפדפן, בעמוד המאובטח של Stripe.",
+    soon: "ההרשמה למנוי נפתחת בקרוב. נעדכן אותך באפליקציה ברגע שאפשר להצטרף.",
+    manage: "ניהול המנוי נפתח בדפדפן, בעמוד תשלום מאובטח.",
   },
   en: {
     eyebrow: "APEX PRO",
@@ -169,13 +172,14 @@ const COPY: Record<"he" | "en", Copy> = {
     afterTrial: (price, period) => `After the trial: ${price} ${period}. Cancel before it ends and you pay nothing.`,
     renews: "The subscription renews automatically at the end of every period, on the same payment method, until you cancel.",
     cancel:
-      "To cancel: Profile → Subscription, or through the management link Stripe emails you. Cancelling stops the next renewal; the subscription stays open until the end of the period you have already paid for.",
+      "To cancel: Profile → Subscription, or through the management link we email you. Cancelling stops the next renewal; the subscription stays open until the end of the period you have already paid for.",
     vat: "Prices are in Israeli shekels and include VAT.",
     terms: "Terms of use",
     privacy: "Privacy policy",
     needAccount: "A subscription needs an account to attach to. Profile → Account, then come back here.",
     failed: "We could not open the payment page. Check your connection and try again.",
-    manage: "Subscription management opens in the browser, on Stripe's secure page.",
+    soon: "Subscriptions open soon. We'll let you know in the app the moment you can join.",
+    manage: "Subscription management opens in the browser, on a secure payment page.",
   },
 };
 
@@ -233,6 +237,10 @@ export default function PaywallScreen() {
 
   async function openCheckout(action: "checkout" | "portal") {
     if (busy) return;
+    if (!PAYMENTS_LIVE) {
+      setNote(c.soon);
+      return;
+    }
     setBusy(true);
     setNote(null);
     try {
