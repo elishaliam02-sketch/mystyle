@@ -61,16 +61,33 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # The runner ships with ~20 GB of toolchains this build never touches
+      # (.NET, Haskell, Swift, CodeQL, Boost). An Android build needs the
+      # space: the previous run filled the disk and the runner died mid-build
+      # with no log at all. The Android SDK itself is left alone.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/boost /usr/local/share/powershell /usr/local/lib/heroku \
+            "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h /
+
       # The runner has 7 GB of RAM, and a React Native build compiling native
       # code runs past it: the OS killed the Gradle daemon mid-build ("daemon
-      # disappeared unexpectedly"). Swap on disk turns that kill into a
-      # slowdown.
+      # disappeared unexpectedly"). Swap turns that kill into a slowdown. It
+      # goes on the scratch disk (/mnt) when that has room — checked with sudo,
+      # since /mnt belongs to root and a plain writability test always failed.
       - name: Give the runner swap space
         run: |
-          # the runner's scratch disk, so the swap does not eat the space the
-          # build itself needs on the root disk
-          SWAP=/mnt/apex.swap; [ -w /mnt ] || SWAP=/apex.swap
-          sudo fallocate -l 8G "$SWAP"
+          SWAP=/apex.swap
+          if sudo test -d /mnt; then
+            FREE_MNT=$(df --output=avail -BG /mnt | tail -1 | tr -dc '0-9')
+            if [ "${FREE_MNT:-0}" -gt 12 ]; then SWAP=/mnt/apex.swap; fi
+          fi
+          echo "swap file: $SWAP"
+          sudo fallocate -l 6G "$SWAP"
           sudo chmod 600 "$SWAP"
           sudo mkswap "$SWAP"
           sudo swapon "$SWAP"
