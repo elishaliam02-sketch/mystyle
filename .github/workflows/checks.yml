@@ -17,6 +17,9 @@ on:
   # exact job has passed on that exact commit.
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Typecheck, tests, web bundle
@@ -40,6 +43,11 @@ jobs:
       # and not to dark, fails right here.
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # Only what ships to phones (--omit=dev), and only high or critical: the
+      # moderate findings are inside Expo's own toolchain and wait on an SDK bump.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
 
       # Every suite, discovered from the scripts directory rather than listed
       # here — a list in a YAML file is a list somebody forgets to edit, and

@@ -60,6 +60,14 @@ jobs:
       - name: Bundle the photos into the app
         run: node scripts/bundle-meal-photos.mjs
 
+      # A push made with this job's token does not trigger the Checks workflow,
+      # so the commit below would reach the branch tip unverified. Verify the
+      # generated code here instead.
+      - name: Typecheck and unit suites against the new bundle
+        run: |
+          npx tsc --noEmit
+          npm test
+
       - name: Commit the sheet
         run: |
           git config user.name "github-actions[bot]"

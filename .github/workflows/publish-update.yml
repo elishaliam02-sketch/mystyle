@@ -16,6 +16,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   # Nothing ships without the checks passing. An OTA update bypasses store
   # review, so this workflow is the only gate between a bad merge and every

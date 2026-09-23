@@ -1,0 +1,9 @@
+# npm is deliberately absent: Expo pins SDK-compatible versions
+# (node_modules/expo/bundledNativeModules.json), and a bot bumping to latest
+# would break native builds. Upgrade npm packages with `expo install`.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
