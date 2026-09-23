@@ -40,7 +40,7 @@
 // See supabase/BILLING-SETUP.md — and read the store-policy warning in it
 // before shipping this to Google Play or the App Store.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 

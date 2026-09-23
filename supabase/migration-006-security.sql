@@ -8,6 +8,10 @@
 --    app asks for the password and signs in again just before; this is the
 --    check that holds even for a caller that skips the app.
 --
+-- 3. The read-your-own-row policies from migration-005 are scoped to signed-in
+--    callers. They were already safe (auth.uid() is null without a session),
+--    but a policy should name who it is for rather than rely on that.
+--
 -- Paste into the Supabase SQL editor and run once. Safe to run again.
 -- Written without quoted identifiers, like the other migrations.
 
@@ -89,3 +93,19 @@ $$;
 
 revoke all on function public.delete_my_account() from public;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- The three names below are the ones migration-005 gave these policies, so
+-- they are quoted; type them with straight quotes.
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'subscriptions' and policyname = 'read own subscription') then
+    alter policy "read own subscription" on public.subscriptions to authenticated;
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'admins' and policyname = 'see whether i am an admin') then
+    alter policy "see whether i am an admin" on public.admins to authenticated;
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'invoices' and policyname = 'read own invoices') then
+    alter policy "read own invoices" on public.invoices to authenticated;
+  end if;
+end;
+$$;

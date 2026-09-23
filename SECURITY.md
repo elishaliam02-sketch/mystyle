@@ -6,6 +6,16 @@ make the app uncrackable — it is to make cracking worthless: nothing of value
 lives in the client, and anything that must be trusted is decided on the
 server. Everything below serves that.
 
+## Reporting a vulnerability
+
+Write to **danielzanzuri1301@gmail.com** (the contact in `src/legal/config.ts`)
+with what you found and how to reproduce it; Hebrew or English. Please do not
+open a public issue or test against other people's accounts. Expect a reply
+within 7 days and a fix or a plan within 30; you will be credited if you want
+to be. The same contact is published at `/.well-known/security.txt` on the web
+build (RFC 9116). Its `Expires` date must be renewed yearly —
+`npm run test:csp` fails once it has passed.
+
 ## 1. Code protection & obfuscation
 
 - **Hermes bytecode (on).** Release builds (`preview`/`production` in
@@ -50,6 +60,10 @@ server. Everything below serves that.
   integrity hash, and its CSP allows only that file and its own inline script
   (by hash) to run, and only the project's Supabase URL to be contacted. The
   tables are built with DOM calls, not innerHTML.
+- **Admin access is audited.** Every console session writes `admin.login` to
+  `audit_log`, and every refused call (not an admin, no second factor) writes
+  `admin.denied` — at most one row per admin and kind per 30 minutes, since the
+  console polls. No email or token goes into the row.
 - This is the template for any future logic that must not be forgeable — put
   it behind a function.
 

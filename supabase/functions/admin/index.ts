@@ -25,7 +25,7 @@
 //     (JWT-verified: only a signed-in user can even reach it; the admin check
 //      is the second gate, inside.)
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
 
 const cors = {
   // supabase-js sends apikey and x-client-info (and a version header) on every
@@ -65,6 +65,28 @@ function json(obj: unknown, status = 200): Response {
 }
 function fail(error: ErrorCode, status: number): Response {
   return json({ error }, status);
+}
+
+/** Writes an audit row, at most one per admin and kind in AUDIT_WINDOW: the
+ * console refreshes every 30 seconds, and a row per refresh would bury every
+ * other event. Best effort — a failed write never blocks the console. Kinds and
+ * meta follow src/admin/audit.ts: a closed set, and never a secret. */
+const AUDIT_WINDOW_MS = 30 * 60_000;
+async function record(db: SupabaseClient, kind: "admin.login" | "admin.denied", actorId: string, meta: Record<string, string>) {
+  try {
+    const since = new Date(Date.now() - AUDIT_WINDOW_MS).toISOString();
+    const { data: recent } = await db
+      .from("audit_log")
+      .select("id")
+      .eq("kind", kind)
+      .eq("actor_id", actorId)
+      .gte("at", since)
+      .limit(1);
+    if (recent && recent.length) return;
+    await db.from("audit_log").insert({ kind, actor_id: actorId, meta });
+  } catch {
+    console.error("admin: audit write failed");
+  }
 }
 
 /** The payload of a token getUser has already verified. */
@@ -163,6 +185,7 @@ async function handle(req: Request): Promise<Response> {
   }
   if (!adminRow) {
     console.error("admin: caller is not in the allowlist:", user.id);
+    await record(db, "admin.denied", user.id, { reason: "not-admin" });
     return fail("forbidden", 403);
   }
 
@@ -170,7 +193,10 @@ async function handle(req: Request): Promise<Response> {
   //    guessed - must not open every user's data. The token was verified by
   //    getUser above; its aal claim says whether this session passed a TOTP
   //    code. Checked after the allowlist, so only an admin learns it is needed.
-  if (claims(jwt).aal !== "aal2") return fail("mfa-required", 403);
+  if (claims(jwt).aal !== "aal2") {
+    await record(db, "admin.denied", user.id, { reason: "no-second-factor" });
+    return fail("mfa-required", 403);
+  }
 
   let body: { action?: unknown; page?: unknown; limit?: unknown };
   try {
@@ -178,6 +204,8 @@ async function handle(req: Request): Promise<Response> {
   } catch {
     return fail("bad-json", 400);
   }
+
+  await record(db, "admin.login", user.id, { action: String(body.action).slice(0, 40) });
 
   try {
     switch (body.action) {

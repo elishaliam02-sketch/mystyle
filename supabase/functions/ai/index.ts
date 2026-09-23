@@ -22,7 +22,7 @@
 // Web:     supabase secrets set ALLOWED_ORIGINS=https://your-web-app.example
 //          (the phone apps send no Origin and need nothing here)
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
 import { coachSystemPrompt, mealPhotoPrompt, type Locale } from "./prompts.ts";
 
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";

@@ -30,6 +30,7 @@ export const AUDIT_KINDS = [
   "billing.payment_failed",
   "invoice.issued",
   "admin.login",
+  "admin.denied",
   "admin.view_user",
   "admin.comp_trial",
   "admin.refund",

@@ -30,7 +30,7 @@ create table if not exists public.subscriptions (
 alter table public.subscriptions enable row level security;
 drop policy if exists "read own subscription" on public.subscriptions;
 create policy "read own subscription" on public.subscriptions
-  for select using (auth.uid() = user_id);
+  for select to authenticated using (auth.uid() = user_id);
 
 -- 2) Billing events. The idempotency ledger for Stripe's webhook retries. No
 --    policy at all: the app can neither read nor write it.
@@ -53,7 +53,7 @@ create table if not exists public.admins (
 alter table public.admins enable row level security;
 drop policy if exists "see whether i am an admin" on public.admins;
 create policy "see whether i am an admin" on public.admins
-  for select using (auth.uid() = user_id);
+  for select to authenticated using (auth.uid() = user_id);
 
 -- 4) Audit log. The append-only trail: logins, subscription changes, and every
 --    admin action, with who/when/what. No client policy — it is read only
@@ -89,4 +89,4 @@ create unique index if not exists invoices_stripe_event_idx on public.invoices (
 alter table public.invoices enable row level security;
 drop policy if exists "read own invoices" on public.invoices;
 create policy "read own invoices" on public.invoices
-  for select using (auth.uid() = user_id);
+  for select to authenticated using (auth.uid() = user_id);

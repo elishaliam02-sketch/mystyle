@@ -24,7 +24,8 @@ await build({
       export { SUPABASE_URL } from "@/cloud/config";
       export { PHOTO_HOSTS } from "@/kitchen/photo";
       export { FOOD_FACTS_HOSTS } from "@/kitchen/foodfacts";
-      export { EXERCISE_IMAGE } from "@/workout/images";`,
+      export { EXERCISE_IMAGE } from "@/workout/images";
+      export { LEGAL } from "@/legal/config";`,
     resolveDir: path.resolve("."),
     loader: "ts",
   },
@@ -112,6 +113,19 @@ if (admin) {
   const url = /const SUPABASE_URL = "([^"]+)"/.exec(adminHtml)?.[1];
   check("admin: the page may reach its Supabase project", url && allows(admin.get("connect-src"), url), url);
   check("admin: nothing else is reachable", (admin.get("connect-src") ?? []).length === 1);
+}
+
+// ---------------------------------------------------------------- security.txt
+// RFC 9116: how a researcher reaches us. A lapsed Expires tells them the
+// contact may be dead, so this fails the build once it has passed.
+{
+  const txt = readFileSync("public/.well-known/security.txt", "utf8");
+  const { LEGAL } = await import(pathToFileURL(out).href);
+  const contact = /^Contact: mailto:(.+)$/m.exec(txt)?.[1];
+  check("security.txt names the published contact address", contact && contact === LEGAL.contactEmail, `${contact} vs ${LEGAL.contactEmail}`);
+  const expires = Date.parse(/^Expires: (.+)$/m.exec(txt)?.[1] ?? "");
+  check("security.txt has not expired", expires > Date.now(), "renew the Expires date (at most a year ahead)");
+  check("security.txt expires within a year, as RFC 9116 advises", expires < Date.now() + 366 * 86_400_000);
 }
 
 const failed = results.filter(([, ok]) => !ok);

@@ -68,7 +68,7 @@ jobs:
       # can silently gate every over-the-air update behind a red check.
       - name: Install Playwright for the end-to-end suite
         run: |
-          npm install --no-save playwright@1
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
       # Unit tests prove the engines; this proves the buttons are wired to

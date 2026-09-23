@@ -49,7 +49,7 @@ jobs:
 
       - name: Install Chromium, which composes the sheet
         run: |
-          npm install --no-save playwright@1
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
       - name: Look up every meal on Commons
