@@ -225,6 +225,22 @@ async function handle(req: Request): Promise<Response> {
 
 // --------------------------------------------------------------------- reads
 
+/** Every row a query matches. PostgREST caps each response (1000 by default),
+ * and a capped response looks complete — the dashboard's counts were quietly
+ * wrong past the first thousand weigh-ins. `build` must return a fresh query
+ * with a stable order each time. */
+async function selectAll<T>(build: () => { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }> }): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error("read failed");
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length === 0) return out;
+  }
+}
+
 type SubRow = { user_id: string; status: string; plan_id: string | null; current_period_end: string | null; trial_ends_at: string | null };
 type WeighRow = { user_id: string; date: string; kg: number };
 type ProfileRow = { id: string; goal_kg: number | null };
@@ -244,10 +260,10 @@ async function overview(db: SupabaseClient): Promise<Response> {
   }
   const ids = users.map((u) => u.id);
 
-  const [{ data: subs }, { data: weighs }, { data: profiles }] = await Promise.all([
-    db.from("subscriptions").select("user_id,status,current_period_end,trial_ends_at"),
-    db.from("weigh_ins").select("user_id,date,kg"),
-    db.from("profiles").select("id,goal_kg"),
+  const [subs, weighs, profiles] = await Promise.all([
+    selectAll<SubRow>(() => db.from("subscriptions").select("user_id,status,current_period_end,trial_ends_at").order("user_id")),
+    selectAll<WeighRow>(() => db.from("weigh_ins").select("user_id,date,kg").order("user_id").order("date")),
+    selectAll<ProfileRow>(() => db.from("profiles").select("id,goal_kg").order("id")),
   ]);
 
   const subByUser = new Map<string, SubRow>();
@@ -295,10 +311,10 @@ async function listUsers(db: SupabaseClient, page: number): Promise<Response> {
   if (error) return fail("server", 500);
 
   const ids = data.users.map((u) => u.id);
-  const [{ data: subs }, { data: weighs }, { data: profiles }] = await Promise.all([
-    db.from("subscriptions").select("user_id,status,plan_id,current_period_end,trial_ends_at").in("user_id", ids),
-    db.from("weigh_ins").select("user_id,date,kg").in("user_id", ids),
-    db.from("profiles").select("id,goal_kg").in("id", ids),
+  const [subs, weighs, profiles] = await Promise.all([
+    selectAll<SubRow>(() => db.from("subscriptions").select("user_id,status,plan_id,current_period_end,trial_ends_at").in("user_id", ids).order("user_id")),
+    selectAll<WeighRow>(() => db.from("weigh_ins").select("user_id,date,kg").in("user_id", ids).order("user_id").order("date")),
+    selectAll<ProfileRow>(() => db.from("profiles").select("id,goal_kg").in("id", ids).order("id")),
   ]);
 
   const subByUser = new Map<string, SubRow>();

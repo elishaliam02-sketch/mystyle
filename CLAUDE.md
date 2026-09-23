@@ -198,8 +198,11 @@ rather than the Wi-Fi panel.
 ## Accounts
 
 Supabase Auth, with the recovery paths people actually need: `requestPasswordReset`
-sends a link back to `app/reset.tsx` (the tokens are redeemed by hand there —
-web consumes them automatically, a phone does not), and a signup that returns
+sends a link back to `app/reset.tsx` (the auth client uses the PKCE flow, so
+the link carries a one-time code that only redeems on the device that asked
+for it — web redeems it automatically, a phone does it by hand there; raw
+tokens in a link are refused, and the new-password box only opens for a
+session that proved itself in the last ten minutes), and a signup that returns
 without a session means the project requires a confirmed email, so the screen
 says "check your inbox" instead of claiming the data is backed up. Turning
 email confirmation on needs custom SMTP in Supabase; the built-in mailer is

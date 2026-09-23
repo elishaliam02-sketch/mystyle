@@ -12,25 +12,17 @@ import { useTheme } from "@/theme";
 /**
  * Where a password-reset link lands.
  *
- * The link Supabase mails carries the proof: either a `code` to exchange
- * (PKCE) or an access/refresh pair in the URL fragment (the older flow). The
- * web build consumes it automatically; a phone hands the app the URL and
- * nothing else, so the tokens are redeemed here. Both shapes are tried, and
- * when neither yields a session the screen says the link is spent rather than
+ * The link Supabase mails carries a PKCE `code`, which only redeems on the
+ * device that asked for the reset. The web build redeems it automatically; a
+ * phone hands the app the URL and nothing else, so it is redeemed here. When
+ * no fresh session results, the screen says the link is spent rather than
  * showing a password box that could not possibly work.
- *
- * A fragment (`#access_token=…`) never reaches route params, so it is read off
- * `window.location` on the web — the one place that information exists.
  */
 export default function ResetPasswordScreen() {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    code?: string;
-    access_token?: string;
-    refresh_token?: string;
-  }>();
+  const params = useLocalSearchParams<{ code?: string }>();
 
   const [phase, setPhase] = useState<"opening" | "ready" | "expired" | "done">("opening");
   const [password, setPassword] = useState("");
@@ -40,22 +32,13 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const fragment =
-        Platform.OS === "web" && typeof window !== "undefined"
-          ? new URLSearchParams(window.location.hash.replace(/^#/, ""))
-          : null;
-
-      const ok = await sessionFromResetLink({
-        code: params.code,
-        accessToken: params.access_token ?? fragment?.get("access_token") ?? undefined,
-        refreshToken: params.refresh_token ?? fragment?.get("refresh_token") ?? undefined,
-      });
+      const ok = await sessionFromResetLink({ code: params.code });
       if (alive) setPhase(ok ? "ready" : "expired");
     })();
     return () => {
       alive = false;
     };
-  }, [params.code, params.access_token, params.refresh_token]);
+  }, [params.code]);
 
   async function save() {
     if (password.length < 6) {

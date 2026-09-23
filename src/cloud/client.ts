@@ -24,6 +24,11 @@ export function supabase(): SupabaseClient | null {
       autoRefreshToken: true,
       // Only the web has a URL to read a session out of.
       detectSessionInUrl: Platform.OS === "web",
+      // PKCE: an emailed link carries a one-time code that only redeems on the
+      // device that asked for it (the verifier is stored here). The implicit
+      // flow put raw tokens in the link, and any link with anyone's tokens
+      // would sign this device into that account.
+      flowType: "pkce",
     },
   });
   return client;
@@ -191,9 +196,31 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
   }
 }
 
+/** How long a sign-in or a redeemed reset link counts as fresh proof. */
+const RECENT_PROOF_S = 10 * 60;
+
+/** Did this session prove who it is in the last few minutes — a password, a
+ * reset link, an emailed code? Read from the token's `amr` claim, the same
+ * record the server checks before deleting an account. */
+function provedRecently(accessToken: string | undefined, nowS = Date.now() / 1000): boolean {
+  try {
+    const part = (accessToken ?? "").split(".")[1] ?? "";
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(b64)) as { amr?: { method?: string; timestamp?: number }[] };
+    return (claims.amr ?? []).some(
+      (a) => a.method !== "anonymous" && typeof a.timestamp === "number" && nowS - a.timestamp <= RECENT_PROOF_S,
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Sets a new password for the session the reset link established. Fails
- * plainly when there is no such session, rather than appearing to work.
+ * plainly when there is no such session, rather than appearing to work — and
+ * when the session did not come from a fresh link or sign-in, since otherwise
+ * anyone holding an unlocked phone could open the reset screen and change the
+ * password without knowing it.
  */
 export async function setNewPassword(password: string): Promise<AuthResult> {
   const db = supabase();
@@ -201,6 +228,7 @@ export async function setNewPassword(password: string): Promise<AuthResult> {
   try {
     const { data } = await db.auth.getSession();
     if (!data.session) return { ok: false, message: "noSession" };
+    if (!provedRecently(data.session.access_token)) return { ok: false, message: "noSession" };
     const { error } = await db.auth.updateUser({ password });
     if (error) return { ok: false, message: readableError(error.message) };
     return { ok: true };
@@ -210,35 +238,22 @@ export async function setNewPassword(password: string): Promise<AuthResult> {
 }
 
 /**
- * Turns the token in a password-reset link into a session.
+ * Turns a password-reset link into a session.
  *
- * Web does this by itself (`detectSessionInUrl`), but a phone hands the app
- * the URL and nothing more, so the tokens have to be redeemed by hand. Both
- * shapes are handled: `code` for the PKCE flow and an access/refresh pair for
- * the older implicit one.
+ * Only a PKCE `code` is accepted, and it only redeems on the device that
+ * requested the reset. Raw tokens in a link are refused: accepting them let a
+ * crafted link sign the phone into someone else's account, after which what
+ * the person logged synced to that account. On the web, supabase-js redeems
+ * the code from the URL itself, so the session is read back — and trusted only
+ * when it proves a fresh reset or sign-in, not merely because one exists.
  */
-export async function sessionFromResetLink(params: {
-  code?: string;
-  accessToken?: string;
-  refreshToken?: string;
-}): Promise<boolean> {
+export async function sessionFromResetLink(params: { code?: string }): Promise<boolean> {
   const db = supabase();
   if (!db) return false;
   try {
-    if (params.code) {
-      const { error } = await db.auth.exchangeCodeForSession(params.code);
-      if (!error) return true;
-    }
-    if (params.accessToken && params.refreshToken) {
-      const { error } = await db.auth.setSession({
-        access_token: params.accessToken,
-        refresh_token: params.refreshToken,
-      });
-      if (!error) return true;
-    }
-    // Web may already have consumed the URL and stored the session for us.
+    if (params.code) await db.auth.exchangeCodeForSession(params.code);
     const { data } = await db.auth.getSession();
-    return !!data.session;
+    return !!data.session && provedRecently(data.session.access_token);
   } catch {
     return false;
   }

@@ -71,7 +71,7 @@ afterwards and only reports success when the server actually confirmed.
 sign-in in the last ten minutes for an email account; the profile screen asks
 for the password and signs in again just before calling it.
 
-**TODO (human):** run migrations 004 and 006 in the Supabase SQL editor. Until
+**TODO (human):** run migrations 004, 006 and 007 in the Supabase SQL editor. Until
 you do, the delete button reports a failure rather than pretending — which is
 the right behaviour, but it means deletion is not live until the SQL is run.
 

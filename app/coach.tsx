@@ -411,7 +411,6 @@ function factsFor(c: CoachContext, locale: "he" | "en"): string {
     c.bodyFat != null ? `estimated body fat: ${c.bodyFat}%` : null,
     c.planDays != null ? `training days per week: ${c.planDays}` : null,
     `trained today: ${c.trainedToday ? "yes" : "no"}`,
-    c.name ? `name: ${c.name}` : null,
   ].filter(Boolean);
   return `Here are this person's figures right now:\n${rows.join("\n")}`;
 }

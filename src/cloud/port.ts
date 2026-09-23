@@ -1,4 +1,5 @@
 import type { CheckIn, Completion, Habit, Profile, WeighIn } from "@/store/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Changes, CloudPort, Rows } from "./sync";
 
@@ -44,13 +45,83 @@ function toHabit(row: HabitRow): Habit {
   };
 }
 
+/** The server's limits (supabase/migration-007-limits.sql). Values are clamped
+ * to them before sending: one over-long row would otherwise be refused on
+ * every round and hold back everything queued behind it. */
+export const LIMITS = { name: 100, title: 200, slot: 32, anchor: 200, note: 2000 } as const;
+const clip = (s: string | null | undefined, n: number): string | null => (s == null ? null : s.slice(0, n));
+const kgOrNull = (kg: number | null | undefined): number | null =>
+  typeof kg === "number" && kg >= 20 && kg <= 500 ? kg : null;
+
+/** Rows per request. PostgREST caps a response (1000 on Supabase by default,
+ * lower if the project says so), and a capped response looks exactly like a
+ * complete one — so every table is read page by page until a page is empty. */
+const PAGE = 1000;
+/** Rows per write, so a first sync of years of history is not one huge body. */
+const CHUNK = 500;
+/** The cursor is moved back this far. A write stamped just before the cursor
+ * but committed just after it would otherwise fall between two pulls for
+ * good; re-reading a minute is harmless because merging is idempotent. */
+const CURSOR_OVERLAP_MS = 60_000;
+
+/** A value inside PostgREST's or=(…) filter, quoted: timestamps carry the
+ * reserved `.` and `:`. */
+const quote = (v: unknown): string => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+
+/** Keyset condition "strictly after `last`" over the ordered columns:
+ * (a > x) or (a = x and b > y) or (a = x and b = y and c > z). Offset paging
+ * would skip a row whenever an earlier one changed mid-read. */
+export function afterFilter(cols: string[], last: Record<string, unknown>): string {
+  return cols
+    .map((col, i) => {
+      const gt = `${col}.gt.${quote(last[col])}`;
+      if (i === 0) return gt;
+      const eqs = cols.slice(0, i).map((p) => `${p}.eq.${quote(last[p])}`);
+      return `and(${[...eqs, gt].join(",")})`;
+    })
+    .join(",");
+}
+
+async function pullAll<T>(
+  db: SupabaseClient,
+  table: string,
+  key: string[],
+  userId: string,
+  since?: string,
+): Promise<T[]> {
+  const order = ["synced_at", ...key];
+  const rows: T[] = [];
+  let last: Record<string, unknown> | null = null;
+  for (;;) {
+    let q = db.from(table).select("*").eq("user_id", userId);
+    if (since) q = q.gt("synced_at", since);
+    if (last) q = q.or(afterFilter(order, last));
+    for (const col of order) q = q.order(col, { ascending: true });
+    const { data, error } = await q.limit(PAGE);
+    if (error) throw new Error(`pull ${table} failed`);
+    if (!data || data.length === 0) return rows;
+    rows.push(...(data as T[]));
+    last = data[data.length - 1] as Record<string, unknown>;
+  }
+}
+
+async function upsertAll(db: SupabaseClient, table: string, rows: object[]): Promise<void> {
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await db.from(table).upsert(rows.slice(i, i + CHUNK));
+    // supabase-js reports a refused write in `error` instead of throwing. Left
+    // unchecked, the round committed and the push cursor moved past rows the
+    // server never stored.
+    if (error) throw new Error(`push ${table} failed`);
+  }
+}
+
 function fromHabit(habit: Habit, userId: string): HabitRow & { user_id: string } {
   return {
     id: habit.id,
     user_id: userId,
-    title: habit.title,
-    slot: habit.slot ?? null,
-    anchor: habit.anchor ?? null,
+    title: clip(habit.title, LIMITS.title) ?? "",
+    slot: clip(habit.slot, LIMITS.slot),
+    anchor: clip(habit.anchor, LIMITS.anchor),
     created_at: habit.createdAt,
     archived: habit.archived,
     updated_at: habit.updatedAt ?? new Date().toISOString(),
@@ -69,20 +140,23 @@ export const supabasePort: CloudPort = {
     // before the cursor every other device is holding.
     // The indexes for exactly this filter are in supabase/schema.sql; without
     // them this is a sequential scan of the table per sync.
-    const recent = <T>(q: T): T =>
-      since ? ((q as { gt: (c: string, v: string) => T }).gt("synced_at", since) as T) : q;
+    // The server's clock first, before any row is read: a cursor taken after
+    // a read could claim rows that read never saw.
+    const clock = await db.rpc("server_now");
+    if (clock.error) throw new Error("server_now failed");
+    const cursor =
+      typeof clock.data === "string"
+        ? new Date(Date.parse(clock.data) - CURSOR_OVERLAP_MS).toISOString()
+        : undefined;
 
-    // One round trip each, in parallel: five small reads beat one join the
-    // client would have to unpick anyway. `server_now` rides along with them
-    // so the cursor we hand back is the server's clock, read before the reads.
-    const [cursor, profile, habits, completions, weighIns, checkIns] = await Promise.all([
-      db.rpc("server_now"),
+    const [profile, habits, completions, weighIns, checkIns] = await Promise.all([
       db.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      recent(db.from("habits").select("*").eq("user_id", userId)),
-      recent(db.from("completions").select("*").eq("user_id", userId)),
-      recent(db.from("weigh_ins").select("*").eq("user_id", userId)),
-      recent(db.from("check_ins").select("*").eq("user_id", userId)),
+      pullAll<HabitRow>(db, "habits", ["id"], userId, since),
+      pullAll<CompletionRow>(db, "completions", ["habit_id", "date"], userId, since),
+      pullAll<WeighInRow>(db, "weigh_ins", ["date"], userId, since),
+      pullAll<CheckInRow>(db, "check_ins", ["date"], userId, since),
     ]);
+    if (profile.error) throw new Error("pull profiles failed");
 
     const p = profile.data as
       | {
@@ -98,7 +172,7 @@ export const supabasePort: CloudPort = {
       // No cursor rather than a guessed one: a device that never learns the
       // server's time keeps pulling everything, which is slow but correct,
       // where a wrong cursor silently skips rows forever.
-      cursor: typeof cursor.data === "string" ? cursor.data : undefined,
+      cursor,
       profile: p
         ? {
             name: p.name ?? "",
@@ -111,10 +185,8 @@ export const supabasePort: CloudPort = {
             updatedAt: p.updated_at ?? undefined,
           }
         : null,
-      habits: ((habits.data as HabitRow[] | null) ?? []).map(toHabit),
-      completions: (
-        (completions.data as CompletionRow[] | null) ?? []
-      ).map(
+      habits: habits.map(toHabit),
+      completions: completions.map(
         (c): Completion => ({
           habitId: c.habit_id,
           date: c.date,
@@ -122,14 +194,14 @@ export const supabasePort: CloudPort = {
           updatedAt: c.updated_at ?? EPOCH,
         }),
       ),
-      weighIns: ((weighIns.data as WeighInRow[] | null) ?? []).map(
+      weighIns: weighIns.map(
         (w): WeighIn => ({
           date: w.date,
           kg: Number(w.kg),
           updatedAt: w.updated_at ?? EPOCH,
         }),
       ),
-      checkIns: ((checkIns.data as CheckInRow[] | null) ?? []).map(
+      checkIns: checkIns.map(
         (c): CheckIn => ({
           date: c.date,
           mood: c.mood as CheckIn["mood"],
@@ -148,29 +220,31 @@ export const supabasePort: CloudPort = {
     const db = supabase();
     if (!db) return;
 
-    // Postgrest builders are thenables rather than real promises, which is why
-    // this is PromiseLike; Promise.all accepts them all the same.
-    const writes: PromiseLike<unknown>[] = [];
+    const writes: Promise<void>[] = [];
 
     if (changes.profile) {
       const profile: Profile = changes.profile;
       writes.push(
-        db.from("profiles").upsert({
-          id: userId,
-          name: profile.name,
-          start_kg: profile.startKg ?? null,
-          goal_kg: profile.goalKg ?? null,
-          reminders: profile.reminders ?? false,
-          updated_at: profile.updatedAt ?? new Date().toISOString(),
-        }),
+        upsertAll(db, "profiles", [
+          {
+            id: userId,
+            name: clip(profile.name, LIMITS.name) ?? "",
+            start_kg: kgOrNull(profile.startKg),
+            goal_kg: kgOrNull(profile.goalKg),
+            reminders: profile.reminders ?? false,
+            updated_at: profile.updatedAt ?? new Date().toISOString(),
+          },
+        ]),
       );
     }
     if (changes.habits.length) {
-      writes.push(db.from("habits").upsert(changes.habits.map((h) => fromHabit(h, userId))));
+      writes.push(upsertAll(db, "habits", changes.habits.map((h) => fromHabit(h, userId))));
     }
     if (changes.completions.length) {
       writes.push(
-        db.from("completions").upsert(
+        upsertAll(
+          db,
+          "completions",
           changes.completions.map((c) => ({
             user_id: userId,
             habit_id: c.habitId,
@@ -183,7 +257,9 @@ export const supabasePort: CloudPort = {
     }
     if (changes.weighIns.length) {
       writes.push(
-        db.from("weigh_ins").upsert(
+        upsertAll(
+          db,
+          "weigh_ins",
           changes.weighIns.map((w) => ({
             user_id: userId,
             date: w.date,
@@ -195,12 +271,14 @@ export const supabasePort: CloudPort = {
     }
     if (changes.checkIns.length) {
       writes.push(
-        db.from("check_ins").upsert(
+        upsertAll(
+          db,
+          "check_ins",
           changes.checkIns.map((c) => ({
             user_id: userId,
             date: c.date,
             mood: c.mood,
-            note: c.note,
+            note: clip(c.note, LIMITS.note) ?? "",
             updated_at: c.updatedAt,
           })),
         ),

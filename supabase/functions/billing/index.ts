@@ -92,6 +92,7 @@ type ErrorCode =
   | "method"
   | "bad-json"
   | "unauthorized"
+  | "need-account"
   | "unknown-action"
   | "unknown-plan"
   | "unconfigured"
@@ -151,14 +152,13 @@ async function handleApp(req: Request): Promise<Response> {
   // 1. The caller must be a signed-in user of this project. Their id is taken
   //    from the verified token, never from the request body — otherwise one
   //    user could ask for another user's status.
-  const auth = req.headers.get("Authorization") ?? "";
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: auth } } },
-  );
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
+  //    Verified with the service key, as the ai and admin functions do: a
+  //    new-API-key project does not always inject the legacy anon key, and
+  //    this call then failed as "unauthorized" for everyone.
+  const jwt = (req.headers.get("Authorization") ?? "").replace(/^[Bb]earer\s+/, "").trim();
+  if (!jwt) return fail("unauthorized", 401);
+  const { data: userData } = await admin().auth.getUser(jwt);
+  const user = userData?.user;
   if (!user) return fail("unauthorized", 401);
   if (rateLimited(user.id)) return fail("rate-limited", 429);
 
@@ -174,7 +174,10 @@ async function handleApp(req: Request): Promise<Response> {
       case "status":
         return await statusFor(user.id);
       case "checkout":
-        return await createCheckout(user.id, user.email ?? null, body.planId);
+        // Identity before money: an anonymous account that pays and then loses
+        // its session has lost the subscription with it.
+        if (user.is_anonymous === true || !user.email) return fail("need-account", 403);
+        return await createCheckout(user.id, user.email, body.planId);
       case "portal":
         return await createPortal(user.id);
       default:
@@ -267,16 +270,25 @@ async function stripe(
  * so a second purchase attaches to the same customer instead of creating a
  * duplicate that the billing portal cannot see.
  */
-async function customerFor(userId: string, email: string | null, key: string): Promise<string> {
+async function customerFor(
+  userId: string,
+  email: string | null,
+  key: string,
+): Promise<{ customer: string; hadTrialOrPlan: boolean }> {
   const db = admin();
-  const { data } = await db
+  const { data, error } = await db
     .from("subscriptions")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id, status, trial_ends_at")
     .eq("user_id", userId)
     .maybeSingle();
+  if (error) throw new Error("db");
 
-  const existing = (data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id;
-  if (existing) return existing;
+  const row = data as { stripe_customer_id?: string | null; status?: string | null; trial_ends_at?: string | null } | null;
+  // One free trial per account: anyone who has trialled or subscribed before
+  // pays from day one. Every checkout used to carry a fresh trial.
+  const hadTrialOrPlan = Boolean(row?.trial_ends_at) || (row?.status ?? "none") !== "none";
+  const existing = row?.stripe_customer_id;
+  if (existing) return { customer: existing, hadTrialOrPlan };
 
   const params: Record<string, string> = { "metadata[user_id]": userId };
   if (email) params.email = email;
@@ -286,10 +298,11 @@ async function customerFor(userId: string, email: string | null, key: string): P
   const id = String(customer.id ?? "");
   if (!id) throw new Error("upstream");
 
-  await db
+  const saved = await db
     .from("subscriptions")
     .upsert({ user_id: userId, stripe_customer_id: id, status: "none" }, { onConflict: "user_id" });
-  return id;
+  if (saved.error) throw new Error("db");
+  return { customer: id, hadTrialOrPlan };
 }
 
 async function createCheckout(
@@ -305,14 +318,14 @@ async function createCheckout(
   if (!key || !price) return fail("unconfigured", 503);
 
   const returnUrl = Deno.env.get("BILLING_RETURN_URL") ?? "mystyle://paywall";
-  const customer = await customerFor(userId, email, key);
+  const { customer, hadTrialOrPlan } = await customerFor(userId, email, key);
 
   const session = await stripe("/checkout/sessions", key, {
     mode: "subscription",
     customer,
     "line_items[0][price]": price,
     "line_items[0][quantity]": "1",
-    "subscription_data[trial_period_days]": String(TRIAL_DAYS),
+    ...(hadTrialOrPlan ? {} : { "subscription_data[trial_period_days]": String(TRIAL_DAYS) }),
     "subscription_data[metadata][user_id]": userId,
     "subscription_data[metadata][plan_id]": planId,
     "metadata[user_id]": userId,
@@ -439,7 +452,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   // Nothing below this line runs for an unsigned body.
   if (!ok) return fail("bad-signature", 400);
 
-  let event: { id?: unknown; type?: unknown; data?: { object?: Record<string, unknown> } };
+  let event: { id?: unknown; type?: unknown; created?: unknown; data?: { object?: Record<string, unknown> } };
   try {
     event = JSON.parse(raw);
   } catch {
@@ -470,7 +483,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   try {
-    await applyEvent(db, type, event.data?.object ?? {});
+    await applyEvent(db, type, event.data?.object ?? {}, isoFromUnix(event.created) ?? new Date().toISOString());
   } catch (err) {
     console.error("apply failed", type, String(err).slice(0, 120));
     // Release the claim so Stripe's retry can apply it properly.
@@ -485,6 +498,7 @@ async function applyEvent(
   db: ReturnType<typeof admin>,
   type: string,
   object: Record<string, unknown>,
+  eventAt: string,
 ): Promise<void> {
   // Only subscription lifecycle events change what somebody may use. Everything
   // else Stripe sends is acknowledged and ignored.
@@ -521,18 +535,25 @@ async function applyEvent(
   const metadata = (object.metadata ?? {}) as Record<string, unknown>;
   const planId = isPlanId(metadata.plan_id) ? metadata.plan_id : null;
 
-  const row = {
-    user_id: userId,
-    status,
-    plan_id: planId,
-    current_period_end: isoFromUnix(object.current_period_end),
-    trial_ends_at: isoFromUnix(object.trial_end),
-    stripe_customer_id: typeof object.customer === "string" ? object.customer : null,
-    stripe_subscription_id: typeof object.id === "string" ? object.id : null,
-    updated_at: new Date().toISOString(),
-  };
+  // Newer Stripe API versions report the period on each subscription item
+  // rather than on the subscription. Without it a cancelling subscriber read
+  // as "period over" and lost access at once instead of at the period's end.
+  const items = (object.items as { data?: { current_period_end?: unknown }[] } | undefined)?.data ?? [];
+  const periodEnd = isoFromUnix(object.current_period_end ?? items[0]?.current_period_end);
 
-  const { error } = await db.from("subscriptions").upsert(row, { onConflict: "user_id" });
+  // Stripe does not deliver in order. The database applies an event only when
+  // it is newer than the last one applied, and never lets a late "ended" for
+  // an old subscription close a newer live one (migration-007-limits.sql).
+  const { error } = await db.rpc("apply_subscription_event", {
+    p_user: userId,
+    p_status: status,
+    p_plan: planId,
+    p_period_end: periodEnd,
+    p_trial_end: isoFromUnix(object.trial_end),
+    p_customer: typeof object.customer === "string" ? object.customer : null,
+    p_subscription: typeof object.id === "string" ? object.id : null,
+    p_event_at: eventAt,
+  });
   if (error) throw new Error("db");
 }
 

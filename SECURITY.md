@@ -67,6 +67,44 @@ build (RFC 9116). Its `Expires` date must be renewed yearly —
 - This is the template for any future logic that must not be forgeable — put
   it behind a function.
 
+- **Bounds on what an account may store** (`migration-007-limits.sql`).
+  Anyone can create an anonymous account with the public key, so every table
+  has size limits (text lengths, a 2 MB backup, a date range) and habits and
+  completions have per-account row caps. A full database turns read-only for
+  everyone on Supabase, so this is availability, not tidiness. The sync clamps
+  values to the same limits before sending (`LIMITS` in `src/cloud/port.ts`),
+  so a real user never trips them.
+- **Sync is paged and checked.** Every pull reads each table page by page in
+  a stable key order (a PostgREST response is capped and a capped response
+  looks complete), and every write's result is checked — a refused write fails
+  the round, so neither cursor moves past data the server does not have.
+- **Password reset uses PKCE.** A reset link redeems only on the device that
+  asked for it; raw tokens in a link are refused, so a crafted link cannot
+  sign a phone into someone else's account. The new-password box only opens
+  for a session that proved itself in the last ten minutes.
+- **Billing.** Checkout needs a real (non-anonymous) account, a trial is
+  offered once per account, and subscription events are applied in order by
+  `apply_subscription_event` — a late, older event from Stripe cannot hand an
+  expired trial back or end a newer live subscription.
+- **Not yet enforced server-side: the paid tier.** Cloud backup is a paid
+  feature, but RLS lets any signed-in account write its own rows. Before
+  `SUBSCRIPTION_REQUIRED` goes on, add an entitlement check to the insert and
+  update policies; until then the size limits and row caps above bound what a
+  free account can cost. Reading and deleting stay open, so a lapsed
+  subscriber keeps their data:
+
+  ```sql
+  create or replace function public.entitled() returns boolean
+  language sql stable security definer set search_path = public as $$
+    select exists (select 1 from public.subscriptions s
+      where s.user_id = auth.uid()
+        and (s.status in ('active', 'trialing')
+             or (s.status = 'canceled' and s.current_period_end > now())));
+  $$;
+  -- then, per synced table and backups, split "for all" into
+  -- select/delete (own rows) and insert/update (own rows and public.entitled()).
+  ```
+
 ## 2b. The pipeline
 
 - **Every GitHub Action is pinned to a commit SHA**, with the release in a

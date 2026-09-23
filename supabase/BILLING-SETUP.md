@@ -120,6 +120,13 @@ alter table public.billing_events enable row level security;
 
 ## 4. Deploy the function
 
+First run `supabase/migration-007-limits.sql` in the SQL editor. The webhook
+writes every subscription change through `apply_subscription_event`, which
+that migration creates; it applies an event only when it is newer than the
+last one, because Stripe does not deliver in order. Until it exists the
+webhook answers 500 and Stripe keeps retrying, so nothing is lost — but nothing
+is applied either.
+
 The code is in `supabase/functions/billing/index.ts`.
 
 - From the dashboard: **Edge Functions** → **Deploy a new function** → name it

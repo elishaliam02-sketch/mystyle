@@ -250,7 +250,9 @@ export default function PaywallScreen() {
         return;
       }
       const { data: session } = await db.auth.getSession();
-      if (!session.session) {
+      // The server refuses a checkout for an anonymous account (a subscription
+      // tied to a session that can be lost is lost with it); say so up front.
+      if (!session.session || session.session.user.is_anonymous) {
         setNote(c.needAccount);
         return;
       }
@@ -263,7 +265,8 @@ export default function PaywallScreen() {
         data && typeof data === "object" && typeof (data as { url?: unknown }).url === "string"
           ? (data as { url: string }).url
           : null;
-      if (error || !url) {
+      // Only ever open Stripe's own pages, whatever the response says.
+      if (error || !url || !isStripeUrl(url)) {
         setNote(c.failed);
         return;
       }
@@ -488,4 +491,13 @@ function PlanTile({
       </View>
     </SelectTile>
   );
+}
+
+function isStripeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && (u.hostname === "checkout.stripe.com" || u.hostname === "billing.stripe.com");
+  } catch {
+    return false;
+  }
 }
