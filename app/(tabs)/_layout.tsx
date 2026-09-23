@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
-import { View, type ColorValue } from "react-native";
+import { Text, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MAX_CONTENT } from "@/components/Screen";
 import { useI18n } from "@/i18n";
@@ -31,8 +31,8 @@ export default function TabsLayout() {
     ({ color, focused }: { color: ColorValue; focused: boolean }) => (
       <View
         style={{
-          width: 34,
-          height: 28,
+          width: 42,
+          height: 30,
           borderRadius: radius.pill,
           alignItems: "center",
           justifyContent: "center",
@@ -43,10 +43,30 @@ export default function TabsLayout() {
       >
         <Ionicons
           name={focused ? ICONS[key].on : ICONS[key].off}
-          size={20}
+          size={22}
           color={String(color)}
         />
       </View>
+    );
+
+  const label =
+    (text: string) =>
+    ({ color, focused }: { color: ColorValue; focused: boolean }) => (
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        style={{
+          fontFamily: focused ? font.bodyBold : font.bodyMedium,
+          fontSize: 11,
+          lineHeight: 14,
+          color: String(color),
+          marginTop: 3,
+          paddingHorizontal: 1,
+        }}
+      >
+        {text}
+      </Text>
     );
 
   return (
@@ -54,18 +74,19 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.inkFaint,
-        // Seven tabs share the width, so the label is small and never truncated,
-        // and each item gives up its side padding to the text.
-        tabBarLabelStyle: { fontFamily: font.bodyMedium, fontSize: 9.5 },
+        tabBarInactiveTintColor: colors.inkSoft,
+        // Seven tabs share the width. The label used to be 9.5px in the faintest
+        // ink, which was unreadable at arm's length; it is now 11px in the soft
+        // ink (bold when active, see `label` below) and shrinks to fit rather
+        // than truncating on the narrowest phones.
         tabBarItemStyle: { paddingHorizontal: 0, paddingBottom: 2 },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.rule,
           // Roomy enough that the label never clips, even on a device with no
           // gesture-bar inset (worst case: insets.bottom === 0).
-          height: 70 + insets.bottom,
-          paddingTop: 8,
+          height: 78 + insets.bottom,
+          paddingTop: 6,
           paddingBottom: Math.max(12, insets.bottom + 8),
           // The body of every screen is held to one centred column; on a
           // tablet or a desktop browser the bar has to stop with it, or seven
@@ -77,16 +98,16 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: t.tabs.today, tabBarIcon: icon("today") }} />
-      <Tabs.Screen name="kitchen" options={{ title: t.tabs.kitchen, tabBarIcon: icon("kitchen") }} />
-      <Tabs.Screen name="workout" options={{ title: t.tabs.workout, tabBarIcon: icon("workout") }} />
-      <Tabs.Screen name="water" options={{ title: t.tabs.water, tabBarIcon: icon("water") }} />
-      <Tabs.Screen name="checkin" options={{ title: t.tabs.checkin, tabBarIcon: icon("checkin") }} />
+      <Tabs.Screen name="index" options={{ title: t.tabs.today, tabBarLabel: label(t.tabs.today), tabBarIcon: icon("today") }} />
+      <Tabs.Screen name="kitchen" options={{ title: t.tabs.kitchen, tabBarLabel: label(t.tabs.kitchen), tabBarIcon: icon("kitchen") }} />
+      <Tabs.Screen name="workout" options={{ title: t.tabs.workout, tabBarLabel: label(t.tabs.workout), tabBarIcon: icon("workout") }} />
+      <Tabs.Screen name="water" options={{ title: t.tabs.water, tabBarLabel: label(t.tabs.water), tabBarIcon: icon("water") }} />
+      <Tabs.Screen name="checkin" options={{ title: t.tabs.checkin, tabBarLabel: label(t.tabs.checkin), tabBarIcon: icon("checkin") }} />
       <Tabs.Screen
         name="progress"
-        options={{ title: t.tabs.progress, tabBarIcon: icon("progress") }}
+        options={{ title: t.tabs.progress, tabBarLabel: label(t.tabs.progress), tabBarIcon: icon("progress") }}
       />
-      <Tabs.Screen name="profile" options={{ title: t.tabs.profile, tabBarIcon: icon("profile") }} />
+      <Tabs.Screen name="profile" options={{ title: t.tabs.profile, tabBarLabel: label(t.tabs.profile), tabBarIcon: icon("profile") }} />
     </Tabs>
   );
 }

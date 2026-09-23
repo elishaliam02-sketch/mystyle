@@ -2,6 +2,7 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
@@ -115,7 +116,12 @@ export default function Auth() {
 
   return (
     <Screen eyebrow={t.authScreen.eyebrow} title={t.authScreen.title} subtitle={t.authScreen.subtitle}>
-      <Card label={t.account.title}>
+      {/* The mark, above the form: a sign-in page with no brand on it reads
+          like a phishing page, which is the last thing a payment app wants. */}
+      <View style={{ alignItems: "center", marginBottom: space.md }}>
+        <BrandLogo size={64} onBand={false} />
+      </View>
+      <Card>
         <View style={{ flexDirection: "row", gap: space.sm }}>
           <SelectTile selected={mode === "up"} onPress={() => setMode("up")}
             style={{ flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 999 }}>
@@ -153,8 +159,8 @@ export default function Auth() {
         ) : null}
 
         <Button
-          icon="cloud-done-outline"
-          label={busy ? t.profile.cloudConnecting : mode === "up" ? t.account.createCta : t.account.signInCta}
+          icon={mode === "up" ? "person-add-outline" : "log-in-outline"}
+          label={busy ? t.profile.cloudConnecting : mode === "up" ? t.authScreen.createCta : t.account.signInCta}
           onPress={submit}
           disabled={busy}
           style={{ marginTop: space.md }}

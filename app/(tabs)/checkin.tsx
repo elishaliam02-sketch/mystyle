@@ -6,14 +6,17 @@ import { AiBadge } from "@/components/AiNote";
 import { recapReply } from "@/insight";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
+import { SelectTile } from "@/components/SelectTile";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
 import { today, useStore, type CheckIn, type Habit } from "@/store";
 import { useTheme } from "@/theme";
 
 const MOODS: CheckIn["mood"][] = ["good", "ok", "hard"];
+/** A face per mood, so the choice reads before the word does. Glyphs, not
+ * language — the words stay in the dictionary. */
+const MOOD_FACE: Record<CheckIn["mood"], string> = { good: "😊", ok: "😐", hard: "😣" };
 const SLOT_WORDS: Record<string, Habit["slot"]> = {
   morning: "morning",
   noon: "noon",
@@ -152,14 +155,33 @@ export default function CheckinScreen() {
             <View style={{ gap: space.sm }}>
               <Text style={[type.label, { color: colors.inkFaint }]}>{t.checkin.moodQ}</Text>
               <View style={{ flexDirection: "row", gap: space.sm }}>
-                {MOODS.map((m) => (
-                  <Chip
-                    key={m}
-                    label={moodLabel[m]}
-                    selected={mood === m}
-                    onPress={() => setMood(m)}
-                  />
-                ))}
+                {MOODS.map((m) => {
+                  const on = mood === m;
+                  return (
+                    <SelectTile
+                      key={m}
+                      selected={on}
+                      onPress={() => setMood(m)}
+                      accessibilityLabel={moodLabel[m]}
+                      style={{
+                        flex: 1,
+                        alignItems: "center",
+                        paddingVertical: space.md,
+                        borderRadius: 18,
+                      }}
+                    >
+                      <Text style={{ fontSize: 28, textAlign: "center" }}>{MOOD_FACE[m]}</Text>
+                      <Text
+                        style={[
+                          type.smallStrong,
+                          { color: on ? colors.onAccent : colors.ink, textAlign: "center", marginTop: 4 },
+                        ]}
+                      >
+                        {moodLabel[m]}
+                      </Text>
+                    </SelectTile>
+                  );
+                })}
               </View>
             </View>
 
@@ -174,9 +196,11 @@ export default function CheckinScreen() {
             </View>
 
             <View style={{ gap: space.sm, marginTop: space.lg }}>
-              {/* Save is greyed until a mood is picked — say which tap is missing. */}
+              {/* Save is greyed until a mood is picked — say which tap is missing,
+                  as a quiet hint. It used to be printed in the alert colour on
+                  arrival, which scolded people before they had done anything. */}
               {!mood ? (
-                <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
+                <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>
                   {t.checkin.needMood}
                 </Text>
               ) : null}

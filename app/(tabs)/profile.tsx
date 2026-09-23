@@ -69,6 +69,10 @@ export default function ProfileScreen() {
   // the signpost stays for the rest of the visit rather than blinking away
   // with the error message.
   const [needsSupport, setNeedsSupport] = useState(false);
+  const dirty =
+    name.trim() !== (state.profile.name ?? "").trim() ||
+    goal.trim() !== (state.profile.goalKg ? String(state.profile.goalKg) : "") ||
+    height.trim() !== (state.profile.heightCm ? String(state.profile.heightCm) : "");
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
@@ -193,7 +197,11 @@ export default function ProfileScreen() {
               </Text>
             ) : null}
             {needsSupport ? <SupportSignpost /> : null}
-            <Button label={t.profile.saveAction} onPress={persist} tone="quiet" />
+            {/* Solid when there is something to save, quiet when the fields
+                already match what is stored — so the one button that matters
+                looks like it, and a no-op does not pretend to be the main
+                action on the page. */}
+            <Button label={t.profile.saveAction} onPress={persist} tone={dirty ? "primary" : "quiet"} />
           </View>
         </Card>
 

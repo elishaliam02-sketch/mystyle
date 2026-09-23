@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
+import type { Difficulty } from "@/tasks/difficulty";
 import { Card } from "@/components/Card";
 import { difficultyColor, difficultyLabel, difficultyWash } from "@/components/TaskScan";
 import { fill, useI18n } from "@/i18n";
@@ -27,25 +27,54 @@ const ICON: Record<ChallengeKind, keyof typeof Ionicons.glyphMap> = {
  * they wrote down for themselves.
  *
  * When no level has been chosen (someone who skipped it in the intro, or an
- * install from before the choice existed), the card offers the choice instead
- * of nagging: a dare nobody asked for is just noise.
+ * install from before the choice existed), the card offers the three levels as
+ * buttons instead of nagging: a dare nobody asked for is just noise.
  */
 export function ChallengeCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const router = useRouter();
-  const { todayChallenge, isChallengeDone, toggleChallenge, challengeLevel } = useStore();
+  const { todayChallenge, isChallengeDone, toggleChallenge, challengeLevel, setChallengeLevel } =
+    useStore();
 
   const challenge = todayChallenge();
 
   if (!challenge) {
     if (challengeLevel() !== null) return null;
+    // The choice is made right here. This card used to say "choose a level"
+    // and send the person to Profile to go and find the setting — a prompt
+    // with no control on it reads as broken. Three buttons, one tap, and
+    // today's challenge replaces them.
+    const LEVELS: Difficulty[] = ["easy", "moderate", "hard"];
     return (
-      <Pressable onPress={() => router.push("/profile")} accessibilityRole="button">
-        <Card label={t.challenge.cardLabel}>
-          <Text style={[type.small, { color: colors.inkSoft }]}>{t.challenge.chooseCta}</Text>
-        </Card>
-      </Pressable>
+      <Card label={t.challenge.cardLabel}>
+        <Text style={[type.small, { color: colors.inkSoft }]}>{t.challenge.chooseCta}</Text>
+        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+          {LEVELS.map((level) => {
+            const tone = difficultyColor(colors, level);
+            return (
+              <Pressable
+                key={level}
+                onPress={() => setChallengeLevel(level)}
+                accessibilityRole="button"
+                accessibilityLabel={difficultyLabel(t, level)}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  minHeight: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: radius.pill,
+                  borderWidth: 1.5,
+                  borderColor: tone,
+                  backgroundColor: difficultyWash(colors, level),
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text style={[type.smallStrong, { color: tone }]}>{difficultyLabel(t, level)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
     );
   }
 

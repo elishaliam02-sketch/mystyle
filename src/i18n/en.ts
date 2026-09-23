@@ -966,6 +966,7 @@ export const en: typeof he = {
     subtitle: "Sign in or create an account to continue.",
     checking: "Checking your account…",
     guestGone: "Using APEX needs an account and an active subscription.",
+    createCta: "Create account",
   },
   profile: {
     saveAction: "Save",

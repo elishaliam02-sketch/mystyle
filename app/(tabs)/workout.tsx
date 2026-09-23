@@ -1119,11 +1119,13 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: row.done }}
                 accessibilityLabel={`${name} ${t.workout.setCol} ${i + 1}`}
-                hitSlop={6}
+                hitSlop={8}
                 style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
+                  // Ticked mid-set with a sweaty thumb: 30px was too small a
+                  // target for the one control pressed after every set.
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
                   borderWidth: 2,
                   borderColor: row.done ? metricFill(colors, "sets") : colors.ruleStrong,
                   backgroundColor: row.done ? metricFill(colors, "sets") : "transparent",
@@ -1132,7 +1134,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 }}
               >
                 {row.done ? (
-                  <Text style={{ color: onMetric(colors, "sets"), fontWeight: "900" }}>✓</Text>
+                  <Text style={{ color: onMetric(colors, "sets"), fontWeight: "900", fontSize: 18 }}>✓</Text>
                 ) : null}
               </Pressable>
             </View>

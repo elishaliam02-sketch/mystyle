@@ -979,6 +979,7 @@ export const he = {
     subtitle: "התחבר או צור חשבון כדי להמשיך.",
     checking: "בודק חשבון…",
     guestGone: "השימוש ב־APEX דורש חשבון ומנוי פעיל.",
+    createCta: "צור חשבון",
   },
   profile: {
     saveAction: "שמור",
