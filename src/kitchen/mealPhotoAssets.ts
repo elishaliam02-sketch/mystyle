@@ -6,7 +6,7 @@ import type { ImageSourcePropType } from "react-native";
 export type BundledPhoto = { source: ImageSourcePropType; credit: string | null };
 
 export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
-  "apple-pb": { source: require("../../assets/meals/apple-pb.jpg"), credit: null },
+  "apple-pb": { source: require("../../assets/meals/apple-pb.jpg"), credit: "Junyi Lou · CC BY-SA 4.0" },
   "avocado-egg-toast": { source: require("../../assets/meals/avocado-egg-toast.jpg"), credit: "Sarah Stierch · CC BY 4.0" },
   "bagel-cheese": { source: require("../../assets/meals/bagel-cheese.jpg"), credit: null },
   "baked-potato-cottage": { source: require("../../assets/meals/baked-potato-cottage.jpg"), credit: null },
