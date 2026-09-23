@@ -6,7 +6,7 @@ import type { ImageSourcePropType } from "react-native";
 export type BundledPhoto = { source: ImageSourcePropType; credit: string | null };
 
 export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
-  "apple-pb": { source: require("../../assets/meals/apple-pb.jpg"), credit: "Junyi Lou · CC BY-SA 4.0" },
+  "apple-pb": { source: require("../../assets/meals/apple-pb.jpg"), credit: null },
   "avocado-egg-toast": { source: require("../../assets/meals/avocado-egg-toast.jpg"), credit: "Sarah Stierch · CC BY 4.0" },
   "bagel-cheese": { source: require("../../assets/meals/bagel-cheese.jpg"), credit: null },
   "baked-potato-cottage": { source: require("../../assets/meals/baked-potato-cottage.jpg"), credit: null },
@@ -14,7 +14,7 @@ export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
   "barley-pepper-salad": { source: require("../../assets/meals/barley-pepper-salad.jpg"), credit: "ＫｏＺ · CC BY-SA 4.0" },
   "bean-stew": { source: require("../../assets/meals/bean-stew.jpg"), credit: "Joe Loong · CC BY-SA 2.0" },
   "beef-rice": { source: require("../../assets/meals/beef-rice.jpg"), credit: "Alpha from Melbourne, Australia · CC BY-SA 2.0" },
-  "beef-sweet-potato": { source: require("../../assets/meals/beef-sweet-potato.jpg"), credit: "Peachyeung316 · CC BY-SA 4.0" },
+  "beef-sweet-potato": { source: require("../../assets/meals/beef-sweet-potato.jpg"), credit: null },
   "brussels-egg-bowl": { source: require("../../assets/meals/brussels-egg-bowl.jpg"), credit: "Missvain · CC BY 4.0" },
   "buckwheat-mushroom-egg": { source: require("../../assets/meals/buckwheat-mushroom-egg.jpg"), credit: null },
   "bulgur-veg": { source: require("../../assets/meals/bulgur-veg.jpg"), credit: "Karen and Brad Emerson · CC BY 2.0" },
@@ -61,7 +61,7 @@ export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
   "nuts-banana": { source: require("../../assets/meals/nuts-banana.jpg"), credit: "Alpha · CC BY-SA 2.0" },
   "oatmeal-pb": { source: require("../../assets/meals/oatmeal-pb.jpg"), credit: "UserTwoSix · CC BY-SA 4.0" },
   "omelette-mushroom": { source: require("../../assets/meals/omelette-mushroom.jpg"), credit: "Arnaud 25 · CC BY-SA 3.0" },
-  "omelette-salad": { source: require("../../assets/meals/omelette-salad.jpg"), credit: null },
+  "omelette-salad": { source: require("../../assets/meals/omelette-salad.jpg"), credit: "HaJunkiyada · CC BY-SA 4.0" },
   "overnight-oats-skyr": { source: require("../../assets/meals/overnight-oats-skyr.jpg"), credit: "Original description was: I, VirtualSteve took this photo… · CC BY-SA 2.5" },
   "pasta-veg": { source: require("../../assets/meals/pasta-veg.jpg"), credit: "Jeremy Keith · CC BY 2.0" },
   "pear-cheese": { source: require("../../assets/meals/pear-cheese.jpg"), credit: null },
@@ -98,5 +98,5 @@ export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
   "white-cheese-plate": { source: require("../../assets/meals/white-cheese-plate.jpg"), credit: "HaJunkiyada · CC BY-SA 4.0" },
   "yogurt-berries": { source: require("../../assets/meals/yogurt-berries.jpg"), credit: "E4024 · CC BY-SA 4.0" },
   "yogurt-bowl": { source: require("../../assets/meals/yogurt-bowl.jpg"), credit: "T.Tseng · CC BY 2.0" },
-  "yogurt-kiwi-walnut": { source: require("../../assets/meals/yogurt-kiwi-walnut.jpg"), credit: "dnm · CC BY-SA 3.0" },
+  "yogurt-kiwi-walnut": { source: require("../../assets/meals/yogurt-kiwi-walnut.jpg"), credit: "Saintfevrier · CC BY-SA 3.0" },
 };
