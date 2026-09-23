@@ -84,6 +84,41 @@ export default function WaterScreen() {
           </View>
         </View>
 
+        {/* The glass size lives on the bottle itself. It used to be two taps
+            deep inside "change goal", where nobody found it — and every number
+            on this card (ml drunk, the recommended range in cups) depends on it. */}
+        <View style={{ marginTop: space.md, gap: 6 }}>
+          <Text style={[type.label, { color: ON_HERO_SOFT, textTransform: "uppercase" }]}>
+            {t.water.cupSize}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {CUP_SIZES.map((size) => {
+              const on = ml === size;
+              return (
+                <Pressable
+                  key={size}
+                  onPress={() => setCupMl(size)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={({ pressed }) => ({
+                    paddingVertical: 7,
+                    paddingHorizontal: 12,
+                    borderRadius: radius.pill,
+                    backgroundColor: on ? ON_HERO : "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: on ? ON_HERO : "rgba(255,255,255,0.22)",
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Text style={[type.smallStrong, { color: on ? colors.accent : ON_HERO }]}>
+                    {fill(t.water.cupMl, { ml: size })}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg }}>
           <Pressable
             onPress={() => addWater(-1)}
@@ -154,28 +189,6 @@ export default function WaterScreen() {
 
       {editing ? (
         <Card label={t.water.editGoal}>
-          {/* the size of the glass the person actually drinks from, so a cup
-              means their cup — everything downstream counts in it */}
-          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
-            {t.water.cupSize}
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.xs, marginBottom: space.md }}>
-            {CUP_SIZES.map((size) => {
-              const on = ml === size;
-              return (
-                <SelectTile
-                  key={size}
-                  selected={on}
-                  onPress={() => setCupMl(size)}
-                  style={{ borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14 }}
-                >
-                  <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>
-                    {fill(t.water.cupMl, { ml: size })}
-                  </Text>
-                </SelectTile>
-              );
-            })}
-          </View>
           <Text style={[type.small, { color: colors.inkSoft }]}>
             {fill(t.water.goalRecommended, { min: range.min, max: range.max })}
           </Text>

@@ -9,9 +9,10 @@ import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import {
   addFood, fromAnalysis, label as calcLabel, portions, removeFood, setGrams, step, total,
-  type CalcItem,
+  type CalcItem, type ReadItem,
 } from "@/kitchen/calc";
 import { adhocFood, type FoodTag } from "@/kitchen/data";
+import { foodFromFact, searchFoodFacts, type FactHit } from "@/kitchen/foodfacts";
 import { dailyTarget, searchFoods } from "@/kitchen";
 import { recentMeals } from "@/kitchen/recent";
 import { fill, useI18n } from "@/i18n";
@@ -44,7 +45,7 @@ export default function CalcScreen() {
     try {
       const parsed: unknown = JSON.parse(String(params.items));
       if (!Array.isArray(parsed)) return [];
-      return fromAnalysis(parsed as { label: string; grams?: number }[], locale);
+      return fromAnalysis(parsed as ReadItem[], locale);
     } catch {
       // A malformed parameter is a deep link someone mangled, not a reason to
       // show a broken screen: open the calculator empty and let them type.
@@ -52,6 +53,25 @@ export default function CalcScreen() {
     }
   });
   const [q, setQ] = useState("");
+  // An Open Food Facts lookup for the word in the search box. It only ever
+  // runs from the explicit "search Open Food Facts" button — that press is the
+  // consent for sending the typed word — and belongs to the query it was made
+  // for, so a stale answer never shows under a new word.
+  const [facts, setFacts] = useState<
+    { q: string; phase: "loading" | "done" | "fail"; hits: FactHit[] } | null
+  >(null);
+
+  async function lookUp() {
+    const query = q.trim();
+    if (!query) return;
+    setFacts({ q: query, phase: "loading", hits: [] });
+    const found = await searchFoodFacts(query, locale === "he" ? "he" : "en");
+    setFacts((cur) =>
+      cur && cur.q === query
+        ? { q: query, phase: found === null ? "fail" : "done", hits: found ?? [] }
+        : cur,
+    );
+  }
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -173,6 +193,7 @@ export default function CalcScreen() {
             value={q}
             onChangeText={(v) => {
               setQ(v);
+              setFacts(null);
               if (saved) setSaved(false);
             }}
             placeholder={t.kitchen.calcSearchHint}
@@ -219,8 +240,75 @@ export default function CalcScreen() {
             // the estimate lands in the right ballpark, the way the pantry and
             // the photo path already accept a food the app has never seen.
             <View style={{ gap: 6, marginTop: space.sm }}>
+              {!facts || facts.q !== q.trim() ? (
+                <>
+                  <Pressable
+                    onPress={() => void lookUp()}
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: space.sm,
+                      paddingVertical: 12,
+                      paddingHorizontal: space.md,
+                      borderRadius: radius.md,
+                      backgroundColor: pressed ? colors.accent : colors.accentWash,
+                    })}
+                  >
+                    <Ionicons name="search" size={18} color={colors.accent} />
+                    <Text style={[type.smallStrong, { color: colors.accent, flex: 1 }]}>
+                      {fill(t.kitchen.calcFactsSearch, { q: q.trim() })}
+                    </Text>
+                  </Pressable>
+                  <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.calcFactsNote}</Text>
+                </>
+              ) : facts.phase === "loading" ? (
+                <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.calcFactsLoading}</Text>
+              ) : facts.hits.length > 0 ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={[type.label, { color: colors.inkFaint }]}>{t.kitchen.calcFactsSource}</Text>
+                  {facts.hits.map((hit) => (
+                    <Pressable
+                      key={hit.code}
+                      onPress={() => {
+                        setItems((prev) => addFood(prev, foodFromFact(hit)));
+                        setQ("");
+                        setFacts(null);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={hit.brand ? `${hit.name} · ${hit.brand}` : hit.name}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: space.sm,
+                        paddingVertical: 10,
+                        paddingHorizontal: space.md,
+                        borderRadius: radius.md,
+                        backgroundColor: pressed ? colors.accentWash : colors.surfaceAlt,
+                      })}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[type.body, { color: colors.ink }]} numberOfLines={1}>
+                          {hit.name}
+                          {hit.brand ? (
+                            <Text style={{ color: colors.inkFaint }}>{` · ${hit.brand}`}</Text>
+                          ) : null}
+                        </Text>
+                        <Text style={[type.small, { color: colors.inkSoft }]}>
+                          {fill(t.kitchen.calcFactsPer100, { kcal: hit.per100.kcal })}
+                        </Text>
+                      </View>
+                      <Ionicons name="add-circle" size={22} color={colors.accent} />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
               <Text style={[type.small, { color: colors.inkSoft }]}>
-                {fill(t.kitchen.calcAddUnknown, { q: q.trim() })}
+                {facts && facts.q === q.trim() && facts.phase === "fail"
+                  ? t.kitchen.calcFactsFail
+                  : facts && facts.q === q.trim() && facts.phase === "done" && facts.hits.length === 0
+                    ? t.kitchen.calcFactsNone
+                    : fill(t.kitchen.calcAddUnknown, { q: q.trim() })}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
                 {([
@@ -322,6 +410,11 @@ export default function CalcScreen() {
                         accessibilityLabel={t.kitchen.calcEditGrams}
                         hitSlop={6}
                       >
+                        {item.food.src ? (
+                          <Text style={[type.label, { color: colors.inkFaint }]}>
+                            {item.food.src === "off" ? t.kitchen.calcFactsSource : t.kitchen.calcAiSource}
+                          </Text>
+                        ) : null}
                         <Text style={[type.small, { color: colors.inkFaint }]}>
                           {item.grams} {t.kitchen.calcGrams} ·{" "}
                           {portions(item) === 1

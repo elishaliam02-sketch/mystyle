@@ -10,6 +10,7 @@ import { ProGate, ProRemaining } from "@/components/ProGate";
 import { askServer } from "@/ai/server";
 import { mealLabel, mealPhotoPrompt, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
 import { dailyTarget } from "@/kitchen";
+import { groundAnalysis } from "@/kitchen/calc";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -77,7 +78,11 @@ export function MealScanner() {
         });
         return;
       }
-      const analysis = parseMealAnalysis(answer.text);
+      const read = parseMealAnalysis(answer.text);
+      // The model says what is on the plate and how much; the calories come
+      // from the food table wherever it knows the food, so the number shown,
+      // saved and opened in the calculator is one grounded answer.
+      const analysis = read ? groundAnalysis(read, locale === "he" ? "he" : "en") : null;
       if (!analysis) {
         setPhase({ kind: "failed", reason: "unreadable" });
         return;
@@ -245,7 +250,12 @@ export function MealScanner() {
             icon="create"
             label={t.kitchen.calcFromPhoto}
             onPress={() => {
-              const items = phase.analysis.items.map((i) => ({ label: i.label, grams: i.grams }));
+              const items = phase.analysis.items.map((i) => ({
+                label: i.label,
+                grams: i.grams,
+                kcal: i.kcal,
+                protein: i.protein,
+              }));
               setPhase({ kind: "idle" });
               router.push({ pathname: "/calc", params: { items: JSON.stringify(items) } });
             }}

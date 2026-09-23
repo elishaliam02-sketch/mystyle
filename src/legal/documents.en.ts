@@ -70,6 +70,7 @@ export const en: typeof he = {
           "• Expo (EAS Update) — when the app checks for an update, that server sees an IP address and basic device details.",
           "• YouTube — exercise demo thumbnails load from YouTube's servers, and a demo opens there. Loading or tapping one exposes your IP address to Google.",
           "• Wikimedia (commons.wikimedia.org, upload.wikimedia.org) — the pictures of the suggested meals are real photographs from Wikimedia Commons, looked up by the name of the dish. What is sent is that name, out of the app's own cookbook — for example \"chickpea stew\" — and never anything you wrote, photographed or measured. As with any request to a server, your IP address is exposed. You can switch this off in the profile screen (\"Photos of the meals\"); the app then shows the illustration drawn on the device and makes no request at all.",
+          "• Open Food Facts (world.openfoodfacts.org) — a free, open food database. When a food you type into the calorie calculator is not in the app's own list, you can press \"Search Open Food Facts\" — and only then are the words you typed sent as the search, for example \"Achla hummus\". Nothing else about you is sent, and without that press no request is made. As with any request to a server, your IP address is exposed. The data that comes back is published under the Open Database License.",
           "There is no analytics tool in this app, no advertising SDK, and no advertising identifier. We do not sell or rent information to anyone.",
         ],
       },

@@ -6,13 +6,14 @@
  * for free, and for anyone, which is the difference between a feature the app
  * has and a feature the app can use today.
  *
- * It shares the food library and the same per-category estimates the rest of
- * the kitchen already works from, so a portion counted here and the same
- * portion counted in a suggested meal come to the same number. Every figure is
- * an estimate and the screen says so; the point is a total that moves in the
- * right direction when you eat more, not a laboratory measurement.
+ * It shares the food library and its per-food nutrition table (./nutrition.ts,
+ * USDA figures per 100 g) with the rest of the kitchen, so a portion counted
+ * here and the same portion counted in a suggested meal come to the same
+ * number. The arithmetic is exact; what is only as good as the person's eye is
+ * the weight, which is why every row can be set to the gram.
  */
-import { CATEGORY_NUTRITION, FOODS, adhocFood, portion, type Food } from "./data";
+import type { MealAnalysis } from "@/ai/nutrition";
+import { FOODS, adhocFood, per100For, portion, type Food } from "./data";
 
 /** One thing on the plate: a food, and how many grams of it. */
 export type CalcItem = { food: Food; grams: number };
@@ -39,8 +40,7 @@ export function stepFor(food: Food): number {
 
 /** What a given weight of one food comes to. */
 export function itemNutrition(item: CalcItem): Totals {
-  const tag = item.food.tags[0] ?? "carb";
-  const per100 = CATEGORY_NUTRITION[tag] ?? CATEGORY_NUTRITION.carb;
+  const per100 = per100For(item.food);
   const g = clampGrams(item.grams);
   return {
     kcal: Math.round((per100.kcal * g) / 100),
@@ -54,8 +54,7 @@ export function total(items: CalcItem[]): Totals {
   let kcal = 0;
   let protein = 0;
   for (const item of items) {
-    const tag = item.food.tags[0] ?? "carb";
-    const per100 = CATEGORY_NUTRITION[tag] ?? CATEGORY_NUTRITION.carb;
+    const per100 = per100For(item.food);
     const g = clampGrams(item.grams);
     kcal += (per100.kcal * g) / 100;
     protein += (per100.protein * g) / 100;
@@ -124,27 +123,69 @@ export function label(items: CalcItem[], locale: "he" | "en"): string {
     : `${names.slice(0, 2).join(", ")} +${rest}`;
 }
 
+/** One item as the photo reader returned it. `kcal` and `protein` are the
+ * model's own figures for the whole portion; they are used only for a food the
+ * library does not know. */
+export type ReadItem = { label: string; grams?: number; kcal?: number; protein?: number };
+
+/** Nothing edible is denser than pure fat; a per-100 g figure above this is a
+ * misread, not a food. */
+const MAX_KCAL_PER_100 = 900;
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * An item the library does not know, priced by the model's own reading of it:
+ * its calories and protein for the portion it saw, turned into per-100 g so the
+ * person can change the weight and the numbers follow.
+ */
+export function aiFood(label: string, grams: number, kcal: number, protein: number): Food {
+  const base = adhocFood(label);
+  const g = Math.max(1, grams);
+  return {
+    ...base,
+    id: `x:ai:${label}`,
+    n: {
+      kcal: round1(Math.min(MAX_KCAL_PER_100, Math.max(0, (kcal * 100) / g))),
+      protein: round1(Math.min(100, Math.max(0, (protein * 100) / g))),
+      carbs: 0,
+      fat: 0,
+    },
+    src: "ai",
+  };
+}
+
 /**
  * Turning what the AI read off a photograph into rows this screen can edit.
  *
- * The model returns names and its own calorie guesses; we keep the names and
- * recompute from our own table, so a photograph and a hand-typed meal of the
- * same food never disagree — and a model that hallucinates a 5,000-calorie
- * salad cannot write that number into the diary. A name we do not recognise
- * still becomes a row, so nothing the person photographed silently vanishes.
+ * The model is good at WHAT is on the plate and at roughly HOW MUCH; it is not
+ * a nutrition database. So a food it names that the library knows by that exact
+ * name is priced from the library's per-food table (USDA per 100 g × the
+ * weight) — a photograph and a hand-typed meal of the same food never disagree,
+ * and a hallucinated 5,000-calorie salad cannot reach the diary. A food the
+ * library does not know keeps the model's own estimate for it (a dish like
+ * shakshuka is better guessed by a model that saw it than by a category
+ * average). Only a partial-word match — "salad with avocado" containing
+ * "avocado" — is NOT trusted to reprice a whole plate item, because pricing a
+ * 250 g salad as 250 g of avocado is exactly the error this exists to stop.
  */
-export function fromAnalysis(
-  read: { label: string; grams?: number }[],
-  locale: "he" | "en",
-): CalcItem[] {
+export function fromAnalysis(read: ReadItem[], locale: "he" | "en"): CalcItem[] {
   const out: CalcItem[] = [];
   for (const entry of read) {
     const name = (entry.label ?? "").trim();
     if (!name) continue;
     if (out.length >= MAX_ITEMS) break;
-    const found = matchFood(name, locale);
-    const food = found ?? adhocFood(name);
-    const grams = clampGrams(entry.grams && entry.grams > 0 ? entry.grams : stepFor(food));
+    const seenGrams = entry.grams && entry.grams > 0 ? entry.grams : 0;
+    const exact = matchFood(name, locale, { exactOnly: true });
+    let food: Food;
+    if (exact) {
+      food = exact;
+    } else if (seenGrams > 0 && typeof entry.kcal === "number" && Number.isFinite(entry.kcal)) {
+      food = aiFood(name, seenGrams, entry.kcal, entry.protein ?? 0);
+    } else {
+      food = matchFood(name, locale) ?? adhocFood(name);
+    }
+    const grams = clampGrams(seenGrams > 0 ? seenGrams : stepFor(food));
     if (grams < MIN_GRAMS) continue;
     const at = out.findIndex((i) => i.food.id === food.id);
     if (at === -1) out.push({ food, grams });
@@ -153,9 +194,33 @@ export function fromAnalysis(
   return out;
 }
 
+/**
+ * The photo reading, re-priced. What the scanner shows, what "save" logs, and
+ * what the calculator opens with are all this one answer, so the three can
+ * never show different numbers for the same plate.
+ */
+export function groundAnalysis(analysis: MealAnalysis, locale: "he" | "en"): MealAnalysis {
+  const rows = fromAnalysis(analysis.items, locale);
+  const items = rows.map((row) => {
+    const n = itemNutrition(row);
+    return {
+      label: locale === "he" ? row.food.he : row.food.en,
+      grams: row.grams,
+      kcal: n.kcal,
+      protein: n.protein,
+    };
+  });
+  const sums = total(rows);
+  return { items, kcal: sums.kcal, protein: sums.protein, confidence: analysis.confidence };
+}
+
 /** The food a written name refers to, or null. Exact names first, then the
  * search terms, so "עוף" finds chicken and "chicken breast" finds it too. */
-export function matchFood(name: string, locale: "he" | "en"): Food | null {
+export function matchFood(
+  name: string,
+  locale: "he" | "en",
+  opts: { exactOnly?: boolean } = {},
+): Food | null {
   const q = name.trim().toLowerCase();
   if (!q) return null;
   for (const food of FOODS) {
@@ -164,6 +229,7 @@ export function matchFood(name: string, locale: "he" | "en"): Food | null {
   for (const food of FOODS) {
     if (food.match.some((m) => m.toLowerCase() === q)) return food;
   }
+  if (opts.exactOnly) return null;
   // A last pass on containment, so "grilled chicken breast" still lands on
   // chicken rather than becoming an unknown.
   let best: { food: Food; len: number } | null = null;

@@ -15,10 +15,12 @@ const oil = FOODS.find((f) => f.tags[0] === "fat")!;
 {
   const one: CalcItem = { food: egg, grams: 100 };
   const n = itemNutrition(one);
-  check("100 g of a protein food is its per-100 figure", n.kcal === 165 && n.protein === 22,
+  // Eggs are 143 kcal and 12.6 g protein per 100 g (USDA) — their own row in
+  // the nutrition table, no longer the protein category's 165/22.
+  check("100 g of a protein food is its per-100 figure", n.kcal === 143 && n.protein === 13,
     JSON.stringify(n));
   check("half the weight is half the calories",
-    itemNutrition({ food: egg, grams: 50 }).kcal === 83,
+    itemNutrition({ food: egg, grams: 50 }).kcal === 72,
     String(itemNutrition({ food: egg, grams: 50 }).kcal));
   check("zero grams is zero calories", itemNutrition({ food: egg, grams: 0 }).kcal === 0);
 
@@ -44,7 +46,7 @@ const oil = FOODS.find((f) => f.tags[0] === "fat")!;
   }
   check("a typo'd weight is capped", clampGrams(999999) === MAX_GRAMS, String(clampGrams(999999)));
   check("and the cap holds through the arithmetic",
-    itemNutrition({ food: oil, grams: 999999 }).kcal === Math.round((600 * MAX_GRAMS) / 100));
+    itemNutrition({ food: oil, grams: 999999 }).kcal === Math.round((884 * MAX_GRAMS) / 100));
   check("a fractional weight is rounded, not carried", clampGrams(10.6) === 11);
   check("NaN grams is zero, never NaN", clampGrams(NaN) === 0);
   const poisoned = total([{ food: egg, grams: NaN as number }, { food: rice, grams: 100 }]);

@@ -19,6 +19,8 @@
  * generated image.
  */
 
+import { NUTRITION, type Per100 } from "./nutrition";
+
 export type FoodTag = "protein" | "carb" | "veg" | "fruit" | "fat" | "dairy";
 
 /** The primitive the illustrator draws this food as. */
@@ -33,6 +35,14 @@ export type Food = {
   match: string[];
   shape: Shape;
   color: string;
+  /** Per-100 g nutrition carried by the food itself — set for a food that is
+   * not in the library but whose values are known anyway (a product found in
+   * Open Food Facts, an item the photo reader recognised). Library foods leave
+   * it unset and are read from the NUTRITION table. */
+  n?: Per100;
+  /** Where `n` came from, so the screen can say "from Open Food Facts" or
+   * "AI estimate" instead of presenting every number with the same authority. */
+  src?: "off" | "ai";
 };
 
 const F = (
@@ -781,11 +791,11 @@ export function portion(foodId: string): Portion {
 }
 
 /**
- * Rough nutrition per 100 g by food category. This is the free workaround for
- * "recognise any food without an API": we cannot know the exact calories of a
- * word we have never seen, but we can place it in a category and estimate from
- * there. Real per-food data would be better; these are honest ballparks, and
- * the UI labels every figure built from them as an estimate.
+ * Rough nutrition per 100 g by food category — now only the LAST resort, for a
+ * word nobody knows anything about (not in the library, not in Open Food Facts,
+ * not read off a photo). Every library food has real per-food figures in
+ * ./nutrition.ts; this table used to stand in for all of them, which is how
+ * avocado counted as 600 kcal/100g.
  */
 export const CATEGORY_NUTRITION: Record<FoodTag, { kcal: number; protein: number }> = {
   protein: { kcal: 165, protein: 22 },
@@ -796,10 +806,26 @@ export const CATEGORY_NUTRITION: Record<FoodTag, { kcal: number; protein: number
   fat: { kcal: 600, protein: 3 },
 };
 
-/** Estimated calories and protein for one portion of a food. */
+export type NutritionSource = "food" | "table" | "category";
+
+/**
+ * A food's nutrition per 100 g, and where the figure came from. In order of
+ * trust: values the food carries itself (a looked-up product, a photo read),
+ * the library's per-food table, and only then the category ballpark.
+ */
+export function per100For(food: Food): Per100 & { source: NutritionSource } {
+  if (food.n) return { ...food.n, source: "food" };
+  const row = NUTRITION[food.id];
+  if (row) {
+    return { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat, source: "table" };
+  }
+  const c = CATEGORY_NUTRITION[food.tags[0] ?? "carb"] ?? CATEGORY_NUTRITION.carb;
+  return { kcal: c.kcal, protein: c.protein, carbs: 0, fat: 0, source: "category" };
+}
+
+/** Calories and protein for one standard portion of a food. */
 export function foodNutrition(food: Food): { kcal: number; protein: number } {
-  const tag = food.tags[0] ?? "carb";
-  const d = CATEGORY_NUTRITION[tag];
+  const d = per100For(food);
   const g = portion(food.id).g;
   return { kcal: Math.round((d.kcal * g) / 100), protein: Math.round((d.protein * g) / 100) };
 }

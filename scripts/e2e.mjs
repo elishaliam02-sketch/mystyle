@@ -761,19 +761,20 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
 
   const readTotal = async () => Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
   const t1 = await readTotal();
-  check("a portion of eggs is its per-100 figure", t1 === 165, String(t1));
+  // eggs: 143 kcal per 100 g (USDA), their own nutrition row
+  check("a portion of eggs is its per-100 figure", t1 === 143, String(t1));
   await cp.getByLabel("עוד מנה").first().click(); await cp.waitForTimeout(600);
   const t2 = await readTotal();
-  check("one more portion doubles it exactly", t2 === 330, `${t1} -> ${t2}`);
+  check("one more portion doubles it exactly", t2 === 286, `${t1} -> ${t2}`);
   await cp.getByLabel("פחות מנה").first().click(); await cp.waitForTimeout(600);
-  check("and stepping back down returns to where it was", (await readTotal()) === 165);
+  check("and stepping back down returns to where it was", (await readTotal()) === 143);
 
   await cp.getByRole("button",{name:/רשום ליומן/}).first().click(); await cp.waitForTimeout(1200);
   { const s2 = JSON.parse(await cp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
     const rows = Object.values(s2.intake ?? {}).flat();
     check("logging it writes exactly one diary row", rows.length === 1, JSON.stringify(rows));
     check("with the calories the screen showed",
-      rows[0]?.kcal === 165, JSON.stringify(rows[0]));
+      rows[0]?.kcal === 143, JSON.stringify(rows[0]));
     check("and named after what was on the plate",
       String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
   // a food outside the ~130-item library — pizza — must still be loggable
