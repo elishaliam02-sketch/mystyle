@@ -625,6 +625,8 @@ export const he = {
     calcSave: "רשום ליומן",
     calcSaved: "נרשם ליומן ✓",
     calcTotal: "סך הכול",
+    calcMacros: "פחמימות {carbs} גרם · שומן {fat} גרם",
+    calcMacrosPartial: "בלי פריטים מהתמונה",
     calcFactsSearch: "חפש \"{q}\" במאגר המזון Open Food Facts",
     calcFactsNote: "נשלח רק שם המאכל שכתבת — שום דבר עליך.",
     calcFactsLoading: "מחפש במאגר…",

@@ -414,6 +414,10 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a partial word still matches", searchFoods("עגבנ").some((f) => f.id === "tomato"));
   check("an exact name ranks first", searchFoods("ביצים")[0]?.id === "egg", searchFoods("ביצים")[0]?.id);
   check("nonsense finds nothing", searchFoods("קשקושבלבל").length === 0);
+  check("a food named inside a longer query is found", searchFoods("חומוס אחלה").some((f) => f.id === "hummusSpread" || f.id === "chickpeas"), JSON.stringify(searchFoods("חומוס אחלה").map((f) => f.id)));
+  check("…in English too", searchFoods("grilled chicken breast").some((f) => f.tags.includes("protein")));
+  check("a leading ו is read past", searchFoods("ביצה ופיתה").some((f) => f.id === "pita"), JSON.stringify(searchFoods("ביצה ופיתה").map((f) => f.id)));
+  check("a two-word nonsense query still finds nothing", searchFoods("קשקוש בלבל").length === 0);
   check("results are capped", searchFoods("a", 5).length <= 5);
   check("no duplicate foods in results", (() => {
     const r = searchFoods("ג");

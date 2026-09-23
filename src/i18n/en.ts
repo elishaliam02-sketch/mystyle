@@ -612,6 +612,8 @@ export const en: typeof he = {
     calcSave: "Log it",
     calcSaved: "Logged ✓",
     calcTotal: "Total",
+    calcMacros: "Carbs {carbs} g · Fat {fat} g",
+    calcMacrosPartial: "photo items not included",
     calcFactsSearch: "Search Open Food Facts for \"{q}\"",
     calcFactsNote: "Only the food name you typed is sent — nothing about you.",
     calcFactsLoading: "Searching the database…",

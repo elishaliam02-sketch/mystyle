@@ -254,6 +254,18 @@ export function dietOk(meal: Meal, diet: Diet): boolean {
   return !(hasMeat && hasDairy);
 }
 
+/** The words of a query, each also without a leading Hebrew "and"/"the"
+ * (ו / ה), so "ופיתה" and "הביצה" are read as "פיתה" and "ביצה". */
+function queryWords(q: string): string[] {
+  const out: string[] = [];
+  for (const w of q.split(/[\s,.;:!?()\-\/+&]+/)) {
+    if (!w) continue;
+    out.push(w);
+    if (w.length > 3 && /^[וה]/.test(w)) out.push(w.slice(1));
+  }
+  return out;
+}
+
 /**
  * Free-text search across the food library, for logging what you actually ate
  * rather than only the curated dishes. Matches any of a food's names, ranks an
@@ -277,6 +289,20 @@ export function searchFoods(query: string, limit = 12): Food[] {
       if (score > best) best = score;
     }
     if (best > 0) scored.push({ food, score: best });
+  }
+  // Nothing held the whole query: look for a food named INSIDE it, so "חומוס
+  // אחלה" or "chicken breast grilled" still finds hummus and chicken instead of
+  // an empty list. Only whole words count here — a mid-word fragment of a long
+  // query is noise, not a match.
+  if (scored.length === 0) {
+    const words = ` ${queryWords(q).join(" ")} `;
+    for (const food of FOODS) {
+      const hit = [food.he, food.en, ...food.match].some((term) => {
+        const t = term.toLowerCase();
+        return t.length >= 2 && words.includes(` ${t} `);
+      });
+      if (hit) scored.push({ food, score: 0.5 });
+    }
   }
   return scored
     .sort((a, b) => b.score - a.score || a.food.he.localeCompare(b.food.he))

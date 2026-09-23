@@ -96,7 +96,7 @@ export default function NewHabit() {
               {/* The same line onboarding shows: a greyed-out Save with no reason
                   beside it reads as broken rather than as waiting on the field. */}
               {!title.trim() ? (
-                <Text style={[type.small, { color: colors.alert, textAlign: "center" }]}>
+                <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>
                   {t.onboarding.step3NeedOne}
                 </Text>
               ) : null}

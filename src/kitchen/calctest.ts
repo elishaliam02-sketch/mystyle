@@ -1,6 +1,6 @@
 import {
   addFood, clampGrams, fromAnalysis, itemNutrition, label, matchFood, MAX_GRAMS, MAX_ITEMS,
-  portions, removeFood, setGrams, step, stepFor, total, type CalcItem,
+  aiFood, macros, portions, removeFood, setGrams, step, stepFor, total, type CalcItem,
 } from "./calc";
 import { FOODS, adhocFood, portion } from "./data";
 
@@ -165,6 +165,20 @@ const oil = FOODS.find((f) => f.tags[0] === "fat")!;
     bad.map((f) => f.id).join(", "));
   check("every food has a step of at least one gram", FOODS.every((f) => stepFor(f) >= 1));
   check("no two foods share an id", new Set(FOODS.map((f) => f.id)).size === FOODS.length);
+}
+
+// Carbs and fat: only from foods whose split is known.
+{
+  check("an empty plate has no macro split", macros([]) === null);
+  const m = macros([{ food: egg, grams: 100 }]);
+  check("100 g of egg has its real fat (~9.5 g)", m !== null && m.fat >= 9 && m.fat <= 11 && !m.partial, JSON.stringify(m));
+  const ai = aiFood("mystery stew", 300, 450, 20);
+  check("a photo-only food has no split", macros([{ food: ai, grams: 300 }]) === null);
+  const mixed = macros([{ food: egg, grams: 100 }, { food: ai, grams: 300 }]);
+  check("a plate with a photo-only food is marked partial", mixed !== null && mixed.partial, JSON.stringify(mixed));
+  check("…and its fat is the egg's alone", mixed !== null && m !== null && mixed.fat === m.fat);
+  const bad = macros([{ food: egg, grams: NaN as number }]);
+  check("a NaN weight is zero, not NaN", bad !== null && bad.carbs === 0 && bad.fat === 0);
 }
 
 const failed = results.filter(([, ok]) => !ok);

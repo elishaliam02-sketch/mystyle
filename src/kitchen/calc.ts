@@ -62,6 +62,30 @@ export function total(items: CalcItem[]): Totals {
   return { kcal: Math.round(kcal), protein: Math.round(protein) };
 }
 
+/** Carbs and fat for the plate, from the foods whose split is actually known:
+ * library foods (USDA table) and products found on Open Food Facts. A food
+ * priced only by calories — the AI's reading of a photo, or a category guess —
+ * has no honest split, so it is left out and `partial` says so rather than
+ * counting it as zero. Null when nothing on the plate has a known split. */
+export type Macros = { carbs: number; fat: number; partial: boolean };
+
+export function macros(items: CalcItem[]): Macros | null {
+  let carbs = 0;
+  let fat = 0;
+  let known = 0;
+  for (const item of items) {
+    const per100 = per100For(item.food);
+    const trusted = per100.source === "table" || (per100.source === "food" && item.food.src === "off");
+    if (!trusted) continue;
+    const g = clampGrams(item.grams);
+    carbs += (per100.carbs * g) / 100;
+    fat += (per100.fat * g) / 100;
+    known++;
+  }
+  if (known === 0) return null;
+  return { carbs: Math.round(carbs), fat: Math.round(fat), partial: known < items.length };
+}
+
 /** Add a food, or add to it if it is already on the plate — a second tap on
  * "egg" means two eggs, not two rows both called egg. */
 export function addFood(items: CalcItem[], food: Food): CalcItem[] {

@@ -8,7 +8,7 @@ import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import {
-  addFood, fromAnalysis, label as calcLabel, portions, removeFood, setGrams, step, total,
+  addFood, fromAnalysis, label as calcLabel, macros, portions, removeFood, setGrams, step, total,
   type CalcItem, type ReadItem,
 } from "@/kitchen/calc";
 import { adhocFood, type FoodTag } from "@/kitchen/data";
@@ -76,7 +76,14 @@ export default function CalcScreen() {
   const [editing, setEditing] = useState<string | null>(null);
 
   const hits = useMemo(() => (q.trim() ? searchFoods(q, 8) : []), [q]);
+  // Whether a hit holds the whole query. When the only hits are foods named
+  // inside it (a brand, a dish), the product lookup stays on offer.
+  const direct = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return hits.some((f) => [f.he, f.en, ...f.match].some((term) => term.toLowerCase().includes(needle)));
+  }, [hits, q]);
   const sums = total(items);
+  const split = macros(items);
 
   const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
   const target = dailyTarget(weightKg, goalOf());
@@ -138,6 +145,12 @@ export default function CalcScreen() {
               {t.kitchen.grams} {t.kitchen.protein}
             </Text>
           </View>
+          {split ? (
+            <Text style={[type.small, { color: ON_HERO_SOFT }]}>
+              {fill(t.kitchen.calcMacros, { carbs: split.carbs, fat: split.fat })}
+              {split.partial ? ` (${t.kitchen.calcMacrosPartial})` : ""}
+            </Text>
+          ) : null}
           <Text style={[type.small, { color: ON_HERO_SOFT }]}>
             {leftAfter >= 0
               ? `${t.kitchen.remaining}: ${leftAfter} ${t.kitchen.kcal}`
@@ -234,7 +247,8 @@ export default function CalcScreen() {
                 </Pressable>
               ))}
             </View>
-          ) : q.trim().length > 0 ? (
+          ) : null}
+          {q.trim().length > 0 && !direct ? (
             // The library is ~130 foods; a plate is not. When nothing matches,
             // the typed word is still loggable — pick the closest category so
             // the estimate lands in the right ballpark, the way the pantry and
@@ -303,43 +317,50 @@ export default function CalcScreen() {
                   ))}
                 </View>
               ) : null}
-              <Text style={[type.small, { color: colors.inkSoft }]}>
-                {facts && facts.q === q.trim() && facts.phase === "fail"
-                  ? t.kitchen.calcFactsFail
-                  : facts && facts.q === q.trim() && facts.phase === "done" && facts.hits.length === 0
-                    ? t.kitchen.calcFactsNone
-                    : fill(t.kitchen.calcAddUnknown, { q: q.trim() })}
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                {([
-                  ["protein", t.kitchen.calcCatProtein],
-                  ["carb", t.kitchen.calcCatCarb],
-                  ["veg", t.kitchen.calcCatVeg],
-                  ["fat", t.kitchen.calcCatFat],
-                ] as [FoodTag, string][]).map(([tag, label]) => (
-                  <Pressable
-                    key={tag}
-                    onPress={() => {
-                      setItems((prev) => addFood(prev, adhocFood(q.trim().slice(0, 40), tag)));
-                      setQ("");
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${q.trim()} · ${label}`}
-                    style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 4,
-                      paddingVertical: 8,
-                      paddingHorizontal: 14,
-                      borderRadius: radius.pill,
-                      backgroundColor: pressed ? colors.accent : colors.accentWash,
-                    })}
-                  >
-                    <Ionicons name="add" size={15} color={colors.accent} />
-                    <Text style={[type.smallStrong, { color: colors.accent }]}>{label}</Text>
-                  </Pressable>
-                ))}
-              </View>
+              {/* Library foods were found inside a longer query ("חומוס אחלה"):
+                  the search above is offered for the exact product, but the
+                  add-by-type fallback would only be noise under real matches. */}
+              {hits.length === 0 ? (
+                <>
+                  <Text style={[type.small, { color: colors.inkSoft }]}>
+                    {facts && facts.q === q.trim() && facts.phase === "fail"
+                      ? t.kitchen.calcFactsFail
+                      : facts && facts.q === q.trim() && facts.phase === "done" && facts.hits.length === 0
+                        ? t.kitchen.calcFactsNone
+                        : fill(t.kitchen.calcAddUnknown, { q: q.trim() })}
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                    {([
+                      ["protein", t.kitchen.calcCatProtein],
+                      ["carb", t.kitchen.calcCatCarb],
+                      ["veg", t.kitchen.calcCatVeg],
+                      ["fat", t.kitchen.calcCatFat],
+                    ] as [FoodTag, string][]).map(([tag, label]) => (
+                      <Pressable
+                        key={tag}
+                        onPress={() => {
+                          setItems((prev) => addFood(prev, adhocFood(q.trim().slice(0, 40), tag)));
+                          setQ("");
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${q.trim()} · ${label}`}
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          borderRadius: radius.pill,
+                          backgroundColor: pressed ? colors.accent : colors.accentWash,
+                        })}
+                      >
+                        <Ionicons name="add" size={15} color={colors.accent} />
+                        <Text style={[type.smallStrong, { color: colors.accent }]}>{label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
             </View>
           ) : null}
         </Card>
