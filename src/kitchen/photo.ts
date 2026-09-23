@@ -31,6 +31,19 @@ import { FOODS, type Food, type Meal } from "./data";
  */
 export const PHOTO_HOSTS = ["commons.wikimedia.org", "upload.wikimedia.org"] as const;
 
+/**
+ * Wikimedia refuses clients that do not say who they are, and on a phone the
+ * default is a bare "okhttp/…" — so there every search, and every thumbnail,
+ * came back 403 and the card kept its drawing. A browser sends its own agent
+ * and may not override it (setting one there would also force a CORS
+ * preflight), so the header is only added off the web.
+ */
+export const PHOTO_USER_AGENT = "APEX-app/1.0 (https://github.com/elishaliam02-sketch/mystyle)";
+const IS_NATIVE = typeof navigator !== "undefined" && navigator.product === "ReactNative";
+export const NATIVE_HEADERS: Record<string, string> | undefined = IS_NATIVE
+  ? { "User-Agent": PHOTO_USER_AGENT }
+  : undefined;
+
 /** Commons' API endpoint. `origin=*` is what makes it work on web too. */
 const API = `https://${PHOTO_HOSTS[0]}/w/api.php`;
 
@@ -194,13 +207,16 @@ export function creditFor(info: CommonsImage): string | null | undefined {
  * a tall one loses its top and bottom to it. The first hit we can both use and
  * credit wins; one we cannot credit is passed over, not shown bare.
  */
-export function pickPhoto(pages: CommonsPage[]): Photo | null {
+export function pickPhoto(pages: CommonsPage[], exclude?: ReadonlySet<string>): Photo | null {
   const usable = pages
     .filter((p) => isPhoto(p))
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0) - landscapeBonus(a) + landscapeBonus(b));
   for (const page of usable) {
     const info = page.imageinfo?.[0];
     if (!info?.thumburl) continue;
+    // Taken by another dish already: two different meals wearing one photo
+    // reads as a stock image, not as the food on the card.
+    if (exclude?.has(info.thumburl)) continue;
     const credit = creditFor(info);
     if (credit === undefined) continue; // cannot be credited, so cannot be used
     return { url: info.thumburl, credit };
@@ -421,7 +437,10 @@ async function searchNow(query: string, width: number): Promise<CommonsPage[]> {
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(commonsSearchUrl(query, width), { signal: stop.signal });
+    const res = await fetch(commonsSearchUrl(query, width), {
+      signal: stop.signal,
+      headers: NATIVE_HEADERS,
+    });
     if (!res.ok) return [];
     const body = (await res.json()) as { query?: { pages?: CommonsPage[] } };
     // formatversion=2 makes pages an array; a search with no hits omits it.
@@ -431,4 +450,53 @@ async function searchNow(query: string, width: number): Promise<CommonsPage[]> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Which bundled photograph a meal should wear.
+ *
+ * A library dish wears its own. A dish with no photo of its own — "your plate",
+ * built from whatever is in the fridge — wears the photo of the library dish
+ * that shares the most of its ingredients, so the picture follows the plate as
+ * it changes: chicken, rice and tomato look like chicken with rice, and swap
+ * the chicken for salmon and the photo turns to salmon too.
+ *
+ * Overlap has to be real: at least two shared ingredients (or the only one a
+ * one-ingredient plate has), and the lead ingredient breaks ties, so tomato
+ * alone never dresses a chicken plate as a salad. Null means no dish is close
+ * enough, and the card falls back to searching or to its drawing.
+ */
+export function closestBundled(
+  meal: Pick<Meal, "id" | "uses">,
+  meals: readonly Pick<Meal, "id" | "uses">[],
+  bundled: ReadonlySet<string>,
+): string | null {
+  if (bundled.has(meal.id)) return meal.id;
+  const uses = new Set(meal.uses);
+  if (uses.size === 0) return null;
+  const lead = meal.uses[0];
+  const need = Math.min(2, uses.size);
+  let best: { id: string; shared: number; lead: number; extra: number } | null = null;
+  for (const other of meals) {
+    if (!bundled.has(other.id)) continue;
+    let shared = 0;
+    for (const id of other.uses) if (uses.has(id)) shared++;
+    if (shared < need) continue;
+    const cand = {
+      id: other.id,
+      shared,
+      lead: other.uses.includes(lead) ? 1 : 0,
+      // ingredients the photo shows that the plate does not have
+      extra: other.uses.length - shared,
+    };
+    if (
+      !best ||
+      cand.shared > best.shared ||
+      (cand.shared === best.shared && cand.lead > best.lead) ||
+      (cand.shared === best.shared && cand.lead === best.lead && cand.extra < best.extra)
+    ) {
+      best = cand;
+    }
+  }
+  return best?.id ?? null;
 }

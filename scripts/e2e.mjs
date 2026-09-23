@@ -932,6 +932,29 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await ectx.close();
 }
 
+// --- The app guide: a question in, the answer and a button to the screen out.
+{
+  const hctx = await browser.newContext({ viewport:{width:412,height:915}, colorScheme:"light" });
+  await hctx.route("**://cdn.jsdelivr.net/**", r=>r.abort());
+  await hctx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify(seed));
+  const hp = await hctx.newPage();
+  const herr=[]; hp.on("pageerror",e=>herr.push(String(e).slice(0,140)));
+  await hp.goto(`http://localhost:${PORT}/help`,{waitUntil:"load"});
+  await hp.waitForTimeout(1600);
+  const box = hp.getByPlaceholder("איך עושים…?").first();
+  check("the guide opens with a question box", await box.isVisible().catch(()=>false));
+  await box.fill("איפה רושמים משקל");
+  await box.press("Enter");
+  await hp.waitForTimeout(500);
+  check("it answers where the weigh-in is", /בלשונית "התקדמות"/.test(await hp.locator("body").innerText()));
+  await hp.getByText("קח אותי לשם").first().click();
+  await hp.waitForTimeout(1200);
+  check("and its button opens that screen", /\/progress$/.test(hp.url()), hp.url());
+  check("the guide raises no page errors", herr.length===0, herr.join(" | "));
+  await hctx.close();
+}
+
 await browser.close(); server.close();
 report();
 

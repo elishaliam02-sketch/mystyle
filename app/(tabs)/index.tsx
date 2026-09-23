@@ -1,3 +1,4 @@
+import { HelpEntry } from "@/components/HelpEntry";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
@@ -493,6 +494,8 @@ export default function TodayScreen() {
           </View>
         </Card>
       </Pressable>
+
+      <HelpEntry />
 
       <TipOfTheDay />
 

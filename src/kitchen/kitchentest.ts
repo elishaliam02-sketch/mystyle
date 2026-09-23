@@ -3,7 +3,7 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
+import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, closestBundled, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
 import type { CommonsPage } from "./index";
 import type { Meal } from "./data";
 import { MEALS, FOODS, adhocFood, foodNutrition, portion } from "./data";
@@ -192,6 +192,8 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 
   check("a plain photograph is taken", pickPhoto([page({})])?.url === "https://upload.wikimedia.org/x.jpg");
   check("nothing at all yields null", pickPhoto([]) === null);
+  check("a photo another dish has is passed over",
+    pickPhoto([page({})], new Set(["https://upload.wikimedia.org/x.jpg"])) === null);
   check("a diagram (png) is rejected", pickPhoto([page({ info: { mime: "image/png" } })]) === null);
   check("an svg is rejected", pickPhoto([page({ info: { mime: "image/svg+xml" } })]) === null);
   check("a too-small image is rejected", pickPhoto([page({ info: { width: 120 } })]) === null);
@@ -671,6 +673,27 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     const rows = suggestMeals(list, { goal: "bulk", slot: "dinner", seed: "x" }).ready;
     return rows.every((m) => m.missing.length === 0);
   })());
+}
+
+// Which bundled photo a meal wears.
+{
+  const lib = [
+    { id: "chicken-rice", uses: ["chickenBreast", "rice", "broccoli"] },
+    { id: "salmon-rice", uses: ["salmon", "rice"] },
+    { id: "greek-salad", uses: ["tomato", "cucumber", "feta"] },
+    { id: "no-photo", uses: ["chickenBreast", "rice", "tomato"] },
+  ];
+  const have = new Set(["chicken-rice", "salmon-rice", "greek-salad"]);
+  check("a dish with its own photo wears it", closestBundled(lib[0]!, lib, have) === "chicken-rice");
+  check("a fridge plate wears the closest dish",
+    closestBundled({ id: "your-plate", uses: ["chickenBreast", "rice", "tomato"] }, lib, have) === "chicken-rice");
+  check("…and the photo follows when the lead ingredient changes",
+    closestBundled({ id: "your-plate", uses: ["salmon", "rice", "tomato"] }, lib, have) === "salmon-rice");
+  check("one shared ingredient is not enough",
+    closestBundled({ id: "your-plate", uses: ["tomato", "egg"] }, lib, have) === null);
+  check("a dish without a bundled photo is never chosen",
+    closestBundled({ id: "x", uses: ["chickenBreast", "rice", "tomato"] }, lib, new Set(["no-photo-x"])) === null);
+  check("an empty plate has no photo", closestBundled({ id: "x", uses: [] }, lib, have) === null);
 }
 
 const failed = results.filter(([, ok]) => !ok);

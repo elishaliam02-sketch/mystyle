@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { BrandLogo } from "@/components/BrandLogo";
+import { HelpEntry } from "@/components/HelpEntry";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ProGate } from "@/components/ProGate";
@@ -153,6 +154,7 @@ export default function ProfileScreen() {
         <View style={{ alignItems: "center", paddingVertical: space.md }}>
           <BrandLogo size={72} onBand={false} />
         </View>
+        <HelpEntry />
         <Card>
           <View style={{ gap: space.lg }}>
             <TextField

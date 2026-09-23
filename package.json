@@ -67,6 +67,7 @@
     "test:backup": "node scripts/run-backup-tests.mjs",
     "test:sets": "node scripts/run-sets-tests.mjs",
     "test:coach": "node scripts/run-coach-tests.mjs",
+    "test:help": "node scripts/run-help-tests.mjs",
     "test:nutrition": "node scripts/run-nutrition-tests.mjs",
     "test:theme": "node scripts/run-theme-tests.mjs",
     "test:tasks": "node scripts/run-task-tests.mjs",

@@ -16,7 +16,7 @@ export {
   PHOTO_HOSTS,
 } from "./photo";
 export type { CommonsPage, CommonsImage, Photo } from "./photo";
-export { fetchFoodPhoto, foodPhotoQueries } from "./photo";
+export { closestBundled, fetchFoodPhoto, foodPhotoQueries, NATIVE_HEADERS } from "./photo";
 
 // "Can I eat this?" — any food, priced out of ten, on the device. See `score.ts`.
 export { scoreAnything, scoreFood, scoreWords, bandOf } from "./score";

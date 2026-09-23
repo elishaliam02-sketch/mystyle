@@ -5,6 +5,7 @@ import { Card } from "@/components/Card";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import {
+  NATIVE_HEADERS,
   fetchFoodPhoto,
   scoreAnything,
   type Food,
@@ -276,7 +277,7 @@ function FoodShot({ text, food }: { text: string; food: Food | null }) {
     >
       <Image
         accessibilityIgnoresInvertColors
-        source={{ uri: photo.url }}
+        source={{ uri: photo.url, headers: NATIVE_HEADERS }}
         resizeMode="cover"
         style={{ width: "100%", height: 150 }}
       />

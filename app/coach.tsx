@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,6 +19,7 @@ import { useI18n } from "@/i18n";
 import { coachReply, suggestedQuestions, type CoachContext } from "@/coach";
 import { eatIntent, eatenLabel, parseEaten } from "@/coach/logfood";
 import { askServer } from "@/ai/server";
+import { answerHelp, isAppQuestion } from "@/help";
 import { AiNote } from "@/components/AiNote";
 import { ProGate, ProRemaining } from "@/components/ProGate";
 import { dailyTarget } from "@/kitchen";
@@ -26,7 +27,7 @@ import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
 import { useTheme } from "@/theme";
 
-type Turn = { id: string; from: "you" | "coach"; text: string };
+type Turn = { id: string; from: "you" | "coach"; text: string; route?: string };
 
 /**
  * The coach: a chat that answers from this person's own numbers.
@@ -102,6 +103,29 @@ export default function CoachScreen() {
   async function ask(question: string) {
     const q = question.trim();
     if (!q) return;
+
+    // "Where do I log my weight?" is a question about the app, not about
+    // training: the guide answers it, with a button to the screen — and it is
+    // free, so it comes before the daily limit rather than after it.
+    if (isAppQuestion(q)) {
+      const found = answerHelp(q);
+      if (found.kind === "answer") {
+        const topic = found.topic[locale === "he" ? "he" : "en"];
+        setTurns((prev) => [
+          ...prev,
+          { id: `${Date.now()}-q`, from: "you", text: q },
+          {
+            id: `${Date.now()}-a`,
+            from: "coach",
+            text: `${t.help.fromCoach}\n${topic.title}\n${topic.answer}`,
+            route: found.topic.route,
+          },
+        ]);
+        setDraft("");
+        requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+        return;
+      }
+    }
 
     // Asked before a word of work is done, so a refused question never costs a
     // reply. The thread above stays exactly as it is — the limit is on the next
@@ -259,6 +283,26 @@ export default function CoachScreen() {
               >
                 {turn.text}
               </Text>
+              {turn.route ? (
+                <Pressable
+                  onPress={() => router.push(turn.route as Href)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    alignSelf: "flex-start",
+                    gap: 6,
+                    marginTop: space.sm,
+                    paddingVertical: 8,
+                    paddingHorizontal: 14,
+                    borderRadius: radius.pill,
+                    backgroundColor: pressed ? colors.accentWash : colors.accent,
+                  })}
+                >
+                  <Ionicons name="open-outline" size={16} color={colors.onAccent} />
+                  <Text style={[type.smallStrong, { color: colors.onAccent }]}>{t.help.open}</Text>
+                </Pressable>
+              ) : null}
             </View>
           );
         })}

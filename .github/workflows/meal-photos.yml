@@ -20,6 +20,7 @@ on:
       - "src/kitchen/data.ts"
       - "src/kitchen/photo.ts"
       - "scripts/meal-photo-sheet.mjs"
+      - "scripts/bundle-meal-photos.mjs"
       - ".github/workflows/meal-photos.yml"
   # Available by hand too, once this file is on the default branch — GitHub only
   # offers a manual run for workflows it can see there.
@@ -54,14 +55,19 @@ jobs:
       - name: Look up every meal on Commons
         run: node scripts/meal-photo-sheet.mjs
 
+      # The same choice, saved into the app: one photo per dish, no two dishes
+      # sharing one, credits kept. What the phone shows without any network.
+      - name: Bundle the photos into the app
+        run: node scripts/bundle-meal-photos.mjs
+
       - name: Commit the sheet
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/qa/meal-photos.jpg docs/qa/meal-photos.json
+          git add docs/qa/meal-photos.jpg docs/qa/meal-photos.json assets/meals src/kitchen/mealPhotoAssets.ts
           if git diff --cached --quiet; then
             echo "The photos resolve exactly as they did last time; nothing to commit."
           else
-            git commit -m "Refresh the meal photo contact sheet"
+            git commit -m "Refresh the meal photo contact sheet and the bundled photos"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi

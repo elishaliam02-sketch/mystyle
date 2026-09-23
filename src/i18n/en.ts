@@ -202,7 +202,7 @@ export const en: typeof he = {
     aiLabel: "AI coach",
     aiBody: "Sends your question and numbers from your log to a language-model provider, and a meal photo if you take one. Without it the coach still works — on the device, from written content.",
     photosLabel: "Photos of the meals",
-    photosBody: "Fetches a real photograph of each suggested meal from a free service that generates it. What is sent is the dish name and its ingredients — nothing about you. Without it you see the illustration, and the app contacts no server.",
+    photosBody: "Suggested meals come with a real photograph already inside the app. This switch also searches Wikimedia Commons for dishes without one, and for foods you type. Only the dish name is sent — nothing about you. Off, the app contacts no server for photos.",
     consentTitle: "Privacy and data",
     consentBody: "Anything that leaves your phone is your choice, and you can take it back here at any time.",
     on: "On",
@@ -1049,6 +1049,21 @@ export const en: typeof he = {
     weighBody: "Same day, same time, before eating — that's what makes the number mean something.",
     measureTitle: "Body measurements",
     measureBody: "The scale stalls sometimes and the tape doesn't. Worth measuring.",
+  },
+
+  help: {
+    heading: "Help",
+    body: "The APEX guide — ask how to do anything in the app.",
+    greeting: "Hi! I'm the app's guide. Tell me what you're looking for — like \"where do I log my weight\" or \"how do I scan a meal\" — and I'll take you there.",
+    placeholder: "How do I…?",
+    send: "Send",
+    open: "Take me there",
+    also: "You might also mean:",
+    choose: "A few things match — which one?",
+    none: "Not sure I got that. One of these?",
+    entry: "Need help?",
+    entryHint: "The guide shows you where everything is — free, even offline",
+    fromCoach: "That's a question about the app — here's where:",
   },
 
   coach: {
