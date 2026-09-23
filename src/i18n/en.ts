@@ -773,6 +773,8 @@ export const en: typeof he = {
     body: "Pick your level, goal and days a week — I'll build a full plan that fits you.",
     goalTitle: "What's the goal?",
     levelTitle: "What's your level?",
+    frameStart: "Start",
+    frameEnd: "Finish",
     levelBeginner: "Beginner",
     levelBeginnerHint: "Under a year of training. Simple, safe moves — machines, dumbbells, bodyweight — and fewer sets.",
     levelIntermediate: "Intermediate",

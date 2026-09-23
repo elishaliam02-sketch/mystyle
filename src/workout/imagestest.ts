@@ -29,6 +29,25 @@ check("an unmapped id resolves to null, not undefined", exerciseImage("no-such-e
 check("the cardio moves without an honest photo fall back",
   exerciseImage("swimming") === null || exerciseImage("burpee") === null);
 
+// Every photographed move ships its photo inside the app — the CDN refused the
+// source repository, so a missing file here is a blank-looking row on a phone.
+{
+  // A non-literal specifier keeps the app's typecheck (no Node types) out of
+  // what is a Node-only check.
+  const fsName: string = "node:fs";
+  const fs = (await import(fsName)) as {
+    readFileSync: (p: string, enc: string) => string;
+    existsSync: (p: string) => boolean;
+  };
+  const map = fs.readFileSync("src/workout/exerciseImageAssets.ts", "utf8");
+  const missing = Object.keys(EXERCISE_IMAGE).filter(
+    (id) => !fs.existsSync(`assets/exercises/${id}.jpg`) || !map.includes(`"${id}": require(`),
+  );
+  check("every exercise photo is bundled in the app", missing.length === 0, missing.join(","));
+  check("most moves also ship their end position",
+    Object.keys(EXERCISE_IMAGE).filter((id) => fs.existsSync(`assets/exercises/${id}-end.jpg`)).length >= 150);
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

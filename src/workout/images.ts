@@ -3,7 +3,8 @@
  *
  * These come from the free-exercise-db (github.com/yuhonas/free-exercise-db),
  * a public-domain (Unlicense) set of exercise images, served over the jsDelivr
- * CDN so a phone loads them fast and we ship nothing heavy in the app. The
+ * CDN — the source list. The app itself ships each one shrunk inside it (see
+ * scripts/bundle-exercise-images.mjs and exerciseImageAssets.ts). The
  * mapping from our exercise ids to theirs was built by matching on name, the
  * worked muscle and the equipment, then hand-corrected; it is deliberately
  * partial. A move with no honest photograph — most conditioning and isometric

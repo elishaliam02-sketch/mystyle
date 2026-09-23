@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View, type ImageSourcePropType } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { ExerciseThumb } from "@/components/ExerciseThumb";
 import { MuscleMap } from "@/components/MuscleMap";
+import { BUNDLED_EXERCISE_END, BUNDLED_EXERCISE_IMAGES } from "@/workout/exerciseImageAssets";
 import { view, worked } from "@/workout/muscles";
 import { HeroCard } from "@/components/HeroCard";
 import { ProGate } from "@/components/ProGate";
@@ -1063,6 +1064,28 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
 
       {open ? (
         <View style={{ gap: 4, marginTop: space.sm }}>
+          {/* the movement itself: where it starts and where it ends, side by
+              side, large enough to copy — the thumbnail only shows the start */}
+          {BUNDLED_EXERCISE_IMAGES[ex.id] ? (
+            <View style={{ flexDirection: "row", gap: space.sm, marginBottom: space.sm }}>
+              {[
+                [BUNDLED_EXERCISE_IMAGES[ex.id], t.workout.frameStart],
+                ...(BUNDLED_EXERCISE_END[ex.id] ? [[BUNDLED_EXERCISE_END[ex.id], t.workout.frameEnd]] : []),
+              ].map(([src, label], i) => (
+                <View key={i} style={{ flex: 1, gap: 4 }}>
+                  <Image
+                    source={src as ImageSourcePropType}
+                    resizeMode="cover"
+                    fadeDuration={0}
+                    accessibilityIgnoresInvertColors
+                    accessibilityLabel={`${name} — ${label as string}`}
+                    style={{ width: "100%", aspectRatio: 1.35, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
+                  />
+                  <Text style={[type.label, { color: colors.inkFaint, textAlign: "center" }]}>{label as string}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {/* the same diagram as the row's tile, at a size where the lit
               muscles are actually readable, and named in words beside it for
               anyone who would rather read than look */}

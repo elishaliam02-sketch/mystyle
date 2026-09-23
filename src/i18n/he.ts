@@ -786,6 +786,8 @@ export const he = {
     body: "בחר רמה, מטרה וכמה ימים בשבוע — ואבנה לך תוכנית מלאה שמתאימה לך.",
     goalTitle: "מה המטרה?",
     levelTitle: "מה הרמה שלך?",
+    frameStart: "התחלה",
+    frameEnd: "סיום",
     levelBeginner: "מתחיל",
     levelBeginnerHint: "פחות משנה של אימונים. תרגילים פשוטים ובטוחים — מכונות, משקולות ומשקל גוף — ופחות סטים.",
     levelIntermediate: "בינוני",

@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Equipment, Exercise, Muscle } from "@/workout/exercises";
 import { MuscleMap } from "./MuscleMap";
-import { exerciseImage } from "@/workout/images";
+import { BUNDLED_EXERCISE_IMAGES } from "@/workout/exerciseImageAssets";
 import { view, worked } from "@/workout/muscles";
 import { ON_HERO, useTheme, type Colors } from "@/theme";
 
@@ -117,15 +117,17 @@ export function ExerciseThumb({
 }) {
   const { colors, radius } = useTheme();
   const [broken, setBroken] = useState(false);
-  // A real photograph of the lift when we have an honest one for it, from the
-  // free-exercise-db over a CDN. If it fails to load — offline, or the CDN is
-  // unreachable — the drawn muscle map takes over, so a row is never empty and
-  // never waits on the network.
-  const photo = broken ? null : exerciseImage(ex.id);
+  // A real photograph of the lift when we have an honest one for it. It ships
+  // inside the app (see scripts/bundle-exercise-images.mjs): the CDN it used to
+  // come from refused the repository, so on phones every row fell back to the
+  // drawing. Nothing is fetched: a move without a photo — or one that somehow
+  // fails to decode — shows the drawn muscle map, so a row is never empty.
+  const photo = broken ? null : BUNDLED_EXERCISE_IMAGES[ex.id] ?? null;
   if (photo) {
     return (
       <Image
-        source={{ uri: photo }}
+        source={photo}
+        fadeDuration={0}
         onError={() => setBroken(true)}
         resizeMode="cover"
         accessibilityIgnoresInvertColors
