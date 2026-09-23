@@ -126,6 +126,15 @@ build (RFC 9116). Its `Expires` date must be renewed yearly —
   unreadable by other apps or a backup), chunked to fit the keystore's size
   cap, with a browser-storage fallback on web. Needs a native rebuild to take
   effect (it adds `expo-secure-store`).
+  A write goes to a spare slot and then flips one pointer, so a crash mid-write
+  leaves the previous session whole (`npm run test:securestorage`); a corrupt
+  session signs the person out, and an anonymous account cannot sign back in.
+- **Passwords.** New passwords need 8 characters (`MIN_NEW_PASSWORD`); sign-in
+  still accepts older six-character ones. Set the same minimum and turn on
+  leaked-password protection in Supabase → Authentication → Providers → Email.
+- **Restoring a backup checks shapes.** Each backed-up key is restored only if
+  its value has the expected type; a malformed blob keeps the device's own
+  value instead of crashing every launch after.
 - **On web the session is in localStorage**, because a browser has no keystore
   and an anonymous account whose token is lost cannot be signed back into. What
   protects it is that no foreign script can run: `public/index.html` carries a

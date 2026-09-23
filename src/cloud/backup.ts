@@ -128,12 +128,39 @@ export function isEmptyBackup(bundle: BackupBundle): boolean {
 }
 
 /** Apply a restored bundle onto the local state, replacing the backed-up keys. */
+/** The shape each backed-up key must have to be restored. The blob comes back
+ * from the server, where another app version (or anyone holding the account)
+ * may have written it; a wrong-typed value restored into state is saved
+ * locally and crashes the screens that read it on every launch after. */
+const isRecord = (v: unknown) => typeof v === "object" && v !== null && !Array.isArray(v);
+const isNum = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+const SHAPE: Record<BackupKey, (v: unknown) => boolean> = {
+  pantry: (v) => typeof v === "string",
+  training: isRecord,
+  intake: isRecord,
+  water: isRecord,
+  waterGoal: isNum,
+  measurements: isRecord,
+  goal: (v) => typeof v === "string",
+  nutritionGoal: (v) => typeof v === "string",
+  dietFilter: (v) => typeof v === "string",
+  favorites: (v) => Array.isArray(v) && v.every((x) => typeof x === "string"),
+  steps: isRecord,
+  stepGoal: isNum,
+  videoIds: isRecord,
+  salt: (v) => typeof v === "string",
+  mealShuffle: isNum,
+};
+
+/** Restores the backed-up keys whose values have the right shape; a key that
+ * does not keeps what the device already has. */
 export function applyBackup(state: AppState, bundle: BackupBundle): AppState {
+  if (!isRecord(bundle)) return state;
   const next: AppState = { ...state };
   for (const key of BACKUP_KEYS) {
-    if (key in bundle) {
-      (next as Record<string, unknown>)[key] = (bundle as Record<string, unknown>)[key];
-    }
+    if (!Object.hasOwn(bundle, key)) continue;
+    const value = (bundle as Record<string, unknown>)[key];
+    if (SHAPE[key](value)) (next as Record<string, unknown>)[key] = value;
   }
   return next;
 }

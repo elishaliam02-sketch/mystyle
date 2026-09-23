@@ -23,6 +23,7 @@ import {
   signInWithEmail,
   signOut,
   signUpWithEmail,
+  MIN_NEW_PASSWORD,
 } from "@/cloud/client";
 import { deleteAccount } from "@/cloud/client";
 import { SelectTile } from "@/components/SelectTile";
@@ -776,7 +777,7 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       setNote(t.account.errBadEmail);
       return;
     }
-    if (password.length < 6) {
+    if (password.length < (mode === "up" ? MIN_NEW_PASSWORD : 6)) {
       setNote(t.account.errWeakPassword);
       return;
     }

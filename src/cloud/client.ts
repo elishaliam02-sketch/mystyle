@@ -107,6 +107,12 @@ export async function currentAccount(): Promise<AccountInfo | null> {
   }
 }
 
+/** The shortest password this app sets. Signing in still accepts the older
+ * six-character ones, so no existing account is locked out; set the same
+ * minimum (and leaked-password protection) under Supabase → Authentication
+ * → Providers → Email so the server enforces it too. */
+export const MIN_NEW_PASSWORD = 8;
+
 export type AuthResult =
   | { ok: true; needsConfirmation?: boolean; email?: string }
   | { ok: false; message: string };

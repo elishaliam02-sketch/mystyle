@@ -6,7 +6,7 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
-import { sessionFromResetLink, setNewPassword } from "@/cloud/client";
+import { MIN_NEW_PASSWORD, sessionFromResetLink, setNewPassword } from "@/cloud/client";
 import { useTheme } from "@/theme";
 
 /**
@@ -41,7 +41,7 @@ export default function ResetPasswordScreen() {
   }, [params.code]);
 
   async function save() {
-    if (password.length < 6) {
+    if (password.length < MIN_NEW_PASSWORD) {
       setNote(t.account.errWeakPassword);
       return;
     }

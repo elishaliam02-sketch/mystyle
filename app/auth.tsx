@@ -13,6 +13,7 @@ import {
   requestPasswordReset,
   signInWithEmail,
   signUpWithEmail,
+  MIN_NEW_PASSWORD,
 } from "@/cloud/client";
 import { fill, useI18n } from "@/i18n";
 import { useTheme } from "@/theme";
@@ -55,7 +56,7 @@ export default function Auth() {
 
   async function submit() {
     if (!email.trim()) { setNote(t.account.errBadEmail); return; }
-    if (password.length < 6) { setNote(t.account.errWeakPassword); return; }
+    if (password.length < (mode === "up" ? MIN_NEW_PASSWORD : 6)) { setNote(t.account.errWeakPassword); return; }
     setBusy(true);
     setNote(null);
     const res = mode === "up"

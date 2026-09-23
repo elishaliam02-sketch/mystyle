@@ -137,6 +137,28 @@ const state = (over: Partial<AppState> = {}): AppState => ({ ...EMPTY_STATE, ...
   check("an empty pantry string stays empty", isEmptyBackup(backupBundle(state({ pantry: "   " }))));
 }
 
+// --- a malformed blob from the server restores only what has the right shape
+{
+  const local = state({ water: { "2026-01-01": 3 }, waterGoal: 8, favorites: ["tuna"] });
+  const bad = {
+    water: "lots",
+    waterGoal: "eight",
+    favorites: [1, 2],
+    training: null,
+    pantry: "eggs, rice",
+    stepGoal: 9000,
+  } as unknown as Parameters<typeof applyBackup>[1];
+  const out = applyBackup(local, bad);
+  check("a wrong-typed value keeps the device's own", out.water?.["2026-01-01"] === 3 && out.waterGoal === 8, JSON.stringify(out.water));
+  check("an array of the wrong things is refused", out.favorites?.[0] === "tuna");
+  check("null is not restored over an object", out.training === local.training);
+  check("the well-formed keys in the same blob still restore", out.pantry === "eggs, rice" && out.stepGoal === 9000);
+  check("a blob that is not an object restores nothing", applyBackup(local, "x" as unknown as Parameters<typeof applyBackup>[1]) === local);
+  const proto = JSON.parse('{"__proto__": {"polluted": true}, "salt": "s1"}');
+  const p2 = applyBackup(local, proto);
+  check("__proto__ in a blob is ignored", !("polluted" in ({} as object)) && p2.salt === "s1");
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [name, ok, detail] of results) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  ← ${detail ?? ""}`}`);
