@@ -88,6 +88,8 @@
     "test:challenge": "node scripts/run-challenge-tests.mjs",
     "test:share": "node scripts/run-share-tests.mjs",
     "test:improve": "node scripts/run-improve-tests.mjs",
+    "test:csp": "node scripts/run-csp-tests.mjs",
+    "sast": "bash scripts/sast.sh",
     "licenses": "node scripts/gen-licenses.mjs",
     "icons": "node scripts/gen-icons.mjs"
   },

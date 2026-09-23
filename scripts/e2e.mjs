@@ -50,6 +50,17 @@ const seed = {
 };
 
 const browser = await chromium.launch({headless:true});
+// The web build ships a Content-Security-Policy (public/index.html). Any refusal
+// is a feature the policy broke, or an undeclared host the app started
+// contacting. The browser does not put these on page.on("console"), so each
+// page's own securitypolicyviolation event reports back here — wired into
+// newContext itself, so a context added to this file later is covered too.
+const cspViolations=[];
+{ const open=browser.newContext.bind(browser);
+  browser.newContext=async(opts)=>{ const c=await open(opts);
+    await c.exposeBinding("__cspViolation",(_src,v)=>cspViolations.push(String(v).slice(0,200)));
+    await c.addInitScript(()=>document.addEventListener("securitypolicyviolation",e=>window.__cspViolation(`${e.violatedDirective} ${e.blockedURI}`)));
+    return c; }; }
 const ctx = await browser.newContext({viewport:{width:412,height:915}});
 // The exercise tiles now hotlink real photos from a public CDN. On a phone that
 // loads fine, but on the CI runner the CDN host is unreachable and each request
@@ -976,6 +987,9 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await hctx.close();
 }
 
+check("the served page carries the Content-Security-Policy",
+  /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
+check("the Content-Security-Policy refused nothing the app did", cspViolations.length===0, cspViolations[0]);
 await browser.close(); server.close();
 report();
 

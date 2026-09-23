@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Only the pinned supabase-js file and the one inline script below may run;
+     the inline script is allowed by its hash, which scripts/run-csp-tests.mjs
+     recomputes - edit the script and that test prints the new hash. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js 'sha256-vMvSsoPgZzZllpISSy27c6P2ptfhfpHdPaKrYV/Mqp8='; style-src 'unsafe-inline'; img-src data:; connect-src https://vesdfboxetdwymsulpsc.supabase.co; base-uri 'none'; form-action 'none'" />
+<meta name="referrer" content="no-referrer" />
 <title>APEX — ניהול</title>
 <!--
   APEX owner console — the monitoring window.
@@ -14,9 +19,12 @@
   the public publishable key the app already ships, and it grants nothing on its
   own — every privileged read is gated server-side by the admin check.
 
-  To use it: host this file anywhere (Supabase Storage, Netlify, Vercel, or even
-  open it locally) and sign in with the admin email + password. It refreshes
-  itself every 30 seconds.
+  To use it: host this file (Netlify, Vercel, Cloudflare Pages, or locally with
+  `npx serve admin`) and add that address to the functions' ALLOWED_ORIGINS
+  secret; opened straight from disk it has no origin and the function will not
+  answer it. Sign in with the admin email + password, then the code from an
+  authenticator app — the first sign-in shows a QR code to enroll one. It
+  refreshes itself every 30 seconds.
 -->
 <style>
   :root {
@@ -42,6 +50,10 @@
     background: var(--violet); color: #fff; font-weight: 700; font-size: 15px; }
   button.ghost { background: transparent; border: 1px solid var(--line); color: var(--soft); }
   .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; }
+  .full { width: 100%; margin-top: 8px; }
+  .qr { display: block; width: 200px; height: 200px; margin: 0 auto 10px; background: #fff;
+    border-radius: 10px; padding: 8px; }
+  code { direction: ltr; unicode-bidi: embed; word-break: break-all; color: var(--ink); }
 
   /* dashboard */
   header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -99,6 +111,20 @@
     <div id="loginErr" class="err"></div>
   </div>
 
+  <!-- SECOND FACTOR: the admin function refuses any session without one -->
+  <div id="mfa" class="login" hidden>
+    <h1>אימות דו־שלבי</h1>
+    <p id="mfaIntro"></p>
+    <div id="mfaEnroll" hidden>
+      <img id="mfaQr" class="qr" alt="QR" />
+      <p class="muted">אין סורק? הקלד את המפתח ידנית: <code id="mfaSecret"></code></p>
+    </div>
+    <input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="קוד בן 6 ספרות" />
+    <button id="mfaVerify" class="full">אמת</button>
+    <button id="mfaCancel" class="ghost full">התנתק</button>
+    <div id="mfaErr" class="err"></div>
+  </div>
+
   <!-- DASHBOARD -->
   <div id="dash" hidden>
     <header>
@@ -129,7 +155,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js" integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz" crossorigin="anonymous"></script>
 <script>
   const SUPABASE_URL = "https://vesdfboxetdwymsulpsc.supabase.co";
   const SUPABASE_KEY = "sb_publishable_QJJEFeAVnwdJDwdVpOHjFA_un6l0Of_";
@@ -166,16 +192,20 @@
       // Surface the real reason (status + the function's error code) rather than
       // collapsing everything to a blank failure.
       let detail = error.message || "שגיאה";
+      let code = null;
       try {
         if (error.context && typeof error.context.json === "function") {
           const status = error.context.status;
           const b = await error.context.json();
-          detail = (status ? status + " · " : "") + (b && b.error ? b.error : JSON.stringify(b));
+          code = b && b.error ? b.error : null;
+          detail = (status ? status + " · " : "") + (code || JSON.stringify(b));
         } else if (error.context && typeof error.context.status !== "undefined") {
           detail = String(error.context.status);
         }
       } catch (_) { /* keep error.message */ }
-      throw new Error(detail);
+      const err = new Error(detail);
+      err.code = code;
+      throw err;
     }
     return data;
   }
@@ -192,6 +222,15 @@
     }
   }
 
+  // Built with DOM calls, never innerHTML: every value here comes from the
+  // server, and text set as text can never become markup.
+  function el(tag, cls, ...children) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    for (const c of children) node.append(c instanceof Node ? c : String(c));
+    return node;
+  }
+
   function renderCards(ov) {
     const t = ov.trajectory || {};
     const cards = [
@@ -200,37 +239,37 @@
       { n: ov.progressing ?? 0, l: "בתהליך ירידה טוב" },
       { n: (t["off-track"] ?? 0) + (t.stalled ?? 0), l: "תקועים / סוטים" },
     ];
-    $("cards").innerHTML = cards.map((c) => `<div class="card"><div class="n">${c.n}</div><div class="l">${c.l}</div></div>`).join("");
+    $("cards").replaceChildren(...cards.map((c) => el("div", "card", el("div", "n", c.n), el("div", "l", c.l))));
   }
 
   function renderUsers(users) {
-    if (!users.length) { $("usersBody").innerHTML = `<tr><td colspan="7" class="muted">אין עדיין משתמשים</td></tr>`; return; }
-    $("usersBody").innerHTML = users.map((u) => {
+    if (!users.length) {
+      const empty = el("td", "muted", "אין עדיין משתמשים");
+      empty.colSpan = 7;
+      $("usersBody").replaceChildren(el("tr", null, empty));
+      return;
+    }
+    $("usersBody").replaceChildren(...users.map((u) => {
       const traj = u.trajectory || "no-data";
       const sub = (u.subscription && u.subscription.status) || "none";
       const perWeek = (u.perWeek == null) ? "—" : (u.perWeek > 0 ? "+" : "") + u.perWeek + " ק״ג";
       const lastW = (u.lastWeighInDaysAgo == null) ? "—" : (u.lastWeighInDaysAgo === 0 ? "היום" : `לפני ${u.lastWeighInDaysAgo} ימים`);
-      return `<tr>
-        <td class="email">${escapeHtml(u.email || "—")}</td>
-        <td>${fmtDate(u.createdAt)}</td>
-        <td>${fmtAgo(u.lastSignInAt)}</td>
-        <td class="sub-${sub}">${SUB_HE[sub] || sub}</td>
-        <td><span class="badge b-${traj}">${TRAJ_HE[traj] || traj}</span></td>
-        <td>${lastW}</td>
-        <td>${perWeek}</td>
-      </tr>`;
-    }).join("");
+      return el("tr", null,
+        el("td", "email", u.email || "—"),
+        el("td", null, fmtDate(u.createdAt)),
+        el("td", null, fmtAgo(u.lastSignInAt)),
+        el("td", "sub-" + sub, SUB_HE[sub] || sub),
+        el("td", null, el("span", "badge b-" + traj, TRAJ_HE[traj] || traj)),
+        el("td", null, lastW),
+        el("td", null, perWeek));
+    }));
   }
 
   function renderAudit(events) {
-    if (!events.length) { $("audit").innerHTML = `<div class="muted">אין עדיין רשומות</div>`; return; }
-    $("audit").innerHTML = events.map((e) => `<div class="row">
-      <span class="k">${escapeHtml(e.kind || "")}</span>
-      <span class="t">${fmtAgo(e.at)}</span>
-    </div>`).join("");
+    if (!events.length) { $("audit").replaceChildren(el("div", "muted", "אין עדיין רשומות")); return; }
+    $("audit").replaceChildren(...events.map((e) =>
+      el("div", "row", el("span", "k", e.kind || ""), el("span", "t", fmtAgo(e.at)))));
   }
-
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
   let timer = null;
   async function showDash(session) {
@@ -244,8 +283,77 @@
   function showLogin() {
     if (timer) clearInterval(timer);
     $("dash").hidden = true;
+    $("mfa").hidden = true;
     $("login").hidden = false;
   }
+
+  // Asks the server before showing anything: it answers only an admin, and
+  // only one who has passed a second factor this session.
+  async function enter(session) {
+    try {
+      await call("overview");
+    } catch (e) {
+      if (e && e.code === "mfa-required") return startMfa();
+      await db.auth.signOut();
+      showLogin();
+      $("loginErr").textContent = "שגיאת שרת: " + (e && e.message ? e.message : e);
+      return;
+    }
+    showDash(session);
+  }
+
+  // A verified authenticator gets a code prompt. None yet means this is the
+  // admin's first sign-in since two-step was required: enroll one now. Enrolling
+  // a second factor once one is verified needs that factor, so a stolen
+  // password cannot swap in the thief's phone.
+  let mfaFactorId = null;
+  async function startMfa() {
+    $("mfaErr").textContent = "";
+    $("mfaCode").value = "";
+    try {
+      const { data: f, error } = await db.auth.mfa.listFactors();
+      if (error) throw error;
+      const all = (f && f.all) || [];
+      const verified = all.find((x) => x.factor_type === "totp" && x.status === "verified");
+      if (verified) {
+        mfaFactorId = verified.id;
+        $("mfaEnroll").hidden = true;
+        $("mfaIntro").textContent = "הזן את הקוד מאפליקציית האימות שלך.";
+      } else {
+        for (const x of all) if (x.status !== "verified") await db.auth.mfa.unenroll({ factorId: x.id });
+        const { data: e, error: ee } = await db.auth.mfa.enroll({ factorType: "totp" });
+        if (ee) throw ee;
+        mfaFactorId = e.id;
+        const qr = e.totp.qr_code || "";
+        $("mfaQr").src = qr.startsWith("data:") ? qr : "data:image/svg+xml;charset=utf-8," + encodeURIComponent(qr);
+        $("mfaSecret").textContent = e.totp.secret || "";
+        $("mfaEnroll").hidden = false;
+        $("mfaIntro").textContent = "פעם ראשונה: סרוק את הקוד באפליקציית אימות (Google Authenticator, 1Password, Authy) והזן את הקוד שהיא מציגה.";
+      }
+    } catch (e) {
+      await db.auth.signOut();
+      showLogin();
+      $("loginErr").textContent = "אימות דו־שלבי לא זמין: " + (e && e.message ? e.message : e);
+      return;
+    }
+    $("login").hidden = true;
+    $("dash").hidden = true;
+    $("mfa").hidden = false;
+    $("mfaCode").focus();
+  }
+
+  $("mfaVerify").addEventListener("click", async () => {
+    $("mfaErr").textContent = "";
+    const code = $("mfaCode").value.replace(/\s/g, "");
+    if (!/^\d{6}$/.test(code)) { $("mfaErr").textContent = "הקוד הוא 6 ספרות."; return; }
+    const { error } = await db.auth.mfa.challengeAndVerify({ factorId: mfaFactorId, code });
+    if (error) { $("mfaErr").textContent = "הקוד לא התקבל: " + (error.message || "נסה שוב"); return; }
+    $("mfa").hidden = true;
+    const { data } = await db.auth.getSession();
+    await enter(data.session);
+  });
+  $("mfaCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("mfaVerify").click(); });
+  $("mfaCancel").addEventListener("click", async () => { await db.auth.signOut(); showLogin(); });
 
   $("signin").addEventListener("click", async () => {
     $("loginErr").textContent = "";
@@ -253,16 +361,13 @@
     const password = $("password").value;
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) { $("loginErr").textContent = "התחברות נכשלה: " + (error.message || "בדוק מייל וסיסמה"); return; }
-    // Prove the account is actually an admin before showing anything.
-    try { await call("overview"); }
-    catch (e) { $("loginErr").textContent = "שגיאת שרת: " + (e && e.message ? e.message : e); await db.auth.signOut(); return; }
-    showDash(data.session);
+    await enter(data.session);
   });
   $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("signin").click(); });
   $("signout").addEventListener("click", async () => { await db.auth.signOut(); showLogin(); });
 
-  // Resume a stored session on load.
-  db.auth.getSession().then(({ data }) => { if (data.session) showDash(data.session); });
+  // Resume a stored session on load; enter() re-asks for the code if needed.
+  db.auth.getSession().then(({ data }) => { if (data.session) enter(data.session); });
 </script>
 </body>
 </html>

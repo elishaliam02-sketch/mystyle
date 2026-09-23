@@ -1,0 +1,11 @@
+# Response headers for hosts that read this file (Netlify, Cloudflare Pages).
+# Elsewhere, set the same headers in the host's own config. The main
+# Content-Security-Policy is a meta tag in index.html; these are the parts a
+# meta tag cannot carry.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(self), microphone=(), geolocation=()

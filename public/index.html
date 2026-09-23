@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!--
+      Expo's own template plus this policy. The session token lives in browser
+      storage on web, so the line that matters is script-src 'self': no inline
+      or third-party script can run to read it. Every other host is one the app
+      really contacts; scripts/run-csp-tests.mjs fails when the app gains a host
+      this does not list, and the e2e suite fails on any violation.
+      style-src needs 'unsafe-inline': react-native-web writes its styles at
+      runtime. frame-ancestors cannot be set from a meta tag - see _headers.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://upload.wikimedia.org https://commons.wikimedia.org https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/; font-src 'self' data:; connect-src 'self' https://vesdfboxetdwymsulpsc.supabase.co https://commons.wikimedia.org https://upload.wikimedia.org https://world.openfoodfacts.org; media-src 'self' data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>%WEB_TITLE%</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <div id="root"></div>
+  </body>
+</html>

@@ -77,6 +77,7 @@ const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:80
 function withCors(req: Request, res: Response): Response {
   const origin = req.headers.get("Origin");
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    // nosemgrep: cors-misconfiguration -- echoed only after matching ALLOWED_ORIGINS
     res.headers.set("Access-Control-Allow-Origin", origin);
     for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
   }

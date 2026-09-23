@@ -58,6 +58,7 @@ export function ProGate({ feature }: { feature: Feature }) {
     >
       <Ionicons name="sparkles" size={18} color={colors.accent} />
       <View style={{ flex: 1, gap: 2 }}>
+        {/* nosemgrep: unsafe-dynamic-method -- `feature` is a compile-time union key, not input */}
         <Text style={[type.small, { color: colors.ink }]}>{COPY[feature](t, v.limit)}</Text>
         <Text style={[type.smallStrong, { color: colors.accent }]}>{t.common.proSee}</Text>
       </View>

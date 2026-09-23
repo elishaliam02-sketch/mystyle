@@ -77,7 +77,8 @@ starts *on*: what it sends is a line out of the app's own cookbook rather than
 anything about the person, so the switch is there for the IP address and for a
 metered connection — and it is disclosed exactly like the rest. Raising
 `LEGAL.version` makes every existing user re-accept. Adding a network call means
-adding it to a gate and to the policy — `npm run test:legal` checks the
+adding it to a gate, to the policy and, for web, to the CSP in
+`public/index.html` (`npm run test:csp` checks the last) — `npm run test:legal` checks the
 documents stay in step, name every processor *and every hostname the app
 contacts*, and carry no placeholder text.
 
@@ -142,6 +143,8 @@ npm run test:score     # "can I eat this" — the order foods come out in
 npm run test:challenge # every challenge has words in both languages
 npm run test:improve   # the "where you can improve" reading
 npm run test:share     # what leaves the app when someone shares a score
+npm run test:csp       # the web and admin Content-Security-Policies still fit
+npm run sast           # Semgrep security rules (needs: pipx install semgrep)
 ```
 
 Or `npm test`, which discovers every suite in `scripts/` and runs the lot.

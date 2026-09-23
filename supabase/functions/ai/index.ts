@@ -62,6 +62,7 @@ const corsHeaders = {
 function withCors(req: Request, res: Response): Response {
   const origin = req.headers.get("Origin");
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    // nosemgrep: cors-misconfiguration -- echoed only after matching ALLOWED_ORIGINS
     res.headers.set("Access-Control-Allow-Origin", origin);
     for (const [k, v] of Object.entries(corsHeaders)) res.headers.set(k, v);
   }

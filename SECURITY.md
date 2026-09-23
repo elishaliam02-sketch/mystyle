@@ -43,8 +43,29 @@ server. Everything below serves that.
   the app asks for the password and signs in again just before. Also turn on
   **Authentication → Providers → Email → Secure password change** in Supabase,
   so a password can only be changed from a recent sign-in or a reset link.
+- **The admin console needs a second factor.** The `admin` function refuses any
+  token below `aal2`, so the owner's password alone opens nothing; the console
+  enrolls an authenticator app (TOTP) on first sign-in and asks for a code on
+  every sign-in after. The page loads supabase-js pinned by version *and*
+  integrity hash, and its CSP allows only that file and its own inline script
+  (by hash) to run, and only the project's Supabase URL to be contacted. The
+  tables are built with DOM calls, not innerHTML.
 - This is the template for any future logic that must not be forgeable — put
   it behind a function.
+
+## 2b. The pipeline
+
+- **Every GitHub Action is pinned to a commit SHA**, with the release in a
+  comment. A tag can be moved to other code; a SHA cannot. Dependabot
+  (`.github/dependabot.yml`) proposes the updates, as SHAs.
+- **Checks** runs `npm audit --omit=dev --audit-level=high` and a Semgrep scan
+  (`scripts/sast.sh`, the security rules of semgrep-rules pinned to one commit)
+  over `app`, `src`, `supabase`, `admin`, `public` and the workflows. CodeQL is
+  not used because on a private repository it needs GitHub's paid Code
+  Security. A false positive is silenced on its line with
+  `nosemgrep: <rule> -- <reason>`.
+- Workflow `run:` blocks read `github.*` values through `env:`, never pasted
+  into the script, so a branch name or commit message cannot become a command.
 
 ## 3. Encryption of local data
 
@@ -53,6 +74,16 @@ server. Everything below serves that.
   unreadable by other apps or a backup), chunked to fit the keystore's size
   cap, with a browser-storage fallback on web. Needs a native rebuild to take
   effect (it adds `expo-secure-store`).
+- **On web the session is in localStorage**, because a browser has no keystore
+  and an anonymous account whose token is lost cannot be signed back into. What
+  protects it is that no foreign script can run: `public/index.html` carries a
+  Content-Security-Policy with `script-src 'self'` and lists exactly the hosts
+  the app contacts. `npm run test:csp` fails when the app gains a host the
+  policy does not allow, and the e2e suite fails on any refusal in a real
+  browser. `public/_headers` adds what a meta tag cannot (frame-ancestors, HSTS,
+  nosniff) on hosts that read it; set the same headers elsewhere. Shortening
+  the JWT expiry (Supabase → Authentication → Sessions) narrows the window a
+  stolen token is good for.
 - The rest of local state (habits, weights) is low-value and device-local; its
   authoritative copy is the RLS-protected server, so it is not worth encrypting
   at rest. Never store a token or key in AsyncStorage.

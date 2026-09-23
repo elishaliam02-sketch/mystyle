@@ -16,7 +16,9 @@
 //     function's environment, used to read, and never returned or logged.
 //  2. ADMIN IS CHECKED ON EVERY CALL, from the verified token, against the
 //     `admins` table — never from the request body.
-//  3. NO SECRET IS EVER RETURNED. Emails and subscription state are the point;
+//  3. A SECOND FACTOR ON EVERY CALL. The token must be aal2 (a TOTP code
+//     entered this session); the console walks the admin through enrolling.
+//  4. NO SECRET IS EVER RETURNED. Emails and subscription state are the point;
 //     tokens, passwords and keys are not, and none are read or sent.
 //
 // Deploy:  supabase functions deploy admin
@@ -45,6 +47,7 @@ const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:80
 function withCors(req: Request, res: Response): Response {
   const origin = req.headers.get("Origin");
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    // nosemgrep: cors-misconfiguration -- echoed only after matching ALLOWED_ORIGINS
     res.headers.set("Access-Control-Allow-Origin", origin);
     for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
   }
@@ -52,7 +55,7 @@ function withCors(req: Request, res: Response): Response {
   return res;
 }
 
-type ErrorCode = "method" | "bad-json" | "unauthorized" | "forbidden" | "unknown-action" | "server";
+type ErrorCode = "method" | "bad-json" | "unauthorized" | "forbidden" | "mfa-required" | "unknown-action" | "server";
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
@@ -62,6 +65,17 @@ function json(obj: unknown, status = 200): Response {
 }
 function fail(error: ErrorCode, status: number): Response {
   return json({ error }, status);
+}
+
+/** The payload of a token getUser has already verified. */
+function claims(jwt: string): Record<string, unknown> {
+  try {
+    const part = jwt.split(".")[1] ?? "";
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
+  } catch {
+    return {};
+  }
 }
 
 /** The service-role client. Holds the one key that can read across users; it
@@ -151,6 +165,12 @@ async function handle(req: Request): Promise<Response> {
     console.error("admin: caller is not in the allowlist:", user.id);
     return fail("forbidden", 403);
   }
+
+  // 3. A second factor, every call. A password alone - phished, reused,
+  //    guessed - must not open every user's data. The token was verified by
+  //    getUser above; its aal claim says whether this session passed a TOTP
+  //    code. Checked after the allowlist, so only an admin learns it is needed.
+  if (claims(jwt).aal !== "aal2") return fail("mfa-required", 403);
 
   let body: { action?: unknown; page?: unknown; limit?: unknown };
   try {
