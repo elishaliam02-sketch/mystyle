@@ -8,12 +8,16 @@
  * moment to offer "add it yourself" rather than a blank screen.
  */
 import { EXERCISES, type Equipment, type Exercise, type Muscle } from "./exercises";
+import { difficulty } from "./difficulty";
 
 export type LibraryFilter = {
   /** Free text over the Hebrew name, the English name and the search term. */
   query?: string;
   muscle?: Muscle | "all";
   equipment?: Equipment | "all";
+  /** Only moves of this difficulty (1 beginner, 2 intermediate, 3 advanced).
+   * A person's own moves always pass. */
+  level?: 1 | 2 | 3;
   /** The person's own moves, shown alongside the built-in ones. */
   custom?: Exercise[];
 };
@@ -90,10 +94,11 @@ export function filterExercises(
   filter: LibraryFilter,
   muscleLabels: Partial<Record<Muscle, string>> = {},
 ): Exercise[] {
-  const { query = "", muscle = "all", equipment = "all", custom = [] } = filter;
+  const { query = "", muscle = "all", equipment = "all", custom = [], level } = filter;
   return allExercises(custom).filter((ex) => {
     if (muscle !== "all" && ex.muscle !== muscle) return false;
     if (equipment !== "all" && ex.equipment !== equipment) return false;
+    if (level && !ex.custom && difficulty(ex.id) !== level) return false;
     return matches(ex, query, muscleLabels[ex.muscle]);
   });
 }

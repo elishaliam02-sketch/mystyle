@@ -463,6 +463,7 @@ export const en: typeof he = {
     showing: "Showing {n}",
     search: "Search a move, a muscle or a kit",
     allMuscles: "All muscles",
+    allLevels: "All levels",
     allKit: "All kit",
     none: "No move like that. Add it yourself below — it stays in your library for good.",
     mine: "Mine",

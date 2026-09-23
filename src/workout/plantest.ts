@@ -377,6 +377,15 @@ for (const days of [2, 3, 4, 5, 6] as const) {
     EXERCISES.every((e) => [1, 2, 3].includes(difficulty(e.id))));
 }
 
+// The library's level filter.
+{
+  const adv = filterExercises({ level: 3 });
+  check("the advanced filter shows only advanced moves", adv.length > 10 && adv.every((e) => difficulty(e.id) === 3));
+  const beg = filterExercises({ level: 1 });
+  check("the beginner filter shows only beginner moves", beg.length > 30 && beg.every((e) => difficulty(e.id) === 1));
+  check("no level filter shows everything", filterExercises({}).length === EXERCISES.length);
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

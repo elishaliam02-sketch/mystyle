@@ -35,6 +35,7 @@ export default function LibraryScreen() {
   const [query, setQuery] = useState("");
   const [muscle, setMuscle] = useState<Muscle | "all">("all");
   const [kit, setKit] = useState<Equipment | "all">("all");
+  const [level, setLevel] = useState<0 | 1 | 2 | 3>(0);
   const [ownName, setOwnName] = useState("");
   const [ownMuscle, setOwnMuscle] = useState<Muscle>("fullbody");
   const [ownNote, setOwnNote] = useState<{ text: string; ok: boolean } | null>(null);
@@ -71,10 +72,10 @@ export default function LibraryScreen() {
   const counts = useMemo(() => countByMuscle(custom), [custom]);
   const kits = useMemo(() => equipmentKinds(custom), [custom]);
   const rows = useMemo(
-    () => filterExercises({ query, muscle, equipment: kit, custom }, muscleLabel),
+    () => filterExercises({ query, muscle, equipment: kit, custom, level: level || undefined }, muscleLabel),
     // muscleLabel is rebuilt each render; the locale is what actually changes it
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, muscle, kit, custom, locale],
+    [query, muscle, kit, level, custom, locale],
   );
   const total = useMemo(() => filterExercises({ custom }).length, [custom]);
 
@@ -170,6 +171,19 @@ export default function LibraryScreen() {
               label={kitLabel[k]}
               on={kit === k}
               onPress={() => setKit(kit === k ? "all" : k)}
+            />
+          ))}
+        </View>
+
+        {/* narrow by level — a beginner browsing for a move they can do today */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+          <FilterChip label={t.library.allLevels} on={level === 0} onPress={() => setLevel(0)} />
+          {([1, 2, 3] as const).map((l) => (
+            <FilterChip
+              key={l}
+              label={[t.workout.levelBeginner, t.workout.levelIntermediate, t.workout.levelAdvanced][l - 1]!}
+              on={level === l}
+              onPress={() => setLevel(level === l ? 0 : l)}
             />
           ))}
         </View>

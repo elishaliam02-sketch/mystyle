@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { difficulty } from "@/workout/difficulty";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -217,6 +218,9 @@ export function ExercisePicker({
                       </Text>
                       <Text style={[type.small, { color: colors.inkFaint }]}>
                         {muscleLabel[ex.muscle]} · {kitLabel[ex.equipment]}
+                        {ex.custom
+                          ? ""
+                          : ` · ${[t.workout.levelBeginner, t.workout.levelIntermediate, t.workout.levelAdvanced][difficulty(ex.id) - 1]}`}
                       </Text>
                     </View>
                     <Ionicons
