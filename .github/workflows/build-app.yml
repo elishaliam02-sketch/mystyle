@@ -1,20 +1,89 @@
 name: Build the app (APK)
 
-# Builds a fresh installable Android app on Expo's servers. Run it by hand from
-# the GitHub app: Actions -> "Build the app (APK)" -> Run workflow.
+# Builds a fresh installable Android app. Run it by hand from the GitHub app:
+# Actions -> "Build the app (APK)" -> Run workflow.
 #
 # Use this (rather than the OTA update) when something native changed — a new
-# icon or splash, an app-version bump, or a new native module. Everyday JS and
-# UI changes reach the installed app through "Publish OTA update" instead.
+# icon or splash, an app-version bump, or a new native module — or when an
+# installed copy is too old to take OTA updates. Everyday JS and UI changes
+# reach the installed app through "Publish OTA update" instead.
 #
-# When it finishes, the APK is on expo.dev under this project's Builds, with a
-# QR code and an install link you can open straight from the phone.
+# Two ways to build:
+#   local (default) — the APK is built right here on GitHub's runner with
+#     `eas build --local`. It does not use Expo's build quota at all, which is
+#     what ran out on the free plan and blocked a build for weeks. It still
+#     signs with the same keystore Expo holds for this project, so it installs
+#     over the existing app without wiping anyone's data. The APK is attached
+#     to a GitHub release (a direct download link on the phone) and kept as a
+#     run artifact too.
+#   cloud — the old path: queue the build on Expo's servers (counts against the
+#     plan's monthly builds); the APK then appears on expo.dev under Builds.
 
 on:
   workflow_dispatch:
+    inputs:
+      builder:
+        description: "Where to build: local (free, on GitHub) or cloud (Expo, uses quota)"
+        type: choice
+        options: [local, cloud]
+        default: local
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  local:
+    if: ${{ inputs.builder != 'cloud' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java for the Android build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build the APK on this runner
+        run: eas build --platform android --profile preview --local --non-interactive --output apex.apk
+
+      - name: Keep the APK as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-apk
+          path: apex.apk
+          retention-days: 30
+
+      - name: Publish the APK as a downloadable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="apk-${{ github.run_number }}"
+          gh release create "$TAG" apex.apk \
+            --target "${{ github.sha }}" \
+            --title "APEX APK #${{ github.run_number }}" \
+            --notes "Built from ${{ github.ref_name }} at ${{ github.sha }}. Open this page on the phone, tap apex.apk, and install." \
+            --prerelease
+
+  cloud:
+    if: ${{ inputs.builder == 'cloud' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out the code
