@@ -67,9 +67,13 @@ check-ins and the backup blob go with it. The client calls it from
 `deleteAccount()` in `src/cloud/client.ts`; the profile screen wipes the device
 afterwards and only reports success when the server actually confirmed.
 
-**TODO (human):** run that migration in the Supabase SQL editor. Until you do,
-the delete button reports a failure rather than pretending — which is the right
-behaviour, but it means deletion is not live until the SQL is run.
+`migration-006-security.sql` replaces it with a version that also requires a
+sign-in in the last ten minutes for an email account; the profile screen asks
+for the password and signs in again just before calling it.
+
+**TODO (human):** run migrations 004 and 006 in the Supabase SQL editor. Until
+you do, the delete button reports a failure rather than pretending — which is
+the right behaviour, but it means deletion is not live until the SQL is run.
 
 ## 3b. Right to a copy
 

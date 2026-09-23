@@ -8,9 +8,10 @@ import {
   MAX_ITEM_KCAL,
   MAX_ITEMS,
   mealLabel,
-  mealPhotoPrompt,
   parseMealAnalysis,
 } from "./nutrition";
+// The prompt is the server's (the app may not choose it); pinned to the parser here.
+import { mealPhotoPrompt } from "../../supabase/functions/ai/prompts";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);

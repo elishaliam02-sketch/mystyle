@@ -12,89 +12,160 @@
 // configured the function says so plainly and the app falls back to its own
 // on-device coach, so nothing ever breaks for the person using it.
 //
-// Deploy:  supabase functions deploy ai
+// The caller chooses a task, never the instructions: the system prompt and,
+// for a meal photo, the whole prompt are built here (prompts.ts).
+//
+// Deploy:  supabase functions deploy ai          (ships prompts.ts with it)
+// Needs:   supabase/migration-006-security.sql   (the durable rate limiter)
 // Secret:  supabase secrets set GEMINI_API_KEY=...
 //     (or) supabase secrets set ANTHROPIC_API_KEY=...
+// Web:     supabase secrets set ALLOWED_ORIGINS=https://your-web-app.example
+//          (the phone apps send no Origin and need nothing here)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { coachSystemPrompt, mealPhotoPrompt, type Locale } from "./prompts.ts";
 
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 800;
+const MAX_PROMPT_CHARS = 4000;
 /** A photo is ~1.4x its byte size in base64; keep well under the request cap. */
 const MAX_IMAGE_CHARS = 6_000_000;
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-// A tiny in-memory limiter — one instance, best-effort. The free tier's daily
-// quota is shared by everyone using the app, so this is what stops one device
-// from spending it all.
-const hits = new Map<string, { n: number; resetAt: number }>();
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 12;
+// Counted in Postgres (ai_count), not in this instance's memory: an in-memory
+// count reset on every cold start and was never shared between instances.
+// Anonymous accounts cost nothing to create, so they get a lower daily ceiling,
+// and the global ceiling bounds what any number of fresh accounts can spend.
+const limit = (name: string, fallback: number) => {
+  const n = Number(Deno.env.get(name));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+const PER_MINUTE = limit("AI_PER_MINUTE", 12);
+const PER_DAY = limit("AI_PER_DAY", 60);
+const PER_DAY_ANONYMOUS = limit("AI_PER_DAY_ANONYMOUS", 30);
+const GLOBAL_PER_DAY = limit("AI_GLOBAL_PER_DAY", 2000);
 
-function rateLimited(userId: string): boolean {
-  const now = Date.now();
-  const rec = hits.get(userId);
-  if (!rec || now > rec.resetAt) {
-    hits.set(userId, { n: 1, resetAt: now + WINDOW_MS });
-    return false;
-  }
-  rec.n += 1;
-  return rec.n > MAX_PER_WINDOW;
-}
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+const corsHeaders = {
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+/** Echoes the Origin back only when it is on the list. Native apps send none. */
+function withCors(req: Request, res: Response): Response {
+  const origin = req.headers.get("Origin");
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.headers.set("Access-Control-Allow-Origin", origin);
+    for (const [k, v] of Object.entries(corsHeaders)) res.headers.set(k, v);
+  }
+  res.headers.append("Vary", "Origin");
+  return res;
+}
+
+type Task = "coach" | "meal";
+type Parsed =
+  | { ok: true; task: Task; locale: Locale; prompt: string; image: string; mimeType: string }
+  | { ok: false; error: string };
+
+/** Every field is checked for type, not just trimmed: a number where text was
+ * expected used to throw outside any handler. */
+function parseBody(raw: unknown): Parsed {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, error: "bad-body" };
+  const b = raw as Record<string, unknown>;
+  const str = (v: unknown) => (v === undefined || v === null ? "" : typeof v === "string" ? v : null);
+
+  const prompt = str(b.prompt);
+  const image = str(b.imageBase64);
+  const mime = str(b.mimeType);
+  if (prompt === null || image === null || mime === null) return { ok: false, error: "bad-body" };
+
+  const locale: Locale = b.locale === "en" ? "en" : "he";
+  // Older app builds send no task; a photo means the meal reader.
+  const task = b.task ?? (image ? "meal" : "coach");
+  if (task !== "coach" && task !== "meal") return { ok: false, error: "unknown-task" };
+
+  if (task === "meal") {
+    if (!image) return { ok: false, error: "empty" };
+    if (image.length > MAX_IMAGE_CHARS) return { ok: false, error: "image-too-large" };
+    const mimeType = mime || "image/jpeg";
+    if (!IMAGE_TYPES.includes(mimeType)) return { ok: false, error: "bad-image-type" };
+    return { ok: true, task, locale, prompt: mealPhotoPrompt(locale), image, mimeType };
+  }
+
+  const text = prompt.trim();
+  if (!text) return { ok: false, error: "empty" };
+  if (text.length > MAX_PROMPT_CHARS) return { ok: false, error: "too-long" };
+  return { ok: true, task, locale, prompt: text, image: "", mimeType: "" };
+}
+
+Deno.serve(async (req: Request) => withCors(req, await handle(req)));
+
+async function handle(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
-  // 1. Verify the caller is a signed-in user of this project.
-  const auth = req.headers.get("Authorization") ?? "";
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: auth } } },
+  // 1. Who is calling — the token is verified with the service key, as the
+  //    admin function does; new-API-key projects do not always inject the
+  //    legacy anon key this used to depend on.
+  const jwt = (req.headers.get("Authorization") ?? "").replace(/^[Bb]earer\s+/, "").trim();
+  if (!jwt) return json({ error: "unauthorized" }, 401);
+  const db = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
   );
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
+  const { data: userData } = await db.auth.getUser(jwt);
+  const user = userData?.user;
   if (!user) return json({ error: "unauthorized" }, 401);
-  if (rateLimited(user.id)) return json({ error: "rate-limited" }, 429);
 
-  // 2. Read the request. The client sends text and, for a meal photo, an image.
-  //    The model, token budget and safety framing are decided here, not there.
-  let body: { system?: string; prompt?: string; imageBase64?: string; mimeType?: string };
+  // 2. Read and check the request before spending anything on it.
+  let raw: unknown;
   try {
-    body = await req.json();
+    raw = await req.json();
   } catch {
     return json({ error: "bad-json" }, 400);
   }
-  const prompt = (body.prompt ?? "").slice(0, 4000);
-  const system = (body.system ?? "").slice(0, 4000);
-  const image = body.imageBase64 ?? "";
-  const mimeType = body.mimeType ?? "image/jpeg";
-  if (!prompt) return json({ error: "empty" }, 400);
-  if (image.length > MAX_IMAGE_CHARS) return json({ error: "image-too-large" }, 413);
+  const body = parseBody(raw);
+  if (!body.ok) return json({ error: body.error }, body.error === "image-too-large" ? 413 : 400);
 
+  // 3. Count it. Without the migration this fails closed, and the app falls
+  //    back to its on-device coach as it does for any unavailable server.
+  const anonymous = user.is_anonymous === true;
+  const { data: counts, error: countErr } = await db.rpc("ai_count", {
+    keys: [`user:${user.id}:minute`, `user:${user.id}:day`, "global:day"],
+    seconds: [60, 86_400, 86_400],
+  });
+  if (countErr || !Array.isArray(counts)) return json({ error: "unconfigured" }, 503);
+  const [minute, day, global] = counts as number[];
+  if (minute > PER_MINUTE || day > (anonymous ? PER_DAY_ANONYMOUS : PER_DAY)) {
+    return json({ error: "rate-limited" }, 429);
+  }
+  if (global > GLOBAL_PER_DAY) return json({ error: "quota" }, 429);
+
+  const system = body.task === "coach" ? coachSystemPrompt(body.locale) : "";
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
   try {
-    if (geminiKey) return await callGemini(geminiKey, system, prompt, image, mimeType);
+    if (geminiKey) return await callGemini(geminiKey, system, body.prompt, body.image, body.mimeType);
     if (anthropicKey) {
       // Anthropic has no free tier; only used when it is the configured key.
-      if (image) return json({ error: "vision-unavailable" }, 400);
-      return await callAnthropic(anthropicKey, system, prompt);
+      if (body.image) return json({ error: "vision-unavailable" }, 400);
+      return await callAnthropic(anthropicKey, system, body.prompt);
     }
     return json({ error: "unconfigured" }, 503);
   } catch {
     return json({ error: "upstream" }, 502);
   }
-});
+}
+
 
 async function callGemini(
   key: string,
@@ -150,6 +221,6 @@ async function callAnthropic(key: string, system: string, prompt: string): Promi
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...cors, "content-type": "application/json" },
+    headers: { "content-type": "application/json" },
   });
 }

@@ -26,7 +26,6 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   // supabase-js sends apikey and x-client-info (and a version header) on every
   // functions.invoke call. A preflight that does not list them makes the
   // browser refuse the request — the "Failed to send a request" error — before
@@ -36,12 +35,29 @@ const cors = {
   "Access-Control-Max-Age": "86400",
 };
 
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+/** Echoes the Origin back only when it is on ALLOWED_ORIGINS (a function
+ * secret). Native apps send no Origin; the console must be served from a listed origin. */
+function withCors(req: Request, res: Response): Response {
+  const origin = req.headers.get("Origin");
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.headers.set("Access-Control-Allow-Origin", origin);
+    for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+  }
+  res.headers.append("Vary", "Origin");
+  return res;
+}
+
 type ErrorCode = "method" | "bad-json" | "unauthorized" | "forbidden" | "unknown-action" | "server";
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...cors, "content-type": "application/json" },
+    headers: { "content-type": "application/json" },
   });
 }
 function fail(error: ErrorCode, status: number): Response {
@@ -101,8 +117,10 @@ function readTrajectory(points: Point[], goalKg: number | null, nowMs: number): 
 
 // ------------------------------------------------------------------- the entry
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+Deno.serve(async (req: Request) => withCors(req, await handle(req)));
+
+async function handle(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST") return fail("method", 405);
 
   // 1. Who is calling. The bearer token is validated directly with the service
@@ -130,7 +148,7 @@ Deno.serve(async (req: Request) => {
     return fail("server", 500);
   }
   if (!adminRow) {
-    console.error("admin: caller is not in the allowlist:", user.id, user.email ?? "");
+    console.error("admin: caller is not in the allowlist:", user.id);
     return fail("forbidden", 403);
   }
 
@@ -155,7 +173,7 @@ Deno.serve(async (req: Request) => {
   } catch {
     return fail("server", 500);
   }
-});
+}
 
 // --------------------------------------------------------------------- reads
 

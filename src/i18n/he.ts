@@ -233,6 +233,8 @@ export const he = {
     deleteDone: "נמחק. הכול נוקה מהמכשיר ומהשרת.",
     deleteFailed: "לא הצלחתי למחוק מהשרת. בדוק חיבור ונסה שוב, או כתוב לנו.",
     deleteLocalOnly: "אין חשבון בענן — האיפוס מוחק את מה שנשמר על המכשיר.",
+    deletePassword: "הסיסמה שלך, לאישור",
+    deleteWrongPassword: "הסיסמה לא נכונה. שום דבר לא נמחק.",
     licensesTitle: "רישיונות קוד פתוח",
     licensesBody: "האפליקציה בנויה על הספריות האלה. תודה למי שכתב אותן.",
     licensesCount: "{count} חבילות",

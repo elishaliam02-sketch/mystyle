@@ -63,10 +63,26 @@ function isPlanId(value: unknown): value is keyof typeof PRICE_ENV {
 }
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type, stripe-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+/** Echoes the Origin back only when it is on ALLOWED_ORIGINS (a function
+ * secret). Native apps send no Origin, and neither does Stripe's webhook. */
+function withCors(req: Request, res: Response): Response {
+  const origin = req.headers.get("Origin");
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.headers.set("Access-Control-Allow-Origin", origin);
+    for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+  }
+  res.headers.append("Vary", "Origin");
+  return res;
+}
 
 /** The error codes this function is allowed to say out loud. Anything that is
  * not on this list becomes "server", so an upstream message can never leak a
@@ -86,7 +102,7 @@ type ErrorCode =
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...cors, "content-type": "application/json" },
+    headers: { "content-type": "application/json" },
   });
 }
 
@@ -114,8 +130,10 @@ function rateLimited(userId: string): boolean {
 
 // ----------------------------------------------------------------- entry
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+Deno.serve(async (req: Request) => withCors(req, await handle(req)));
+
+async function handle(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST") return fail("method", 405);
 
   const url = new URL(req.url);
@@ -124,7 +142,7 @@ Deno.serve(async (req: Request) => {
   if (url.pathname.endsWith("/webhook")) return await handleWebhook(req);
 
   return await handleApp(req);
-});
+}
 
 // ------------------------------------------------------- the app's own calls
 

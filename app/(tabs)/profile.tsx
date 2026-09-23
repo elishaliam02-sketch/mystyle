@@ -486,7 +486,10 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const { state, consent, setConsent, reset, allowance } = useStore();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [password, setPassword] = useState("");
   const choices = consent();
+  // An email account proves it is still its owner before it can be erased.
+  const needsPassword = !!cloud.account?.email && !cloud.account.anonymous;
 
   function confirmDelete() {
     confirm({
@@ -506,12 +509,18 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     // try again. Wiping the device first would leave an orphaned account on
     // the server with no signed-in device left to delete it from.
     const hadAccount = !!cloud.account;
-    const gone = await deleteAccount();
-    if (hadAccount && !gone) {
+    const result = await deleteAccount(needsPassword ? password : undefined);
+    if (result === "wrong-password") {
+      setNote(t.legal.deleteWrongPassword);
+      setBusy(false);
+      return;
+    }
+    if (hadAccount && result !== "deleted") {
       setNote(t.legal.deleteFailed);
       setBusy(false);
       return;
     }
+    setPassword("");
     reset();
     cloud.refreshAccount();
     setNote(hadAccount ? t.legal.deleteDone : t.legal.deleteLocalOnly);
@@ -625,11 +634,21 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
       <Text style={[type.small, { color: colors.inkSoft, marginTop: space.xs }]}>
         {t.legal.deleteBody}
       </Text>
+      {needsPassword ? (
+        <View style={{ marginTop: space.md }}>
+          <TextField
+            value={password}
+            onChangeText={(v) => { setPassword(v); if (note) setNote(null); }}
+            label={t.legal.deletePassword}
+            secureTextEntry
+          />
+        </View>
+      ) : null}
       <Button
         icon="trash"
         label={t.legal.deleteCta}
         tone="danger"
-        disabled={busy}
+        disabled={busy || (needsPassword && !password)}
         onPress={confirmDelete}
         style={{ marginTop: space.md }}
       />

@@ -110,22 +110,3 @@ export function mealLabel(analysis: MealAnalysis, fallback: string): string {
   const joined = names.slice(0, 3).join(", ");
   return joined.slice(0, MAX_LABEL);
 }
-
-/** What the model is asked for. Kept here so the prompt and the parser agree. */
-export function mealPhotoPrompt(locale: string): string {
-  const lang = locale === "he" ? "Hebrew" : "English";
-  return [
-    `You are looking at a photograph of a meal.`,
-    `Identify each distinct food on the plate and estimate its portion.`,
-    `Estimate conservatively: if you cannot tell whether something was fried or how much oil or sauce is on it, assume a normal home-cooked amount.`,
-    ``,
-    `Reply with ONLY this JSON object and nothing else:`,
-    `{"items":[{"label":"food name","grams":0,"kcal":0,"protein":0}],"confidence":0.0}`,
-    ``,
-    `- "label" must be written in ${lang}, 1-3 words.`,
-    `- "grams" is the estimated edible weight of that item.`,
-    `- "kcal" and "protein" are for that item's portion, not per 100g.`,
-    `- "confidence" is 0 to 1: how sure you are overall.`,
-    `- If the picture is not food at all, reply {"items":[],"confidence":0}.`,
-  ].join("\n");
-}

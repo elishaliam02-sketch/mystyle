@@ -20,13 +20,24 @@ In the Supabase dashboard for this project:
 1. **Edge Functions** → **Secrets**
 2. Add: name `GEMINI_API_KEY`, value = the key you copied.
 
-## 3. Deploy the function
+## 3. Run the rate-limit migration
 
-The function's code is in `supabase/functions/ai/index.ts`.
+Paste `supabase/migration-006-security.sql` into the SQL editor and run it.
+Without it the function refuses every call (it cannot count them), and the app
+falls back to its on-device coach.
 
+## 4. Deploy the function
+
+The function is two files: `supabase/functions/ai/index.ts` and the
+instructions it gives the model, `supabase/functions/ai/prompts.ts`.
+
+- With the CLI (ships both): `supabase functions deploy ai`
 - From the dashboard: **Edge Functions** → **Deploy a new function** → name it
-  exactly `ai` → paste the file's contents.
-- Or with the CLI: `supabase functions deploy ai`
+  exactly `ai` → add both files with those names and paste each one in.
+
+If the app also runs on the web, add a secret `ALLOWED_ORIGINS` with the web
+app's address (for example `https://app.example.com`; several are separated
+by commas). The phone apps need nothing here.
 
 That's it. The app finds it on its own.
 

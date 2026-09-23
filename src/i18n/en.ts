@@ -228,6 +228,8 @@ export const en: typeof he = {
     deleteDone: "Deleted. Everything is cleared from the device and the server.",
     deleteFailed: "Could not delete from the server. Check your connection and try again, or write to us.",
     deleteLocalOnly: "There is no cloud account — resetting clears what is stored on this device.",
+    deletePassword: "Your password, to confirm",
+    deleteWrongPassword: "That password is wrong. Nothing was deleted.",
     licensesTitle: "Open-source licences",
     licensesBody: "This app is built on these libraries. Thanks to the people who wrote them.",
     licensesCount: "{count} packages",

@@ -30,16 +30,15 @@ const ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
 const TIMEOUT_MS = 30_000;
 
 /**
- * Asks the model. `imageBase64` turns it into a vision call — that is what
- * reads a meal photograph.
+ * Asks the model. The server owns the instructions for each task; the app
+ * sends only the task, the language and the person's own words or photo.
  */
-export async function askServer(opts: {
-  prompt: string;
-  system?: string;
-  imageBase64?: string;
-  mimeType?: string;
-  signal?: AbortSignal;
-}): Promise<ServerAiResult> {
+export async function askServer(
+  opts: (
+    | { task: "coach"; prompt: string }
+    | { task: "meal"; imageBase64: string; mimeType?: string }
+  ) & { locale: "he" | "en"; signal?: AbortSignal },
+): Promise<ServerAiResult> {
   // The question, the numbers behind it and any meal photo are personal data
   // going to a third party, so this is gated on an explicit opt-in. Reported
   // as "unavailable" rather than a refusal: every caller already falls back to
@@ -64,12 +63,11 @@ export async function askServer(opts: {
     const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        prompt: opts.prompt,
-        system: opts.system,
-        imageBase64: opts.imageBase64,
-        mimeType: opts.mimeType,
-      }),
+      body: JSON.stringify(
+        opts.task === "coach"
+          ? { task: "coach", locale: opts.locale, prompt: opts.prompt }
+          : { task: "meal", locale: opts.locale, imageBase64: opts.imageBase64, mimeType: opts.mimeType },
+      ),
       signal: timer.signal,
     });
 

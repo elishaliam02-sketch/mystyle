@@ -22,13 +22,29 @@ server. Everything below serves that.
 
 ## 2. Secrets & critical logic on the server
 
-- **`supabase/functions/ai/` — the AI proxy.** The Anthropic key is a real,
-  spendable secret, so it never touches the device. The app sends a prompt to
-  this Edge Function; the function verifies the caller's JWT, rate-limits per
-  user, holds the key in its own environment, calls Claude, and returns only
-  text. Deploy: `supabase functions deploy ai`; set the secret with
-  `supabase secrets set ANTHROPIC_API_KEY=…`. This is the template for any
-  future logic that must not be forgeable — put it behind a function.
+- **`supabase/functions/ai/` — the AI proxy.** The Gemini (or Anthropic) key
+  is a real, spendable secret, so it never touches the device. The app names a
+  task (`coach` or `meal`) and sends only the person's words or photo; the
+  function verifies the caller's JWT, checks every field's type, builds the
+  instructions itself (`prompts.ts`), holds the key, and returns only text. A
+  client that could send its own system prompt could use the key as a
+  general-purpose model, so it cannot.
+- **Rate limits live in Postgres** (`ai_count`, `migration-006-security.sql`):
+  per user per minute and per day, lower for anonymous accounts (they cost
+  nothing to create), and a global daily ceiling that bounds what any number of
+  fresh accounts can spend. Tune with the `AI_PER_MINUTE`, `AI_PER_DAY`,
+  `AI_PER_DAY_ANONYMOUS` and `AI_GLOBAL_PER_DAY` function secrets.
+- **CORS is an allowlist.** Every function echoes the `Origin` only when it is
+  in the `ALLOWED_ORIGINS` secret (comma-separated; defaults to the local Expo
+  web ports). The phone apps and Stripe send no Origin and are unaffected; the
+  hosted web app and the admin console must be listed.
+- **Deleting an account needs a recent sign-in.** `delete_my_account()` refuses
+  a non-anonymous caller whose token shows no sign-in in the last ten minutes;
+  the app asks for the password and signs in again just before. Also turn on
+  **Authentication → Providers → Email → Secure password change** in Supabase,
+  so a password can only be changed from a recent sign-in or a reset link.
+- This is the template for any future logic that must not be forgeable — put
+  it behind a function.
 
 ## 3. Encryption of local data
 

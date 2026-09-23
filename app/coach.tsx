@@ -180,7 +180,8 @@ export default function CoachScreen() {
 
     setThinking(true);
     const answer = await askServer({
-      system: coachSystemPrompt(lang),
+      task: "coach",
+      locale: lang,
       prompt: `${factsFor(context, lang)}\n\nQuestion: ${q}`,
     });
     setThinking(false);
@@ -397,23 +398,6 @@ export default function CoachScreen() {
   );
 }
 
-
-/** The rules the model answers under. Safety is decided here, not by the model. */
-function coachSystemPrompt(locale: "he" | "en"): string {
-  const lang = locale === "he" ? "Hebrew" : "English";
-  return [
-    `You are the coach inside APEX, a fitness and nutrition app.`,
-    `Answer in ${lang}, in at most four short sentences, speaking directly to the person.`,
-    `Use the figures you are given — quote them back rather than talking in generalities.`,
-    ``,
-    `Rules, non-negotiable:`,
-    `- Never give medical or clinical advice, and never diagnose.`,
-    `- Never encourage fasting, purging, or extreme restriction.`,
-    `- If asked about pain, injury, medication, pregnancy or a medical condition,`,
-    `  keep it general and say to speak with a professional.`,
-    `- Never shame the person.`,
-  ].join("\n");
-}
 
 /** The person's own numbers, handed to the model as plain facts. */
 function factsFor(c: CoachContext, locale: "he" | "en"): string {

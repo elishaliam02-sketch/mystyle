@@ -8,7 +8,7 @@ import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
 import { askServer } from "@/ai/server";
-import { mealLabel, mealPhotoPrompt, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
+import { mealLabel, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
 import { dailyTarget } from "@/kitchen";
 import { groundAnalysis } from "@/kitchen/calc";
 import { fill, useI18n } from "@/i18n";
@@ -65,7 +65,8 @@ export function MealScanner() {
       setPhase({ kind: "reading", uri: asset.uri });
 
       const answer = await askServer({
-        prompt: mealPhotoPrompt(locale),
+        task: "meal",
+        locale: locale === "en" ? "en" : "he",
         imageBase64: asset.base64!,
         mimeType: asset.mimeType ?? "image/jpeg",
       });

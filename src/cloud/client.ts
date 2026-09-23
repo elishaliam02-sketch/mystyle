@@ -268,17 +268,36 @@ export async function signInWithEmail(email: string, password: string): Promise<
  * behind, which is not deletion in any sense a person or a regulator would
  * accept.
  *
- * Returns false when there is nothing to delete server-side (local-only
- * install) or the call failed; the caller still wipes the device either way.
+ * An email account must sign in again with its password first: the server
+ * refuses a deletion without a sign-in in the last ten minutes, so a phone
+ * left unlocked or a lifted session token cannot erase anyone. An anonymous
+ * account has no password to ask for.
+ *
+ * "none" means there is nothing to delete server-side (local-only install).
  */
-export async function deleteAccount(): Promise<boolean> {
-  const db = supabase();
-  if (!db) return false;
-  const { data } = await db.auth.getSession();
-  if (!data.session) return false;
+export type DeleteResult = "deleted" | "none" | "wrong-password" | "failed";
 
-  const { error } = await db.rpc("delete_my_account");
-  if (error) return false;
+export async function deleteAccount(password?: string): Promise<DeleteResult> {
+  const db = supabase();
+  if (!db) return "none";
+  try {
+    const { data } = await db.auth.getSession();
+    const user = data.session?.user;
+    if (!user) return "none";
+
+    if (user.email && !user.is_anonymous) {
+      if (!password) return "wrong-password";
+      const again = await db.auth.signInWithPassword({ email: user.email, password });
+      if (again.error) {
+        return /invalid login credentials/i.test(again.error.message) ? "wrong-password" : "failed";
+      }
+    }
+
+    const { error } = await db.rpc("delete_my_account");
+    if (error) return "failed";
+  } catch {
+    return "failed";
+  }
 
   // The session is now a token for a user that no longer exists; clearing it
   // stops the app trying to sync into a hole.
@@ -287,7 +306,7 @@ export async function deleteAccount(): Promise<boolean> {
   } catch {
     // Already gone server-side — nothing to do.
   }
-  return true;
+  return "deleted";
 }
 
 export async function signOut(): Promise<void> {
