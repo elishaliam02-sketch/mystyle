@@ -35,7 +35,7 @@ jobs:
   local:
     if: ${{ inputs.builder != 'cloud' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     steps:
       - name: Check out the code
         uses: actions/checkout@v4
@@ -61,7 +61,31 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # The runner has 7 GB of RAM, and a React Native build compiling native
+      # code runs past it: the OS killed the Gradle daemon mid-build ("daemon
+      # disappeared unexpectedly"). Swap on disk turns that kill into a
+      # slowdown.
+      - name: Give the runner swap space
+        run: |
+          # the runner's scratch disk, so the swap does not eat the space the
+          # build itself needs on the root disk
+          SWAP=/mnt/apex.swap; [ -w /mnt ] || SWAP=/apex.swap
+          sudo fallocate -l 8G "$SWAP"
+          sudo chmod 600 "$SWAP"
+          sudo mkswap "$SWAP"
+          sudo swapon "$SWAP"
+          free -h
+          df -h / /mnt || true
+
+      # One CPU architecture instead of four. arm64-v8a is every Android phone
+      # sold in the last several years; building armeabi-v7a, x86 and x86_64 as
+      # well quadrupled the native compile and ran past the time limit. Two
+      # Gradle workers keep peak memory inside what the runner has.
       - name: Build the APK on this runner
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+          GRADLE_OPTS: -Dorg.gradle.workers.max=2
+          CMAKE_BUILD_PARALLEL_LEVEL: "2"
         run: eas build --platform android --profile preview --local --non-interactive --output apex.apk
 
       - name: Keep the APK as a run artifact
