@@ -1,5 +1,6 @@
 import { EXERCISES, type Equipment, type Exercise, type Muscle } from "./exercises";
 import type { Goal } from "@/kitchen";
+import { difficulty, maxDifficulty, type Level } from "./difficulty";
 
 /** What equipment the person can train with — drives which moves a plan uses. */
 export const EQUIP_SETS: Record<string, Equipment[]> = {
@@ -46,6 +47,8 @@ export type Plan = {
   equipment?: string;
   /** How long one session runs, in minutes — governs how many moves it holds. */
   minutes?: number;
+  /** How experienced the person is; shapes which moves and how many sets. */
+  level?: Level;
   /** Working sets per exercise, and the rep range — set by the goal. */
   sets: number;
   reps: string;
@@ -122,11 +125,31 @@ function pick(
   seed: number,
   allowed: Set<Equipment>,
   bias: number,
+  level?: Level,
 ): Exercise[] {
-  const pool = (m: Muscle, compound: boolean) =>
+  // Moves this person can do well (`strict`), or — when a muscle has run out
+  // at their level with their kit — one step harder, never more: a beginner
+  // is better served by a session one move short than by pull-ups they cannot
+  // do yet. The fill below tries the other category at their level first.
+  const ceiling = maxDifficulty(level);
+  const reach = Math.min(3, ceiling + 1);
+  const pool = (m: Muscle, compound: boolean, strict = true) =>
     EXERCISES.filter(
-      (e) => e.muscle === m && e.compound === compound && !e.custom && allowed.has(e.equipment),
+      (e) =>
+        e.muscle === m &&
+        e.compound === compound &&
+        !e.custom &&
+        allowed.has(e.equipment) &&
+        difficulty(e.id) <= (strict ? ceiling : reach),
     );
+  // An advanced session opens on a genuinely hard lift when there is one.
+  const leadPool = (m: Muscle) => {
+    const base = pool(m, true);
+    if (!level) return base; // a plan from before levels: exactly as it was
+    if (level !== "advanced") return base.length ? base : pool(m, false).length ? pool(m, false) : pool(m, true, false);
+    const hard = base.filter((e) => difficulty(e.id) === 3);
+    return hard.length ? hard : base;
+  };
   const at = (list: Exercise[], salt: number) =>
     list.length ? list[hash(`${seed}:${salt}`) % list.length]! : undefined;
 
@@ -148,7 +171,7 @@ function pick(
   let compoundBudget = Math.max(1, Math.round(bias * count));
 
   // Open with a compound for the lead muscle (a focus muscle when set).
-  if (take(at(pool(muscles[0]!, true), 1))) compoundBudget -= 1;
+  if (take(at(leadPool(muscles[0]!), 1))) compoundBudget -= 1;
 
   // Fill the rest, muscle by muscle, spending the compound budget first and
   // then accessories — so the compound share tracks the goal, and the seed
@@ -164,6 +187,9 @@ function pick(
         if (wantCompound) compoundBudget -= 1;
       } else if (take(at(pool(m, !wantCompound), salt))) {
         // fell back to the other category because this one was exhausted
+      } else if (round >= 2 && take(at(pool(m, wantCompound, false), salt))) {
+        // nothing left at this person's level: reach up rather than skip the
+        // muscle — but only once the easier moves have had two full rounds
       }
     }
     round += 1;
@@ -177,6 +203,9 @@ export type PlanOptions = {
   /** Muscles the person wants extra work on — a random plan can lead with the
    * lagging ones instead of always the day's default. */
   focus?: Muscle[];
+  /** Beginner, intermediate or advanced. Undefined (a plan from before levels)
+   * filters nothing. */
+  level?: Level;
 };
 
 /**
@@ -230,10 +259,17 @@ export function buildPlan(
   equipment?: string,
   opts: PlanOptions = {},
 ): Plan {
-  const { sets, reps } = volume(goal);
+  const level = opts.level;
+  const base = volume(goal);
+  // A beginner recovers from less and learns more from fewer, cleaner sets; an
+  // advanced lifter needs more work to keep progressing.
+  const sets = level === "beginner" ? Math.max(2, base.sets - 1) : level === "advanced" ? Math.min(5, base.sets + 1) : base.sets;
+  const reps = base.reps;
   // Time drives the count when the person told us how long they have; otherwise
-  // fall back to a goal-based default (bulk runs a little longer).
-  const perDay = minutes ? exercisesForTime(minutes) : goal === "bulk" ? 6 : 5;
+  // fall back to a goal-based default (bulk runs a little longer). A beginner's
+  // session is one move shorter — the same time, spent learning the moves.
+  const fullDay = minutes ? exercisesForTime(minutes) : goal === "bulk" ? 6 : 5;
+  const perDay = level === "beginner" ? Math.max(4, fullDay - 1) : fullDay;
   const allowed = new Set(EQUIP_SETS[equipment ?? "gym"] ?? EQUIP_SETS.gym);
   const bias = compoundBias(goal);
   const focus = opts.focus ?? [];
@@ -243,8 +279,10 @@ export function buildPlan(
     const muscles = orderMuscles(DAY_MUSCLES[type], focus);
     // The seed carries the salt, the goal and which day this is, so every knob
     // the person can turn actually reshapes the session.
-    const seed = hash(`${salt}|${goal}|${type}|${i}`);
-    return { type, muscles: DAY_MUSCLES[type], exercises: pick(muscles, perDay, seed, allowed, bias) };
+    // A plan from before levels existed keeps its exact seed, so an update
+    // does not reshuffle anyone's week.
+    const seed = hash(level ? `${salt}|${goal}|${level}|${type}|${i}` : `${salt}|${goal}|${type}|${i}`);
+    return { type, muscles: DAY_MUSCLES[type], exercises: pick(muscles, perDay, seed, allowed, bias, level) };
   });
-  return { goal, days: types.length, equipment, minutes, sets, reps, sessions };
+  return { goal, days: types.length, equipment, minutes, level, sets, reps, sessions };
 }

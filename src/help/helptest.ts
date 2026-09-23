@@ -28,6 +28,8 @@ const cases: [string, string][] = [
   ["כמה עולה המנוי", "subscription"],
   ["איפה ההישגים שלי", "achievements"],
   ["איך בונים תוכנית אימון", "workout-plan"],
+  ["התרגילים קשים מדי", "workout-plan"],
+  ["אני מתחיל איך אני בוחר תוכנית", "workout-plan"],
   ["איך מוסיפים תרגיל משלי", "library"],
   ["סינון כשר", "diet"],
   ["רשימת קניות", "shopping"],

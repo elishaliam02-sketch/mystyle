@@ -62,6 +62,16 @@ const summary = (g: "cut" | "recomp" | "maintain" | "bulk", seed = "") =>
   })());
 }
 
+// Beginners get steady cardio only, at the short end; no level changes nothing.
+{
+  for (const g of ["cut", "recomp", "maintain", "bulk"] as const) {
+    const beg = cardioPlan(g, "s", "beginner");
+    check(`a beginner's ${g} cardio has no intervals`, beg.sessions.every((x) => x.style === "steady"));
+    check(`…and as many sessions as anyone's (${g})`, beg.sessions.length === cardioPlan(g, "s").sessions.length);
+    check(`a plan without a level is unchanged (${g})`, JSON.stringify(cardioPlan(g, "s")) === JSON.stringify(cardioPlan(g, "s", undefined)));
+  }
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [name, ok, detail] of results) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  ← ${detail ?? ""}`}`);

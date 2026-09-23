@@ -26,6 +26,7 @@ import {
   type Muscle,
 } from "@/workout/exercises";
 import { applyDayEdits, buildPlan, type DayType } from "@/workout/plan";
+import { LEVELS, type Level } from "@/workout/difficulty";
 import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
 import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
@@ -53,6 +54,9 @@ export default function WorkoutScreen() {
   const [focus, setFocus] = useState<Muscle[]>((training?.focus as Muscle[]) ?? []);
   // How the plan is made: the app builds it, or the person builds each day.
   const [mode, setMode] = useState<"auto" | "custom">((training?.mode as "auto" | "custom") ?? "auto");
+  // How experienced the person is — decides whether the plan hands them
+  // machines and the basics, or deadlifts and pull-ups.
+  const [level, setLevel] = useState<Level>(training?.level ?? "intermediate");
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -65,6 +69,16 @@ export default function WorkoutScreen() {
     recomp: t.workout.goalRecomp,
     maintain: t.workout.goalMaintain,
     bulk: t.workout.goalBulk,
+  };
+  const levelLabel: Record<Level, string> = {
+    beginner: t.workout.levelBeginner,
+    intermediate: t.workout.levelIntermediate,
+    advanced: t.workout.levelAdvanced,
+  };
+  const levelHint: Record<Level, string> = {
+    beginner: t.workout.levelBeginnerHint,
+    intermediate: t.workout.levelIntermediateHint,
+    advanced: t.workout.levelAdvancedHint,
   };
   const dayLabel: Record<DayType, string> = {
     push: t.workout.dayPush,
@@ -107,6 +121,7 @@ export default function WorkoutScreen() {
         ? buildPlan(training.goal, training.days, training.minutes, training.equipment, {
             seed,
             focus: (training.focus as Muscle[]) ?? [],
+            level: training.level,
           })
         : null,
     [training, seed],
@@ -134,7 +149,7 @@ export default function WorkoutScreen() {
 
 
   function build() {
-    configureTraining(goal, days, minutes, equipment, focus, mode);
+    configureTraining(goal, days, minutes, equipment, focus, mode, level);
     setForceSetup(false);
   }
 
@@ -146,6 +161,7 @@ export default function WorkoutScreen() {
       setEquipment(training.equipment ?? "gym");
       setFocus((training.focus as Muscle[]) ?? []);
       setMode((training.mode as "auto" | "custom") ?? "auto");
+      setLevel(training.level ?? "intermediate");
     }
     setForceSetup(true);
   }
@@ -229,6 +245,27 @@ export default function WorkoutScreen() {
             {mode === "custom" ? t.workout.setupNoteCustom : t.workout.setupNoteAuto}
           </Text>
         </HeroCard>
+
+        {/* Experience first among the options: it decides whether the plan is
+            one a person can actually do, which matters more than any other knob. */}
+        <Card label={t.workout.levelTitle}>
+          <View style={{ gap: space.sm }}>
+            {LEVELS.map((l) => {
+              const on = level === l;
+              return (
+                <SelectTile
+                  key={l}
+                  selected={on}
+                  onPress={() => setLevel(l)}
+                  style={{ paddingVertical: space.md, paddingHorizontal: space.md, borderRadius: radius.lg, gap: 2 }}
+                >
+                  <Text style={[type.bodyStrong, { color: on ? colors.onAccent : colors.ink }]}>{levelLabel[l]}</Text>
+                  <Text style={[type.small, { color: on ? colors.onAccent : colors.inkSoft }]}>{levelHint[l]}</Text>
+                </SelectTile>
+              );
+            })}
+          </View>
+        </Card>
 
         <Card label={t.workout.goalTitle}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
@@ -428,6 +465,7 @@ export default function WorkoutScreen() {
             {goalLabel[plan.goal]} · {fill(t.workout.planFor, { days: plan.days })}
           </Text>
           <Text style={[type.body, { color: ON_HERO_SOFT, marginTop: 2 }]}>
+            {plan.level ? `${levelLabel[plan.level]} · ` : ""}
             {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
             {plan.minutes ? ` · ${fill(t.workout.session, { min: plan.minutes })}` : ""}
           </Text>
@@ -618,7 +656,7 @@ export default function WorkoutScreen() {
 
         <RestTimer />
 
-        <CardioCard goal={training.goal} seed={seed} />
+        <CardioCard goal={training.goal} seed={seed} level={training.level} />
 
         {custom.length > 0 ? (
           <Card label={t.workout.myExercises}>
@@ -735,13 +773,13 @@ const REST_PRESETS = [60, 90, 120];
  * per-device seed as the plan, so it truly differs between a cut and a bulk and
  * between one person and the next. Each row opens its own demo video.
  */
-function CardioCard({ goal, seed }: { goal: Goal; seed: string }) {
+function CardioCard({ goal, seed, level }: { goal: Goal; seed: string; level?: Level }) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { demoFor } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const plan = useMemo(() => cardioPlan(goal, seed), [goal, seed]);
+  const plan = useMemo(() => cardioPlan(goal, seed, level), [goal, seed, level]);
   if (plan.sessions.length === 0) return null;
 
   const openDemo = async (exerciseId: string) => {

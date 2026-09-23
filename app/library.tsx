@@ -13,6 +13,7 @@ import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 import { MUSCLES, type Equipment, type Muscle } from "@/workout/exercises";
 import { countByMuscle, equipmentKinds, filterExercises } from "@/workout/library";
+import { difficulty } from "@/workout/difficulty";
 import { SelectTile } from "@/components/SelectTile";
 
 /**
@@ -215,7 +216,9 @@ export default function LibraryScreen() {
                     </Text>
                     <Text style={[type.small, { color: colors.inkFaint }]}>
                       {muscleLabel[ex.muscle]} · {kitLabel[ex.equipment]}
-                      {ex.custom ? ` · ${t.library.mine}` : ""}
+                      {ex.custom
+                        ? ` · ${t.library.mine}`
+                        : ` · ${[t.workout.levelBeginner, t.workout.levelIntermediate, t.workout.levelAdvanced][difficulty(ex.id) - 1]}`}
                     </Text>
                   </View>
                   <Text style={[type.title, { color: colors.accent }]}>

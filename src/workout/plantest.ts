@@ -1,4 +1,5 @@
 import { applyDayEdits, buildPlan, EQUIP_SETS } from "./plan";
+import { difficulty, LEVELS } from "./difficulty";
 import { EXERCISES, MUSCLES } from "./exercises";
 import { allExercises, countByMuscle, equipmentKinds, filterExercises, matches } from "./library";
 import { bestLift, isStorableKg, lastLift } from "./lifts";
@@ -341,6 +342,39 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("a chest move is drawn from the front", view("chest") === "front");
   check("every muscle resolves to one of the two views",
     MUSCLES.every((m) => view(m) === "front" || view(m) === "back"));
+}
+
+// Experience level: beginners get moves they can learn, advanced lifters get hard ones.
+{
+  const all = (p: ReturnType<typeof buildPlan>) => p.sessions.flatMap((d) => d.exercises);
+  for (const equip of ["gym", "home", "bodyweight"]) {
+    for (const days of [2, 3, 4, 5, 6]) {
+      const beg = buildPlan("recomp", days, 60, equip, { seed: "x", level: "beginner" });
+      const hardOnes = all(beg).filter((e) => difficulty(e.id) === 3);
+      check(`a beginner plan (${equip}, ${days}d) has no advanced lifts`, hardOnes.length === 0, hardOnes.map((e) => e.id).join(","));
+      check(`…and every day still has exercises (${equip}, ${days}d)`, beg.sessions.every((d) => d.exercises.length >= 3));
+      const mid = buildPlan("recomp", days, 60, equip, { seed: "x", level: "intermediate" });
+      check(`an intermediate plan (${equip}, ${days}d) has no advanced lifts`, all(mid).every((e) => difficulty(e.id) < 3));
+    }
+  }
+  const gymBeg = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "beginner" });
+  check("a beginner gym plan is built from beginner moves", all(gymBeg).every((e) => difficulty(e.id) === 1),
+    all(gymBeg).filter((e) => difficulty(e.id) !== 1).map((e) => e.id).join(","));
+  const adv = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "advanced" });
+  check("an advanced gym plan opens days on hard lifts", adv.sessions.filter((d) => difficulty(d.exercises[0]!.id) === 3).length >= 2,
+    adv.sessions.map((d) => d.exercises[0]!.id).join(","));
+  const mid = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "intermediate" });
+  check("beginners do fewer sets, advanced more", gymBeg.sets < mid.sets && adv.sets > mid.sets, `${gymBeg.sets} ${mid.sets} ${adv.sets}`);
+  check("a beginner session is a move shorter", gymBeg.sessions[0]!.exercises.length < mid.sessions[0]!.exercises.length);
+  check("the plan remembers its level", adv.level === "advanced");
+  // A plan from before levels must not change on update.
+  const legacyA = buildPlan("recomp", 3, 60, "gym", { seed: "keep" });
+  const legacyB = buildPlan("recomp", 3, 60, "gym", { seed: "keep" });
+  check("a plan without a level is unchanged and filters nothing",
+    JSON.stringify(legacyA) === JSON.stringify(legacyB) && legacyA.level === undefined);
+  check("three levels exist", LEVELS.length === 3);
+  check("every classified id is a real exercise",
+    EXERCISES.every((e) => [1, 2, 3].includes(difficulty(e.id))));
 }
 
 const failed = results.filter(([, ok]) => !ok);

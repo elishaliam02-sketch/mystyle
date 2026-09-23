@@ -135,6 +135,7 @@ type Store = {
     equipment?: string,
     focus?: string[],
     mode?: "auto" | "custom",
+    level?: "beginner" | "intermediate" | "advanced",
   ) => void;
   /** Re-rolls the plan's exact exercises (new planSeed), same goal and split. */
   regeneratePlan: () => void;
@@ -640,6 +641,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       equipment?: string,
       focus?: string[],
       mode: "auto" | "custom" = "auto",
+      level?: "beginner" | "intermediate" | "advanced",
     ) => {
       setState((s) => {
         // Changing how many days the plan spans reshuffles the day indices, so
@@ -659,6 +661,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             equipment,
             focus,
             mode,
+            level: level ?? s.training?.level,
             // A fresh configure rolls a fresh plan seed unless one exists, so the
             // exercises are stable across opens but this person's, not everyone's.
             planSeed: s.training?.planSeed ?? s.salt ?? newId(),

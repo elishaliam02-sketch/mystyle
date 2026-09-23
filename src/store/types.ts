@@ -32,6 +32,10 @@ export type Training = {
    * picks. Removing every generated move and adding your own is how a fully
    * self-built day works. */
   planEdits?: Record<number, { add?: string[]; remove?: string[] }>;
+  /** How experienced the person is: which moves the plan uses and how many
+   * sets. Undefined for plans made before levels existed — those are built
+   * exactly as they always were. */
+  level?: "beginner" | "intermediate" | "advanced";
   /** How the plan was made: "auto" fills each day from the library; "custom"
    * hands the person empty days to build themselves. Undefined reads as "auto". */
   mode?: "auto" | "custom";

@@ -200,14 +200,14 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "workout-plan",
     route: "/workout",
-    keys: ["תוכנית אימון", "תוכנית", "ימים בשבוע", "ציוד", "חדר כושר", "בבית", "workout plan", "plan", "days a week", "equipment", "gym", "home"],
+    keys: ["תוכנית אימון", "תוכנית", "ימים בשבוע", "ציוד", "חדר כושר", "בבית", "מתחיל", "מתקדם", "קשה מדי", "קל מדי", "קשים מדי", "קלים מדי", "beginner", "advanced", "too hard", "too easy", "workout plan", "plan", "days a week", "equipment", "gym", "home"],
     he: {
       title: "תוכנית האימונים",
-      answer: "בלשונית \"אימון\" בוחרים מטרה, כמה ימים בשבוע וציוד (חדר כושר או בית) — והתוכנית נבנית לבד. אפשר גם לבנות תוכנית משלך תרגיל אחרי תרגיל.",
+      answer: "בלשונית \"אימון\" בוחרים רמה (מתחיל, בינוני או מתקדם), מטרה, כמה ימים בשבוע וציוד — והתוכנית נבנית לבד: למתחילים תרגילים פשוטים ובטוחים, למתקדמים תרגילים כבדים וקשים. התרגילים קשים או קלים מדי? \"שנה תוכנית\" ובחר רמה אחרת.",
     },
     en: {
       title: "Your workout plan",
-      answer: "On the Workout tab, choose a goal, days per week and equipment (gym or home) — the plan builds itself. Or build your own, exercise by exercise.",
+      answer: "On the Workout tab, choose your level (beginner, intermediate or advanced), goal, days per week and equipment — the plan builds itself: simple, safe moves for beginners, heavy and demanding ones for advanced. Too hard or too easy? Tap \"Change plan\" and pick another level.",
     },
   },
   {

@@ -10,6 +10,7 @@
  */
 import { EXERCISES, type Exercise } from "./exercises";
 import type { Goal } from "@/kitchen";
+import type { Level } from "./difficulty";
 
 export type CardioStyle = "steady" | "interval";
 
@@ -76,8 +77,15 @@ function findEx(id: string): Exercise | undefined {
  * same plan (so it is stable across opens); a different seed, or a different
  * goal, gives a different one.
  */
-export function cardioPlan(goal: Goal, seed = ""): CardioPlan {
-  const sh = shape(goal);
+export function cardioPlan(goal: Goal, seed = "", level?: Level): CardioPlan {
+  const base = shape(goal);
+  // A beginner builds the base first: the interval slots become steady work,
+  // and the sessions start at the short end. Intervals on an assault bike in
+  // week one are how people decide cardio is not for them.
+  const sh =
+    level === "beginner"
+      ? { ...base, steady: base.steady + base.interval, interval: 0, minHigh: base.minLow }
+      : base;
   const sessions: CardioSession[] = [];
   const usedForVariety: string[] = [];
 
