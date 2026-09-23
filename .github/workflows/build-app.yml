@@ -35,7 +35,7 @@ jobs:
   local:
     if: ${{ inputs.builder != 'cloud' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 75
     steps:
       - name: Check out the code
         uses: actions/checkout@v4
@@ -94,6 +94,13 @@ jobs:
           free -h
           df -h / /mnt || true
 
+      # The `apk-local` profile (eas.json) is `preview` — same channel, so OTA
+      # updates still reach it — minus the release lint pass. That pass is what
+      # sank run #21: the whole APK had compiled in twenty minutes when
+      # async-storage's lintVitalAnalyzeRelease failed, and the build then sat
+      # hung until the time limit. Lint checks source; it adds nothing to the
+      # APK, and `npm test` + tsc already gate every change.
+      #
       # One CPU architecture instead of four. arm64-v8a is every Android phone
       # sold in the last several years; building armeabi-v7a, x86 and x86_64 as
       # well quadrupled the native compile and ran past the time limit. Two
@@ -103,7 +110,7 @@ jobs:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
           GRADLE_OPTS: -Dorg.gradle.workers.max=2
           CMAKE_BUILD_PARALLEL_LEVEL: "2"
-        run: eas build --platform android --profile preview --local --non-interactive --output apex.apk
+        run: eas build --platform android --profile apk-local --local --non-interactive --output apex.apk
 
       - name: Keep the APK as a run artifact
         uses: actions/upload-artifact@v4

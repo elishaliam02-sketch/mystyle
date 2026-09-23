@@ -12,6 +12,13 @@
         "buildType": "apk"
       }
     },
+    "apk-local": {
+      "extends": "preview",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease"
+      }
+    },
     "production": {
       "channel": "production",
       "autoIncrement": true
