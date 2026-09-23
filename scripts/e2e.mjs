@@ -836,7 +836,9 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await rctx.close();
 }
 
-// --- the meal photos: fetched when allowed, credited, and never when refused
+// --- the photos: library dishes wear the photo shipped in the app, whatever the
+// switch says; a live Commons search (a food someone typed) happens only when
+// allowed, and is credited.
 //
 // The rest of the suite aborts Commons to stay hermetic, so this block gets its
 // own context and answers the search itself. What is being checked is not that
@@ -866,22 +868,32 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   const visit = async (photos)=>{
     searches.length = 0;
     const pg = await pctx.newPage();
-    await pg.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}}, photoSeed(photos));
+    await pg.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","en");}catch{}}, photoSeed(photos));
     await pg.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"});
-    await pg.waitForTimeout(3200);
+    await pg.waitForTimeout(2600);
+    const bundled = await pg.locator('img[src*="meals"]').count();
+    const libraryAsked = searches.length;
+    // A food typed into "I feel like eating…" has no shipped photo: that one
+    // is looked up live, and only with the switch on.
+    const field = pg.getByPlaceholder(/tuna, pizza/i).first();
+    await field.fill("pizza");
+    await pg.waitForTimeout(2200);
     const body = await pg.locator("body").innerText().catch(()=>"");
     await pg.close();
-    return { asked: searches.length, body };
+    return { bundled, libraryAsked, asked: searches.length, body };
   };
 
   const on = await visit(true);
-  check("with photos on, the kitchen looks a dish up on Commons", on.asked > 0, String(on.asked));
+  check("library dishes show the photo shipped in the app", on.bundled > 0, String(on.bundled));
+  check("…without asking Commons for them", on.libraryAsked === 0, String(on.libraryAsked));
+  check("with photos on, a typed food is looked up on Commons", on.asked > 0, String(on.asked));
   check("a CC BY-SA photo is shown with its credit", on.body.includes("Rina Cook · CC BY-SA 4.0"),
     on.body.slice(0,120));
 
   const off = await visit(false);
+  check("with photos off, the shipped photos still show", off.bundled > 0, String(off.bundled));
   check("with photos off, nothing is asked of Commons at all", off.asked === 0, String(off.asked));
-  check("and no credit line is on screen either", !off.body.includes("CC BY-SA"));
+  check("and no live photo's credit is on screen", !off.body.includes("Rina Cook"));
   await pctx.close();
 }
 
