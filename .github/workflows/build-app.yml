@@ -164,5 +164,8 @@ jobs:
 
       # --no-wait queues the build on Expo and returns; the job does not sit
       # burning CI minutes while Expo's free queue works through it.
+      # apk-local is preview (internal distribution: Expo hands back an install
+      # page anyone with the link can open) minus the release lint pass that
+      # stalled builds on a dependency's lint error.
       - name: Queue the Android build
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        run: eas build --platform android --profile apk-local --non-interactive --no-wait
