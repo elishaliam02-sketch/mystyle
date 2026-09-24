@@ -65,7 +65,14 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          for f in supabase/migration-006-security.sql supabase/migration-007-limits.sql; do
+          # 002 (sync columns) and 003 (the backups table) are included because
+          # this project never ran them — 007 failed on a missing public.backups.
+          # Both are re-runnable. 004 is left out on purpose: 006 replaces its
+          # delete_my_account with the version that demands a recent sign-in,
+          # and running 004 after it would put the weaker one back. 005 (admin)
+          # was run by hand and its policies are not guarded against a re-run.
+          for f in supabase/migration-002-sync.sql supabase/migration-003-backup.sql \
+                   supabase/migration-006-security.sql supabase/migration-007-limits.sql; do
             echo "== $f"
             node -e 'process.stdout.write(JSON.stringify({ query: require("fs").readFileSync(process.argv[1], "utf8") }))' "$f" > body.json
             code=$(curl -sS -o out.json -w "%{http_code}" -X POST \
