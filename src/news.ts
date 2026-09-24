@@ -9,20 +9,20 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-24-b",
+  id: "2026-09-24-c",
   he: [
-    "תוכנית אימון חדשה לגמרי: נבנית כמו אצל מאמן — תרגיל מרכזי ראשון, ואחריו תרגילי עזר שמתאימים לרמה שלך.",
-    "\"תוכנית חדשה\" מחליפה עכשיו תמיד את התרגילים באמת, לפי הרמה והמטרה.",
-    "רשימת המקרר מזהה הרבה יותר: רבים, שגיאות כתיב, פרגיות, שניצל, סטייק ועוד.",
-    "התמונה של \"המנה שלך\" מתאימה למנה העיקרית (סלמון מקבל סלמון).",
-    "מים: אפשר להגדיר גודל כוס משלך (\"משלי\").",
+    "המטבח מכיר עכשיו מעל 300 מאכלים: פלאפל, שווארמה, סביח, בורקס, פיצה, סושי, משקאות, מתוקים, תבלינים ועוד.",
+    "\"המנה שלך\" מוצגת בתמונות אמיתיות של המצרכים שלך עצמם, ומשתנה בכל פעם שהרשימה משתנה.",
+    "גרמים או יחידות: כפתור בכל מנה, וכל מצרך מראה כמה קלוריות הוא. הסכום תמיד מסתדר.",
+    "\"רשום משהו שאכלת\": בוחרים כמות (חצי, מנה, מנה וחצי, 2) או מקלידים גרמים.",
+    "כשר, צמחוני וללא גלוטן אפשר לסמן יחד, ו\"בא לי לאכול\" מזהיר כשמאכל לא מתאים.",
   ],
   en: [
-    "A brand-new workout plan: built like a coach's — the main lift first, then accessories that fit your level.",
-    "\"New plan\" now always really changes the exercises, by level and goal.",
-    "The fridge list recognises far more: plurals, typos, and more foods.",
-    "\"Your plate\" wears a photo of its main ingredient (salmon gets salmon).",
-    "Water: set your own cup size (\"Mine\").",
+    "The kitchen now knows 300+ foods: falafel, shawarma, sabich, bourekas, pizza, sushi, drinks, sweets, spices and more.",
+    "\"Your plate\" is shown with real photos of your own ingredients, and changes whenever your list does.",
+    "Grams or household units: a switch on every dish, and each ingredient shows its calories. The total always adds up.",
+    "\"Log something you ate\": pick an amount (half, one, one and a half, two) or type grams.",
+    "Kosher, vegetarian and gluten-free can be combined, and \"I feel like eating\" warns when a food doesn't fit.",
   ],
 };
 

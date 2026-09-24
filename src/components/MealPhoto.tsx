@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Image, Text, View } from "react-native";
 import { MealImage } from "@/components/MealImage";
 import {
@@ -151,65 +151,60 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
  */
 function Tiles({ ids, names, width, height }: { ids: string[]; names: string[]; width: number; height: number }) {
   const { colors } = useTheme();
-  const half = (width - GAP) / 2;
-  const halfH = (height - GAP) / 2;
-  const boxes: { x: number; y: number; w: number; h: number }[] =
-    ids.length === 1
-      ? [{ x: 0, y: 0, w: width, h: height }]
-      : ids.length === 2
-        ? [{ x: 0, y: 0, w: half, h: height }, { x: half + GAP, y: 0, w: half, h: height }]
-        : ids.length === 3
-          ? [
-              { x: 0, y: 0, w: half, h: height },
-              { x: half + GAP, y: 0, w: half, h: halfH },
-              { x: half + GAP, y: halfH + GAP, w: half, h: halfH },
-            ]
-          : [
-              { x: 0, y: 0, w: half, h: halfH },
-              { x: half + GAP, y: 0, w: half, h: halfH },
-              { x: 0, y: halfH + GAP, w: half, h: halfH },
-              { x: half + GAP, y: halfH + GAP, w: half, h: halfH },
-            ];
+  // Laid out with flex rows rather than coordinates, so in Hebrew the main
+  // ingredient sits on the right — where a right-to-left reader starts — on
+  // the phone and on the web alike.
+  const tile = (i: number) => {
+    const shot = BUNDLED_FOOD_PHOTOS[ids[i]!];
+    return (
+      <View key={ids[i]} style={{ flex: 1, overflow: "hidden", backgroundColor: colors.surfaceAlt }}>
+        {shot ? (
+          <Image
+            accessibilityIgnoresInvertColors
+            source={shot.source}
+            resizeMode="cover"
+            fadeDuration={0}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
+          />
+        ) : null}
+        {names[i] ? (
+          <View style={{ flexDirection: "row", padding: 6 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+                borderRadius: 999,
+                overflow: "hidden",
+                fontSize: 11,
+                fontWeight: "700",
+                color: "#FFFFFF",
+                backgroundColor: "rgba(0,0,0,0.45)",
+              }}
+            >
+              {names[i]}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+  const row = (children: ReactNode[]) => (
+    <View style={{ flex: 1, flexDirection: "row", gap: GAP }}>{children}</View>
+  );
   const credits = [...new Set(ids.map((id) => BUNDLED_FOOD_PHOTOS[id]?.credit).filter((c): c is string => !!c))];
   return (
-    <View style={{ position: "absolute", top: 0, left: 0, width, height, backgroundColor: colors.surface }}>
-      {ids.map((id, i) => {
-        const box = boxes[i]!;
-        const shot = BUNDLED_FOOD_PHOTOS[id];
-        if (!shot) return null;
-        return (
-          <View key={id} style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h, overflow: "hidden" }}>
-            <Image
-              accessibilityIgnoresInvertColors
-              source={shot.source}
-              resizeMode="cover"
-              fadeDuration={0}
-              style={{ width: box.w, height: box.h }}
-            />
-            {names[i] ? (
-              <Text
-                numberOfLines={1}
-                style={{
-                  position: "absolute",
-                  top: 6,
-                  start: 6,
-                  maxWidth: box.w - 12,
-                  paddingHorizontal: 7,
-                  paddingVertical: 2,
-                  borderRadius: 999,
-                  overflow: "hidden",
-                  fontSize: 11,
-                  fontWeight: "700",
-                  color: "#FFFFFF",
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                }}
-              >
-                {names[i]}
-              </Text>
-            ) : null}
-          </View>
-        );
-      })}
+    <View style={{ position: "absolute", top: 0, left: 0, width, height, gap: GAP, backgroundColor: colors.surface }}>
+      {ids.length === 1
+        ? row([tile(0)])
+        : ids.length === 2
+          ? row([tile(0), tile(1)])
+          : ids.length === 3
+            ? row([tile(0), <View key="col" style={{ flex: 1, gap: GAP }}>{[tile(1), tile(2)]}</View>])
+            : [
+                <View key="r1" style={{ flex: 1, flexDirection: "row", gap: GAP }}>{[tile(0), tile(1)]}</View>,
+                <View key="r2" style={{ flex: 1, flexDirection: "row", gap: GAP }}>{[tile(2), tile(3)]}</View>,
+              ]}
       <Credit text={credits.length ? credits.join(" · ") : null} />
     </View>
   );

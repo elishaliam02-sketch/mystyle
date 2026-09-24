@@ -60,11 +60,11 @@ export const HELP_TOPICS: HelpTopic[] = [
     keys: ["לרשום ארוחה", "רישום ארוחה", "רושם", "רישום", "אכלתי", "ארוחה", "קלוריות", "יומן", "log meal", "meal", "ate", "calories", "diary"],
     he: {
       title: "רישום ארוחה",
-      answer: "בלשונית \"מטבח\" כותבים מה אכלת ב\"רישום מהיר\" — או לוחצים \"רשום\" על אחת מהארוחות המוצעות. אפשר גם פשוט לכתוב למאמן \"אכלתי 2 ביצים ופרוסת לחם\".",
+      answer: "בלשונית \"מטבח\", בכרטיס \"רשום משהו שאכלת\", מחפשים את המאכל, לוחצים עליו ובוחרים כמה (חצי, מנה, מנה וחצי, 2 — או מקלידים גרמים), ואז \"רשום ביומן\". אפשר גם ללחוץ \"אכלתי את זה\" על מנה מוצעת, או לכתוב למאמן \"אכלתי 2 ביצים ופרוסת לחם\".",
     },
     en: {
       title: "Logging a meal",
-      answer: "On the Kitchen tab, type what you ate in Quick log — or tap Log on a suggested meal. You can also just tell the coach \"I ate 2 eggs and a slice of bread\".",
+      answer: "On the Kitchen tab, in \"Log something you ate\", search the food, tap it and choose how much (half, one, one and a half, two — or type grams), then \"Add to today\". You can also tap \"I ate this\" on a suggested dish, or tell the coach \"I ate 2 eggs and a slice of bread\".",
     },
   },
   {
@@ -112,11 +112,24 @@ export const HELP_TOPICS: HelpTopic[] = [
     keys: ["כשר", "כשרות", "צמחוני", "טבעוני", "גלוטן", "תזונה", "kosher", "vegetarian", "vegan", "gluten"],
     he: {
       title: "כשר / צמחוני / ללא גלוטן",
-      answer: "בלשונית \"מטבח\" פותחים את ההגדרות (למעלה) ובוחרים סינון: הכול, כשר, צמחוני או ללא גלוטן. כל ההצעות יסוננו לפיו.",
+      answer: "בלשונית \"מטבח\" פותחים את ההגדרות ומסמנים כשר, צמחוני או ללא גלוטן — אפשר כמה יחד. כל ההצעות והמנה שלך יסוננו לפיהם, ו\"בא לי לאכול\" יזהיר כשמאכל לא מתאים. \"הכל\" מבטל את הסינון.",
     },
     en: {
       title: "Kosher / vegetarian / gluten-free",
-      answer: "On the Kitchen tab, open the settings at the top and pick a filter: all, kosher, vegetarian or gluten-free. Every suggestion follows it.",
+      answer: "On the Kitchen tab, open the settings and switch on kosher, vegetarian or gluten-free — any combination. Every suggestion and your plate follow them, and \"I feel like eating\" warns when a food doesn't fit. \"All\" clears them.",
+    },
+  },
+  {
+    id: "units",
+    route: "/kitchen",
+    keys: ["גרם", "יחידות", "כמויות", "משקל מנה", "כפות", "כוס", "units", "grams", "amounts", "portion size"],
+    he: {
+      title: "גרמים או יחידות",
+      answer: "בכל מנה במטבח, ליד \"מה צריך\", יש כפתור \"הצג בגרמים\" / \"הצג ביחידות\". כל מצרך מראה את הכמות ואת הקלוריות שלו, והסכום למטה הוא בדיוק הסכום של השורות.",
+    },
+    en: {
+      title: "Grams or household units",
+      answer: "On every dish in the kitchen, beside \"What you need\", tap \"Show grams\" / \"Show household units\". Each ingredient shows its amount and its calories, and the total is exactly their sum.",
     },
   },
   {
