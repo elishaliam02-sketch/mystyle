@@ -40,7 +40,7 @@ export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
   "edamame-rice": { source: require("../../assets/meals/edamame-rice.jpg"), credit: "Alpha from Melbourne, Australia · CC BY-SA 2.0" },
   "egg-avocado-bowl": { source: require("../../assets/meals/egg-avocado-bowl.jpg"), credit: null },
   "egg-fried-rice": { source: require("../../assets/meals/egg-fried-rice.jpg"), credit: "daSupremo · CC BY-SA 4.0" },
-  "eggplant-tahini": { source: require("../../assets/meals/eggplant-tahini.jpg"), credit: "HaJunkiyada · CC BY-SA 4.0" },
+  "eggplant-tahini": { source: require("../../assets/meals/eggplant-tahini.jpg"), credit: "gran · CC BY 3.0" },
   "fava-cilantro-salad": { source: require("../../assets/meals/fava-cilantro-salad.jpg"), credit: null },
   "feta-salad": { source: require("../../assets/meals/feta-salad.jpg"), credit: "https://www.flickr.com/photos/zone41/ · CC BY 2.0" },
   "fish-potato": { source: require("../../assets/meals/fish-potato.jpg"), credit: null },
