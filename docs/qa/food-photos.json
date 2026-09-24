@@ -184,9 +184,9 @@
  {
   "id": "bread",
   "he": "לחם",
-  "query": "white bread slices",
-  "credit": "Ezrawolfe · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Holsum-delivery-van.jpg/330px-Holsum-delivery-van.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "bread rolls basket",
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/Basket_of_rolls.jpg/330px-Basket_of_rolls.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "breadcrumbs",
@@ -325,8 +325,8 @@
   "id": "chia",
   "he": "צ'יה",
   "query": "chia seeds",
-  "credit": "Magister Mathematicae · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/83/Semillas_de_Ch%C3%ADa.jpg/330px-Semillas_de_Ch%C3%ADa.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Mexican_chia_seeds_%281%29.jpg/330px-Mexican_chia_seeds_%281%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "chicken",
@@ -984,7 +984,7 @@
   "he": "לאפה",
   "query": "laffa flatbread",
   "credit": "Missvain · CC BY 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/The_Shore_Room_-_June_2019_-_Stierch_01.jpg/330px-The_Shore_Room_-_June_2019_-_Stierch_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/The_Shore_Room_-_June_2019_-_Stierch_03.jpg/330px-The_Shore_Room_-_June_2019_-_Stierch_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "lamb",
@@ -1129,9 +1129,9 @@
  {
   "id": "mayo",
   "he": "מיונז",
-  "query": "mayonnaise bowl",
+  "query": "mayonnaise",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Beef_with_takana_and_mentaiko_mayonnaise_bowl_of_Sukiya.jpg/330px-Beef_with_takana_and_mentaiko_mayonnaise_bowl_of_Sukiya.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d5/JFDA_mayonnaise.jpg/330px-JFDA_mayonnaise.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "meatballs",
@@ -1150,9 +1150,9 @@
  {
   "id": "milk",
   "he": "חלב",
-  "query": "milk in a glass",
-  "credit": "Manfred Heyde · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/Bowl_milk_glass.jpg/330px-Bowl_milk_glass.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "pouring milk glass",
+  "credit": "Shixart1985 · CC BY 2.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/A_person_is_pouring_white_milk_into_a_glass_cup.jpg/330px-A_person_is_pouring_white_milk_into_a_glass_cup.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "milkChocolate",
@@ -1243,7 +1243,7 @@
   "he": "אגוזים",
   "query": "mixed nuts",
   "credit": "HaJunkiyada · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_assortment.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_assortment.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_and_dried_fruit.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_and_dried_fruit.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "oatMilk",
@@ -1459,6 +1459,13 @@
   "id": "pita",
   "he": "פיתה",
   "query": "pita bread",
+  "credit": "Contrapunctus-1 · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Foul_with_tahina_and_pita_bread_at_Agasi%2C_Lajpat_Nagar%2C_Delhi_%282025-10-04%29.jpg/330px-Foul_with_tahina_and_pita_bread_at_Agasi%2C_Lajpat_Nagar%2C_Delhi_%282025-10-04%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "id": "pitaWhole",
+  "he": "פיתה מלאה",
+  "query": "pita",
   "credit": null,
   "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Hummus%2C_falafel%2C_pita_bread%2C_and_mafrouka_at_Agasi%2C_Lajpat_Nagar_%28July_2025%29.jpg/330px-Hummus%2C_falafel%2C_pita_bread%2C_and_mafrouka_at_Agasi%2C_Lajpat_Nagar_%28July_2025%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
@@ -1787,9 +1794,9 @@
  {
   "id": "soupPowder",
   "he": "אבקת מרק",
-  "query": "stock cubes",
+  "query": "soup powder",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Bouillon_cube.jpg/330px-Bouillon_cube.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/76/Beef_spicy_soup_powder_-_Hulatang.jpg/330px-Beef_spicy_soup_powder_-_Hulatang.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "sourCream",
@@ -1843,9 +1850,9 @@
  {
   "id": "sugar",
   "he": "סוכר",
-  "query": "white sugar",
-  "credit": "Herusutimbul · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Bumbu_Rawon.jpg/330px-Bumbu_Rawon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "granulated sugar",
+  "credit": "User:Lcarsdata · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Sugar_on_a_blue_plate_%28close_up%29.jpg/330px-Sugar_on_a_blue_plate_%28close_up%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "sunflowerSeeds",
@@ -2053,16 +2060,16 @@
  {
   "id": "whiteCheese",
   "he": "גבינה לבנה",
-  "query": "quark cheese bowl",
-  "credit": "JIP · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/71/Berry_quark_and_coffee_at_restaurant_Sapusca.jpg/330px-Berry_quark_and_coffee_at_restaurant_Sapusca.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "fromage frais",
+  "credit": "Jean-Pierre Bazard Jpbazard · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/49/Plateau_de_verrines_tomate%2C_fromage_frais%2C_olive.JPG/330px-Plateau_de_verrines_tomate%2C_fromage_frais%2C_olive.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "wholeBread",
   "he": "לחם מלא",
-  "query": "whole wheat bread",
+  "query": "rye bread slices",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/Fried_wheat_bread.jpg/330px-Fried_wheat_bread.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/70/Slice_of_rye_bread_Kartoffelkruste_2025-02-14_01.jpg/330px-Slice_of_rye_bread_Kartoffelkruste_2025-02-14_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "wine",

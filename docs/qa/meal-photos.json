@@ -1,24 +1,24 @@
 {
   "generated": "2026-09-24",
-  "resolved": 93,
+  "resolved": 82,
   "total": 93,
   "meals": [
     {
       "id": "omelette-salad",
       "title": "Omelette with salad",
       "phrase": "omelette",
-      "searched": "eggs tomato cooked",
-      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Liat_Portal_for_Foodie_Disorder_-_Scrambled_Eggs_on_Whole_Grain_Toast_with_Yellow_Tomatoes.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Scrambled_Eggs_on_Whole_Grain_Toast_with_Yellow_Tomatoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-      "credit": "HaJunkiyada · CC BY-SA 4.0",
+      "searched": "omelette",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/FoodOmelete.jpg/330px-FoodOmelete.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "credit": null,
       "error": null
     },
     {
       "id": "shakshuka",
       "title": "Shakshuka",
       "phrase": "shakshouka",
-      "searched": "eggs tomato cooked",
-      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Liat_Portal_for_Foodie_Disorder_-_Scrambled_Eggs_on_Whole_Grain_Toast_with_Yellow_Tomatoes.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Scrambled_Eggs_on_Whole_Grain_Toast_with_Yellow_Tomatoes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-      "credit": "HaJunkiyada · CC BY-SA 4.0",
+      "searched": "shakshouka",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/Shakshuka_by_Calliopejen1.jpg/330px-Shakshuka_by_Calliopejen1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "credit": "Calliopejen1 · CC BY-SA 3.0",
       "error": null
     },
     {
@@ -133,9 +133,9 @@
       "id": "fish-potato",
       "title": "Fish with potato",
       "phrase": "baked fish potatoes",
-      "searched": "fish potato cooked",
-      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Fish_soup_with_reef_fish_and_coconut_milk.jpg/330px-Fish_soup_with_reef_fish_and_coconut_milk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-      "credit": "Dave O from North Vancouver, CANADA · CC BY-SA 2.0",
+      "searched": "baked fish potatoes",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Baked_fish_and_salad%2C_Idstein.jpg/330px-Baked_fish_and_salad%2C_Idstein.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "credit": null,
       "error": null
     },
     {
@@ -485,8 +485,8 @@
       "title": "Eggplant with tahini",
       "phrase": "eggplant tahini",
       "searched": "eggplant tahini",
-      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Liat_Portal_for_Foodie_Disorder_-_Roasted_Eggplant_with_Tahini_and_Balsamic_Glaze.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Roasted_Eggplant_with_Tahini_and_Balsamic_Glaze.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-      "credit": "HaJunkiyada · CC BY-SA 4.0",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Eggplant_with_tahini_salad.JPG/330px-Eggplant_with_tahini_salad.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "credit": "gran · CC BY 3.0",
       "error": null
     },
     {
