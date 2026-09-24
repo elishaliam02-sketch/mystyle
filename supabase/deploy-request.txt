@@ -1,2 +1,3 @@
 # Changing this file runs .github/workflows/deploy-server.yml (the migrations
 # and the three edge functions). Add a line saying why, and commit.
+2026-09-24 run migrations 006+007 and deploy ai, billing, admin (first deploy with the access token)
