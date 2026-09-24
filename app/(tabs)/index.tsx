@@ -1,4 +1,5 @@
 import { HelpEntry } from "@/components/HelpEntry";
+import { WhatsNew } from "@/components/WhatsNew";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
@@ -443,6 +444,8 @@ export default function TodayScreen() {
       <OfflineBanner state={net.state} onRetry={() => void net.recheck()} />
 
       <UpdateBanner />
+
+      <WhatsNew />
 
       <TodayHub />
 

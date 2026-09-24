@@ -78,6 +78,8 @@ export const en: typeof he = {
   },
 
   today: {
+    newsTitle: "What's new",
+    newsOk: "Got it",
     greetingMorning: "Good morning",
     greetingNoon: "Good afternoon",
     greetingEvening: "Good evening",

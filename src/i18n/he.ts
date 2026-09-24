@@ -80,6 +80,8 @@ export const he = {
   },
 
   today: {
+    newsTitle: "מה חדש באפליקציה",
+    newsOk: "הבנתי",
     greetingMorning: "בוקר טוב",
     greetingNoon: "צהריים טובים",
     greetingEvening: "ערב טוב",
