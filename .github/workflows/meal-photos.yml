@@ -18,6 +18,8 @@ on:
   push:
     paths:
       - "src/kitchen/data.ts"
+      - "src/kitchen/foods2.ts"
+      - "scripts/bundle-food-photos.mjs"
       - "src/kitchen/photo.ts"
       - "scripts/meal-photo-sheet.mjs"
       - "scripts/bundle-meal-photos.mjs"
@@ -33,7 +35,7 @@ jobs:
   sheet:
     name: Resolve every meal's photo and lay them out
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Check out the branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -49,7 +51,7 @@ jobs:
 
       - name: Install Chromium, which composes the sheet
         run: |
-          npm install --no-save playwright@1.63.0
+          npm install --no-save playwright@1.63.0 sharp@0.33
           npx playwright install --with-deps chromium
 
       - name: Look up every meal on Commons
@@ -59,6 +61,11 @@ jobs:
       # sharing one, credits kept. What the phone shows without any network.
       - name: Bundle the photos into the app
         run: node scripts/bundle-meal-photos.mjs
+
+      # One photo per food as well: the tiles "your plate" is drawn from, and
+      # the thumbnails in the diary and the search.
+      - name: Bundle the food photos into the app
+        run: node scripts/bundle-food-photos.mjs
 
       # A push made with this job's token does not trigger the Checks workflow,
       # so the commit below would reach the branch tip unverified. Verify the
@@ -72,7 +79,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/qa/meal-photos.jpg docs/qa/meal-photos.json assets/meals src/kitchen/mealPhotoAssets.ts
+          git add docs/qa/meal-photos.jpg docs/qa/meal-photos.json assets/meals src/kitchen/mealPhotoAssets.ts docs/qa/food-photos.jpg docs/qa/food-photos.json assets/foods src/kitchen/foodPhotoAssets.ts
           if git diff --cached --quiet; then
             echo "The photos resolve exactly as they did last time; nothing to commit."
           else

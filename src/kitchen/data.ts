@@ -19,9 +19,16 @@
  * generated image.
  */
 
-import { NUTRITION, type Per100 } from "./nutrition";
+import { NUTRITION as BASE_NUTRITION, type Per100, type Per100Row } from "./nutrition";
+import { BASE_FOOD_PHOTO, EXTRA_FOODS } from "./foods2";
 
-export type FoodTag = "protein" | "carb" | "veg" | "fruit" | "fat" | "dairy";
+/**
+ * What kind of food this is. The first tag leads: it decides where the food
+ * sits on a plate. Seasonings, drinks and sweets are real entries in a list or
+ * a diary but never the base of a plate, so a plate built from the fridge
+ * leaves them off.
+ */
+export type FoodTag = "protein" | "carb" | "veg" | "fruit" | "fat" | "dairy" | "spice" | "drink" | "sweet";
 
 /** The primitive the illustrator draws this food as. */
 export type Shape = "round" | "long" | "leaf" | "grain" | "slice" | "blob" | "drop";
@@ -43,6 +50,8 @@ export type Food = {
   /** Where `n` came from, so the screen can say "from Open Food Facts" or
    * "AI estimate" instead of presenting every number with the same authority. */
   src?: "off" | "ai";
+  /** The English phrase its photograph was found by on Wikimedia Commons. */
+  photo?: string;
 };
 
 const F = (
@@ -55,44 +64,44 @@ const F = (
   color: string,
 ): Food => ({ id, tags, he, en, match, shape, color });
 
-export const FOODS: Food[] = [
+const BASE_FOODS: Food[] = [
   // -- proteins
-  F("egg", ["protein"], "ביצים", "eggs", ["ביצה", "ביצים", "egg", "eggs"], "round", "#F4C542"),
-  F("chicken", ["protein"], "חזה עוף", "chicken breast", ["חזה עוף", "חזה של עוף", "עוף", "פרגית", "פרגיות", "שניצל", "שניצלים", "כרעיים", "שוקיים", "chicken breast", "chicken thighs", "chicken", "schnitzel"], "blob", "#E8C9A0"),
+  F("egg", ["protein"], "ביצים", "eggs", ["ביצה", "ביצים", "ביצה קשה", "ביצים קשות", "egg", "eggs"], "round", "#F4C542"),
+  F("chicken", ["protein"], "חזה עוף", "chicken breast", ["חזה עוף", "חזה של עוף", "חזה", "עוף", "עוף צלוי", "chicken breast", "chicken"], "blob", "#E8C9A0"),
   F("turkey", ["protein"], "הודו", "turkey", ["חזה הודו", "הודו", "turkey"], "blob", "#D8B48C"),
-  F("beef", ["protein"], "בשר בקר", "beef", ["בשר בקר", "בקר", "בשר טחון", "בשר", "סטייק", "סטייקים", "אנטריקוט", "המבורגר", "קציצות", "ground beef", "beef", "steak", "burger"], "blob", "#9E4B3B"),
-  F("tuna", ["protein"], "טונה", "tuna", ["טונה", "tuna"], "blob", "#C98A6B"),
+  F("beef", ["protein"], "בשר בקר", "beef", ["בשר בקר", "בקר", "בשר טחון", "בשר", "סטייק", "סטייקים", "אנטריקוט", "פילה בקר", "צלי", "אסאדו", "ground beef", "minced beef", "beef", "steak"], "blob", "#9E4B3B"),
+  F("tuna", ["protein"], "טונה", "tuna", ["טונה", "טונה במים", "tuna"], "blob", "#C98A6B"),
   F("salmon", ["protein"], "סלמון", "salmon", ["סלמון", "salmon"], "long", "#E9856B"),
   F("fish", ["protein"], "דג", "fish", ["דג לבן", "דג", "פילה דג", "white fish", "fish"], "long", "#D9C2A6"),
   F("tofu", ["protein"], "טופו", "tofu", ["טופו", "tofu"], "blob", "#F0EAD6"),
-  F("lentils", ["protein"], "עדשים", "lentils", ["עדשים", "עדשה", "lentil", "lentils"], "grain", "#B5713B"),
+  F("lentils", ["protein"], "עדשים", "lentils", ["עדשים", "עדשה", "עדשים כתומות", "עדשים ירוקות", "עדשים שחורות", "lentil", "lentils", "red lentils"], "grain", "#B5713B"),
   F("chickpeas", ["protein"], "גרגירי חומוס", "chickpeas", ["גרגירי חומוס", "גרגרי חומוס", "חומוס", "chickpea", "chickpeas"], "grain", "#D9B36A"),
-  F("beans", ["protein"], "שעועית", "beans", ["שעועית", "beans", "bean"], "grain", "#8C4A2F"),
+  F("beans", ["protein"], "שעועית", "beans", ["שעועית", "שעועית לבנה", "white beans", "beans", "bean"], "grain", "#8C4A2F"),
   F("edamame", ["protein", "veg"], "אדממה", "edamame", ["אדממה", "edamame"], "grain", "#7FB05A"),
   // -- dairy (also protein)
   F("cottage", ["dairy", "protein"], "קוטג'", "cottage cheese", ["קוטג", "קוטג'", "cottage"], "blob", "#FBFBF6"),
-  F("whiteCheese", ["dairy", "protein"], "גבינה לבנה", "white cheese", ["גבינה לבנה", "גבינת 5%", "white cheese"], "blob", "#FCFCF7"),
+  F("whiteCheese", ["dairy", "protein"], "גבינה לבנה", "white cheese", ["גבינה לבנה", "גבינת 5%", "גבינה 5%", "גבינה רכה", "white cheese", "quark"], "blob", "#FCFCF7"),
   F("greekYogurt", ["dairy", "protein"], "יוגורט יווני", "greek yogurt", ["יוגורט יווני", "יוגורט", "greek yogurt", "yogurt", "yoghurt"], "blob", "#F7F5EC"),
-  F("yellowCheese", ["dairy", "protein", "fat"], "גבינה צהובה", "cheese", ["גבינה צהובה", "גבינה", "cheese"], "slice", "#F2C14E"),
-  F("feta", ["dairy", "protein", "fat"], "פטה", "feta", ["גבינת פטה", "פטה", "בולגרית", "feta"], "blob", "#FAFAF3"),
-  F("milk", ["dairy"], "חלב", "milk", ["חלב", "milk"], "drop", "#F4F6FA"),
+  F("yellowCheese", ["dairy", "protein", "fat"], "גבינה צהובה", "cheese", ["גבינה צהובה", "גבינה", "גאודה", "עמק", "צ'דר", "cheddar", "gouda", "cheese"], "slice", "#F2C14E"),
+  F("feta", ["dairy", "protein", "fat"], "פטה", "feta", ["גבינת פטה", "פטה", "בולגרית", "גבינה בולגרית", "גבינה מלוחה", "feta"], "blob", "#FAFAF3"),
+  F("milk", ["dairy"], "חלב", "milk", ["חלב", "חלב 1%", "חלב 3%", "milk"], "drop", "#F4F6FA"),
   // -- carbs
   F("wholeBread", ["carb"], "לחם מלא", "whole-grain bread", ["לחם מלא", "לחם קל", "whole bread", "whole-grain bread"], "slice", "#B98A54"),
-  F("bread", ["carb"], "לחם", "bread", ["פרוסת לחם", "לחם", "פרוסה", "bread", "toast", "לחמניה", "לחמניות", "חלה", "baguette", "roll"], "slice", "#D8AE76"),
+  F("bread", ["carb"], "לחם", "bread", ["פרוסת לחם", "לחם", "פרוסה", "bread", "toast", "לחם טוסט", "לחמניה", "לחמניות", "לחמנייה", "חלה", "באגט", "baguette", "roll"], "slice", "#D8AE76"),
   F("oats", ["carb"], "שיבולת שועל", "oats", ["שיבולת שועל", "קוואקר", "שיבולים", "oats", "oatmeal"], "grain", "#E3D5A8"),
   F("rice", ["carb"], "אורז", "rice", ["אורז לבן", "אורז בסמטי", "אורז פרסי", "אורז", "בסמטי", "basmati", "rice"], "grain", "#F3EFE0"),
-  F("pasta", ["carb"], "פסטה", "pasta", ["פסטה", "ספגטי", "פנה", "pasta", "spaghetti"], "long", "#EAD79B"),
-  F("potato", ["carb", "veg"], "תפוח אדמה", "potato", ["תפוח אדמה", "תפוחי אדמה", "תפוד", "potato", "potatoes"], "round", "#D8B77A"),
+  F("pasta", ["carb"], "פסטה", "pasta", ["פסטה", "ספגטי", "פנה", "פוזילי", "מקרוני", "פטוצ'יני", "pasta", "spaghetti", "penne", "macaroni"], "long", "#EAD79B"),
+  F("potato", ["carb", "veg"], "תפוח אדמה", "potato", ["תפוח אדמה", "תפוחי אדמה", "תפו\"א", "תפוא", "תפוד", "potato", "potatoes"], "round", "#D8B77A"),
   F("sweetPotato", ["carb", "veg"], "בטטה", "sweet potato", ["בטטה", "בטטות", "sweet potato"], "long", "#E08A4B"),
   F("quinoa", ["carb", "protein"], "קינואה", "quinoa", ["קינואה", "quinoa"], "grain", "#E6DCC0"),
-  F("couscous", ["carb"], "קוסקוס", "couscous", ["קוסקוס", "פתיתים", "couscous"], "grain", "#EAD9A0"),
-  F("tortilla", ["carb"], "טורטייה", "tortilla", ["טורטייה", "לאפה", "tortilla", "wrap"], "round", "#E7CE9A"),
+  F("couscous", ["carb"], "קוסקוס", "couscous", ["קוסקוס", "couscous"], "grain", "#EAD9A0"),
+  F("tortilla", ["carb"], "טורטייה", "tortilla", ["טורטייה", "טורטיה", "טורטיות", "tortilla", "wrap"], "round", "#E7CE9A"),
   F("corn", ["carb", "veg"], "תירס", "corn", ["תירס", "corn"], "grain", "#F4CE4B"),
   // -- veg
-  F("tomato", ["veg"], "עגבנייה", "tomato", ["עגבנייה", "עגבניה", "עגבניות", "tomato", "tomatoes"], "round", "#E0503A"),
+  F("tomato", ["veg"], "עגבנייה", "tomato", ["עגבנייה", "עגבניה", "עגבניות", "עגבניות שרי", "שרי", "tomato", "tomatoes", "cherry tomatoes"], "round", "#E0503A"),
   F("cucumber", ["veg"], "מלפפון", "cucumber", ["מלפפון", "מלפפונים", "cucumber"], "long", "#5C9A47"),
   F("lettuce", ["veg"], "חסה", "lettuce", ["חסה", "עלים ירוקים", "lettuce", "greens"], "leaf", "#77B24E"),
-  F("pepper", ["veg"], "פלפל", "pepper", ["פלפל אדום", "פלפל", "פלפלים", "pepper", "bell pepper"], "round", "#D93A3A"),
+  F("pepper", ["veg"], "פלפל", "pepper", ["פלפל אדום", "פלפל צהוב", "פלפל ירוק", "פלפל", "פלפלים", "גמבה", "גמבות", "pepper", "bell pepper"], "round", "#D93A3A"),
   F("onion", ["veg"], "בצל", "onion", ["בצל סגול", "בצל", "onion"], "round", "#C9A0C0"),
   F("garlic", ["veg"], "שום", "garlic", ["שום", "garlic"], "round", "#EFEADD"),
   F("spinach", ["veg"], "תרד", "spinach", ["תרד", "spinach"], "leaf", "#3F7D3A"),
@@ -106,7 +115,7 @@ export const FOODS: Food[] = [
   F("sweetcornSalad", ["veg"], "חסת עלים", "mixed greens", ["חסת עלים", "סלט עלים", "מיקס עלים"], "leaf", "#82B85A"),
   // -- fruit
   F("banana", ["fruit"], "בננה", "banana", ["בננה", "בננות", "banana", "bananas"], "long", "#EBCB4B"),
-  F("apple", ["fruit"], "תפוח", "apple", ["תפוח עץ", "תפוחים", "apple", "apples"], "round", "#D64545"),
+  F("apple", ["fruit"], "תפוח", "apple", ["תפוח עץ", "תפוח", "תפוחים", "תפוח ירוק", "apple", "apples"], "round", "#D64545"),
   F("berries", ["fruit"], "פירות יער", "berries", ["פירות יער", "אוכמניות", "פטל", "berries", "blueberries"], "round", "#8E3B6B"),
   F("orange", ["fruit"], "תפוז", "orange", ["תפוז", "תפוזים", "orange", "oranges"], "round", "#E88A2A"),
   F("lemon", ["fruit"], "לימון", "lemon", ["לימון", "lemon"], "round", "#EED94B"),
@@ -129,9 +138,9 @@ export const FOODS: Food[] = [
   // -- more dairy
   F("butter", ["fat", "dairy"], "חמאה", "butter", ["חמאה", "butter"], "blob", "#F2D98A"),
   F("mozzarella", ["dairy", "protein"], "מוצרלה", "mozzarella", ["מוצרלה", "mozzarella"], "blob", "#FAF6EC"),
-  F("creamCheese", ["dairy", "fat"], "גבינת שמנת", "cream cheese", ["גבינת שמנת", "שמנת", "cream cheese"], "blob", "#FBF7EE"),
+  F("creamCheese", ["dairy", "fat"], "גבינת שמנת", "cream cheese", ["גבינת שמנת", "ממרח גבינה", "cream cheese"], "blob", "#FBF7EE"),
   // -- more carbs
-  F("bagel", ["carb"], "בייגל", "bagel", ["בייגל", "בייגלה", "bagel"], "round", "#D2A263"),
+  F("bagel", ["carb"], "בייגל", "bagel", ["בייגל", "בייגלים", "bagel"], "round", "#D2A263"),
   F("noodles", ["carb"], "אטריות", "noodles", ["אטריות", "נודלס", "noodles", "ramen"], "long", "#E8D79B"),
   F("bulgur", ["carb", "protein"], "בורגול", "bulgur", ["בורגול", "bulgur"], "grain", "#CDA96A"),
   F("cornflakes", ["carb"], "דגני בוקר", "cereal", ["קורנפלקס", "דגני בוקר", "cereal", "cornflakes"], "grain", "#E8B84B"),
@@ -153,9 +162,9 @@ export const FOODS: Food[] = [
   F("pomegranate", ["fruit"], "רימון", "pomegranate", ["רימון", "pomegranate"], "round", "#B83A47"),
   // -- more fats / extras
   F("honey", ["fat"], "דבש", "honey", ["דבש", "honey"], "drop", "#E0A63C"),
-  F("darkChocolate", ["fat"], "שוקולד מריר", "dark chocolate", ["שוקולד מריר", "שוקולד", "chocolate"], "slice", "#5A3826"),
+  F("darkChocolate", ["fat"], "שוקולד מריר", "dark chocolate", ["שוקולד מריר", "dark chocolate"], "slice", "#5A3826"),
   F("mayo", ["fat"], "מיונז", "mayonnaise", ["מיונז", "mayo", "mayonnaise"], "blob", "#F7EFD4"),
-  F("ketchup", ["veg"], "קטשופ", "ketchup", ["קטשופ", "ketchup"], "blob", "#C6392B"),
+  F("ketchup", ["spice"], "קטשופ", "ketchup", ["קטשופ", "ketchup"], "blob", "#C6392B"),
   F("chia", ["fat", "protein"], "צ'יה", "chia seeds", ["זרעי צ'יה", "צ'יה", "chia"], "grain", "#3B3B3B"),
   // -- the healthy staples the first pass missed. Whole grains that are not
   //    white rice, the pulses and seeds a Mediterranean plate leans on, dark
@@ -214,6 +223,74 @@ export const FOODS: Food[] = [
   F("flaxseed", ["fat", "protein"], "זרעי פשתן", "flaxseed", ["זרעי פשתן", "פשתן", "flaxseed", "linseed"], "grain", "#8A5F35"),
 ];
 
+/** Every food the app knows: the cooking library above, then the dishes,
+ * drinks, sweets and seasonings of ./foods2.ts. */
+export const FOODS: Food[] = [
+  ...BASE_FOODS.map((f) => ({ ...f, photo: BASE_FOOD_PHOTO[f.id] ?? f.en })),
+  ...EXTRA_FOODS.map((x) => ({
+    id: x.id,
+    tags: x.tags as FoodTag[],
+    he: x.he,
+    en: x.en,
+    match: x.match,
+    shape: x.shape,
+    color: x.color,
+    photo: x.photo,
+  })),
+];
+
+/** Per-100 g nutrition for every food in FOODS. */
+export const NUTRITION: Record<string, Per100Row> = {
+  ...BASE_NUTRITION,
+  ...Object.fromEntries(EXTRA_FOODS.map((x) => [x.id, x.n])),
+};
+
+/**
+ * Dietary classes, as data. Kosher here is the practical rule a kitchen can
+ * check: no non-kosher animal, and meat does not share a plate with dairy.
+ * Fish and eggs are pareve. Vegetarian keeps eggs and dairy.
+ */
+const classOf = (letter: string) => EXTRA_FOODS.filter((x) => x.diet.includes(letter)).map((x) => x.id);
+export const DIET_CLASS = {
+  /** Animals that are never kosher. */
+  treif: new Set(["pork", "shrimp", ...classOf("T"), ...classOf("S")]),
+  /** Meat for the meat-and-dairy rule (not fish). */
+  meat: new Set(["chicken", "turkey", "beef", "pork", "sausage", "lamb", ...classOf("M"), ...classOf("T")]),
+  /** Anything with animal flesh in it, fish and seafood included. */
+  flesh: new Set([
+    "chicken", "turkey", "beef", "pork", "sausage", "lamb",
+    "fish", "tuna", "salmon", "shrimp", "sardines", "mackerel",
+    ...classOf("M"), ...classOf("T"), ...classOf("S"), ...classOf("F"),
+  ]),
+  /** Dairy for the meat-and-dairy rule. */
+  dairy: new Set([
+    ...BASE_FOODS.filter((f) => f.tags.includes("dairy")).map((f) => f.id),
+    ...classOf("D"),
+  ]),
+  /**
+   * Wheat, barley, rye and oats. Oats are only gluten-free when certified;
+   * freekeh is green wheat and pita is bread whatever the aisle calls them.
+   * Buckwheat and millet are not wheat despite the names.
+   */
+  gluten: new Set([
+    "bread", "wholeBread", "pasta", "couscous", "tortilla", "oats",
+    "bagel", "noodles", "bulgur", "granola", "cornflakes",
+    "freekeh", "barley", "pita", "pitaWhole",
+    ...classOf("G"),
+  ]),
+};
+
+/** Extra "can I eat this?" signals for the foods of ./foods2.ts, by set name. */
+export const SCORE_EXTRA: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {};
+  for (const x of EXTRA_FOODS) {
+    for (const letter of x.score) {
+      (out[letter] ??= []).push(x.id);
+    }
+  }
+  return out;
+})();
+
 /** How a meal reads against the goal, shown as a small badge. */
 export type MealNote = "light" | "protein" | "veg" | "balanced" | "hearty";
 
@@ -228,9 +305,16 @@ export type Meal = {
   uses: string[];
   slot: MealSlot;
   notes: MealNote[];
-  /** Rough estimates for one home portion. */
+  /**
+   * One home portion: the sum of the ingredient amounts the card lists, worked
+   * out below from the nutrition table — so a person weighing their food adds
+   * up exactly the number the card shows.
+   */
   kcal: number;
   protein: number;
+  /** Amounts that differ from an ingredient's standard portion in this dish
+   * ("a spoon of oats", not half a cup). Everything else is one portion. */
+  amounts?: Record<string, Portion>;
   /**
    * What to search Wikimedia Commons for to get a real photograph of this dish
    * — see `photo.ts`. English, and worded the way a photographer would have
@@ -248,270 +332,268 @@ const M = (
   uses: string[],
   slot: MealSlot,
   notes: MealNote[],
-  kcal: number,
-  protein: number,
   photo: string,
-): Meal => ({ id, he, en, uses, slot, notes, kcal, protein, photo });
+): Meal => ({ id, he, en, uses, slot, notes, kcal: 0, protein: 0, photo });
 
 export const MEALS: Meal[] = [
   M("omelette-salad",
     { title: "חביתה עם סלט", how: "מטגנים 2 ביצים במעט שמן זית, לצד עגבנייה ומלפפון קצוצים." },
     { title: "Omelette with salad", how: "Two eggs in a little olive oil, with chopped tomato and cucumber." },
-    ["egg", "tomato", "cucumber", "oliveOil"], "breakfast", ["protein", "light"], 320, 20, "omelette"),
+    ["egg", "tomato", "cucumber", "oliveOil"], "breakfast", ["protein", "light"], "omelette"),
   M("shakshuka",
     { title: "שקשוקה", how: "מבשלים עגבנייה, פלפל ובצל, שוברים פנימה 2 ביצים ומכסים עד שהחלבון נקרש." },
     { title: "Shakshuka", how: "Simmer tomato, pepper and onion, crack in two eggs and cover until set." },
-    ["egg", "tomato", "pepper", "onion"], "breakfast", ["protein", "veg"], 360, 19, "shakshouka"),
+    ["egg", "tomato", "pepper", "onion"], "breakfast", ["protein", "veg"], "shakshouka"),
   M("yogurt-bowl",
     { title: "קערת יוגורט", how: "יוגורט יווני עם בננה פרוסה, כף שיבולת שועל וקצת אגוזים." },
     { title: "Yogurt bowl", how: "Greek yogurt with sliced banana, a spoon of oats and a few nuts." },
-    ["greekYogurt", "banana", "oats", "nuts"], "breakfast", ["protein", "balanced"], 380, 24, "yogurt fruit bowl"),
+    ["greekYogurt", "banana", "oats", "nuts"], "breakfast", ["protein", "balanced"], "yogurt fruit bowl"),
   M("cottage-toast",
     { title: "קוטג' על לחם מלא", how: "פרוסת לחם מלא עם קוטג' ופרוסות עגבנייה, מלח ופלפל." },
     { title: "Cottage on toast", how: "Whole-grain bread with cottage cheese and tomato, salt and pepper." },
-    ["cottage", "wholeBread", "tomato"], "breakfast", ["light", "protein"], 260, 18, "cottage cheese toast"),
+    ["cottage", "wholeBread", "tomato"], "breakfast", ["light", "protein"], "cottage cheese toast"),
   M("oatmeal-pb",
     { title: "דייסת שיבולת שועל", how: "מבשלים שיבולת שועל בחלב, מוסיפים בננה וכף חמאת בוטנים." },
     { title: "Oatmeal", how: "Cook oats in milk, top with banana and a spoon of peanut butter." },
-    ["oats", "milk", "banana", "peanutButter"], "breakfast", ["hearty", "balanced"], 420, 15, "porridge oatmeal bowl"),
+    ["oats", "milk", "banana", "peanutButter"], "breakfast", ["hearty", "balanced"], "porridge oatmeal bowl"),
   M("avocado-egg-toast",
     { title: "טוסט אבוקדו וביצה", how: "לחם מלא, אבוקדו מעוך וביצה קשה או עלומה מעל." },
     { title: "Avocado & egg toast", how: "Whole-grain bread, mashed avocado, a boiled or poached egg on top." },
-    ["wholeBread", "avocado", "egg"], "breakfast", ["balanced", "protein"], 340, 15, "avocado toast egg"),
+    ["wholeBread", "avocado", "egg"], "breakfast", ["balanced", "protein"], "avocado toast egg"),
   M("tuna-salad",
     { title: "סלט טונה", how: "טונה במים על מצע חסה, מלפפון ועגבנייה, כפית שמן זית ולימון." },
     { title: "Tuna salad", how: "Tuna in water over lettuce, cucumber and tomato, olive oil and lemon." },
-    ["tuna", "lettuce", "cucumber", "tomato", "oliveOil"], "lunch", ["light", "protein"], 300, 28, "tuna salad"),
+    ["tuna", "lettuce", "cucumber", "tomato", "oliveOil"], "lunch", ["light", "protein"], "tuna salad"),
   M("chicken-rice-broccoli",
     { title: "עוף עם אורז וברוקולי", how: "חזה עוף צלוי, חצי כוס אורז וברוקולי מאודה." },
     { title: "Chicken, rice & broccoli", how: "Grilled chicken breast, half a cup of rice and steamed broccoli." },
-    ["chicken", "rice", "broccoli"], "lunch", ["protein", "hearty"], 480, 40, "chicken breast rice broccoli"),
+    ["chicken", "rice", "broccoli"], "lunch", ["protein", "hearty"], "chicken breast rice broccoli"),
   M("chicken-sweet-potato",
     { title: "עוף עם בטטה וסלט", how: "חזה עוף, בטטה בתנור וסלט ירוק לצד." },
     { title: "Chicken with sweet potato", how: "Chicken breast, roasted sweet potato and a green salad." },
-    ["chicken", "sweetPotato", "lettuce"], "lunch", ["protein", "balanced"], 460, 38, "roast chicken sweet potato"),
+    ["chicken", "sweetPotato", "lettuce"], "lunch", ["protein", "balanced"], "roast chicken sweet potato"),
   M("beef-rice",
     { title: "בקר עם אורז וירקות", how: "רצועות בקר רזה מוקפצות עם פלפל ובצל, על אורז." },
     { title: "Beef with rice", how: "Lean beef strips stir-fried with pepper and onion, over rice." },
-    ["beef", "rice", "pepper", "onion"], "dinner", ["protein", "hearty"], 540, 35, "beef stir fry rice"),
+    ["beef", "rice", "pepper", "onion"], "dinner", ["protein", "hearty"], "beef stir fry rice"),
   M("lentil-soup",
     { title: "מרק עדשים", how: "מבשלים עדשים עם גזר ובצל ומעט כמון עד שהכול רך." },
     { title: "Lentil soup", how: "Simmer lentils with carrot and onion and a little cumin until soft." },
-    ["lentils", "carrot", "onion"], "dinner", ["veg", "protein", "light"], 300, 18, "lentil soup"),
+    ["lentils", "carrot", "onion"], "dinner", ["veg", "protein", "light"], "lentil soup"),
   M("hummus-bowl",
     { title: "קערת חומוס", how: "גרגירי חומוס עם טחינה, עגבנייה ומלפפון קצוצים ושמן זית." },
     { title: "Chickpea bowl", how: "Chickpeas with tahini, chopped tomato and cucumber and olive oil." },
-    ["chickpeas", "tahini", "tomato", "cucumber"], "lunch", ["veg", "protein"], 400, 17, "hummus chickpeas"),
+    ["chickpeas", "tahini", "tomato", "cucumber"], "lunch", ["veg", "protein"], "hummus chickpeas"),
   M("tofu-stirfry",
     { title: "מוקפץ טופו", how: "מקפיצים טופו עם פלפל וברוקולי בסויה, מגישים על אורז." },
     { title: "Tofu stir-fry", how: "Stir-fry tofu with pepper and broccoli in soy sauce, serve over rice." },
-    ["tofu", "pepper", "broccoli", "rice"], "dinner", ["veg", "protein"], 430, 24, "tofu stir fry"),
+    ["tofu", "pepper", "broccoli", "rice"], "dinner", ["veg", "protein"], "tofu stir fry"),
   M("salmon-quinoa",
     { title: "סלמון עם קינואה", how: "פילה סלמון בתנור, קינואה ותרד מוקפץ קלות." },
     { title: "Salmon with quinoa", how: "Baked salmon fillet, quinoa and lightly sautéed spinach." },
-    ["salmon", "quinoa", "spinach"], "dinner", ["protein", "balanced"], 500, 34, "salmon quinoa"),
+    ["salmon", "quinoa", "spinach"], "dinner", ["protein", "balanced"], "salmon quinoa"),
   M("fish-potato",
     { title: "דג עם תפוח אדמה", how: "פילה דג בתנור עם תפוחי אדמה ולימון, לצד סלט." },
     { title: "Fish with potato", how: "Baked white fish with potatoes and lemon, salad on the side." },
-    ["fish", "potato", "lemon"], "dinner", ["protein", "balanced"], 420, 30, "baked fish potatoes"),
+    ["fish", "potato", "lemon"], "dinner", ["protein", "balanced"], "baked fish potatoes"),
   M("turkey-wrap",
     { title: "טורטייה עם הודו", how: "טורטייה עם חזה הודו, חסה ועגבנייה, כפית טחינה." },
     { title: "Turkey wrap", how: "Tortilla with turkey breast, lettuce and tomato, a little tahini." },
-    ["turkey", "tortilla", "lettuce", "tomato"], "lunch", ["light", "protein"], 350, 26, "turkey wrap sandwich"),
+    ["turkey", "tortilla", "lettuce", "tomato"], "lunch", ["light", "protein"], "turkey wrap sandwich"),
   M("pasta-veg",
     { title: "פסטה עם ירקות", how: "פסטה עם רוטב עגבניות, קישוא ובצל בשמן זית." },
     { title: "Pasta with vegetables", how: "Pasta with tomato sauce, zucchini and onion in olive oil." },
-    ["pasta", "tomato", "zucchini", "onion"], "dinner", ["veg", "hearty"], 470, 13, "pasta with vegetables"),
+    ["pasta", "tomato", "zucchini", "onion"], "dinner", ["veg", "hearty"], "pasta with vegetables"),
   M("baked-potato-cottage",
     { title: "תפוח אדמה אפוי עם קוטג'", how: "תפוח אדמה בתנור, פתוח וממולא בקוטג', לצד סלט." },
     { title: "Baked potato with cottage", how: "Oven-baked potato, split and filled with cottage cheese." },
-    ["potato", "cottage", "cucumber"], "dinner", ["light", "protein"], 330, 20, "baked potato"),
+    ["potato", "cottage", "cucumber"], "dinner", ["light", "protein"], "baked potato"),
   M("white-cheese-plate",
     { title: "צלחת גבינה לבנה וירקות", how: "גבינה לבנה 5% עם ירקות חתוכים ופרוסת לחם מלא." },
     { title: "White cheese & veg plate", how: "Low-fat white cheese with cut vegetables and whole-grain bread." },
-    ["whiteCheese", "cucumber", "tomato", "wholeBread"], "breakfast", ["light", "protein"], 280, 19, "white cheese vegetables plate"),
+    ["whiteCheese", "cucumber", "tomato", "wholeBread"], "breakfast", ["light", "protein"], "white cheese vegetables plate"),
   M("feta-salad",
     { title: "סלט יווני עם פטה", how: "עגבנייה, מלפפון, בצל וזיתים עם קוביות פטה ושמן זית." },
     { title: "Greek salad with feta", how: "Tomato, cucumber, onion and olives with feta cubes and olive oil." },
-    ["feta", "tomato", "cucumber", "onion", "olives"], "lunch", ["veg", "light"], 320, 12, "greek salad"),
+    ["feta", "tomato", "cucumber", "onion", "olives"], "lunch", ["veg", "light"], "greek salad"),
   M("chickpea-quinoa",
     { title: "קערת קינואה וחומוס", how: "קינואה עם גרגירי חומוס, תרד ולימון — צמחוני ומשביע." },
     { title: "Quinoa & chickpea bowl", how: "Quinoa with chickpeas, spinach and lemon — vegetarian and filling." },
-    ["quinoa", "chickpeas", "spinach", "lemon"], "lunch", ["veg", "protein", "hearty"], 440, 20, "quinoa chickpea salad bowl"),
+    ["quinoa", "chickpeas", "spinach", "lemon"], "lunch", ["veg", "protein", "hearty"], "quinoa chickpea salad bowl"),
   M("apple-pb",
     { title: "תפוח עם חמאת בוטנים", how: "תפוח פרוס עם כף חמאת בוטנים — נשנוש שמחזיק." },
     { title: "Apple & peanut butter", how: "Sliced apple with a spoon of peanut butter — a snack that holds." },
-    ["apple", "peanutButter"], "snack", ["balanced"], 200, 6, "peanut butter apple slices snack"),
+    ["apple", "peanutButter"], "snack", ["balanced"], "peanut butter apple slices snack"),
   M("yogurt-berries",
     { title: "יוגורט עם פירות יער", how: "יוגורט יווני עם חופן פירות יער — קליל וחלבוני." },
     { title: "Yogurt & berries", how: "Greek yogurt with a handful of berries — light and high in protein." },
-    ["greekYogurt", "berries"], "snack", ["light", "protein"], 180, 17, "yogurt with berries"),
+    ["greekYogurt", "berries"], "snack", ["light", "protein"], "yogurt with berries"),
   M("nuts-banana",
     { title: "בננה עם אגוזים", how: "בננה וחופן אגוזים — אנרגיה מהירה לפני או אחרי אימון." },
     { title: "Banana & nuts", how: "A banana and a handful of nuts — quick energy before or after a workout." },
-    ["banana", "nuts"], "snack", ["hearty", "balanced"], 260, 7, "banana with walnuts"),
+    ["banana", "nuts"], "snack", ["hearty", "balanced"], "banana with walnuts"),
   // Dishes the dietary filters actually remove. Without these the menu was
   // entirely kosher already, so turning the kosher filter on changed nothing
   // on screen — a filter that hides nothing reads as a filter that is broken.
   M("cheeseburger",
     { title: "בורגר עם צהובה", how: "קציצת בקר בלחמנייה עם פרוסת גבינה צהובה, עגבנייה ובצל." },
     { title: "Cheeseburger", how: "A beef patty in a bun with a slice of yellow cheese, tomato and onion." },
-    ["beef", "yellowCheese", "bread", "tomato", "onion"], "dinner", ["hearty", "protein"], 620, 38, "cheeseburger"),
+    ["beef", "yellowCheese", "bread", "tomato", "onion"], "dinner", ["hearty", "protein"], "cheeseburger"),
   M("creamy-beef-pasta",
     { title: "פסטה בשמנת עם בקר", how: "פסטה ברוטב שמנת עם רצועות בקר ופטריות מוקפצות." },
     { title: "Creamy beef pasta", how: "Pasta in a cream sauce with strips of beef and sautéed mushrooms." },
-    ["pasta", "beef", "creamCheese", "mushroom"], "dinner", ["hearty", "protein"], 680, 36, "beef pasta cream sauce"),
+    ["pasta", "beef", "creamCheese", "mushroom"], "dinner", ["hearty", "protein"], "beef pasta cream sauce"),
   M("sausage-cheese-toast",
     { title: "טוסט נקניק וגבינה", how: "טוסט חם עם נקניק ופרוסת גבינה צהובה, עגבנייה בפנים." },
     { title: "Sausage & cheese toast", how: "A hot toastie with sausage, yellow cheese and tomato inside." },
-    ["bread", "sausage", "yellowCheese", "tomato"], "lunch", ["hearty"], 520, 26, "toasted sandwich sausage cheese"),
+    ["bread", "sausage", "yellowCheese", "tomato"], "lunch", ["hearty"], "toasted sandwich sausage cheese"),
   M("shrimp-stirfry",
     { title: "שרימפס מוקפץ עם ירקות", how: "שרימפס מוקפץ עם ברוקולי ופלפל בשמן זית, לצד אורז." },
     { title: "Shrimp stir-fry", how: "Shrimp seared with broccoli and pepper in olive oil, over rice." },
-    ["shrimp", "broccoli", "pepper", "rice", "oliveOil"], "dinner", ["protein", "veg"], 430, 32, "shrimp stir fry vegetables"),
+    ["shrimp", "broccoli", "pepper", "rice", "oliveOil"], "dinner", ["protein", "veg"], "shrimp stir fry vegetables"),
   M("lamb-yogurt-bowl",
     { title: "כבש עם יוגורט ובורגול", how: "כבש צלוי על בורגול, כף יוגורט ונענע מעל." },
     { title: "Lamb & yogurt bowl", how: "Roast lamb over bulgur, a spoon of yogurt and mint on top." },
-    ["lamb", "greekYogurt", "bulgur", "onion"], "dinner", ["hearty", "protein"], 590, 40, "roast lamb bulgur"),
+    ["lamb", "greekYogurt", "bulgur", "onion"], "dinner", ["hearty", "protein"], "roast lamb bulgur"),
 
   // Depth, so the daily rotation has somewhere to rotate to. A menu of two
   // dozen dishes repeats inside a week however cleverly it is sorted.
   M("egg-avocado-bowl",
     { title: "קערת ביצים ואבוקדו", how: "2 ביצים קשות עם אבוקדו מעוך ועגבנייה, כפית שמן זית." },
     { title: "Egg & avocado bowl", how: "Two boiled eggs with mashed avocado and tomato, a little olive oil." },
-    ["egg", "avocado", "tomato", "oliveOil"], "breakfast", ["protein", "balanced"], 400, 18, "boiled eggs avocado"),
+    ["egg", "avocado", "tomato", "oliveOil"], "breakfast", ["protein", "balanced"], "boiled eggs avocado"),
   M("cottage-fruit",
     { title: "קוטג' עם פירות", how: "קוטג' עם חופן פירות יער וכמה אגוזים." },
     { title: "Cottage & fruit", how: "Cottage cheese with a handful of berries and a few nuts." },
-    ["cottage", "berries", "nuts"], "breakfast", ["light", "protein"], 250, 20, "cottage cheese berries"),
+    ["cottage", "berries", "nuts"], "breakfast", ["light", "protein"], "cottage cheese berries"),
   M("granola-yogurt",
     { title: "גרנולה עם יוגורט", how: "יוגורט יווני עם גרנולה ובננה פרוסה." },
     { title: "Granola & yogurt", how: "Greek yogurt with granola and sliced banana." },
-    ["granola", "greekYogurt", "banana"], "breakfast", ["hearty", "balanced"], 430, 20, "granola yogurt"),
+    ["granola", "greekYogurt", "banana"], "breakfast", ["hearty", "balanced"], "granola yogurt"),
   M("chia-pudding",
     { title: "פודינג צ'יה", how: "כף צ'יה בחלב בלילה, פירות יער מעל בבוקר." },
     { title: "Chia pudding", how: "A spoon of chia in milk overnight, berries on top in the morning." },
-    ["chia", "milk", "berries"], "breakfast", ["light", "balanced"], 240, 10, "chia seed pudding jar"),
+    ["chia", "milk", "berries"], "breakfast", ["light", "balanced"], "chia seed pudding jar"),
   M("bagel-cheese",
     { title: "בייגל עם גבינה", how: "בייגל חתוך עם גבינה לבנה ומלפפון." },
     { title: "Bagel with cheese", how: "A split bagel with white cheese and cucumber." },
-    ["bagel", "whiteCheese", "cucumber"], "breakfast", ["hearty"], 390, 16, "bagel cream cheese"),
+    ["bagel", "whiteCheese", "cucumber"], "breakfast", ["hearty"], "bagel cream cheese"),
   M("protein-shake-banana",
     { title: "שייק חלבון ובננה", how: "מנת אבקת חלבון בחלב עם בננה — מהיר לפני יציאה." },
     { title: "Protein & banana shake", how: "A scoop of protein in milk with a banana — fast before you leave." },
-    ["proteinPowder", "milk", "banana"], "breakfast", ["protein"], 330, 32, "banana smoothie glass"),
+    ["proteinPowder", "milk", "banana"], "breakfast", ["protein"], "banana smoothie glass"),
   M("cornflakes-milk",
     { title: "קורנפלקס עם חלב", how: "קורנפלקס בחלב עם בננה פרוסה." },
     { title: "Cornflakes & milk", how: "Cornflakes in milk with sliced banana." },
-    ["cornflakes", "milk", "banana"], "breakfast", ["balanced"], 350, 13, "cornflakes milk bowl"),
+    ["cornflakes", "milk", "banana"], "breakfast", ["balanced"], "cornflakes milk bowl"),
   M("rice-cakes-pb",
     { title: "פריכיות עם חמאת בוטנים", how: "שתי פריכיות אורז עם חמאת בוטנים ובננה." },
     { title: "Rice cakes & peanut butter", how: "Two rice cakes with peanut butter and banana." },
-    ["riceCakes", "peanutButter", "banana"], "snack", ["balanced"], 270, 9, "rice cakes peanut butter"),
+    ["riceCakes", "peanutButter", "banana"], "snack", ["balanced"], "rice cakes peanut butter"),
   M("chicken-quinoa",
     { title: "עוף עם קינואה", how: "חזה עוף צלוי עם קינואה וקישוא בתנור." },
     { title: "Chicken & quinoa", how: "Roast chicken breast with quinoa and oven-baked courgette." },
-    ["chicken", "quinoa", "zucchini", "oliveOil"], "lunch", ["protein", "balanced"], 460, 40, "chicken quinoa"),
+    ["chicken", "quinoa", "zucchini", "oliveOil"], "lunch", ["protein", "balanced"], "chicken quinoa"),
   M("turkey-rice-bowl",
     { title: "קערת הודו ואורז", how: "רצועות הודו מוקפצות עם פלפל ובצל על אורז." },
     { title: "Turkey rice bowl", how: "Turkey strips stir-fried with pepper and onion over rice." },
-    ["turkey", "rice", "pepper", "onion"], "lunch", ["protein", "hearty"], 510, 42, "turkey rice"),
+    ["turkey", "rice", "pepper", "onion"], "lunch", ["protein", "hearty"], "turkey rice"),
   M("tuna-potato",
     { title: "טונה עם תפוח אדמה", how: "טונה על תפוח אדמה אפוי עם סלט חסה." },
     { title: "Tuna & potato", how: "Tuna over a baked potato with a lettuce salad." },
-    ["tuna", "potato", "lettuce", "oliveOil"], "lunch", ["protein", "balanced"], 420, 32, "tuna baked potato"),
+    ["tuna", "potato", "lettuce", "oliveOil"], "lunch", ["protein", "balanced"], "tuna baked potato"),
   M("chickpea-salad",
     { title: "סלט חומוס", how: "גרגירי חומוס עם ירקות קצוצים וכף טחינה." },
     { title: "Chickpea salad", how: "Chickpeas with chopped vegetables and a spoon of tahini." },
-    ["chickpeas", "tomato", "cucumber", "tahini"], "lunch", ["veg", "protein"], 380, 16, "chickpea salad"),
+    ["chickpeas", "tomato", "cucumber", "tahini"], "lunch", ["veg", "protein"], "chickpea salad"),
   M("beef-sweet-potato",
     { title: "בקר עם בטטה", how: "בקר צלוי עם בטטה אפויה ותרד מוקפץ." },
     { title: "Beef & sweet potato", how: "Roast beef with baked sweet potato and sautéed spinach." },
-    ["beef", "sweetPotato", "spinach"], "lunch", ["hearty", "protein"], 560, 44, "beef sweet potato"),
+    ["beef", "sweetPotato", "spinach"], "lunch", ["hearty", "protein"], "beef sweet potato"),
   M("egg-fried-rice",
     { title: "אורז מוקפץ עם ביצה", how: "אורז מוקפץ עם ביצה, אפונה וגזר." },
     { title: "Egg fried rice", how: "Rice stir-fried with egg, peas and carrot." },
-    ["rice", "egg", "peas", "carrot"], "lunch", ["balanced"], 440, 18, "egg fried rice"),
+    ["rice", "egg", "peas", "carrot"], "lunch", ["balanced"], "egg fried rice"),
   M("shakshuka-feta",
     { title: "שקשוקה עם פטה", how: "שקשוקה קלאסית עם פטה מפוררת מעל בסוף הבישול." },
     { title: "Shakshuka with feta", how: "Classic shakshuka with feta crumbled over at the end." },
-    ["egg", "tomato", "pepper", "feta"], "breakfast", ["protein", "veg"], 410, 24, "shakshouka feta"),
+    ["egg", "tomato", "pepper", "feta"], "breakfast", ["protein", "veg"], "shakshouka feta"),
   M("chicken-couscous",
     { title: "עוף עם קוסקוס", how: "עוף מבושל עם ירקות שורש על קוסקוס." },
     { title: "Chicken couscous", how: "Braised chicken with root vegetables over couscous." },
-    ["chicken", "couscous", "carrot", "zucchini"], "lunch", ["hearty", "protein"], 530, 40, "chicken couscous"),
+    ["chicken", "couscous", "carrot", "zucchini"], "lunch", ["hearty", "protein"], "chicken couscous"),
   M("bulgur-veg",
     { title: "בורגול עם ירקות", how: "בורגול תפוח עם ירקות קצוצים ולימון." },
     { title: "Bulgur & vegetables", how: "Fluffed bulgur with chopped vegetables and lemon." },
-    ["bulgur", "tomato", "cucumber", "oliveOil"], "lunch", ["veg", "light"], 330, 9, "bulgur salad"),
+    ["bulgur", "tomato", "cucumber", "oliveOil"], "lunch", ["veg", "light"], "bulgur salad"),
   M("salmon-veg",
     { title: "סלמון עם ירקות", how: "פילה סלמון בתנור עם ברוקולי ובטטה." },
     { title: "Salmon & vegetables", how: "Baked salmon fillet with broccoli and sweet potato." },
-    ["salmon", "broccoli", "sweetPotato"], "dinner", ["protein", "hearty"], 520, 38, "baked salmon vegetables"),
+    ["salmon", "broccoli", "sweetPotato"], "dinner", ["protein", "hearty"], "baked salmon vegetables"),
   M("sardines-salad",
     { title: "סרדינים עם סלט", how: "סרדינים על סלט חסה ועגבנייה עם לימון." },
     { title: "Sardines & salad", how: "Sardines over a lettuce and tomato salad with lemon." },
-    ["sardines", "lettuce", "tomato", "lemon"], "dinner", ["light", "protein"], 290, 26, "sardines salad"),
+    ["sardines", "lettuce", "tomato", "lemon"], "dinner", ["light", "protein"], "sardines salad"),
   M("chicken-cauliflower",
     { title: "עוף עם כרובית", how: "עוף צלוי עם כרובית בתנור ושום." },
     { title: "Chicken & cauliflower", how: "Roast chicken with oven-roasted cauliflower and garlic." },
-    ["chicken", "cauliflower", "garlic", "oliveOil"], "dinner", ["light", "protein"], 390, 38, "roast chicken cauliflower"),
+    ["chicken", "cauliflower", "garlic", "oliveOil"], "dinner", ["light", "protein"], "roast chicken cauliflower"),
   M("bean-stew",
     { title: "תבשיל שעועית", how: "שעועית מבושלת ברוטב עגבניות עם בצל ושום." },
     { title: "Bean stew", how: "Beans simmered in tomato with onion and garlic." },
-    ["beans", "tomato", "onion", "garlic"], "dinner", ["veg", "hearty"], 380, 18, "bean stew tomato"),
+    ["beans", "tomato", "onion", "garlic"], "dinner", ["veg", "hearty"], "bean stew tomato"),
   M("omelette-mushroom",
     { title: "חביתת פטריות", how: "חביתה עם פטריות מוקפצות, בצל וגבינה צהובה." },
     { title: "Mushroom omelette", how: "An omelette with sautéed mushrooms, onion and cheese." },
-    ["egg", "mushroom", "onion", "yellowCheese"], "dinner", ["protein"], 380, 24, "mushroom omelette plate"),
+    ["egg", "mushroom", "onion", "yellowCheese"], "dinner", ["protein"], "mushroom omelette plate"),
   M("edamame-rice",
     { title: "אדממה עם אורז", how: "אדממה עם אורז, גזר מגורד ותרד." },
     { title: "Edamame rice bowl", how: "Edamame with rice, grated carrot and spinach." },
-    ["edamame", "rice", "carrot", "spinach"], "dinner", ["veg", "balanced"], 400, 20, "edamame rice bowl"),
+    ["edamame", "rice", "carrot", "spinach"], "dinner", ["veg", "balanced"], "edamame rice bowl"),
   M("stuffed-pepper",
     { title: "פלפל ממולא", how: "פלפל ממולא באורז ובשר, אפוי ברוטב עגבניות." },
     { title: "Stuffed pepper", how: "Pepper stuffed with rice and beef, baked in tomato sauce." },
-    ["pepper", "rice", "beef", "tomato"], "dinner", ["hearty", "protein"], 480, 30, "stuffed peppers"),
+    ["pepper", "rice", "beef", "tomato"], "dinner", ["hearty", "protein"], "stuffed peppers"),
   M("eggplant-tahini",
     { title: "חציל עם טחינה", how: "חציל שרוף עם טחינה, עגבנייה ולימון." },
     { title: "Eggplant with tahini", how: "Charred eggplant with tahini, tomato and lemon." },
-    ["eggplant", "tahini", "tomato", "lemon"], "dinner", ["veg", "light"], 300, 8, "eggplant tahini"),
+    ["eggplant", "tahini", "tomato", "lemon"], "dinner", ["veg", "light"], "eggplant tahini"),
   M("noodle-veg",
     { title: "נודלס עם ירקות", how: "נודלס מוקפצים עם ברוקולי, גזר וטופו." },
     { title: "Vegetable noodles", how: "Noodles stir-fried with broccoli, carrot and tofu." },
-    ["noodles", "broccoli", "carrot", "tofu"], "dinner", ["balanced", "veg"], 450, 20, "stir fried noodles vegetables"),
+    ["noodles", "broccoli", "carrot", "tofu"], "dinner", ["balanced", "veg"], "stir fried noodles vegetables"),
   M("dates-nuts",
     { title: "תמרים עם אגוזים", how: "שני תמרים וחופן אגוזים — אנרגיה מהירה." },
     { title: "Dates & nuts", how: "Two dates and a handful of nuts — quick energy." },
-    ["dates", "nuts"], "snack", ["hearty"], 220, 5, "dates and nuts"),
+    ["dates", "nuts"], "snack", ["hearty"], "dates and nuts"),
   M("cottage-cucumber",
     { title: "קוטג' עם מלפפון", how: "קוטג' עם מלפפון פרוס ומלח." },
     { title: "Cottage & cucumber", how: "Cottage cheese with sliced cucumber and salt." },
-    ["cottage", "cucumber"], "snack", ["light", "protein"], 150, 14, "cottage cheese cucumber"),
+    ["cottage", "cucumber"], "snack", ["light", "protein"], "cottage cheese cucumber"),
   M("hummus-veg",
     { title: "חומוס עם ירקות", how: "חומוס עם גזר ומלפפון חתוכים למקלות." },
     { title: "Hummus & veg", how: "Hummus with carrot and cucumber sticks." },
-    ["hummusSpread", "carrot", "cucumber"], "snack", ["veg", "balanced"], 210, 7, "hummus vegetable sticks"),
+    ["hummusSpread", "carrot", "cucumber"], "snack", ["veg", "balanced"], "hummus vegetable sticks"),
   M("dark-chocolate-almonds",
     { title: "שוקולד מריר עם אגוזים", how: "שתי קוביות שוקולד מריר וחופן אגוזים." },
     { title: "Dark chocolate & nuts", how: "Two squares of dark chocolate and a handful of nuts." },
-    ["darkChocolate", "nuts"], "snack", ["hearty"], 230, 5, "dark chocolate almonds"),
+    ["darkChocolate", "nuts"], "snack", ["hearty"], "dark chocolate almonds"),
   M("watermelon-feta",
     { title: "אבטיח עם פטה", how: "אבטיח קר עם פטה מפוררת ונענע." },
     { title: "Watermelon & feta", how: "Cold watermelon with crumbled feta and mint." },
-    ["watermelon", "feta"], "snack", ["light"], 180, 8, "watermelon feta salad"),
+    ["watermelon", "feta"], "snack", ["light"], "watermelon feta salad"),
   M("pear-cheese",
     { title: "אגס עם גבינה", how: "אגס פרוס עם גבינה לבנה." },
     { title: "Pear & cheese", how: "Sliced pear with white cheese." },
-    ["pear", "whiteCheese"], "snack", ["light"], 190, 10, "cheese board with fruit"),
+    ["pear", "whiteCheese"], "snack", ["light"], "cheese board with fruit"),
   M("pomegranate-yogurt",
     { title: "רימון עם יוגורט", how: "יוגורט יווני עם גרגירי רימון." },
     { title: "Pomegranate yogurt", how: "Greek yogurt with pomegranate seeds." },
-    ["pomegranate", "greekYogurt"], "snack", ["light", "protein"], 200, 17, "pomegranate yogurt"),
+    ["pomegranate", "greekYogurt"], "snack", ["light", "protein"], "pomegranate yogurt"),
   M("mango-cottage",
     { title: "מנגו עם קוטג'", how: "מנגו חתוך עם קוטג'." },
     { title: "Mango & cottage", how: "Chopped mango with cottage cheese." },
-    ["mango", "cottage"], "snack", ["light", "protein"], 210, 15, "cottage cheese with fruit"),
+    ["mango", "cottage"], "snack", ["light", "protein"], "cottage cheese with fruit"),
   // -- dishes built on the staples added later: whole grains that are not
   //    white rice, oily fish, pulses, dark leaves and cultured dairy. These
   //    are the plates a Mediterranean diet is actually made of, and every one
@@ -519,59 +601,59 @@ export const MEALS: Meal[] = [
   M("freekeh-veg-bowl",
     { title: "קערת פריקה עם ירקות", how: "מבשלים פריקה, צולים דלעת בתנור, מוסיפים חומוס מבושל וכף טחינה." },
     { title: "Freekeh & roast veg bowl", how: "Cooked freekeh, roasted pumpkin, chickpeas and a spoon of tahini." },
-    ["freekeh", "pumpkin", "chickpeas", "tahini"], "lunch", ["balanced", "veg"], 520, 18, "freekeh roasted vegetables"),
+    ["freekeh", "pumpkin", "chickpeas", "tahini"], "lunch", ["balanced", "veg"], "freekeh roasted vegetables"),
   M("labneh-pita",
     { title: "לאבנה על פיתה מלאה", how: "מורחים לאבנה על פיתה מלאה, מלפפון חתוך ושמן זית מעל." },
     { title: "Labneh on wholemeal pita", how: "Labneh on a wholemeal pita, chopped cucumber and a drizzle of olive oil." },
-    ["labneh", "pitaWhole", "cucumber", "oliveOil"], "breakfast", ["protein", "balanced"], 380, 18, "labneh pita"),
+    ["labneh", "pitaWhole", "cucumber", "oliveOil"], "breakfast", ["protein", "balanced"], "labneh pita"),
   M("kale-chickpea-salad",
     { title: "סלט קייל וחומוס", how: "מעסים עלי קייל עם לימון ושמן זית, מוסיפים חומוס מבושל ושקדים." },
     { title: "Kale & chickpea salad", how: "Massage kale with lemon and olive oil, add chickpeas and almonds." },
-    ["kale", "chickpeas", "lemon", "oliveOil", "almonds"], "lunch", ["veg", "light"], 420, 15, "kale salad chickpeas"),
+    ["kale", "chickpeas", "lemon", "oliveOil", "almonds"], "lunch", ["veg", "light"], "kale salad chickpeas"),
   M("buckwheat-mushroom-egg",
     { title: "כוסמת עם פטריות וביצה", how: "מטגנים בצל ופטריות, מערבבים לתוך כוסמת מבושלת ושוברים ביצה מעל." },
     { title: "Buckwheat, mushrooms & egg", how: "Fry onion and mushrooms into cooked buckwheat, top with an egg." },
-    ["buckwheat", "mushroom", "egg", "onion"], "dinner", ["balanced", "protein"], 460, 20, "buckwheat mushrooms"),
+    ["buckwheat", "mushroom", "egg", "onion"], "dinner", ["balanced", "protein"], "buckwheat mushrooms"),
   M("salmon-asparagus-rice",
     { title: "סלמון עם אספרגוס ואורז מלא", how: "פילה סלמון בתנור, אספרגוס במחבת ואורז מלא לצד." },
     { title: "Salmon, asparagus & brown rice", how: "Baked salmon fillet, pan-seared asparagus and brown rice." },
-    ["salmon", "asparagus", "brownRice"], "dinner", ["protein", "hearty"], 560, 38, "salmon asparagus"),
+    ["salmon", "asparagus", "brownRice"], "dinner", ["protein", "hearty"], "salmon asparagus"),
   M("tempeh-stirfry",
     { title: "טמפה מוקפצת עם ברוקולי", how: "מקפיצים טמפה עם שום וברוקולי, מגישים על אורז מלא." },
     { title: "Tempeh stir-fry", how: "Stir-fry tempeh with garlic and broccoli, serve over brown rice." },
-    ["tempeh", "broccoli", "brownRice", "garlic"], "dinner", ["protein", "veg"], 500, 28, "tempeh stir fry"),
+    ["tempeh", "broccoli", "brownRice", "garlic"], "dinner", ["protein", "veg"], "tempeh stir fry"),
   M("skyr-strawberries",
     { title: "סקיר עם תותים ושקדים", how: "גביע סקיר, תותים חתוכים וחופן שקדים." },
     { title: "Skyr with strawberries", how: "A tub of skyr, sliced strawberries and a handful of almonds." },
-    ["skyr", "strawberries", "almonds"], "snack", ["protein", "light"], 300, 22, "skyr strawberries"),
+    ["skyr", "strawberries", "almonds"], "snack", ["protein", "light"], "skyr strawberries"),
   M("mackerel-toast",
     { title: "מקרל על לחם מלא", how: "פילה מקרל על פרוסת לחם מלא, עלי רוקט וסחיטת לימון." },
     { title: "Mackerel on rye toast", how: "Mackerel on whole-grain bread with rocket and a squeeze of lemon." },
-    ["mackerel", "wholeBread", "arugula", "lemon"], "lunch", ["protein", "balanced"], 420, 28, "smoked mackerel sandwich"),
+    ["mackerel", "wholeBread", "arugula", "lemon"], "lunch", ["protein", "balanced"], "smoked mackerel sandwich"),
   M("kohlrabi-tahini-sticks",
     { title: "מקלות קולרבי בטחינה", how: "חותכים קולרבי וצנוניות למקלות, טובלים בטחינה." },
     { title: "Kohlrabi sticks & tahini", how: "Cut kohlrabi and radish into sticks, dip in tahini." },
-    ["kohlrabi", "radish", "tahini"], "snack", ["light", "veg"], 180, 6, "crudites vegetable platter"),
+    ["kohlrabi", "radish", "tahini"], "snack", ["light", "veg"], "crudites vegetable platter"),
   M("pumpkin-lentil-soup",
     { title: "מרק דלעת ועדשים", how: "מטגנים בצל בשמן זית, מוסיפים דלעת ועדשים ומבשלים עד שהכול רך." },
     { title: "Pumpkin & lentil soup", how: "Soften onion in olive oil, add pumpkin and lentils and simmer until tender." },
-    ["pumpkin", "lentils", "onion", "oliveOil"], "dinner", ["hearty", "veg"], 420, 18, "pumpkin soup lentils"),
+    ["pumpkin", "lentils", "onion", "oliveOil"], "dinner", ["hearty", "veg"], "pumpkin soup lentils"),
   M("barley-chicken-bowl",
     { title: "גריסים עם עוף ומנגולד", how: "גריסי פנינה מבושלים, חזה עוף פרוס ומנגולד מוקפץ בשמן זית." },
     { title: "Barley & chicken bowl", how: "Pearl barley, sliced chicken breast and chard wilted in olive oil." },
-    ["barley", "chicken", "chard", "oliveOil"], "lunch", ["protein", "hearty"], 560, 40, "pearl barley chicken"),
+    ["barley", "chicken", "chard", "oliveOil"], "lunch", ["protein", "hearty"], "pearl barley chicken"),
   M("kefir-flax-smoothie",
     { title: "שייק קפיר עם פשתן", how: "טוחנים קפיר עם בננה, פירות יער וכף זרעי פשתן." },
     { title: "Kefir & flax smoothie", how: "Blend kefir with banana, berries and a spoon of flaxseed." },
-    ["kefir", "flaxseed", "berries", "banana"], "breakfast", ["light", "balanced"], 330, 14, "glass of kefir"),
+    ["kefir", "flaxseed", "berries", "banana"], "breakfast", ["light", "balanced"], "glass of kefir"),
   M("fava-cilantro-salad",
     { title: "סלט פול עם כוסברה", how: "פול מבושל עם כוסברה קצוצה, לימון ושמן זית." },
     { title: "Fava & coriander salad", how: "Cooked fava beans with chopped coriander, lemon and olive oil." },
-    ["fava", "cilantro", "lemon", "oliveOil"], "lunch", ["veg", "light"], 320, 14, "fava beans salad"),
+    ["fava", "cilantro", "lemon", "oliveOil"], "lunch", ["veg", "light"], "fava beans salad"),
   M("brussels-egg-bowl",
     { title: "כרוב ניצנים צלוי עם ביצה", how: "צולים כרוב ניצנים בשמן זית, ביצה קשה וגרעיני דלעת מעל." },
     { title: "Roast sprouts with egg", how: "Roast brussels sprouts in olive oil, top with a boiled egg and pumpkin seeds." },
-    ["brusselsSprouts", "egg", "oliveOil", "pumpkinSeeds"], "dinner", ["veg", "protein"], 380, 20, "roasted brussels sprouts"),
+    ["brusselsSprouts", "egg", "oliveOil", "pumpkinSeeds"], "dinner", ["veg", "protein"], "roasted brussels sprouts"),
   // -- a third pass, from what people actually cook on a weeknight: the
   //    Israeli kitchen's own staples (mujadara, sabich, a lentil soup), and the
   //    high-protein bowls and skillets that turn up on every recipe site
@@ -581,67 +663,67 @@ export const MEALS: Meal[] = [
   M("mujadara",
     { title: "מג׳דרה", how: "מבשלים עדשים ואורז יחד, ומעל — הרבה בצל מטוגן עד שהוא חום ומתוק." },
     { title: "Mujadara", how: "Cook lentils and rice together, and top with onion fried until brown and sweet." },
-    ["lentils", "rice", "onion", "oliveOil"], "dinner", ["hearty", "veg"], 520, 18, "mujaddara"),
+    ["lentils", "rice", "onion", "oliveOil"], "dinner", ["hearty", "veg"], "mujaddara"),
   M("sabich-bowl",
     { title: "סביח בקערה", how: "חציל צלוי, ביצה קשה, עגבנייה ומלפפון קצוצים, וטחינה מעל. בלי הפיתה — או עם חצי." },
     { title: "Sabich bowl", how: "Roasted eggplant, a boiled egg, chopped tomato and cucumber, tahini over the top." },
-    ["eggplant", "egg", "tahini", "tomato", "cucumber"], "lunch", ["balanced", "veg"], 470, 20, "sabich"),
+    ["eggplant", "egg", "tahini", "tomato", "cucumber"], "lunch", ["balanced", "veg"], "sabich"),
   M("chicken-tzatziki-bowl",
     { title: "קערת עוף ויוגורט", how: "חזה עוף פרוס על אורז מלא, מלפפון קצוץ ויוגורט יווני עם לימון ושום." },
     { title: "Chicken & tzatziki bowl", how: "Sliced chicken over brown rice, chopped cucumber, and Greek yogurt with lemon and garlic." },
-    ["chicken", "brownRice", "cucumber", "greekYogurt", "lemon"], "lunch", ["protein", "hearty"], 580, 45, "chicken rice tzatziki"),
+    ["chicken", "brownRice", "cucumber", "greekYogurt", "lemon"], "lunch", ["protein", "hearty"], "chicken rice tzatziki"),
   M("red-lentil-curry",
     { title: "עדשים כתומות בקארי", how: "מבשלים עדשים כתומות עם עגבנייה, בצל ושום עד שהן נמסות. מגישים על אורז מלא." },
     { title: "Red lentil curry", how: "Simmer red lentils with tomato, onion and garlic until they collapse. Serve over brown rice." },
-    ["lentils", "tomato", "onion", "garlic", "brownRice"], "dinner", ["hearty", "veg"], 510, 22, "red lentil curry dal"),
+    ["lentils", "tomato", "onion", "garlic", "brownRice"], "dinner", ["hearty", "veg"], "red lentil curry dal"),
   M("cottage-pasta",
     { title: "פסטה עם קוטג׳", how: "מערבבים קוטג׳ חם לתוך הפסטה עם עגבנייה ושום — רוטב קרמי בלי שמנת." },
     { title: "Cottage cheese pasta", how: "Stir warm cottage cheese through the pasta with tomato and garlic — creamy, without cream." },
-    ["pasta", "cottage", "tomato", "garlic"], "dinner", ["protein", "hearty"], 540, 32, "pasta with tomato and cheese"),
+    ["pasta", "cottage", "tomato", "garlic"], "dinner", ["protein", "hearty"], "pasta with tomato and cheese"),
   M("tuna-bean-salad",
     { title: "סלט טונה ושעועית", how: "טונה, שעועית לבנה, בצל דק ופטרוזיליה, עם שמן זית ולימון." },
     { title: "Tuna & white bean salad", how: "Tuna, white beans, thin onion and parsley, with olive oil and lemon." },
-    ["tuna", "beans", "onion", "parsley", "oliveOil"], "lunch", ["protein", "light"], 420, 34, "tuna white bean salad"),
+    ["tuna", "beans", "onion", "parsley", "oliveOil"], "lunch", ["protein", "light"], "tuna white bean salad"),
   M("sheetpan-chicken",
     { title: "עוף וירקות בתנור", how: "חזה עוף, פלפל, קישוא ותפוח אדמה על תבנית אחת, שמן זית ומלח, ארבעים דקות." },
     { title: "Sheet-pan chicken & veg", how: "Chicken, pepper, zucchini and potato on one tray, olive oil and salt, forty minutes." },
-    ["chicken", "pepper", "zucchini", "potato", "oliveOil"], "dinner", ["protein", "hearty"], 590, 42, "roast chicken vegetables tray"),
+    ["chicken", "pepper", "zucchini", "potato", "oliveOil"], "dinner", ["protein", "hearty"], "roast chicken vegetables tray"),
   M("salmon-tomato-skillet",
     { title: "סלמון בעגבניות ושום", how: "מטגנים שום ועגבנייה, מניחים מעל פילה סלמון ותרד, ומכסים עד שהדג מוכן." },
     { title: "Salmon in tomato & garlic", how: "Soften garlic and tomato, lay the salmon and spinach on top, cover until the fish is done." },
-    ["salmon", "tomato", "garlic", "spinach"], "dinner", ["protein", "balanced"], 520, 38, "salmon tomato sauce skillet"),
+    ["salmon", "tomato", "garlic", "spinach"], "dinner", ["protein", "balanced"], "salmon tomato sauce skillet"),
   M("chickpea-spinach-stew",
     { title: "תבשיל חומוס ותרד", how: "חומוס מבושל עם בצל, עגבנייה ותרד, עד שהכול רך ומתובל." },
     { title: "Chickpea & spinach stew", how: "Chickpeas simmered with onion, tomato and spinach until soft and well seasoned." },
-    ["chickpeas", "spinach", "tomato", "onion"], "dinner", ["veg", "hearty"], 430, 20, "chickpea spinach stew"),
+    ["chickpeas", "spinach", "tomato", "onion"], "dinner", ["veg", "hearty"], "chickpea spinach stew"),
   M("yogurt-kiwi-walnut",
     { title: "יוגורט עם קיווי ואגוזי מלך", how: "יוגורט יווני, קיווי חתוך, חופן אגוזי מלך וקצת דבש." },
     { title: "Yogurt, kiwi & walnuts", how: "Greek yogurt, sliced kiwi, a handful of walnuts and a little honey." },
-    ["greekYogurt", "kiwi", "walnuts", "honey"], "snack", ["protein", "light"], 330, 22, "yogurt kiwi walnuts"),
+    ["greekYogurt", "kiwi", "walnuts", "honey"], "snack", ["protein", "light"], "yogurt kiwi walnuts"),
   M("turkey-hummus-wrap",
     { title: "רול הודו עם חומוס", how: "טורטייה, ממרח חומוס, פרוסות הודו, חסה ועגבנייה. מגלגלים והולכים." },
     { title: "Turkey & hummus wrap", how: "A tortilla, hummus, turkey slices, lettuce and tomato. Roll it and go." },
-    ["tortilla", "hummusSpread", "turkey", "lettuce", "tomato"], "lunch", ["protein", "balanced"], 460, 34, "hummus wrap sandwich"),
+    ["tortilla", "hummusSpread", "turkey", "lettuce", "tomato"], "lunch", ["protein", "balanced"], "hummus wrap sandwich"),
   M("sweet-potato-cottage",
     { title: "בטטה אפויה עם קוטג׳", how: "בטטה שלמה בתנור עד שהיא רכה, חוצים ומכניסים פנימה קוטג׳ ושמן זית." },
     { title: "Baked sweet potato & cottage", how: "Bake a sweet potato until soft, split it and spoon in cottage cheese and olive oil." },
-    ["sweetPotato", "cottage", "oliveOil"], "lunch", ["balanced", "veg"], 400, 22, "baked sweet potato"),
+    ["sweetPotato", "cottage", "oliveOil"], "lunch", ["balanced", "veg"], "baked sweet potato"),
   M("tofu-buckwheat-stirfry",
     { title: "טופו וברוקולי על כוסמת", how: "מקפיצים טופו עם ברוקולי ושום, מגישים על כוסמת מבושלת." },
     { title: "Tofu & broccoli on buckwheat", how: "Stir-fry tofu with broccoli and garlic, serve over cooked buckwheat." },
-    ["tofu", "broccoli", "buckwheat", "garlic"], "dinner", ["protein", "veg"], 490, 28, "tofu broccoli stir fry"),
+    ["tofu", "broccoli", "buckwheat", "garlic"], "dinner", ["protein", "veg"], "tofu broccoli stir fry"),
   M("overnight-oats-skyr",
     { title: "שיבולת שועל ללילה עם סקיר", how: "מערבבים שיבולת שועל, סקיר, פירות יער וכף צ׳יה בערב. בבוקר זה מוכן." },
     { title: "Overnight oats with skyr", how: "Mix oats, skyr, berries and a spoon of chia at night. It's ready in the morning." },
-    ["oats", "skyr", "berries", "chia"], "breakfast", ["protein", "balanced"], 420, 28, "overnight oats"),
+    ["oats", "skyr", "berries", "chia"], "breakfast", ["protein", "balanced"], "overnight oats"),
   M("barley-pepper-salad",
     { title: "סלט גריסים ופלפל קלוי", how: "גריסי פנינה חמימים עם פלפל קלוי, פטה ופטרוזיליה, ושמן זית מעל." },
     { title: "Warm barley & roast pepper salad", how: "Warm pearl barley with roasted pepper, feta and parsley, olive oil over the top." },
-    ["barley", "pepper", "feta", "parsley", "oliveOil"], "lunch", ["balanced", "veg"], 480, 17, "barley salad roasted pepper"),
+    ["barley", "pepper", "feta", "parsley", "oliveOil"], "lunch", ["balanced", "veg"], "barley salad roasted pepper"),
   M("sardines-toast",
     { title: "סרדינים על לחם מלא", how: "סרדינים על פרוסת לחם מלא עם עגבנייה חתוכה וסחיטת לימון." },
     { title: "Sardines on toast", how: "Sardines on whole-grain bread with chopped tomato and a squeeze of lemon." },
-    ["sardines", "wholeBread", "tomato", "lemon"], "lunch", ["protein", "light"], 380, 26, "sardines on toast"),
+    ["sardines", "wholeBread", "tomato", "lemon"], "lunch", ["protein", "light"], "sardines on toast"),
 ];
 
 /**
@@ -654,7 +736,7 @@ export type Portion = { g: number; he: string; en: string };
 
 const DEFAULT_PORTION: Portion = { g: 100, he: "בגודל אגרוף", en: "a fist-sized amount" };
 
-const PORTIONS: Record<string, Portion> = {
+const BASE_PORTIONS: Record<string, Portion> = {
   egg: { g: 100, he: "2 ביצים", en: "2 eggs" },
   chicken: { g: 150, he: "חזה בינוני", en: "1 medium breast" },
   turkey: { g: 150, he: "פרוסות", en: "a few slices" },
@@ -786,8 +868,86 @@ const PORTIONS: Record<string, Portion> = {
   chia: { g: 15, he: "כף", en: "1 tbsp" },
 };
 
+const PORTIONS: Record<string, Portion> = {
+  ...BASE_PORTIONS,
+  sweetcornSalad: { g: 50, he: "חופן עלים", en: "a handful" },
+  mozzarella: { g: 60, he: "כדור", en: "1 ball" },
+  ...Object.fromEntries(EXTRA_FOODS.map((x) => [x.id, x.portion])),
+};
+
 export function portion(foodId: string): Portion {
   return PORTIONS[foodId] ?? DEFAULT_PORTION;
+}
+
+/** How much of one ingredient a dish uses: its own amount if the recipe says
+ * so, the standard portion otherwise. */
+export function mealAmount(meal: Pick<Meal, "amounts">, foodId: string): Portion {
+  return meal.amounts?.[foodId] ?? portion(foodId);
+}
+
+/** Calories and protein of a given weight of a food, rounded. */
+export function gramsNutrition(food: Food, grams: number): { kcal: number; protein: number } {
+  const d = per100For(food);
+  return { kcal: Math.round((d.kcal * grams) / 100), protein: Math.round((d.protein * grams) / 100) };
+}
+
+/**
+ * A multiplier said the way a person reads it: ×½, ×1¼, ×2. Portions on a
+ * goal-sized plate move in quarters, so this never has to print ×1.37.
+ */
+export function timesLabel(mult: number): string {
+  const q = Math.round(mult * 4) / 4;
+  if (q === 1) return "";
+  const whole = Math.floor(q);
+  const frac = q - whole;
+  const f = frac === 0.25 ? "¼" : frac === 0.5 ? "½" : frac === 0.75 ? "¾" : "";
+  return `×${whole > 0 ? whole : ""}${f}`;
+}
+
+/** Amounts a recipe spells out rather than taking the standard portion. */
+const tsp = (he = "כפית", en = "1 tsp"): Portion => ({ g: 5, he, en });
+const MEAL_AMOUNTS: Record<string, Record<string, Portion>> = {
+  "omelette-salad": { oliveOil: tsp() },
+  "yogurt-bowl": { oats: { g: 15, he: "כף גדושה", en: "1 heaped tbsp" }, nuts: { g: 15, he: "כמה אגוזים", en: "a few nuts" } },
+  "tuna-salad": { oliveOil: tsp() },
+  "cottage-fruit": { nuts: { g: 15, he: "כמה אגוזים", en: "a few nuts" } },
+  "chicken-quinoa": { oliveOil: tsp() },
+  "egg-avocado-bowl": { oliveOil: tsp() },
+  "tuna-potato": { oliveOil: tsp() },
+  "bulgur-veg": { oliveOil: tsp() },
+  "lamb-yogurt-bowl": { greekYogurt: { g: 40, he: "2 כפות", en: "2 tbsp" } },
+  "stuffed-pepper": { beef: { g: 80, he: "כמה כפות", en: "a few spoonfuls" }, rice: { g: 40, he: "רבע כוס יבש", en: "1/4 cup dry" } },
+  "cheeseburger": { beef: { g: 120, he: "קציצה", en: "1 patty" }, bread: { g: 70, he: "לחמנייה", en: "1 bun" } },
+  "sausage-cheese-toast": { bread: { g: 60, he: "2 פרוסות", en: "2 slices" } },
+  "creamy-beef-pasta": { creamCheese: { g: 40, he: "2 כפות", en: "2 tbsp" } },
+  "kale-chickpea-salad": { almonds: { g: 15, he: "כף גדושה", en: "1 heaped tbsp" } },
+  "brussels-egg-bowl": { pumpkinSeeds: { g: 10, he: "כף", en: "1 tbsp" } },
+  "yogurt-kiwi-walnut": { honey: { g: 7, he: "כפית", en: "1 tsp" }, walnuts: { g: 15, he: "כמה אגוזים", en: "a few walnuts" } },
+  "freekeh-veg-bowl": { tahini: { g: 15, he: "כף", en: "1 tbsp" } },
+  "chicken-tzatziki-bowl": { greekYogurt: { g: 60, he: "3 כפות", en: "3 tbsp" } },
+};
+
+// Every dish's calories and protein are the sum of the amounts its card lists.
+// They used to be typed in by hand and drifted from the ingredients by 15% on
+// average — up to 60% — which anyone weighing their food would catch. Run at
+// the end of the module, once every table it reads exists.
+function computeMealTotals(): void {
+  const byId = new Map(FOODS.map((f) => [f.id, f]));
+  for (const meal of MEALS) {
+    const own = MEAL_AMOUNTS[meal.id];
+    if (own) meal.amounts = own;
+    let kcal = 0;
+    let protein = 0;
+    for (const id of meal.uses) {
+      const f = byId.get(id);
+      if (!f) continue;
+      const n = gramsNutrition(f, mealAmount(meal, id).g);
+      kcal += n.kcal;
+      protein += n.protein;
+    }
+    meal.kcal = kcal;
+    meal.protein = protein;
+  }
 }
 
 /**
@@ -804,6 +964,9 @@ export const CATEGORY_NUTRITION: Record<FoodTag, { kcal: number; protein: number
   veg: { kcal: 35, protein: 2 },
   fruit: { kcal: 58, protein: 1 },
   fat: { kcal: 600, protein: 3 },
+  spice: { kcal: 60, protein: 2 },
+  drink: { kcal: 40, protein: 0.5 },
+  sweet: { kcal: 450, protein: 5 },
 };
 
 export type NutritionSource = "food" | "table" | "category";
@@ -857,4 +1020,9 @@ const COLOR_FOR_TAG: Record<FoodTag, string> = {
   fruit: "#E27D9A",
   fat: "#E8C36B",
   dairy: "#EDE7DA",
+  spice: "#B8743A",
+  drink: "#8FB8D8",
+  sweet: "#C8708A",
 };
+
+computeMealTotals();

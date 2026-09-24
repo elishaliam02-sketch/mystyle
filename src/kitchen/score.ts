@@ -1,4 +1,4 @@
-import { FOODS, portion, type Food, type FoodTag } from "./data";
+import { FOODS, SCORE_EXTRA, portion, type Food, type FoodTag } from "./data";
 
 /**
  * "Can I eat this?" — a food, priced out of ten.
@@ -71,6 +71,11 @@ const BASE: Record<FoodTag, number> = {
   dairy: 6.4,
   carb: 6.0,
   fat: 5.6,
+  // A seasoning is neither good nor bad by itself; a drink is judged by what
+  // is in it; a sweet starts where a treat belongs.
+  spice: 5.6,
+  drink: 6.0,
+  sweet: 3.4,
 };
 
 /** Whole grains: the fibre and the slower release are the whole difference. */
@@ -147,6 +152,16 @@ const ENERGY_DENSE = new Set([
   "butter", "mayo", "oliveOil", "peanutButter", "nuts", "darkChocolate",
   "granola", "dates",
 ]);
+
+// The foods of ./foods2.ts say what they are in their own row; fold that in so
+// a pizza is read as processed and a tilapia as lean fish, like the rest.
+for (const [letter, set] of [
+  ["p", PROCESSED], ["s", ADDED_SUGAR], ["r", REFINED], ["w", WHOLEGRAIN], ["l", LEGUME],
+  ["o", GOOD_FAT], ["n", LEAN_PROTEIN], ["x", SAT_FAT], ["m", RED_MEAT], ["y", SALTY],
+  ["e", ENERGY_DENSE], ["k", FERMENTED], ["f", HIGH_FIBRE], ["3", OILY_FISH], ["4", LIGHT_FISH],
+] as const) {
+  for (const id of SCORE_EXTRA[letter] ?? []) set.add(id);
+}
 
 /** Each nudge, and the reason it prints. Order is the order they are shown. */
 const MODIFIERS: { set: Set<string>; delta: number; reason: ScoreReason }[] = [
@@ -225,7 +240,7 @@ export function scoreFood(food: Food): FoodScore {
 function proteinPerHundred(food: Food): number {
   const tag = food.tags[0] ?? "carb";
   const byTag: Record<FoodTag, number> = {
-    protein: 22, dairy: 9, carb: 5, veg: 2, fruit: 1, fat: 8,
+    protein: 22, dairy: 9, carb: 5, veg: 2, fruit: 1, fat: 8, spice: 2, drink: 0.5, sweet: 5,
   };
   // Portion size is not nutrition, but a food stored in 15 g spoons is a
   // condiment and one stored in 150 g servings is dinner, and treating a spoon

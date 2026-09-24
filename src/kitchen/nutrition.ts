@@ -36,7 +36,9 @@ export type Per100 = {
 /** What the 100 g refers to. */
 export type Basis = "raw" | "cooked" | "dry" | "drained" | "asSold";
 
-export type Per100Row = Per100 & { basis: Basis };
+/** `alcohol` (grams per 100 g) is only set for drinks: it carries 7 kcal a
+ * gram that protein, carbs and fat do not account for. */
+export type Per100Row = Per100 & { basis: Basis; alcohol?: number };
 
 const r = (kcal: number, protein: number, carbs: number, fat: number, basis: Basis): Per100Row => ({
   kcal,
@@ -191,6 +193,6 @@ export const NUTRITION: Record<string, Per100Row> = {
 };
 
 /** The Atwater estimate of a row's calories from its macros. */
-export function atwater(n: Per100): number {
-  return 4 * n.protein + 4 * n.carbs + 9 * n.fat;
+export function atwater(n: Per100 & { alcohol?: number }): number {
+  return 4 * n.protein + 4 * n.carbs + 9 * n.fat + 7 * (n.alcohol ?? 0);
 }

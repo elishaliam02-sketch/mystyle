@@ -1,7 +1,7 @@
-import { FOODS, MEALS, foodNutrition, type Food, type Meal, type MealNote, type MealSlot, type FoodTag } from "./data";
+import { DIET_CLASS, FOODS, MEALS, foodNutrition, gramsNutrition, portion, timesLabel, type Food, type Meal, type MealNote, type MealSlot, type FoodTag, type Portion } from "./data";
 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
-export { FOODS, MEALS, portion, adhocFood, foodNutrition } from "./data";
+export { FOODS, MEALS, portion, adhocFood, foodNutrition, gramsNutrition, mealAmount, timesLabel } from "./data";
 export type { Portion } from "./data";
 // The meal photographs: real pictures from Wikimedia Commons, the hosts they
 // come from (which the privacy policy has to name), and the picker that keeps a
@@ -333,42 +333,97 @@ export function dailyTarget(weightKg: number | undefined, goal: Goal): DailyTarg
 /** Dietary filters the kitchen can apply to what it suggests. */
 export type Diet = "all" | "kosher" | "vegetarian" | "glutenFree";
 
-// Foods that are never kosher, the meats that may not share a plate with dairy,
-// every animal flesh (for the vegetarian filter), and the gluten grains. Fish
-// and eggs are pareve, so fish-with-dairy stays kosher and eggs stay vegetarian.
-const NON_KOSHER = new Set(["pork", "shrimp"]);
-const MEAT = new Set(["chicken", "turkey", "beef", "pork", "sausage", "lamb"]);
-const FLESH = new Set([...MEAT, "fish", "tuna", "salmon", "shrimp", "sardines", "mackerel"]);
-const GLUTEN = new Set([
-  "bread", "wholeBread", "pasta", "couscous", "tortilla", "oats",
-  // Oats are only gluten-free when certified, and these four are wheat or
-  // barley in all but name — leaving them out let a "gluten-free" filter
-  // serve a bagel.
-  "bagel", "noodles", "bulgur", "granola", "cornflakes",
-  // Freekeh is green durum wheat and barley is barley, whatever the health
-  // aisle calls them; pita is bread. Buckwheat and millet are not wheat at
-  // all despite the names, so they stay in.
-  "freekeh", "barley", "pita", "pitaWhole",
-]);
+/** The filters a person can switch on, in the order the screen shows them. */
+export const DIETS: Exclude<Diet, "all">[] = ["kosher", "vegetarian", "glutenFree"];
 
 /**
- * Whether a meal passes a dietary filter. Kosher is a practical simplification:
- * no non-kosher animal, and no meat sharing the plate with dairy (fish counts
- * as neither). Vegetarian excludes any animal flesh but keeps dairy and eggs.
- * Gluten-free excludes the wheat/oat grains.
+ * The switched-on filters from the stored value. Kosher and vegetarian are not
+ * alternatives — plenty of people are both — so the setting holds a list
+ * ("kosher,vegetarian"); a single value from before still reads the same, and
+ * "all" or nothing means no filter.
  */
-export function dietOk(meal: Meal, diet: Diet): boolean {
-  if (diet === "all") return true;
-  if (diet === "vegetarian") return !meal.uses.some((id) => FLESH.has(id));
-  if (diet === "glutenFree") return !meal.uses.some((id) => GLUTEN.has(id));
-  // kosher
-  if (meal.uses.some((id) => NON_KOSHER.has(id))) return false;
-  const hasMeat = meal.uses.some((id) => MEAT.has(id));
-  const hasDairy = meal.uses.some((id) => {
-    const f = FOODS.find((x) => x.id === id);
-    return f ? f.tags.includes("dairy") : false;
-  });
-  return !(hasMeat && hasDairy);
+export function dietList(spec: string | undefined | null): Exclude<Diet, "all">[] {
+  if (!spec) return [];
+  const parts = spec.split(",").map((x) => x.trim());
+  return DIETS.filter((d) => parts.includes(d));
+}
+
+/** The stored value for a set of filters. */
+export function dietSpec(list: readonly Diet[]): string {
+  const on = DIETS.filter((d) => list.includes(d));
+  return on.length ? on.join(",") : "all";
+}
+
+/**
+ * What a typed word the library does not know says about itself — "חזיר
+ * בגריל" is pork whatever else it is. Only the unmistakable words: a guess
+ * that hides someone's lunch is worse than one that lets it through.
+ */
+const TREIF_WORDS = ["חזיר", "בייקון", "שרימפס", "קלמרי", "סרטנ", "לובסטר", "פירות ים", "צדפ", "pork", "bacon", " ham ", "shrimp", "prawn", "crab", "lobster", "squid", "octopus", "clam", "oyster", "mussel"];
+const MEAT_WORDS = ["בשר", "עוף", "הודו", "כבש", "טלה", "פרגית", "שניצל", "נקניק", "קבב", "סטייק", "meat", "chicken", "beef", "turkey", "lamb", "sausage", "steak"];
+const FLESH_WORDS = [...MEAT_WORDS, "דג ", "דגים", "fish", ...TREIF_WORDS];
+const GLUTEN_WORDS = ["לחם", "פיתה", "קמח", "בצק", "מאפה", "עוגה", "עוגי", "פסטה", "bread", "flour", "wheat", "pasta", "cake", "cookie", "pastry"];
+const DAIRY_WORDS = ["חלב", "גבינ", "שמנת", "יוגורט", "חמאה", "milk", "cheese", "cream", "yogurt", "butter"];
+
+/** The typed word, padded, when the food is one the library does not know. */
+function adhocWord(food: Food): string | null {
+  return food.id.startsWith("x:") ? ` ${food.he.toLowerCase()} ` : null;
+}
+const says = (word: string, list: string[]) => list.some((w) => word.includes(w));
+
+function isTreif(f: Food): boolean {
+  const w = adhocWord(f);
+  return w ? says(w, TREIF_WORDS) : DIET_CLASS.treif.has(f.id);
+}
+function isFlesh(f: Food): boolean {
+  const w = adhocWord(f);
+  return w ? says(w, FLESH_WORDS) : DIET_CLASS.flesh.has(f.id);
+}
+function isGluten(f: Food): boolean {
+  const w = adhocWord(f);
+  return w ? says(w, GLUTEN_WORDS) : DIET_CLASS.gluten.has(f.id);
+}
+/** Meat for the kosher meat-and-dairy rule (fish is neither). */
+export function isMeat(f: Food): boolean {
+  const w = adhocWord(f);
+  return w ? says(w, MEAT_WORDS) : DIET_CLASS.meat.has(f.id);
+}
+/** Dairy for the kosher meat-and-dairy rule. */
+export function isDairy(f: Food): boolean {
+  const w = adhocWord(f);
+  return w ? says(w, DAIRY_WORDS) : DIET_CLASS.dairy.has(f.id) || f.tags.includes("dairy");
+}
+
+const foodOf = (id: string): Food | undefined => FOODS.find((f) => f.id === id);
+
+/**
+ * Whether a set of foods passes every switched-on filter. Kosher is the
+ * practical rule a kitchen can check: no non-kosher animal, and no meat on the
+ * same plate as dairy (fish and eggs are neither). Vegetarian excludes any
+ * animal flesh but keeps dairy and eggs. Gluten-free excludes wheat, barley,
+ * rye and uncertified oats.
+ */
+export function foodsDietOk(foods: readonly Food[], diet: string | undefined | null): boolean {
+  for (const d of dietList(diet)) {
+    if (d === "vegetarian" && foods.some(isFlesh)) return false;
+    if (d === "glutenFree" && foods.some(isGluten)) return false;
+    if (d === "kosher") {
+      if (foods.some(isTreif)) return false;
+      if (foods.some(isMeat) && foods.some(isDairy)) return false;
+    }
+  }
+  return true;
+}
+
+/** Whether a meal passes every switched-on filter. */
+export function dietOk(meal: Meal, diet: string | undefined | null): boolean {
+  return foodsDietOk(meal.uses.map(foodOf).filter((f): f is Food => !!f), diet);
+}
+
+/** The switched-on filters a single food breaks by itself — for the small
+ * "not kosher" note beside a food someone looks up. */
+export function dietConflicts(food: Food, diet: string | undefined | null): Exclude<Diet, "all">[] {
+  return dietList(diet).filter((d) => !foodDietOk(food, d));
 }
 
 /** The words of a query, each also without a leading Hebrew "and"/"the"
@@ -648,15 +703,17 @@ export function slotForHour(hour: number): MealSlot {
 }
 
 /**
- * Whether a single ingredient passes a dietary filter on its own. The kosher
+ * Whether a single ingredient passes the filters on its own. The kosher
  * meat-and-dairy rule is about a *combination*, so it cannot be judged here —
  * `plateForGoal` applies it once the plate is assembled.
  */
-export function foodDietOk(food: Food, diet: Diet): boolean {
-  if (diet === "all") return true;
-  if (diet === "vegetarian") return !FLESH.has(food.id);
-  if (diet === "glutenFree") return !GLUTEN.has(food.id);
-  return !NON_KOSHER.has(food.id);
+export function foodDietOk(food: Food, diet: string | undefined | null): boolean {
+  for (const d of dietList(diet)) {
+    if (d === "vegetarian" && isFlesh(food)) return false;
+    if (d === "glutenFree" && isGluten(food)) return false;
+    if (d === "kosher" && isTreif(food)) return false;
+  }
+  return true;
 }
 
 /**
@@ -664,7 +721,7 @@ export function foodDietOk(food: Food, diet: Diet): boolean {
  * kitchen shows this number, because a filter that silently removes nothing
  * visible is indistinguishable from a filter that is broken.
  */
-export function dietHidden(matches: MealMatch[], diet: Diet): number {
+export function dietHidden(matches: MealMatch[], diet: string | undefined | null): number {
   return matches.filter((m) => !dietOk(m.meal, diet)).length;
 }
 
@@ -675,16 +732,19 @@ export function dietHidden(matches: MealMatch[], diet: Diet): number {
  * recomp is protein-forward but moderate; maintenance is the even plate.
  */
 const PLATE_SHAPE: Record<Goal, Record<FoodTag, number>> = {
-  cut: { protein: 2, carb: 0, veg: 3, fat: 0, fruit: 1, dairy: 1 },
-  recomp: { protein: 3, carb: 1, veg: 2, fat: 0, fruit: 1, dairy: 1 },
-  maintain: { protein: 2, carb: 2, veg: 2, fat: 1, fruit: 1, dairy: 1 },
-  bulk: { protein: 3, carb: 3, veg: 1, fat: 2, fruit: 1, dairy: 2 },
+  cut: { protein: 2, carb: 0, veg: 3, fat: 0, fruit: 1, dairy: 1, spice: 0, drink: 0, sweet: 0 },
+  recomp: { protein: 3, carb: 1, veg: 2, fat: 0, fruit: 1, dairy: 1, spice: 0, drink: 0, sweet: 0 },
+  maintain: { protein: 2, carb: 2, veg: 2, fat: 1, fruit: 1, dairy: 1, spice: 0, drink: 0, sweet: 0 },
+  bulk: { protein: 3, carb: 3, veg: 1, fat: 2, fruit: 1, dairy: 2, spice: 0, drink: 0, sweet: 0 },
 };
 
 /** Which kind of food this is, for plate-building. */
 function kindOf(food: Food): FoodTag {
   return food.tags[0] ?? "carb";
 }
+
+/** Salt, a coffee or a cake is on the list, but is not what a plate is made of. */
+const NOT_A_PLATE = new Set<FoodTag>(["spice", "drink", "sweet"]);
 
 /**
  * The plate the person's own groceries make *for the goal they chose*.
@@ -702,13 +762,13 @@ export function plateForGoal(
   items: Food[],
   slot: MealSlot,
   goal: Goal,
-  diet: Diet = "all",
+  diet: string = "all",
 ): Meal | null {
-  let eligible = items.filter((f) => foodDietOk(f, diet));
+  let eligible = items.filter((f) => !NOT_A_PLATE.has(kindOf(f)) && foodDietOk(f, diet));
   // Kosher's one combination rule: meat and dairy do not share a plate. The
   // meat stays (it is the protein the plate is built on), the dairy steps off.
-  if (diet === "kosher" && eligible.some((f) => MEAT.has(f.id))) {
-    eligible = eligible.filter((f) => !f.tags.includes("dairy"));
+  if (dietList(diet).includes("kosher") && eligible.some(isMeat)) {
+    eligible = eligible.filter((f) => !isDairy(f));
   }
   if (eligible.length < 2) return null;
 
@@ -761,20 +821,30 @@ export function plateForGoal(
   // how much of it goes on the plate, which is the advice a coach would give
   // anyway: on a cut the protein grows and the carbs and oil shrink; on a bulk
   // both go up. So the portions carry the goal even when the ingredients cannot.
+  //
+  // The card lists each ingredient's scaled amount, and the totals are the
+  // sum of exactly those amounts — grams on the card and calories on the card
+  // can never disagree.
   const mult = PLATE_PORTION[goal];
+  const amounts: Record<string, Portion> = {};
   let kcal = 0;
   let protein = 0;
   for (const f of ordered) {
-    const n = foodNutrition(f);
     const m = mult[kindOf(f)] ?? 1;
-    kcal += n.kcal * m;
-    protein += n.protein * m;
+    const std = portion(f.id);
+    const g = m === 1 ? std.g : Math.max(1, Math.round((std.g * m) / 5) * 5);
+    const times = timesLabel(g / std.g);
+    amounts[f.id] = times ? { g, he: `${std.he} ${times}`, en: `${std.en} ${times}` } : std;
+    const n = gramsNutrition(f, g);
+    kcal += n.kcal;
+    protein += n.protein;
   }
   const note = PORTION_NOTE[goal];
   return {
     ...base,
-    kcal: Math.round(kcal),
-    protein: Math.round(protein),
+    amounts,
+    kcal,
+    protein,
     he: { ...base.he, how: `${base.he.how} ${note.he}` },
     en: { ...base.en, how: `${base.en.how} ${note.en}` },
   };

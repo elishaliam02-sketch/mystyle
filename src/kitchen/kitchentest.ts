@@ -335,9 +335,9 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 
 // --- an unknown food is captured as an extra, not dropped
 {
-  const full = readPantryFull("פלאפל, אורז, קטע מוזר12");
+  const full = readPantryFull("מופלטה, אורז, קטע מוזר12");
   check("known foods still recognised alongside unknowns", full.known.some((f) => f.id === "rice"));
-  check("an unknown food (פלאפל) becomes an extra", full.extras.includes("פלאפל"));
+  check("an unknown food (מופלטה) becomes an extra", full.extras.includes("מופלטה"));
 }
 
 // --- stopwords never become ingredients
@@ -348,7 +348,7 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 
 // --- your-plate builds a meal from any items, with a nutrition estimate
 {
-  const items = [FOODS.find((f) => f.id === "chicken")!, adhocFood("שניצל")];
+  const items = [FOODS.find((f) => f.id === "chicken")!, adhocFood("מופלטה")];
   const plate = yourPlate(items, "lunch");
   check("your-plate uses every item", plate.uses.length === 2);
   check("your-plate estimates calories", plate.kcal > 0 && plate.protein > 0);
@@ -708,7 +708,7 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   const ids = (t: string) => readPantryFull(t).known.map((f) => f.id);
   const extras = (t: string) => readPantryFull(t).extras;
   const cases: [string, string][] = [
-    ["בצלים", "onion"], ["פרגיות", "chicken"], ["שניצל", "chicken"], ["סטייק", "beef"],
+    ["בצלים", "onion"], ["פרגיות", "chickenThigh"], ["שניצל", "schnitzel"], ["סטייק", "beef"],
     ["אורז בסמטי", "rice"], ["לבנה", "labneh"], ["נקניקיות", "sausage"], ["קישואים", "zucchini"],
     ["חצילים", "eggplant"], ["ברוקלי", "broccoli"], ["עגבנייות", "tomato"], ["onions", "onion"],
     ["avocados", "avocado"], ["strawberries", "strawberries"], ["לחמניה", "bread"], ["והבצל", "onion"],
@@ -721,7 +721,7 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     extras("ביצים קשות").join(","));
   check("\"גבינה לבנה\" is still white cheese, not labneh", !ids("גבינה לבנה").includes("labneh"));
   check("a recognised plural is not also listed as unknown", extras("בצלים, פרגיות").length === 0, extras("בצלים, פרגיות").join(","));
-  check("an unknown dish is still kept", extras("פלאפל").includes("פלאפל"));
+  check("an unknown dish is still kept", extras("מופלטה").includes("מופלטה"));
   check("short words are not guessed as typos", !ids("גז").length);
 }
 

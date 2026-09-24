@@ -1,5 +1,6 @@
 import { FOODS, per100For, foodNutrition, adhocFood } from "./data";
-import { NUTRITION, atwater } from "./nutrition";
+import { atwater } from "./nutrition";
+import { NUTRITION } from "./data";
 import { aiFood, fromAnalysis, groundAnalysis, itemNutrition, matchFood, total } from "./calc";
 
 const results: [string, boolean, string?][] = [];
