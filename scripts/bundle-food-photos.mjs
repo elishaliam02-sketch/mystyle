@@ -110,7 +110,15 @@ await fs.rm(ASSET_DIR, { recursive: true, force: true });
 await fs.mkdir(ASSET_DIR, { recursive: true });
 await fs.mkdir(path.dirname(SHEET), { recursive: true });
 
+/**
+ * Foods Commons never returned a true picture of, after several phrasings
+ * (mayonnaise came back as cardboard boxes). They keep their colour dot: no
+ * picture beats a wrong one.
+ */
+const NO_PHOTO = new Set(["mayo", "whiteCheese", "soupPowder"]);
+
 for (const food of FOODS) {
+  if (NO_PHOTO.has(food.id)) continue;
   let chosen = null;
   let query = null;
   for (const q of queries(food)) {
