@@ -96,7 +96,7 @@ export const BUNDLED_MEAL_PHOTOS: Record<string, BundledPhoto> = {
   "turkey-wrap": { source: require("../../assets/meals/turkey-wrap.jpg"), credit: "Robert Loescher · CC BY-SA 4.0" },
   "watermelon-feta": { source: require("../../assets/meals/watermelon-feta.jpg"), credit: "Shoshanah · CC BY 2.0" },
   "white-cheese-plate": { source: require("../../assets/meals/white-cheese-plate.jpg"), credit: "HaJunkiyada · CC BY-SA 4.0" },
-  "yogurt-berries": { source: require("../../assets/meals/yogurt-berries.jpg"), credit: "Katie Munoz from New York City, United States of America · CC BY-SA 2.0" },
+  "yogurt-berries": { source: require("../../assets/meals/yogurt-berries.jpg"), credit: "E4024 · CC BY-SA 4.0" },
   "yogurt-bowl": { source: require("../../assets/meals/yogurt-bowl.jpg"), credit: "T.Tseng · CC BY 2.0" },
   "yogurt-kiwi-walnut": { source: require("../../assets/meals/yogurt-kiwi-walnut.jpg"), credit: "dnm · CC BY-SA 3.0" },
 };
