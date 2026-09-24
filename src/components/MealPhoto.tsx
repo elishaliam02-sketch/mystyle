@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Text, View } from "react-native";
 import { MealImage } from "@/components/MealImage";
 import {
-  MEALS, NATIVE_HEADERS, closestBundled, fetchMealPhoto, type Food, type Meal, type Photo,
+  MEALS, NATIVE_HEADERS, fetchMealPhoto, plateLook, type Food, type Meal, type Photo,
 } from "@/kitchen";
+import { BUNDLED_FOOD_PHOTOS } from "@/kitchen/foodPhotoAssets";
 import { BUNDLED_MEAL_PHOTOS, type BundledPhoto } from "@/kitchen/mealPhotoAssets";
+import { useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 
@@ -25,6 +27,10 @@ import { useTheme } from "@/theme";
  */
 
 const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS));
+const FOOD_IDS = new Set(Object.keys(BUNDLED_FOOD_PHOTOS));
+
+/** Gap between tiles, in the card's own surface colour. */
+const GAP = 2;
 
 type Props = {
   meal: Meal;
@@ -36,6 +42,7 @@ type Props = {
 
 export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
   const { colors } = useTheme();
+  const { locale } = useI18n();
   const { consent, ready } = useStore();
   // A photo is a request to an outside server, so it waits on the switch — and
   // on `ready`, because the stored answer arrives a moment after the first
@@ -55,14 +62,19 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
   // would blink the photo out and back for a dish that has not changed.
   const subject = `${meal.id}|${meal.photo}`;
 
-  // A photo shipped inside the app: the dish's own, or — for a plate built from
-  // the fridge — the library dish closest to it, so the picture follows the
-  // ingredients. Nothing is requested, so it needs no switch and no network.
-  const bundledId = closestBundled(meal, MEALS, BUNDLED_IDS);
-  const bundled: BundledPhoto | null = bundledId ? BUNDLED_MEAL_PHOTOS[bundledId] ?? null : null;
+  // Photos shipped inside the app: the dish's own; for a plate built from the
+  // fridge, a library dish only when it is essentially the same plate, and
+  // otherwise a tile of each of the plate's own ingredients — so the picture
+  // is always of this plate, and changes whenever the plate does. Nothing is
+  // requested, so it needs no switch and no network.
+  const look = plateLook(meal, MEALS, BUNDLED_IDS, FOOD_IDS);
+  const bundled: BundledPhoto | null =
+    look.kind === "dish" ? BUNDLED_MEAL_PHOTOS[look.id] ?? null : null;
+  const tiles = look.kind === "tiles" ? look.ids : null;
+  const byId = new Map(foods.map((f) => [f.id, f]));
 
   useEffect(() => {
-    if (bundled || !allowed) {
+    if (bundled || tiles || !allowed) {
       setPhoto(null);
       fade.setValue(0);
       return;
@@ -78,7 +90,7 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject, want, fade, allowed, bundled]);
+  }, [subject, want, fade, allowed, bundled, tiles?.join()]);
 
   useEffect(() => {
     if (photo) {
@@ -90,6 +102,13 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
     <View style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surfaceAlt }}>
       {/* the drawn plate — always there, instantly, as the base layer */}
       <MealImage foods={foods} haveIds={haveIds} width={width} height={height} />
+
+      {tiles ? (
+        <Tiles ids={tiles} width={width} height={height} names={tiles.map((id) => {
+          const f = byId.get(id);
+          return f ? (locale === "he" ? f.he : f.en) : "";
+        })} />
+      ) : null}
 
       {bundled ? (
         <View style={{ position: "absolute", top: 0, left: 0 }}>
@@ -120,6 +139,78 @@ export function MealPhoto({ meal, foods, haveIds, width, height }: Props) {
           <Credit text={photo.credit} />
         </Animated.View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * A plate shown as its ingredients: one real photo per food, main one first
+ * and largest. One tile fills the frame; two sit side by side; three put the
+ * main one on the left at full height; four make a grid. Each carries its
+ * name, so the picture reads as "your chicken, your rice", not a stock shot.
+ */
+function Tiles({ ids, names, width, height }: { ids: string[]; names: string[]; width: number; height: number }) {
+  const { colors } = useTheme();
+  const half = (width - GAP) / 2;
+  const halfH = (height - GAP) / 2;
+  const boxes: { x: number; y: number; w: number; h: number }[] =
+    ids.length === 1
+      ? [{ x: 0, y: 0, w: width, h: height }]
+      : ids.length === 2
+        ? [{ x: 0, y: 0, w: half, h: height }, { x: half + GAP, y: 0, w: half, h: height }]
+        : ids.length === 3
+          ? [
+              { x: 0, y: 0, w: half, h: height },
+              { x: half + GAP, y: 0, w: half, h: halfH },
+              { x: half + GAP, y: halfH + GAP, w: half, h: halfH },
+            ]
+          : [
+              { x: 0, y: 0, w: half, h: halfH },
+              { x: half + GAP, y: 0, w: half, h: halfH },
+              { x: 0, y: halfH + GAP, w: half, h: halfH },
+              { x: half + GAP, y: halfH + GAP, w: half, h: halfH },
+            ];
+  const credits = [...new Set(ids.map((id) => BUNDLED_FOOD_PHOTOS[id]?.credit).filter((c): c is string => !!c))];
+  return (
+    <View style={{ position: "absolute", top: 0, left: 0, width, height, backgroundColor: colors.surface }}>
+      {ids.map((id, i) => {
+        const box = boxes[i]!;
+        const shot = BUNDLED_FOOD_PHOTOS[id];
+        if (!shot) return null;
+        return (
+          <View key={id} style={{ position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h, overflow: "hidden" }}>
+            <Image
+              accessibilityIgnoresInvertColors
+              source={shot.source}
+              resizeMode="cover"
+              fadeDuration={0}
+              style={{ width: box.w, height: box.h }}
+            />
+            {names[i] ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  start: 6,
+                  maxWidth: box.w - 12,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: "#FFFFFF",
+                  backgroundColor: "rgba(0,0,0,0.45)",
+                }}
+              >
+                {names[i]}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+      <Credit text={credits.length ? credits.join(" · ") : null} />
     </View>
   );
 }

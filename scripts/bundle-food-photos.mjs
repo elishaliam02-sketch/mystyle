@@ -67,8 +67,32 @@ function queries(food) {
   return out;
 }
 
+/**
+ * Pictures that are about something other than the food. Searching Commons
+ * for a single word finds the plant, the tree, the field it grows in — or a
+ * band called Red Hot Chili Peppers — as readily as the food on a plate, and
+ * a thumbnail of an onion flower is not an onion. The first run of this
+ * script shipped exactly those; the contact sheet caught them.
+ */
+const NOT_FOOD = /\b(trees?|orchards?|flowers?|flowering|blossoms?|inflorescences?|plants?|fields?|gardens?|farms?|farming|agriculture|concerts?|musicians?|guitars?|singers?|bands?|houses?|streets?|buildings?|architecture|gravestones?|graves?|cemetery|people|portraits?|landscapes?|paintings?|drawings?|diagrams?|maps?|logos?|utensils?|tools?|vendors?|shops?|restaurants? interior|stalls?)\b/i;
+
+function plain(html) {
+  return String(html ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+}
+
+function aboutFood(page) {
+  const info = page.imageinfo?.[0];
+  const said = [
+    page.title ?? "",
+    plain(info?.extmetadata?.Categories?.value),
+    plain(info?.extmetadata?.ObjectName?.value),
+  ].join(" ");
+  return !NOT_FOOD.test(said);
+}
+
 /** Up to four usable pictures from one response, in the picker's own order. */
-function candidates(pages, used) {
+function candidates(allPages, used) {
+  const pages = allPages.filter(aboutFood);
   const seen = new Set(used);
   const out = [];
   for (let i = 0; i < 4; i++) {

@@ -131,6 +131,18 @@ const score = (id: string) => scoreFood(food(id)).value;
   }
 }
 
+// --- the new foods are read for what they are, not as plain whole foods
+{
+  const v = (id: string) => scoreFood(FOODS.find((f) => f.id === id)!).value;
+  check("pizza scores below a chopped salad", v("pizza") < v("israeliSalad"));
+  check("cola is a 'rarely'", bandOf(v("cola")) === "rarely", String(v("cola")));
+  check("tilapia scores like lean fish (good or better)", v("tilapia") >= 7, String(v("tilapia")));
+  check("fries score below a baked potato", v("fries") < v("potato"));
+  check("a cake scores below an apple", v("cake") < v("apple"));
+  check("black coffee is not punished", v("coffee") >= 5.5, String(v("coffee")));
+  check("\"פיצה\" is now a known food", scoreAnything("פיצה").score.known && scoreAnything("פיצה").food?.id === "pizza");
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

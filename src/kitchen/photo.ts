@@ -507,3 +507,65 @@ export function closestBundled(
   }
   return best?.id ?? null;
 }
+
+/**
+ * The ingredient a plate is built on: its first real protein (not the cheese
+ * beside it), else the first thing listed. A chicken plate with a slice of
+ * cheese is a chicken plate.
+ */
+export function mainIngredient(uses: readonly string[]): string | undefined {
+  const food = (id: string) => FOODS.find((f) => f.id === id);
+  return (
+    uses.find((id) => food(id)?.tags[0] === "protein") ??
+    uses.find((id) => {
+      const f = food(id);
+      return !!f && f.tags.includes("protein") && !f.tags.includes("dairy");
+    }) ??
+    uses[0]
+  );
+}
+
+/** How a card pictures its dish. */
+export type PlateLook =
+  | { kind: "dish"; id: string }
+  | { kind: "tiles"; ids: string[] }
+  | { kind: "none" };
+
+/**
+ * What a meal card shows as its picture.
+ *
+ * A library dish wears its own photo. A plate built from the fridge is shown
+ * as what it is: a photo of a library dish only when that dish is essentially
+ * the same plate — the same main ingredient, nothing in the photo that is not
+ * on the plate, and at least 60% of the plate in the photo — and otherwise as
+ * tiles — a real photo of each of its own
+ * ingredients, main one first. The old rule borrowed the nearest dish's photo
+ * whatever it was, so chicken with cheese and bread wore a sausage toastie and
+ * a pita with falafel wore chicken, rice and broccoli: every time the list
+ * changed, the picture stayed wrong in a new way.
+ */
+export function plateLook(
+  meal: Pick<Meal, "id" | "uses">,
+  meals: readonly Pick<Meal, "id" | "uses">[],
+  bundledMeals: ReadonlySet<string>,
+  bundledFoods: ReadonlySet<string>,
+): PlateLook {
+  if (bundledMeals.has(meal.id)) return { kind: "dish", id: meal.id };
+  const uses = new Set(meal.uses);
+  if (uses.size === 0) return { kind: "none" };
+  const main = mainIngredient(meal.uses);
+
+  let best: { id: string; score: number } | null = null;
+  for (const other of meals) {
+    if (!bundledMeals.has(other.id) || !main || !other.uses.includes(main)) continue;
+    // A photo showing rice on a plate with no rice is a photo of another dish.
+    if (other.uses.some((id) => !uses.has(id))) continue;
+    const score = other.uses.length / uses.size;
+    if (score >= 0.6 && (!best || score > best.score)) best = { id: other.id, score };
+  }
+  if (best) return { kind: "dish", id: best.id };
+
+  const ordered = [...(main ? [main] : []), ...meal.uses.filter((id) => id !== main)];
+  const tiles = ordered.filter((id) => bundledFoods.has(id)).slice(0, 4);
+  return tiles.length ? { kind: "tiles", ids: tiles } : { kind: "none" };
+}

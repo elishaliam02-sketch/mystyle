@@ -901,7 +901,9 @@ export function timesLabel(mult: number): string {
   const whole = Math.floor(q);
   const frac = q - whole;
   const f = frac === 0.25 ? "¼" : frac === 0.5 ? "½" : frac === 0.75 ? "¾" : "";
-  return `×${whole > 0 ? whole : ""}${f}`;
+  // Wrapped in a left-to-right isolate: inside Hebrew text "×1¼" would
+  // otherwise be laid out right-to-left and read "¼1×".
+  return `\u2066×${whole > 0 ? whole : ""}${f}\u2069`;
 }
 
 /** Amounts a recipe spells out rather than taking the standard portion. */

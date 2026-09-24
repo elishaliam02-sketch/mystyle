@@ -3,10 +3,10 @@
  * shopping list is messy — commas, plurals, whole words that contain a food's
  * name by accident — and none of that should break the match.
  */
-import { dailyTarget, dietOk, dietHidden, foodDietOk, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, closestBundled, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
+import { dailyTarget, dietConflicts, dietList, dietSpec, dietOk, dietHidden, foodDietOk, plateLook, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, closestBundled, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
 import type { CommonsPage } from "./index";
 import type { Meal } from "./data";
-import { MEALS, FOODS, adhocFood, foodNutrition, portion } from "./data";
+import { MEALS, FOODS, adhocFood, foodNutrition, gramsNutrition, mealAmount, portion, timesLabel } from "./data";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -723,6 +723,123 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a recognised plural is not also listed as unknown", extras("בצלים, פרגיות").length === 0, extras("בצלים, פרגיות").join(","));
   check("an unknown dish is still kept", extras("מופלטה").includes("מופלטה"));
   check("short words are not guessed as typos", !ids("גז").length);
+}
+
+// --- the rest of what people eat: street food, drinks, sweets, seasonings
+{
+  const read = (t: string) => readPantryFull(t);
+  const street = read("פרגיות, פלאפל, שווארמה, חומוס, פיתה, טחינה, צ'יפס, קולה, מלח, בורקס, סביח, מלוואח, קפה, במבה");
+  check("an Israeli list has no unknown words", street.extras.length === 0, street.extras.join(","));
+  for (const id of ["chickenThigh", "falafel", "shawarma", "fries", "cola", "salt", "burekas", "sabich", "malawach", "coffee", "bamba"]) {
+    check(`street list reads ${id}`, street.known.some((f) => f.id === id));
+  }
+  const shop = read("2 קילו עגבניות, חבילת פסטה, קופסת טונה, בקבוק שמן זית, מארז ביצים, שקית אורז, חצי קילו בשר טחון");
+  check("how things are sold is not an unknown food", shop.extras.length === 0, shop.extras.join(","));
+  const cases: [string, string][] = [
+    ["גמבה", "pepper"], ["תפוח", "apple"], ["פתיתים", "ptitim"], ["לאפה", "lafa"], ["שמן", "canolaOil"],
+    ["שמן זית", "oliveOil"], ["חלב סויה", "soyMilk"], ["פלפל שחור", "blackPepper"], ["שוקולד מריר", "darkChocolate"],
+    ["שוקולד", "milkChocolate"], ["קלמרי", "calamari"], ["בייקון", "bacon"], ["אמנון", "tilapia"], ["סלמון מעושן", "smokedSalmon"],
+  ];
+  for (const [text, id] of cases) {
+    const got = readPantry(text).map((f) => f.id);
+    check(`"${text}" is ${id}`, got.length === 1 && got[0] === id, got.join(","));
+  }
+  check("\"לחם טוסט\" is bread, not a toastie", readPantry("לחם טוסט").map((f) => f.id).join() === "bread");
+  check("\"חלב סויה\" is not also milk", !readPantry("חלב סויה").some((f) => f.id === "milk"));
+}
+
+// --- every food is complete: nutrition, a real portion, a photo phrase, no shared names
+{
+  const names = new Map<string, string>();
+  const clashes: string[] = [];
+  for (const f of FOODS) {
+    for (const m of f.match) {
+      const k = m.toLowerCase();
+      const other = names.get(k);
+      if (other && other !== f.id) clashes.push(`${k}:${other}/${f.id}`);
+      names.set(k, f.id);
+    }
+  }
+  check("no two foods answer to the same word", clashes.length === 0, clashes.join(" "));
+  check("food ids are unique", new Set(FOODS.map((f) => f.id)).size === FOODS.length);
+  const noPortion = FOODS.filter((f) => portion(f.id).he === "בגודל אגרוף").map((f) => f.id);
+  check("every food has its own portion", noPortion.length === 0, noPortion.join(","));
+  const noPhoto = FOODS.filter((f) => !f.photo || /[א-ת]/.test(f.photo)).map((f) => f.id);
+  check("every food has an English photo phrase", noPhoto.length === 0, noPhoto.join(","));
+  check("the library knows 300 foods", FOODS.length >= 300, String(FOODS.length));
+}
+
+// --- dishes add up: a card's calories are the sum of the amounts it lists
+{
+  const byId = new Map(FOODS.map((f) => [f.id, f]));
+  const off = MEALS.filter((m) => {
+    const sum = m.uses.reduce((n, id) => n + gramsNutrition(byId.get(id)!, mealAmount(m, id).g).kcal, 0);
+    return sum !== m.kcal;
+  }).map((m) => m.id);
+  check("every dish's calories are the sum of its listed amounts", off.length === 0, off.join(","));
+  const yb = MEALS.find((m) => m.id === "yogurt-bowl")!;
+  check("a recipe's spoon of oats is a spoon, not half a cup", mealAmount(yb, "oats").g === 15);
+}
+
+// --- a plate's amounts and totals agree, and two proteins share one portion
+{
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  const plate = plateForGoal(["shawarma", "chickenThigh", "cucumber", "tomato"].map(f), "dinner", "cut")!;
+  const sum = plate.uses.reduce((n, id) => n + gramsNutrition(f(id), mealAmount(plate, id).g).kcal, 0);
+  check("a plate's calories are the sum of its listed amounts", sum === plate.kcal, `${sum} vs ${plate.kcal}`);
+  const meat = mealAmount(plate, "shawarma").g + mealAmount(plate, "chickenThigh").g;
+  check("two proteins share one big portion rather than taking two", meat <= 250, String(meat));
+  const salty = plateForGoal(["chicken", "rice", "salt", "cola", "cake"].map(f), "dinner", "maintain")!;
+  check("seasonings, drinks and sweets never go on a plate", !salty.uses.some((id) => ["salt", "cola", "cake"].includes(id)), salty.uses.join());
+  check("a multiplier reads left to right inside Hebrew", timesLabel(1.25) === "⁦×1¼⁩" && timesLabel(1) === "");
+}
+
+// --- dietary filters: combinable, data-driven, and read unknown words
+{
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  check("the old single value still reads", dietList("kosher").join() === "kosher");
+  check("filters combine", dietList("kosher,vegetarian").join() === "kosher,vegetarian");
+  check("'all' means none", dietList("all").length === 0 && dietSpec([]) === "all");
+  check("the stored value round-trips", dietSpec(dietList("vegetarian,kosher")) === "kosher,vegetarian");
+  check("calamari is not kosher", !foodDietOk(f("calamari"), "kosher"));
+  check("a typed \"חזיר בגריל\" is not kosher", !foodDietOk(adhocFood("חזיר בגריל"), "kosher"));
+  check("tilapia is kosher and not vegetarian", foodDietOk(f("tilapia"), "kosher") && !foodDietOk(f("tilapia"), "vegetarian"));
+  check("a shawarma is not vegetarian", !foodDietOk(f("shawarma"), "vegetarian"));
+  check("pizza has gluten", !foodDietOk(f("pizza"), "glutenFree"));
+  const both = plateForGoal(["shawarma", "pizza", "cucumber"].map(f), "dinner", "maintain", "kosher");
+  check("kosher: meat and pizza do not share a plate", !!both && both.uses.includes("shawarma") && !both.uses.includes("pizza"), both?.uses.join());
+  const veg = plateForGoal(["shawarma", "falafel", "cucumber", "tomato"].map(f), "dinner", "maintain", "kosher,vegetarian");
+  check("kosher and vegetarian together drop the meat", !!veg && !veg.uses.includes("shawarma") && veg.uses.includes("falafel"), veg?.uses.join());
+  check("a cheeseburger typed in is not kosher", dietConflicts([f("hamburger"), adhocFood("צ'יזבורגר")], "kosher").includes("kosher"));
+  check("schnitzel with cheese typed in is not kosher", dietConflicts([f("schnitzel"), adhocFood("שניצל עם גבינה")], "kosher").join() === "kosher");
+  const hidden = dietHidden(MEALS.map((meal) => ({ meal, have: [], missing: [], ready: true, fit: 0 })), "kosher,vegetarian");
+  check("two filters hide at least what either hides", hidden >= dietHidden(MEALS.map((meal) => ({ meal, have: [], missing: [], ready: true, fit: 0 })), "kosher"));
+}
+
+// --- the picture of a plate is of that plate
+{
+  const meals = MEALS.map((m) => ({ id: m.id, uses: m.uses }));
+  const dishes = new Set(MEALS.map((m) => m.id));
+  const foods = new Set(FOODS.map((f) => f.id));
+  const look = (uses: string[]) => plateLook({ id: "your-plate", uses }, meals, dishes, foods);
+  const exact = look(["chicken", "rice", "broccoli"]);
+  check("a plate that is a library dish wears that dish", exact.kind === "dish" && exact.id === "chicken-rice-broccoli", JSON.stringify(exact));
+  const noRice = look(["chicken", "broccoli"]);
+  check("a plate without rice never wears a photo with rice", noRice.kind === "tiles", JSON.stringify(noRice));
+  const street = look(["pita", "falafel", "tahini"]);
+  check("a plate of falafel shows its own foods, main one first", street.kind === "tiles" && street.ids[0] === "falafel", JSON.stringify(street));
+  const cheese = look(["yellowCheese", "chicken", "bread", "tomato"]);
+  check("the main ingredient is the chicken, not the cheese", cheese.kind === "tiles" && cheese.ids[0] === "chicken", JSON.stringify(cheese));
+  check("at most four tiles", look(["chicken", "rice", "broccoli", "tomato", "cucumber", "onion"]).kind !== "tiles" ||
+    (look(["chicken", "rice", "broccoli", "tomato", "cucumber", "onion"]) as { ids: string[] }).ids.length <= 4);
+  check("no photos at all means no picture, not a wrong one", plateLook({ id: "your-plate", uses: ["x:carb:מופלטה"] }, meals, dishes, new Set()).kind === "none");
+}
+
+// --- search forgives what people type
+{
+  check("\"שניצלים\" finds schnitzel", searchFoods("שניצלים").some((f) => f.id === "schnitzel"));
+  check("\"פלאפל\" finds falafel first", searchFoods("פלאפל")[0]?.id === "falafel");
+  check("\"קולה\" finds cola", searchFoods("קולה").some((f) => f.id === "cola"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

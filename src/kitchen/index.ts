@@ -16,7 +16,8 @@ export {
   PHOTO_HOSTS,
 } from "./photo";
 export type { CommonsPage, CommonsImage, Photo } from "./photo";
-export { closestBundled, fetchFoodPhoto, foodPhotoQueries, NATIVE_HEADERS } from "./photo";
+export { closestBundled, fetchFoodPhoto, foodPhotoQueries, mainIngredient, plateLook, NATIVE_HEADERS } from "./photo";
+export type { PlateLook } from "./photo";
 
 // "Can I eat this?" — any food, priced out of ten, on the device. See `score.ts`.
 export { scoreAnything, scoreFood, scoreWords, bandOf } from "./score";
@@ -222,6 +223,13 @@ const STOPWORDS = new Set([
   "אדום", "אדומה", "ירוק", "ירוקה", "צהוב", "צהובה", "שחור", "שחורה", "לבן",
   "boiled", "fried", "grilled", "roasted", "frozen", "dried", "sliced", "whole", "organic",
   "red", "green", "yellow", "black", "white", "large", "small", "big",
+  // How it is sold or how much: "2 קילו עגבניות", "קופסת טונה", "מארז ביצים".
+  "קילו", "קג", "ק\"ג", "גרם", "גרמים", "גר", "ליטר", "ליטרים", "חבילה", "חבילת", "חבילות",
+  "קופסה", "קופסא", "קופסת", "קופסאות", "שקית", "שקיות", "בקבוק", "בקבוקי", "בקבוקים",
+  "פחית", "פחיות", "מארז", "מארזים", "מגש", "יחידה", "יחידות", "צנצנת", "קרטון", "תבנית",
+  "סלסלה", "סלסלת", "חתיכה", "חתיכות", "נתח", "נתחי", "פילה", "אריזה", "אריזת", "תריסר", "זוג",
+  "kg", "gr", "gram", "grams", "liter", "litre", "pack", "packet", "can", "cans", "bottle",
+  "bottles", "bag", "box", "jar", "carton", "tray", "dozen", "pieces", "piece",
 ]);
 
 /**
@@ -363,7 +371,7 @@ const TREIF_WORDS = ["חזיר", "בייקון", "שרימפס", "קלמרי", "
 const MEAT_WORDS = ["בשר", "עוף", "הודו", "כבש", "טלה", "פרגית", "שניצל", "נקניק", "קבב", "סטייק", "meat", "chicken", "beef", "turkey", "lamb", "sausage", "steak"];
 const FLESH_WORDS = [...MEAT_WORDS, "דג ", "דגים", "fish", ...TREIF_WORDS];
 const GLUTEN_WORDS = ["לחם", "פיתה", "קמח", "בצק", "מאפה", "עוגה", "עוגי", "פסטה", "bread", "flour", "wheat", "pasta", "cake", "cookie", "pastry"];
-const DAIRY_WORDS = ["חלב", "גבינ", "שמנת", "יוגורט", "חמאה", "milk", "cheese", "cream", "yogurt", "butter"];
+const DAIRY_WORDS = ["חלב", "גבינ", "שמנת", "יוגורט", "חמאה", "צ'יז", "צ׳יז", "מוצרלה", "פרמזן", "milk", "cheese", "cream", "yogurt", "butter"];
 
 /** The typed word, padded, when the food is one the library does not know. */
 function adhocWord(food: Food): string | null {
@@ -420,10 +428,12 @@ export function dietOk(meal: Meal, diet: string | undefined | null): boolean {
   return foodsDietOk(meal.uses.map(foodOf).filter((f): f is Food => !!f), diet);
 }
 
-/** The switched-on filters a single food breaks by itself — for the small
- * "not kosher" note beside a food someone looks up. */
-export function dietConflicts(food: Food, diet: string | undefined | null): Exclude<Diet, "all">[] {
-  return dietList(diet).filter((d) => !foodDietOk(food, d));
+/** The switched-on filters a food someone looks up breaks — for the small
+ * "not kosher" note beside it. Takes every reading of what was typed (the
+ * library food it matched, and the words themselves), so "שניצל עם גבינה"
+ * is caught as meat with dairy even though the library only knows schnitzel. */
+export function dietConflicts(foods: readonly Food[], diet: string | undefined | null): Exclude<Diet, "all">[] {
+  return dietList(diet).filter((d) => !foodsDietOk(foods, d));
 }
 
 /** The words of a query, each also without a leading Hebrew "and"/"the"
@@ -474,6 +484,14 @@ export function searchFoods(query: string, limit = 12): Food[] {
         return t.length >= 2 && words.includes(` ${t} `);
       });
       if (hit) scored.push({ food, score: 0.5 });
+    }
+  }
+  // Still nothing: a plural, a prefix or a one-letter typo ("שניצלים",
+  // "והפיתה", "ברוקלי") — the same forgiveness the fridge list gets.
+  if (scored.length === 0) {
+    for (const w of q.split(/\s+/)) {
+      const food = w.length >= 3 ? forgivingMatch(w) : null;
+      if (food && !scored.some((x) => x.food.id === food.id)) scored.push({ food, score: 0.4 });
     }
   }
   return scored
@@ -825,12 +843,23 @@ export function plateForGoal(
   // The card lists each ingredient's scaled amount, and the totals are the
   // sum of exactly those amounts — grams on the card and calories on the card
   // can never disagree.
+  //
+  // Two proteins on one plate share the protein portion rather than each
+  // taking a whole one: shawarma and chicken thighs for a cut is one big
+  // portion of meat between them, not 380 g. The same goes for carbs, fats and
+  // dairy. Vegetables are the exception — a plate can hold a full portion of
+  // each.
   const mult = PLATE_PORTION[goal];
+  const perKind = new Map<FoodTag, number>();
+  for (const f of ordered) perKind.set(kindOf(f), (perKind.get(kindOf(f)) ?? 0) + 1);
   const amounts: Record<string, Portion> = {};
   let kcal = 0;
   let protein = 0;
   for (const f of ordered) {
-    const m = mult[kindOf(f)] ?? 1;
+    const kind = kindOf(f);
+    const whole = mult[kind] ?? 1;
+    const share = kind === "veg" ? 1 : perKind.get(kind) ?? 1;
+    const m = share > 1 ? Math.max(0.5, Math.round((whole / share) * 4) / 4) : whole;
     const std = portion(f.id);
     const g = m === 1 ? std.g : Math.max(1, Math.round((std.g * m) / 5) * 5);
     const times = timesLabel(g / std.g);

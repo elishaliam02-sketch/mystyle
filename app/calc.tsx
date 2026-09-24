@@ -36,7 +36,7 @@ export default function CalcScreen() {
   const { colors, space, radius, type, font } = useTheme();
   const { logMeal, state, goal: goalOf, todayIntake, todayKey } = useStore();
   const router = useRouter();
-  const params = useLocalSearchParams<{ items?: string }>();
+  const params = useLocalSearchParams<{ items?: string; q?: string }>();
 
   // A photograph's reading arrives as a parameter so this screen stays the one
   // place a meal is edited, rather than the scanner growing a second editor.
@@ -52,7 +52,8 @@ export default function CalcScreen() {
       return [];
     }
   });
-  const [q, setQ] = useState("");
+  // A word the kitchen's quick log could not find arrives here to be looked up.
+  const [q, setQ] = useState(() => (typeof params.q === "string" ? params.q.slice(0, 60) : ""));
   // An Open Food Facts lookup for the word in the search box. It only ever
   // runs from the explicit "search Open Food Facts" button — that press is the
   // consent for sending the typed word — and belongs to the query it was made

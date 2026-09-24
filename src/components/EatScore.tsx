@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BUNDLED_MEAL_PHOTOS } from "@/kitchen/mealPhotoAssets";
+import { BUNDLED_FOOD_PHOTOS } from "@/kitchen/foodPhotoAssets";
 import { Animated, Image, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
@@ -8,7 +9,9 @@ import { useI18n } from "@/i18n";
 import {
   MEALS,
   NATIVE_HEADERS,
+  adhocFood,
   closestBundled,
+  dietConflicts,
   fetchFoodPhoto,
   scoreAnything,
   type Food,
@@ -74,7 +77,7 @@ const PHOTO_DEBOUNCE_MS = 700;
 export function EatScore() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { wishes, addWish, removeWish } = useStore();
+  const { wishes, addWish, removeWish, state } = useStore();
   const [text, setText] = useState("");
   const [note, setNote] = useState<"added" | "already" | null>(null);
 
@@ -82,6 +85,17 @@ export function EatScore() {
   // to debounce and nothing to wait for.
   const { score, food } = useMemo(() => scoreAnything(text), [text]);
   const typed = text.trim().length >= 2;
+  // The kitchen's dietary filters, applied to what was typed: a person who
+  // keeps kosher asking about a cheeseburger should hear it here, not find out
+  // from a filtered menu. A word the library does not know is judged by what
+  // it says ("חזיר בגריל").
+  const conflicts = useMemo(
+    () =>
+      typed
+        ? dietConflicts(food ? [food, adhocFood(text.trim())] : [adhocFood(text.trim())], state.dietFilter)
+        : [],
+    [typed, food, text, state.dietFilter],
+  );
 
   const list = wishes();
 
@@ -104,6 +118,18 @@ export function EatScore() {
       {typed ? (
         <View style={{ marginTop: space.md, gap: space.md }}>
           <ScoreReadout score={score} />
+          {conflicts.length > 0 ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+              <Ionicons name="alert-circle" size={18} color={colors.orangeInk} />
+              <Text style={[type.smallStrong, { color: colors.orangeInk, flex: 1 }]}>
+                {conflicts
+                  .map((d) => (d === "kosher" ? t.eat.notKosher : d === "vegetarian" ? t.eat.notVeg : t.eat.hasGluten))
+                  .join(" · ")}
+                {"  "}
+                <Text style={[type.small, { color: colors.inkFaint }]}>{t.eat.dietBySettings}</Text>
+              </Text>
+            </View>
+          ) : null}
           <FoodShot text={text} food={food} />
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
@@ -243,11 +269,12 @@ const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS));
 function FoodShot({ text, food }: { text: string; food: Food | null }) {
   const { colors, radius, type, space } = useTheme();
   const { consent, ready } = useStore();
-  // A food the app knows wears the shipped photo of a dish built on it — at
-  // once, offline, nothing asked of anyone. Only a food it has never heard of
-  // goes looking on Commons.
-  const bundledId = food ? closestBundled({ id: `food:${food.id}`, uses: [food.id] }, MEALS, BUNDLED_IDS) : null;
-  const bundled = bundledId ? BUNDLED_MEAL_PHOTOS[bundledId] ?? null : null;
+  // A food the app knows wears its own shipped photo — or, failing that, the
+  // photo of a dish built on it — at once, offline, nothing asked of anyone.
+  // Only a food it has never heard of goes looking on Commons.
+  const own = food ? BUNDLED_FOOD_PHOTOS[food.id] ?? null : null;
+  const bundledId = food && !own ? closestBundled({ id: `food:${food.id}`, uses: [food.id] }, MEALS, BUNDLED_IDS) : null;
+  const bundled = own ?? (bundledId ? BUNDLED_MEAL_PHOTOS[bundledId] ?? null : null);
   const allowed = ready && consent().photos && !bundled;
   const [photo, setPhoto] = useState<Photo | null>(null);
   const fade = useRef(new Animated.Value(0)).current;

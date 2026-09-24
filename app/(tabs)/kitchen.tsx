@@ -1,13 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
-import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
 import { EatScore } from "@/components/EatScore";
+import { FoodThumb } from "@/components/FoodThumb";
 import { MealPhoto } from "@/components/MealPhoto";
 import { MealScanner } from "@/components/MealScanner";
 import { Screen } from "@/components/Screen";
@@ -16,14 +17,19 @@ import { fill, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import {
+  DIETS,
   FOODS,
   MEALS,
   adhocFood,
   dailyTarget,
   dietHidden,
+  dietList,
   dietOk,
+  dietSpec,
   foodNutrition,
   goalFit,
+  gramsNutrition,
+  mealAmount,
   plateForGoal,
   portion,
   primaryNote,
@@ -33,7 +39,7 @@ import {
   slotForHour,
   starterMeals,
   suggestMeals,
-  type Diet,
+  timesLabel,
   type Food,
   type Goal,
   type Meal,
@@ -73,7 +79,9 @@ export default function KitchenScreen() {
   // The one goal the whole app follows — set it here and the plan, cardio and
   // progress targets all move with it.
   const goal: Goal = goalOf();
-  const diet = (state.dietFilter as Diet) ?? "all";
+  // The switched-on dietary filters, stored as one string ("kosher,vegetarian").
+  const diet = state.dietFilter ?? "all";
+  const diets = dietList(diet);
   // How amounts read: everyday household units, or exact grams for anyone who
   // weighs their food. It is a reading preference rather than part of the plan,
   // so it sits beside the store — but it still has to survive leaving the tab,
@@ -197,11 +205,12 @@ export default function KitchenScreen() {
                   gap: 6,
                   backgroundColor: colors.surfaceAlt,
                   borderRadius: radius.pill,
-                  paddingVertical: 5,
-                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  paddingStart: 4,
+                  paddingEnd: 10,
                 }}
               >
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
+                <FoodThumb food={f} size={20} />
                 <Text style={[type.small, { color: colors.ink }]}>{locale === "he" ? f.he : f.en}</Text>
               </View>
             ))}
@@ -257,7 +266,7 @@ export default function KitchenScreen() {
       </Pressable>
 
       {/* log anything you ate, not just the curated dishes */}
-      <QuickLog goalKcal={goalKcal} />
+      <QuickLog goalKcal={goalKcal} units={units} />
     </>
   );
 
@@ -357,10 +366,10 @@ export default function KitchenScreen() {
             })}
           </View>
 
-          {/* dietary filter */}
+          {/* dietary filters — any combination, "all" clears them */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, alignItems: "center" }}>
-            {(["all", "kosher", "vegetarian", "glutenFree"] as const).map((d) => {
-              const on = diet === d;
+            {(["all", ...DIETS] as const).map((d) => {
+              const on = d === "all" ? diets.length === 0 : diets.includes(d);
               const label =
                 d === "all"
                   ? t.kitchen.dietAll
@@ -373,7 +382,13 @@ export default function KitchenScreen() {
                 <SelectTile
                   key={d}
                   selected={on}
-                  onPress={() => setDietFilter(d)}
+                  onPress={() =>
+                    setDietFilter(
+                      d === "all"
+                        ? "all"
+                        : dietSpec(on ? diets.filter((x) => x !== d) : [...diets, d]),
+                    )
+                  }
                   style={{
                     paddingVertical: 8,
                     paddingHorizontal: space.lg,
@@ -387,6 +402,8 @@ export default function KitchenScreen() {
               );
             })}
           </View>
+
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.dietPickAny}</Text>
 
           {/* proof the filter did something: what it just took off the menu */}
           {hidden > 0 ? (
@@ -438,7 +455,7 @@ export default function KitchenScreen() {
           <>
             <SectionLabel text={t.kitchen.favTitle} />
             {MEALS.filter((m) => favorites.includes(m.id) && dietOk(m, diet)).map((m) => (
-              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} goalKcal={goalKcal} />
+              <MealCard key={`fav-${m.id}`} meal={m} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
             ))}
           </>
         ) : null}
@@ -458,6 +475,7 @@ export default function KitchenScreen() {
                   have={new Set<string>()}
                   foodsById={foodsById}
                   units={units}
+                  onUnits={setUnits}
                   goal={goal}
                   goalKcal={goalKcal}
                 />
@@ -472,7 +490,7 @@ export default function KitchenScreen() {
             {plate ? (
               <>
                 <SectionLabel text={t.kitchen.yourPlate} />
-                <MealCard meal={plate} have={haveIds} foodsById={foodsById} units={units} goal={goal} goalKcal={goalKcal} />
+                <MealCard meal={plate} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
               </>
             ) : null}
 
@@ -490,12 +508,12 @@ export default function KitchenScreen() {
               </View>
             ) : null}
             {ready.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} goalKcal={goalKcal} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
             ))}
 
             {almost.length > 0 ? <SectionLabel text={t.kitchen.almostTitle} /> : null}
             {almost.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} goal={goal} goalKcal={goalKcal} />
+              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
             ))}
 
             {almost.length > 0 ? <ShoppingCard items={shoppingList(almost)} /> : null}
@@ -681,7 +699,7 @@ function ShoppingCard({ items }: { items: ShoppingItem[] }) {
             key={food.id}
             style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
           >
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: food.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
+            <FoodThumb food={food} size={28} />
             <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
               {locale === "he" ? food.he : food.en}
             </Text>
@@ -707,28 +725,74 @@ function ShoppingCard({ items }: { items: ShoppingItem[] }) {
 }
 
 /**
- * Quick log — search the food library and tap to add it to today's diary.
- * Someone eating a schnitzel and a pita will never build a recipe first; this
- * is the path that keeps the diary honest for a real day.
+ * Quick log — search the food library, say how much, and it is in today's
+ * diary. Someone eating a schnitzel and a pita will never build a recipe
+ * first; this is the path that keeps the diary honest for a real day.
+ *
+ * A tap used to log one standard portion with no way to say "two" or "200 g",
+ * so the diary was only right for people who happened to eat exactly the
+ * portion the app had in mind. Now a tap opens the amount — half, one, one and
+ * a half, two portions, or any weight — with the calories worked out live, and
+ * the diary line says how much ("חזה עוף · 225 ג'").
  */
-function QuickLog({ goalKcal }: { goalKcal: number }) {
+function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
   const { t, locale } = useI18n();
-  const { colors, space, radius, type } = useTheme();
+  const router = useRouter();
+  const { colors, space, radius, type, font } = useTheme();
   const { logMeal, todayIntake } = useStore();
   const [q, setQ] = useState("");
   // Tapping a hit clears the box, which takes the whole list off screen, and
   // the diary it wrote to is further up the page — so the answer to the tap
   // has to stay right here, where the list just was.
   const [logged, setLogged] = useState("");
+  const [picked, setPicked] = useState<Food | null>(null);
+  const [mult, setMult] = useState(1);
+  const [typedGrams, setTypedGrams] = useState("");
 
   const hits = useMemo(() => searchFoods(q, 8), [q]);
   const eaten = todayIntake();
+  const nameOf = (f: Food) => (locale === "he" ? f.he : f.en);
+  const amountText = (f: Food) => {
+    const p = portion(f.id);
+    return units === "grams" ? `${p.g} ${t.kitchen.gram}` : locale === "he" ? p.he : p.en;
+  };
+
+  const std = picked ? portion(picked.id) : null;
+  const typed = typedGrams.trim() ? Number(typedGrams.replace(",", ".")) : null;
+  const typedOk = typed !== null && Number.isFinite(typed) && typed >= 1 && typed <= 3000;
+  const grams = std ? (typed !== null ? (typedOk ? Math.round(typed) : 0) : Math.round(std.g * mult)) : 0;
+  const n = picked && grams > 0 ? gramsNutrition(picked, grams) : { kcal: 0, protein: 0 };
+
+  function choose(f: Food) {
+    setPicked(f);
+    setMult(1);
+    setTypedGrams("");
+    setLogged("");
+  }
+
+  function commit() {
+    if (!picked || grams <= 0) return;
+    const label = `${nameOf(picked)} · ${grams} ${t.kitchen.gram}`;
+    logMeal(label, n.kcal, n.protein);
+    setLogged(label);
+    setPicked(null);
+    setQ("");
+  }
+
+  const MULTS = [0.5, 1, 1.5, 2];
 
   return (
     <Card label={t.kitchen.quickTitle}>
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.quickHint}</Text>
       <View style={{ marginTop: space.sm }}>
-        <TextField value={q} onChangeText={setQ} placeholder={t.kitchen.quickPlaceholder} />
+        <TextField
+          value={q}
+          onChangeText={(next) => {
+            setQ(next);
+            setPicked(null);
+          }}
+          placeholder={t.kitchen.quickPlaceholder}
+        />
       </View>
       {logged ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
@@ -738,52 +802,137 @@ function QuickLog({ goalKcal }: { goalKcal: number }) {
           </Text>
         </View>
       ) : null}
-      {q.trim().length > 0 ? (
-        hits.length === 0 ? (
-          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-            {t.kitchen.quickNone}
-          </Text>
-        ) : (
-          <View style={{ gap: 6, marginTop: space.sm }}>
-            {hits.map((f) => {
-              const n = foodNutrition(f);
-              const p = portion(f.id);
-              const name = locale === "he" ? f.he : f.en;
+
+      {picked && std ? (
+        <View
+          style={{
+            marginTop: space.sm,
+            padding: space.md,
+            borderRadius: radius.lg,
+            backgroundColor: colors.surfaceAlt,
+            gap: space.sm,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <FoodThumb food={picked} size={44} />
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: colors.ink }]}>{nameOf(picked)}</Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.amountTitle}</Text>
+            </View>
+            <Pressable
+              onPress={() => setPicked(null)}
+              accessibilityRole="button"
+              accessibilityLabel={t.kitchen.amountCancel}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={20} color={colors.inkFaint} />
+            </Pressable>
+          </View>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+            {MULTS.map((m) => {
+              const on = typed === null && mult === m;
+              const g = Math.round(std.g * m);
+              const label =
+                units === "grams"
+                  ? `${g} ${t.kitchen.gram}`
+                  : `${m === 1 ? "" : `${timesLabel(m)} `}${locale === "he" ? std.he : std.en}`;
+              return (
+                <SelectTile
+                  key={m}
+                  selected={on}
+                  onPress={() => {
+                    setMult(m);
+                    setTypedGrams("");
+                  }}
+                  style={{ paddingVertical: 8, paddingHorizontal: space.md, borderRadius: radius.pill }}
+                >
+                  <Text style={[type.smallStrong, { color: on ? colors.onAccent : colors.inkSoft }]}>{label}</Text>
+                </SelectTile>
+              );
+            })}
+          </View>
+
+          <TextInput
+            value={typedGrams}
+            onChangeText={(v) => setTypedGrams(v.replace(/[^0-9.,]/g, "").slice(0, 5))}
+            keyboardType="numeric"
+            placeholder={t.kitchen.amountGramsPlaceholder}
+            placeholderTextColor={colors.inkFaint}
+            accessibilityLabel={t.kitchen.amountGramsPlaceholder}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: space.md,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: typed !== null && !typedOk ? colors.orangeInk : colors.rule,
+              backgroundColor: colors.surface,
+              color: colors.ink,
+              fontFamily: font.bodyMedium,
+              fontSize: 15,
+            }}
+          />
+          {typed !== null && !typedOk ? (
+            <Text style={[type.small, { color: colors.orangeInk }]}>{t.kitchen.amountBad}</Text>
+          ) : null}
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <Text style={[type.bodyStrong, { color: metricInk(colors, "calories"), flex: 1 }]}>
+              {grams > 0 ? `${grams} ${t.kitchen.gram} · ${n.kcal} ${t.kitchen.kcal} · ${n.protein}${t.kitchen.grams} ${t.kitchen.protein}` : "—"}
+            </Text>
+          </View>
+          <Button icon="add-circle" label={t.kitchen.amountLog} onPress={commit} disabled={grams <= 0} />
+        </View>
+      ) : null}
+
+      {!picked && q.trim().length > 0 ? (
+        <View style={{ gap: 6, marginTop: space.sm }}>
+          {hits.length === 0 ? (
+            <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.quickNone}</Text>
+          ) : (
+            hits.map((f) => {
+              const std1 = foodNutrition(f);
+              const name = nameOf(f);
               return (
                 <Pressable
                   key={f.id}
                   accessibilityRole="button"
                   accessibilityLabel={name}
-                  onPress={() => {
-                    logMeal(name, n.kcal, n.protein);
-                    setLogged(name);
-                    setQ("");
-                  }}
-                  style={{
+                  onPress={() => choose(f)}
+                  style={({ pressed }) => ({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: space.sm,
-                    paddingVertical: 8,
-                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    paddingHorizontal: 8,
                     borderRadius: radius.md,
-                    backgroundColor: colors.surfaceAlt,
-                  }}
+                    backgroundColor: pressed ? colors.accentWash : colors.surfaceAlt,
+                  })}
                 >
-                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
+                  <FoodThumb food={f} size={32} />
                   <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                     {name}
                   </Text>
-                  <Text style={[type.small, { color: colors.inkFaint }]}>
-                    {locale === "he" ? p.he : p.en}
+                  <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+                    {amountText(f)}
                   </Text>
                   <Text style={[type.smallStrong, { color: colors.accent }]}>
-                    ≈{n.kcal} {t.kitchen.kcal}
+                    ≈{std1.kcal} {t.kitchen.kcal}
                   </Text>
                 </Pressable>
               );
-            })}
-          </View>
-        )
+            })
+          )}
+          {/* the calculator searches supermarket products and takes any food by type */}
+          <Pressable
+            onPress={() => router.push({ pathname: "/calc", params: { q: q.trim() } })}
+            accessibilityRole="button"
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6 }}
+          >
+            <Ionicons name="calculator" size={16} color={colors.accent} />
+            <Text style={[type.smallStrong, { color: colors.accent, flex: 1 }]}>{t.kitchen.quickCalc}</Text>
+          </Pressable>
+        </View>
       ) : null}
     </Card>
   );
@@ -829,13 +978,15 @@ type MealCardProps = {
   have: Set<string>;
   foodsById: Map<string, Food>;
   units: Units;
+  /** Switch every card between grams and household units. */
+  onUnits: (next: Units) => void;
   /** The goal in force, so each card can say how well it serves it. */
   goal: Goal;
   /** Today's calorie target, so logging can answer with where the day stands. */
   goalKcal: number;
 };
 
-function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealCardProps) {
+function MealCard({ meal, match, have, foodsById, units, onUnits, goal, goalKcal }: MealCardProps) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { logMeal, toggleFavorite, isFavorite, todayIntake } = useStore();
@@ -935,24 +1086,43 @@ function MealCard({ meal, match, have, foodsById, units, goal, goalKcal }: MealC
 
       <Text style={[type.body, { color: colors.inkSoft, marginTop: 4 }]}>{copy.how}</Text>
 
-      {/* ingredients with amounts — grams for those who weigh, or units */}
-      <View style={{ marginTop: space.md, gap: 4 }}>
-        <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
-          {t.kitchen.ingredients}
-        </Text>
+      {/* ingredients with amounts — grams for those who weigh, or household
+          units — and what each one comes to, so the total below is visibly
+          the sum of these rows */}
+      <View style={{ marginTop: space.md, gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+            {t.kitchen.ingredients}
+          </Text>
+          <Pressable
+            onPress={() => onUnits(units === "grams" ? "household" : "grams")}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+          >
+            <Ionicons name="swap-horizontal" size={14} color={colors.accent} />
+            <Text style={[type.smallStrong, { color: colors.accent }]}>
+              {units === "grams" ? t.kitchen.showHousehold : t.kitchen.showGrams}
+            </Text>
+          </Pressable>
+        </View>
         {foods.map((f) => {
-          const p = portion(f.id);
+          const p = mealAmount(m, f.id);
           const amount = units === "grams" ? `${p.g} ${t.kitchen.gram}` : (locale === "he" ? p.he : p.en);
+          const each = gramsNutrition(f, p.g);
           return (
             <View
               key={f.id}
               style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: f.color, borderWidth: 1, borderColor: colors.ruleStrong }} />
-              <Text style={[type.small, { color: colors.ink, flex: 1 }]}>
+              <FoodThumb food={f} size={26} />
+              <Text style={[type.small, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                 {locale === "he" ? f.he : f.en}
               </Text>
               <Text style={[type.smallStrong, { color: colors.inkSoft }]}>{amount}</Text>
+              <Text style={[type.small, { color: colors.inkFaint, minWidth: 52, textAlign: "left" }]}>
+                {each.kcal} {t.kitchen.kcal}
+              </Text>
             </View>
           );
         })}
