@@ -30,23 +30,23 @@
  {
   "id": "apple",
   "he": "תפוח",
-  "query": "red apple fruit",
+  "query": "apples",
   "credit": "fir0002 flagstaffotos [at] gmail.com Canon 20D + Sigma 15… · GFDL 1.2",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/88/Bright_red_tomato_and_cross_section02.jpg/330px-Bright_red_tomato_and_cross_section02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Pink_lady_and_cross_section.jpg/330px-Pink_lady_and_cross_section.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "apricot",
   "he": "משמש",
-  "query": "apricots fruit bowl",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/A_Bowl_Of_Peaches_%28168126787%29.jpg/330px-A_Bowl_Of_Peaches_%28168126787%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "apricots",
+  "credit": "Fir0002 · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/Apricots.jpg/330px-Apricots.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "artichoke",
   "he": "ארטישוק",
-  "query": "artichoke vegetable",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/08/Fried_Artichoke_Hearts.JPG/330px-Fried_Artichoke_Hearts.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "globe artichoke",
+  "credit": "Acabashi · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/07/Globe_artichoke_Cynara_cardunculus_at_Riverside_Moorings%2C_Shoreham%2C_West_Sussex%2C_England.jpg/330px-Globe_artichoke_Cynara_cardunculus_at_Riverside_Moorings%2C_Shoreham%2C_West_Sussex%2C_England.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "arugula",
@@ -87,8 +87,8 @@
   "id": "baharat",
   "he": "בהרט",
   "query": "baharat",
-  "credit": "Herusutimbul · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Bumbu_Rawon.jpg/330px-Bumbu_Rawon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": "Galeri ega · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Bumbu_dan_Rempah_-_rempah.jpg/330px-Bumbu_dan_Rempah_-_rempah.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "bamba",
@@ -121,9 +121,9 @@
  {
   "id": "beans",
   "he": "שעועית",
-  "query": "beans",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Roasted_coffee_beans.jpg/330px-Roasted_coffee_beans.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "cannellini beans",
+  "credit": "Sanjay Acharya · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Red_Speckled_Kidney_Beans.jpg/330px-Red_Speckled_Kidney_Beans.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "beef",
@@ -184,9 +184,9 @@
  {
   "id": "bread",
   "he": "לחם",
-  "query": "loaf of bread",
-  "credit": "MConradWard · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Bread_Loaf_Inn.jpg/330px-Bread_Loaf_Inn.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "white bread slices",
+  "credit": "Ezrawolfe · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Holsum-delivery-van.jpg/330px-Holsum-delivery-van.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "breadcrumbs",
@@ -268,9 +268,9 @@
  {
   "id": "candy",
   "he": "סוכריות",
-  "query": "candies sweets",
-  "credit": "Tuxyso · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7c/Sweets-Jamin-Store-2024.jpg/330px-Sweets-Jamin-Store-2024.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "gummy candies",
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Karl_Gummies_side_view.jpg/330px-Karl_Gummies_side_view.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "canolaOil",
@@ -325,8 +325,8 @@
   "id": "chia",
   "he": "צ'יה",
   "query": "chia seeds",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Mexican_chia_seeds_%281%29.jpg/330px-Mexican_chia_seeds_%281%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": "Magister Mathematicae · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/83/Semillas_de_Ch%C3%ADa.jpg/330px-Semillas_de_Ch%C3%ADa.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "chicken",
@@ -366,9 +366,9 @@
  {
   "id": "chili",
   "he": "פלפל חריף",
-  "query": "red chili peppers vegetable",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e4/Corn_and_vegetable_tikka_masala_on_rotini%2C_with_red_chili_peppers_-_Massachusetts.jpg/330px-Corn_and_vegetable_tikka_masala_on_rotini%2C_with_red_chili_peppers_-_Massachusetts.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "red chilli peppers",
+  "credit": "Suyash.dwivedi · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Red_chilli_pickle_in_plate_4.jpg/330px-Red_chilli_pickle_in_plate_4.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "chocolateMilk",
@@ -443,9 +443,9 @@
  {
   "id": "coleslaw",
   "he": "סלט כרוב",
-  "query": "coleslaw salad",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/Pulled_chicken%2C_barbecued_turkey_breast%2C_coleslaw%2C_and_potato_salad_-_Cambridge%2C_MA.jpg/330px-Pulled_chicken%2C_barbecued_turkey_breast%2C_coleslaw%2C_and_potato_salad_-_Cambridge%2C_MA.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "coleslaw",
+  "credit": "Roenashy · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Fried_yellow_rice_with_coleslaw_and_grilled_sausage.jpg/330px-Fried_yellow_rice_with_coleslaw_and_grilled_sausage.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "cookedPasta",
@@ -506,9 +506,9 @@
  {
   "id": "crab",
   "he": "סרטן",
-  "query": "cooked crab food",
-  "credit": "Stebunik · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9b/Wien_5290_crab-cooks.jpg/330px-Wien_5290_crab-cooks.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "crab meat dish",
+  "credit": "Wendy Harman · CC BY 2.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/65/Something_w_crab_at_Brennan%27s.jpg/330px-Something_w_crab_at_Brennan%27s.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "crackers",
@@ -527,9 +527,9 @@
  {
   "id": "creamCheese",
   "he": "גבינת שמנת",
-  "query": "cream cheese",
-  "credit": "Bodhi Peace · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/eb/Philadelphia_cream_cheese_%28flash%29.jpg/330px-Philadelphia_cream_cheese_%28flash%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "cream cheese spread",
+  "credit": "AnemoneProjectors · CC BY-SA 2.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Cream_crackers_with_cheese_spread.jpg/330px-Cream_crackers_with_cheese_spread.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "croissant",
@@ -583,9 +583,9 @@
  {
   "id": "donut",
   "he": "סופגנייה",
-  "query": "doughnuts",
-  "credit": "DoughnutEconomics · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/12/Doughnut_%28economic_model%29.jpg/330px-Doughnut_%28economic_model%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "glazed donuts",
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ae/Dunkin-Donuts-Chocolate-Glazed.jpg/330px-Dunkin-Donuts-Chocolate-Glazed.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "driedFruit",
@@ -667,9 +667,9 @@
  {
   "id": "fava",
   "he": "פול",
-  "query": "broad beans food",
-  "credit": "Habib M'henni · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fb/Foul_Mdammis%2C_Tunisie.jpg/330px-Foul_Mdammis%2C_Tunisie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "fava beans cooked",
+  "credit": "HaJunkiyada · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Liat_Portal_for_Foodie_Disorder_-_Dried_Fava_Beans_with_Cumin.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Dried_Fava_Beans_with_Cumin.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "fennel",
@@ -744,9 +744,9 @@
  {
   "id": "ginger",
   "he": "ג'ינג'ר",
-  "query": "ginger root",
-  "credit": "Blervis · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/GingerRoot_Novo_Los_Angeles.jpg/330px-GingerRoot_Novo_Los_Angeles.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "ginger rhizome",
+  "credit": "Friday musa · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fb/Fresh_ginger_rhizome_01.jpg/330px-Fresh_ginger_rhizome_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "goatCheese",
@@ -786,9 +786,9 @@
  {
   "id": "greekYogurt",
   "he": "יוגורט יווני",
-  "query": "bowl of greek yogurt",
+  "query": "yogurt in a bowl",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Tuna_Salad_with_sweet_corn.jpg/330px-Tuna_Salad_with_sweet_corn.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/A_bowl_of_frozen_yogurt.jpg/330px-A_bowl_of_frozen_yogurt.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "greenBeans",
@@ -984,7 +984,7 @@
   "he": "לאפה",
   "query": "laffa flatbread",
   "credit": "Missvain · CC BY 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/The_Shore_Room_-_June_2019_-_Stierch_03.jpg/330px-The_Shore_Room_-_June_2019_-_Stierch_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/The_Shore_Room_-_June_2019_-_Stierch_01.jpg/330px-The_Shore_Room_-_June_2019_-_Stierch_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "lamb",
@@ -1010,16 +1010,16 @@
  {
   "id": "leben",
   "he": "לבן",
-  "query": "leben",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6e/Skulptur_Leben_%28Traube%29_Michael_Schoenholtz_Claire-Waldoff-Promenade_16_Berlin-Moabit_02.jpg/330px-Skulptur_Leben_%28Traube%29_Michael_Schoenholtz_Claire-Waldoff-Promenade_16_Berlin-Moabit_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "buttermilk glass",
+  "credit": "Dr. Satish Upalkar · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Buttermilk_glass_%28cropped%29.jpg/330px-Buttermilk_glass_%28cropped%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "leek",
   "he": "כרישה",
   "query": "leeks vegetable",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Leeks_on_shelf.jpg/330px-Leeks_on_shelf.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Leeks_bg.JPG/330px-Leeks_bg.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "lemon",
@@ -1129,9 +1129,9 @@
  {
   "id": "mayo",
   "he": "מיונז",
-  "query": "mayonnaise jar",
-  "credit": "No machine-readable author provided. Maximaximax assumed… · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Soviet_mayones_jar_250_ml.jpg/330px-Soviet_mayones_jar_250_ml.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "mayonnaise bowl",
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Beef_with_takana_and_mentaiko_mayonnaise_bowl_of_Sukiya.jpg/330px-Beef_with_takana_and_mentaiko_mayonnaise_bowl_of_Sukiya.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "meatballs",
@@ -1150,9 +1150,9 @@
  {
   "id": "milk",
   "he": "חלב",
-  "query": "glass of milk",
-  "credit": "Illarion Kalashnikov · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/2025.04.10_Milk_Glass_Sugar_Bowl_and_Antique_Glass_Creamer.jpg/330px-2025.04.10_Milk_Glass_Sugar_Bowl_and_Antique_Glass_Creamer.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "milk in a glass",
+  "credit": "Manfred Heyde · CC BY-SA 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/Bowl_milk_glass.jpg/330px-Bowl_milk_glass.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "milkChocolate",
@@ -1243,7 +1243,7 @@
   "he": "אגוזים",
   "query": "mixed nuts",
   "credit": "HaJunkiyada · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_and_dried_fruit.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_and_dried_fruit.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_assortment.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Mixed_nuts_assortment.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "oatMilk",
@@ -1297,9 +1297,9 @@
  {
   "id": "onion",
   "he": "בצל",
-  "query": "onions vegetable",
-  "credit": "Galeri ega · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Bumbu_dan_Rempah_-_rempah.jpg/330px-Bumbu_dan_Rempah_-_rempah.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "red onions",
+  "credit": "Gaurav Dhwaj Khadka · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dd/Red_Onions.jpg/330px-Red_Onions.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "orange",
@@ -1416,9 +1416,9 @@
  {
   "id": "pepper",
   "he": "פלפל",
-  "query": "red bell peppers",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/69/Peppers_in_water.jpg/330px-Peppers_in_water.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "bell pepper vegetable",
+  "credit": "AntanO · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5c/Red_bell_pepper.jpg/330px-Red_bell_pepper.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "persimmon",
@@ -1577,16 +1577,16 @@
  {
   "id": "pumpkin",
   "he": "דלעת",
-  "query": "pumpkin vegetable",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/05/Growing_pumpkin_vegetable_%40home.jpg/330px-Growing_pumpkin_vegetable_%40home.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "pumpkins",
+  "credit": "Daniel Schwen · CC BY 3.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/Pumpkin_Seeds_macro_1.jpg/330px-Pumpkin_Seeds_macro_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "pumpkinSeeds",
   "he": "גרעיני דלעת",
   "query": "pumpkin seeds",
-  "credit": "Daniel Schwen · CC BY 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/Pumpkin_Seeds_macro_1.jpg/330px-Pumpkin_Seeds_macro_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": "Dmitry Makeev · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/57/Pumpkin_seed._img_016.jpg/330px-Pumpkin_seed._img_016.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "quinoa",
@@ -1682,9 +1682,9 @@
  {
   "id": "sausage",
   "he": "נקניקייה",
-  "query": "grilled sausages",
-  "credit": "彩色琪子 · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Grilled_Sausages_and_Corn_Sausages.jpg/330px-Grilled_Sausages_and_Corn_Sausages.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "sausages on a plate",
+  "credit": null,
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Sausages_on_black_plate.jpg/330px-Sausages_on_black_plate.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "schnitzel",
@@ -1724,9 +1724,9 @@
  {
   "id": "sesame",
   "he": "שומשום",
-  "query": "sesame seeds",
-  "credit": "Vengolis · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/Sesamum_indicum_1369.jpg/330px-Sesamum_indicum_1369.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "sesame seeds bowl",
+  "credit": "Carl Black · CC BY-SA 2.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Harmony_Bowl_at_Laughing_Seed_Cafe.jpg/330px-Harmony_Bowl_at_Laughing_Seed_Cafe.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "shakshukaDish",
@@ -1759,9 +1759,9 @@
  {
   "id": "silan",
   "he": "סילאן",
-  "query": "date syrup jar",
+  "query": "date molasses",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Adding_syrup_to_pears.jpg/330px-Adding_syrup_to_pears.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/95/Rub%27_al_Khali_%28Arabian_Empty_Quarter%29_sand_dunes_imaged_by_Terra_%28EOS_AM-1%29.jpg/330px-Rub%27_al_Khali_%28Arabian_Empty_Quarter%29_sand_dunes_imaged_by_Terra_%28EOS_AM-1%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "skyr",
@@ -1787,7 +1787,7 @@
  {
   "id": "soupPowder",
   "he": "אבקת מרק",
-  "query": "bouillon cubes",
+  "query": "stock cubes",
   "credit": null,
   "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Bouillon_cube.jpg/330px-Bouillon_cube.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
@@ -1801,9 +1801,9 @@
  {
   "id": "soyMilk",
   "he": "חלב סויה",
-  "query": "glass of soy milk",
-  "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Soy_milk_bottles.jpg/330px-Soy_milk_bottles.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "soy milk carton",
+  "credit": "Veganbaking.net from USA · CC BY-SA 2.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Soy_Non-Dairy_Milk_%285082414499%29.jpg/330px-Soy_Non-Dairy_Milk_%285082414499%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "soyProtein",
@@ -1836,16 +1836,16 @@
  {
   "id": "strawberries",
   "he": "תותים",
-  "query": "strawberries food",
-  "credit": "Jörg Hempel · CC BY-SA 3.0 de",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/64/Fragaria_vesca_LC0389.jpg/330px-Fragaria_vesca_LC0389.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "strawberries fruit",
+  "credit": "Thomas Wolf , www.foto-tw.de · CC BY-SA 3.0 de",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/Erdbeerschalen_Viktualienmarkt_M%C3%BCnchen.jpg/330px-Erdbeerschalen_Viktualienmarkt_M%C3%BCnchen.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "sugar",
   "he": "סוכר",
-  "query": "sugar cubes",
-  "credit": "Grendelkhan · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/3D_printed_sugar_cube.gk.jpg/330px-3D_printed_sugar_cube.gk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "query": "white sugar",
+  "credit": "Herusutimbul · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Bumbu_Rawon.jpg/330px-Bumbu_Rawon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "sunflowerSeeds",
@@ -1942,8 +1942,8 @@
   "id": "tomato",
   "he": "עגבנייה",
   "query": "tomatoes",
-  "credit": "Softeis · CC BY-SA 3.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/330px-Tomato_je.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": "fir0002 flagstaffotos [at] gmail.com Canon 20D + Sigma 15… · GFDL 1.2",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/88/Bright_red_tomato_and_cross_section02.jpg/330px-Bright_red_tomato_and_cross_section02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "tomatoSauce",
@@ -1985,7 +1985,7 @@
   "he": "סלט טונה",
   "query": "tuna salad mayonnaise",
   "credit": null,
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/76/Tuna_salad_on_mixed_greens%2C_with_corn%2C_carrots%2C_tomatoes%2C_olive_oil%2C_red_vinegar%2C_and_black_pepper_-_Massachusetts.jpg/330px-Tuna_salad_on_mixed_greens%2C_with_corn%2C_carrots%2C_tomatoes%2C_olive_oil%2C_red_vinegar%2C_and_black_pepper_-_Massachusetts.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Tuna_Salad_with_sweet_corn.jpg/330px-Tuna_Salad_with_sweet_corn.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "turkey",
@@ -2075,8 +2075,8 @@
   "id": "yellowCheese",
   "he": "גבינה צהובה",
   "query": "cheese slices plate",
-  "credit": "Peachyeung316 · CC BY-SA 4.0",
-  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/3_cheese_plate_at_Cafe_Lagoon.jpg/330px-3_cheese_plate_at_Cafe_Lagoon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+  "credit": "Geoffreyrabbit · CC BY-SA 4.0",
+  "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Parmason_cheese_slices_in_plate.jpg/330px-Parmason_cheese_slices_in_plate.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {
   "id": "zaatar",
