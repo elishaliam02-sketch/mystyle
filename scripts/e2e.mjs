@@ -186,13 +186,19 @@ await page.getByRole("button",{name:"אכלתי את זה"}).first().click(); aw
 await page.getByLabel("הסר מהיומן").first().click(); await settle();
 { const s=await st(); check("removing a logged meal empties the diary", (s.intake?.[today]??[]).length===0); }
 
-// 5b) KITCHEN — quick-log: search a food and tap it into the diary
+// 5b) KITCHEN — quick-log: search a food, say how much, and it is in the diary
 await page.getByPlaceholder(/מה אכלת/).first().fill("אורז"); await settle();
 check("search shows a result", await page.getByRole("button",{name:"אורז"}).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"אורז"}).first().click(); await settle();
+check("tapping a food asks how much", await page.getByText("כמה אכלת?").first().isVisible().catch(()=>false));
+{ const before = await page.getByText(/\d+ גרם · \d+ קלוריות/).first().innerText().catch(()=>"");
+  await page.getByText(/×2/).first().click(); await settle();
+  const after = await page.getByText(/\d+ גרם · \d+ קלוריות/).first().innerText().catch(()=>"");
+  check("two portions double the amount shown", before !== after && /150 גרם/.test(after), `${before} → ${after}`); }
+await page.getByText("רשום ביומן").first().click(); await settle();
 { const s=await st(); const items=s.intake?.[today]??[];
-  check("quick-log adds the searched food to the diary",
-    items.some(i=>i.label==="אורז"&&i.kcal>0), JSON.stringify(items)); }
+  check("quick-log adds the searched food to the diary, with how much",
+    items.some(i=>i.label==="אורז · 150 גרם"&&i.kcal===548), JSON.stringify(items)); }
 { const cleared = await page.getByPlaceholder(/מה אכלת/).first().inputValue();
   check("the search box clears after logging", cleared==="", cleared); }
 await page.getByPlaceholder(/מה אכלת/).first().fill("קשקושבלבל"); await settle();
@@ -390,8 +396,10 @@ check("and saving says so on screen",
 // 16) KITCHEN — grams vs household units really change the amounts
 await go("/kitchen");
 { // read the whole ingredient block of the first card, whatever its shape
+  // "מה צריך" heads a row with the card's own grams switch; the ingredient
+  // block is that row's parent.
   const readAmounts = async () => (await page.getByText("מה צריך").first()
-    .locator("xpath=..").innerText().catch(()=>"")) ?? "";
+    .locator("xpath=../..").innerText().catch(()=>"")) ?? "";
   const household = await readAmounts();
   await openKitchenSettings();
   await page.getByText("גרמים",{exact:true}).first().click(); await settle();
@@ -399,7 +407,12 @@ await go("/kitchen");
   check("switching to grams changes the amounts shown", grams !== household, `${household.slice(0,60)} → ${grams.slice(0,60)}`);
   check("grams are actually shown in grams", /\d+\s*גרם/.test(grams), grams.slice(0,120));
   await page.getByText("יחידות",{exact:true}).first().click(); await settle();
-  check("switching back restores household units", (await readAmounts()) === household); }
+  check("switching back restores household units", (await readAmounts()) === household);
+  // and the same switch sits on every card, where the amounts are read
+  await page.getByText("הצג בגרמים").first().click(); await settle();
+  check("the card's own switch shows grams", /\d+\s*גרם/.test(await readAmounts()));
+  await page.getByText("הצג ביחידות").first().click(); await settle();
+  check("and switches back", (await readAmounts()) === household); }
 
 // 17) KITCHEN — the kosher filter removes a named non-kosher dish
 await page.getByText("הכל",{exact:true}).click(); await settle();
@@ -412,7 +425,9 @@ await page.getByText("מסה",{exact:true}).first().click(); await settle();
   check("the kosher filter says how many it hid",
     await page.getByText(/מנות בתפריט לא עומדות בסינון/).first().isVisible().catch(()=>false));
   await page.getByText("צמחוני",{exact:true}).click(); await settle();
-  { const s=await st(); check("the vegetarian filter persists", s.dietFilter==="vegetarian", s.dietFilter); }
+  { const s=await st(); check("kosher and vegetarian combine", s.dietFilter==="kosher,vegetarian", s.dietFilter); }
+  await page.getByText("כשר",{exact:true}).click(); await settle();
+  { const s=await st(); check("switching kosher off leaves vegetarian on", s.dietFilter==="vegetarian", s.dietFilter); }
   check("no meat dish under the vegetarian filter",
     (await page.getByText("עוף עם אורז וברוקולי").count())===0);
   await page.getByText("הכל",{exact:true}).click(); await settle();
@@ -797,13 +812,13 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       rows[0]?.kcal === 143, JSON.stringify(rows[0]));
     check("and named after what was on the plate",
       String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
-  // a food outside the ~130-item library — pizza — must still be loggable
-  await cp.getByPlaceholder(/לדוגמה/).first().fill("פיצה"); await cp.waitForTimeout(600);
+  // a food outside the library must still be loggable
+  await cp.getByPlaceholder(/לדוגמה/).first().fill("מופלטה"); await cp.waitForTimeout(600);
   check("an unknown food offers a category to add it by",
-    (await cp.getByRole("button",{name:/פיצה · פחמימה/}).count())>0);
-  await cp.getByRole("button",{name:/פיצה · פחמימה/}).first().click(); await cp.waitForTimeout(600);
+    (await cp.getByRole("button",{name:/מופלטה · פחמימה/}).count())>0);
+  await cp.getByRole("button",{name:/מופלטה · פחמימה/}).first().click(); await cp.waitForTimeout(600);
   check("adding an unknown food puts it on the plate",
-    await cp.getByText("פיצה").first().isVisible().catch(()=>false));
+    await cp.getByText("מופלטה").first().isVisible().catch(()=>false));
   // and its weight can be typed exactly, not only stepped
   await cp.getByText(/גרם ·/).first().click(); await cp.waitForTimeout(400);
   const gbox = cp.getByLabel("כמות בגרמים").first();
@@ -892,20 +907,22 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
     await pg.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"});
     await pg.waitForTimeout(2600);
     const bundled = await pg.locator('img[src*="meals"]').count();
+    const foodShots = await pg.locator('img[src*="foods"]').count();
     const libraryAsked = searches.length;
     // A food typed into "I feel like eating…" has no shipped photo: that one
     // is looked up live, and only with the switch on.
     const field = pg.getByPlaceholder(/tuna, pizza/i).first();
-    await field.fill("pizza");
+    await field.fill("mufleta");
     await pg.waitForTimeout(2200);
     const body = await pg.locator("body").innerText().catch(()=>"");
     await pg.close();
-    return { bundled, libraryAsked, asked: searches.length, body };
+    return { bundled, foodShots, libraryAsked, asked: searches.length, body };
   };
 
   const on = await visit(true);
   check("library dishes show the photo shipped in the app", on.bundled > 0, String(on.bundled));
   check("…without asking Commons for them", on.libraryAsked === 0, String(on.libraryAsked));
+  check("foods show their own shipped photos too", on.foodShots > 0, String(on.foodShots));
   check("with photos on, a typed food is looked up on Commons", on.asked > 0, String(on.asked));
   check("a CC BY-SA photo is shown with its credit", on.body.includes("Rina Cook · CC BY-SA 4.0"),
     on.body.slice(0,120));
