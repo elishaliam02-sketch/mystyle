@@ -29,7 +29,7 @@ const BEGINNER = new Set([
   "smith-ohp",
   // legs & glutes
   "leg-press", "leg-extension", "leg-curl", "seated-leg-curl", "lying-leg-curl", "goblet-squat",
-  "air-squat", "bw-lunge", "step-up", "wall-sit", "calf-raise", "seated-calf-raise", "standing-calf",
+  "air-squat", "bw-lunge", "step-up", "wall-sit", "reverse-lunge", "inverted-row", "calf-raise", "seated-calf-raise", "standing-calf",
   "smith-squat", "adductor-machine", "abductor-machine", "glute-bridge", "frog-pump", "cable-kickback",
   "banded-walk", "kb-deadlift",
   // arms & forearms

@@ -461,9 +461,12 @@ async function searchNow(query: string, width: number): Promise<CommonsPage[]> {
  * it changes: chicken, rice and tomato look like chicken with rice, and swap
  * the chicken for salmon and the photo turns to salmon too.
  *
- * The closest dish wins: the most shared ingredients, then the one that shares
- * the plate's lead ingredient, then the one showing the fewest things the plate
- * does not have. Two shared ingredients is a close match; one — as long as it
+ * The dish must show the plate's main ingredient — its protein when it has
+ * one, otherwise the first thing listed: a salmon plate wearing a photo of
+ * chicken with the same rice and broccoli looks wrong however many sides match.
+ * Among those, the most shared ingredients wins, then the fewest things shown
+ * that the plate does not have. Only when no dish has the main ingredient does
+ * the closest by shared count stand in. Two shared ingredients is a close match; one — as long as it
  * is there — is still a real photo of real food with that ingredient on it
  * (yogurt and dates wears yogurt with berries), which beats a drawing: a card
  * without a photo was the one thing people noticed. Null only when no dish
@@ -477,7 +480,9 @@ export function closestBundled(
   if (bundled.has(meal.id)) return meal.id;
   const uses = new Set(meal.uses);
   if (uses.size === 0) return null;
-  const lead = meal.uses[0];
+  const main =
+    meal.uses.find((id) => FOODS.find((f) => f.id === id)?.tags.includes("protein")) ?? meal.uses[0];
+  const lead = main;
   let best: { id: string; shared: number; lead: number; extra: number } | null = null;
   for (const other of meals) {
     if (!bundled.has(other.id)) continue;
@@ -493,9 +498,9 @@ export function closestBundled(
     };
     if (
       !best ||
-      cand.shared > best.shared ||
-      (cand.shared === best.shared && cand.lead > best.lead) ||
-      (cand.shared === best.shared && cand.lead === best.lead && cand.extra < best.extra)
+      cand.lead > best.lead ||
+      (cand.lead === best.lead && cand.shared > best.shared) ||
+      (cand.lead === best.lead && cand.shared === best.shared && cand.extra < best.extra)
     ) {
       best = cand;
     }

@@ -45,7 +45,8 @@ import {
 import { cupMlOf, defaultWaterGoal, isStorableCupMl, isStorableWaterGoal } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
-import type { Exercise } from "@/workout/exercises";
+import type { Exercise, Muscle } from "@/workout/exercises";
+import { buildPlan, freshSeed } from "@/workout/plan";
 
 /**
  * "Today" that a rewound phone clock cannot fake, together with the advanced
@@ -681,8 +682,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const regeneratePlan = useCallback(() => {
     setState((s) => {
-      if (!s.training) return s;
-      return { ...s, training: { ...s.training, planSeed: newId() } };
+      const t = s.training;
+      if (!t) return s;
+      // A new seed whose plan actually differs from the one on screen.
+      // A plan from before levels existed moves to the level-shaped builder the
+      // moment the person asks for a new one — they asked for a change anyway.
+      const level = t.level ?? "intermediate";
+      const make = (seed: string, lv = level as typeof t.level) =>
+        buildPlan(t.goal, t.days, t.minutes, t.equipment, {
+          seed,
+          focus: (t.focus ?? []) as Muscle[],
+          level: lv,
+        });
+      const current = make(t.planSeed ?? s.salt ?? "", t.level);
+      const planSeed = freshSeed(current, (seed) => make(seed), Array.from({ length: 12 }, () => newId()));
+      return { ...s, training: { ...t, planSeed, level } };
     });
   }, []);
 

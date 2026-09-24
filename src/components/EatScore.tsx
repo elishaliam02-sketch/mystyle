@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BUNDLED_MEAL_PHOTOS } from "@/kitchen/mealPhotoAssets";
 import { Animated, Image, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import {
+  MEALS,
   NATIVE_HEADERS,
+  closestBundled,
   fetchFoodPhoto,
   scoreAnything,
   type Food,
@@ -235,10 +238,17 @@ function ScoreReadout({ score }: { score: FoodScore }) {
  * feel slower than it is. And the search waits for a pause in the typing —
  * every keystroke is a score, but not every keystroke is worth a request.
  */
+const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS));
+
 function FoodShot({ text, food }: { text: string; food: Food | null }) {
   const { colors, radius, type, space } = useTheme();
   const { consent, ready } = useStore();
-  const allowed = ready && consent().photos;
+  // A food the app knows wears the shipped photo of a dish built on it — at
+  // once, offline, nothing asked of anyone. Only a food it has never heard of
+  // goes looking on Commons.
+  const bundledId = food ? closestBundled({ id: `food:${food.id}`, uses: [food.id] }, MEALS, BUNDLED_IDS) : null;
+  const bundled = bundledId ? BUNDLED_MEAL_PHOTOS[bundledId] ?? null : null;
+  const allowed = ready && consent().photos && !bundled;
   const [photo, setPhoto] = useState<Photo | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -263,6 +273,42 @@ function FoodShot({ text, food }: { text: string; food: Food | null }) {
       Animated.timing(fade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
     }
   }, [photo, fade]);
+
+  if (bundled) {
+    return (
+      <View style={{ borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surfaceAlt }}>
+        <Image
+          accessibilityIgnoresInvertColors
+          source={bundled.source}
+          fadeDuration={0}
+          resizeMode="cover"
+          style={{ width: "100%", height: 150 }}
+        />
+        {bundled.credit ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              type.label,
+              {
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingHorizontal: space.sm,
+                paddingVertical: 3,
+                textAlign: "right",
+                fontSize: 9,
+                color: "rgba(255,255,255,0.92)",
+                backgroundColor: "rgba(0,0,0,0.42)",
+              },
+            ]}
+          >
+            {bundled.credit}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
 
   if (!photo) return null;
 

@@ -1,6 +1,7 @@
 import { EXERCISES, type Equipment, type Exercise, type Muscle } from "./exercises";
 import type { Goal } from "@/kitchen";
 import { difficulty, maxDifficulty, type Level } from "./difficulty";
+import { DAY_SLOTS, SLOT_MUSCLE, slotCandidates, type SlotId } from "./templates";
 
 /** What equipment the person can train with — drives which moves a plan uses. */
 export const EQUIP_SETS: Record<string, Equipment[]> = {
@@ -275,6 +276,26 @@ export function buildPlan(
   const focus = opts.focus ?? [];
   const salt = opts.seed ?? "";
   const types = split(days);
+  if (level) {
+    // A person who told us their level gets a coach-shaped week: fixed slots,
+    // level-appropriate choices, the seed choosing within each slot.
+    const byId = new Map(EXERCISES.map((e) => [e.id, e]));
+    const can = (id: string) => {
+      const e = byId.get(id);
+      return !!e && allowed.has(e.equipment);
+    };
+    // What each kind of day used last time it came up this week, so a second
+    // upper day is a different session, not a copy of the first.
+    const usedByType = new Map<DayType, Set<string>>();
+    const sessions = types.map((type, i) => {
+      const seed = `${salt}|${goal}|${level}|${type}|${i}`;
+      const earlier = usedByType.get(type) ?? new Set<string>();
+      const exercises = leveledDay(type, perDay, seed, can, level, goal, focus, earlier, byId, (equipment ?? "gym") === "gym");
+      usedByType.set(type, new Set([...earlier, ...exercises.map((e) => e.id)]));
+      return { type, muscles: DAY_MUSCLES[type], exercises };
+    });
+    return { goal, days: types.length, equipment, minutes, level, sets, reps, sessions };
+  }
   const sessions = types.map((type, i) => {
     const muscles = orderMuscles(DAY_MUSCLES[type], focus);
     // The seed carries the salt, the goal and which day this is, so every knob
@@ -285,4 +306,95 @@ export function buildPlan(
     return { type, muscles: DAY_MUSCLES[type], exercises: pick(muscles, perDay, seed, allowed, bias, level) };
   });
   return { goal, days: types.length, equipment, minutes, level, sets, reps, sessions };
+}
+
+/**
+ * One day, built slot by slot. The day's template decides what kind of
+ * movement comes when; focus muscles move their slots forward (and earn one
+ * more); a cut ends on a conditioning finisher. Within each slot the seed picks
+ * from the level's list, skipping anything already in the session and — when
+ * there is a choice — anything the same kind of day had earlier in the week.
+ */
+function leveledDay(
+  type: DayType,
+  count: number,
+  seed: string,
+  can: (id: string) => boolean,
+  level: Level,
+  goal: Goal,
+  focus: Muscle[],
+  earlier: Set<string>,
+  byId: Map<string, Exercise>,
+  gym: boolean,
+): Exercise[] {
+  let slots: SlotId[] = [...(DAY_SLOTS[type] ?? DAY_SLOTS.fullA!)];
+  if (focus.length) {
+    const wanted = slots.filter((sl) => focus.includes(SLOT_MUSCLE[sl] as Muscle));
+    if (wanted.length) {
+      // The main lift stays first; the focus slots follow it, then the rest,
+      // and one focus slot is repeated as extra volume.
+      const [lead, ...rest] = slots;
+      const focusFirst = rest.filter((sl) => wanted.includes(sl));
+      const others = rest.filter((sl) => !wanted.includes(sl));
+      slots = [lead!, ...focusFirst, wanted[0]!, ...others];
+    }
+  }
+  // A cut ends on a conditioning finisher; everything before it is strength.
+  const finisher = goal === "cut" && count >= 4;
+  const strength = finisher ? count - 1 : count;
+
+  const out: Exercise[] = [];
+  const used = new Set<string>();
+  const fill = (slot: SlotId, k: number): boolean => {
+    const all = slotCandidates(slot, level, can, gym, (id) => byId.get(id)?.equipment).filter(
+      (id) => !used.has(id),
+    );
+    if (!all.length) return false;
+    const fresh = all.filter((id) => !earlier.has(id));
+    const pool = fresh.length ? fresh : all;
+    const id = pool[hash(`${seed}:${slot}:${k}`) % pool.length]!;
+    const ex = byId.get(id);
+    if (!ex) return false;
+    used.add(id);
+    out.push(ex);
+    return true;
+  };
+  // Walk the whole template, not just its first slots: a slot the kit cannot
+  // fill (biceps with bodyweight only) hands its place to the next one, so the
+  // session still has the length the person has time for.
+  slots.forEach((slot, k) => {
+    if (out.length < strength) fill(slot, k);
+  });
+  if (finisher) fill("conditioning", slots.length);
+  return out;
+}
+
+/** The share of a plan's exercises that sit in the same place in another. */
+export function sameShare(a: Plan, b: Plan): number {
+  const x = a.sessions.flatMap((d) => d.exercises.map((e) => e.id));
+  const y = b.sessions.flatMap((d) => d.exercises.map((e) => e.id));
+  if (!x.length) return 1;
+  let same = 0;
+  for (let i = 0; i < x.length; i++) if (x[i] === y[i]) same++;
+  return same / x.length;
+}
+
+/**
+ * A new seed whose plan is visibly different from the current one: "new plan"
+ * must never hand back the same week. Tries the candidates in order, stops at
+ * the first that changes at least 40% of the exercises, and otherwise keeps the
+ * most different one (a small bodyweight kit has only so many moves).
+ */
+export function freshSeed(current: Plan, make: (seed: string) => Plan, candidates: string[]): string {
+  let best = candidates[0] ?? "";
+  let bestShare = 2;
+  for (const seed of candidates) {
+    const share = sameShare(current, make(seed));
+    if (share <= 0.6) return seed;
+    if (share < bestShare) {
+      best = seed;
+      bestShare = share;
+    }
+  }
+  return best;
 }

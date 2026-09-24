@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
@@ -13,6 +13,9 @@ import {
   MIN_WATER_GOAL,
   recommendedRange,
   waterStatus,
+  isStorableCupMl,
+  MIN_CUP_ML,
+  MAX_CUP_ML,
 } from "@/health/water";
 import { fill, useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT } from "@/theme";
@@ -24,6 +27,10 @@ export default function WaterScreen() {
   const { colors, space, radius, type } = useTheme();
   const { state, addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl } = useStore();
   const [editing, setEditing] = useState(false);
+  // The person's own glass: any size, typed in, not only the five offered.
+  const [ownOpen, setOwnOpen] = useState(false);
+  const [ownDraft, setOwnDraft] = useState("");
+  const [ownError, setOwnError] = useState(false);
 
   const cups = todayWater();
   const goal = waterGoal();
@@ -116,7 +123,94 @@ export default function WaterScreen() {
                 </Pressable>
               );
             })}
+            {(() => {
+              // A size of their own shows as its own chip, selected, with the
+              // amount on it — so it reads as chosen, not as "none of these".
+              const custom = !(CUP_SIZES as readonly number[]).includes(ml);
+              const on = custom || ownOpen;
+              return (
+                <Pressable
+                  onPress={() => {
+                    setOwnOpen((o) => !o);
+                    setOwnDraft(custom ? String(ml) : "");
+                    setOwnError(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingVertical: 7,
+                    paddingHorizontal: 12,
+                    borderRadius: radius.pill,
+                    backgroundColor: on ? ON_HERO : "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: on ? ON_HERO : "rgba(255,255,255,0.22)",
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Ionicons name="create-outline" size={14} color={on ? colors.accent : ON_HERO} />
+                  <Text style={[type.smallStrong, { color: on ? colors.accent : ON_HERO }]}>
+                    {custom ? fill(t.water.cupMl, { ml }) : t.water.cupOwn}
+                  </Text>
+                </Pressable>
+              );
+            })()}
           </View>
+          {ownOpen ? (
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TextInput
+                  value={ownDraft}
+                  onChangeText={(v) => {
+                    setOwnDraft(v.replace(/[^0-9]/g, "").slice(0, 4));
+                    setOwnError(false);
+                  }}
+                  keyboardType="number-pad"
+                  placeholder={t.water.cupOwnPlaceholder}
+                  placeholderTextColor={ON_HERO_SOFT}
+                  accessibilityLabel={t.water.cupOwnPlaceholder}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: radius.pill,
+                    backgroundColor: "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: ownError ? colors.orange : "rgba(255,255,255,0.28)",
+                    color: ON_HERO,
+                    fontSize: 16,
+                  }}
+                />
+                <Pressable
+                  onPress={() => {
+                    const n = Number(ownDraft);
+                    if (!isStorableCupMl(n)) {
+                      setOwnError(true);
+                      return;
+                    }
+                    setCupMl(n);
+                    setOwnOpen(false);
+                  }}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    paddingVertical: 10,
+                    paddingHorizontal: 18,
+                    borderRadius: radius.pill,
+                    backgroundColor: ON_HERO,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <Text style={[type.smallStrong, { color: colors.accent }]}>{t.water.cupOwnSave}</Text>
+                </Pressable>
+              </View>
+              <Text style={[type.small, { color: ownError ? colors.orange : ON_HERO_SOFT }]}>
+                {fill(t.water.cupOwnRange, { min: MIN_CUP_ML, max: MAX_CUP_ML })}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg }}>

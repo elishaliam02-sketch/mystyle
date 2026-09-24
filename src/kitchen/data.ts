@@ -58,9 +58,9 @@ const F = (
 export const FOODS: Food[] = [
   // -- proteins
   F("egg", ["protein"], "ביצים", "eggs", ["ביצה", "ביצים", "egg", "eggs"], "round", "#F4C542"),
-  F("chicken", ["protein"], "חזה עוף", "chicken breast", ["חזה עוף", "עוף", "chicken"], "blob", "#E8C9A0"),
+  F("chicken", ["protein"], "חזה עוף", "chicken breast", ["חזה עוף", "חזה של עוף", "עוף", "פרגית", "פרגיות", "שניצל", "שניצלים", "כרעיים", "שוקיים", "chicken breast", "chicken thighs", "chicken", "schnitzel"], "blob", "#E8C9A0"),
   F("turkey", ["protein"], "הודו", "turkey", ["חזה הודו", "הודו", "turkey"], "blob", "#D8B48C"),
-  F("beef", ["protein"], "בשר בקר", "beef", ["בשר בקר", "בקר", "בשר טחון", "beef", "steak"], "blob", "#9E4B3B"),
+  F("beef", ["protein"], "בשר בקר", "beef", ["בשר בקר", "בקר", "בשר טחון", "בשר", "סטייק", "סטייקים", "אנטריקוט", "המבורגר", "קציצות", "ground beef", "beef", "steak", "burger"], "blob", "#9E4B3B"),
   F("tuna", ["protein"], "טונה", "tuna", ["טונה", "tuna"], "blob", "#C98A6B"),
   F("salmon", ["protein"], "סלמון", "salmon", ["סלמון", "salmon"], "long", "#E9856B"),
   F("fish", ["protein"], "דג", "fish", ["דג לבן", "דג", "פילה דג", "white fish", "fish"], "long", "#D9C2A6"),
@@ -78,9 +78,9 @@ export const FOODS: Food[] = [
   F("milk", ["dairy"], "חלב", "milk", ["חלב", "milk"], "drop", "#F4F6FA"),
   // -- carbs
   F("wholeBread", ["carb"], "לחם מלא", "whole-grain bread", ["לחם מלא", "לחם קל", "whole bread", "whole-grain bread"], "slice", "#B98A54"),
-  F("bread", ["carb"], "לחם", "bread", ["פרוסת לחם", "לחם", "פרוסה", "bread", "toast"], "slice", "#D8AE76"),
+  F("bread", ["carb"], "לחם", "bread", ["פרוסת לחם", "לחם", "פרוסה", "bread", "toast", "לחמניה", "לחמניות", "חלה", "baguette", "roll"], "slice", "#D8AE76"),
   F("oats", ["carb"], "שיבולת שועל", "oats", ["שיבולת שועל", "קוואקר", "שיבולים", "oats", "oatmeal"], "grain", "#E3D5A8"),
-  F("rice", ["carb"], "אורז", "rice", ["אורז לבן", "אורז", "rice"], "grain", "#F3EFE0"),
+  F("rice", ["carb"], "אורז", "rice", ["אורז לבן", "אורז בסמטי", "אורז פרסי", "אורז", "בסמטי", "basmati", "rice"], "grain", "#F3EFE0"),
   F("pasta", ["carb"], "פסטה", "pasta", ["פסטה", "ספגטי", "פנה", "pasta", "spaghetti"], "long", "#EAD79B"),
   F("potato", ["carb", "veg"], "תפוח אדמה", "potato", ["תפוח אדמה", "תפוחי אדמה", "תפוד", "potato", "potatoes"], "round", "#D8B77A"),
   F("sweetPotato", ["carb", "veg"], "בטטה", "sweet potato", ["בטטה", "בטטות", "sweet potato"], "long", "#E08A4B"),
@@ -175,7 +175,7 @@ export const FOODS: Food[] = [
   F("fava", ["protein"], "פול", "fava beans", ["פול ירוק", "פול", "fava", "broad beans"], "grain", "#8FA05A"),
   F("tempeh", ["protein"], "טמפה", "tempeh", ["טמפה", "tempeh"], "slice", "#C8A96B"),
   // -- fermented & cultured dairy
-  F("labneh", ["dairy", "protein", "fat"], "לאבנה", "labneh", ["לאבנה", "לבאנה", "labneh"], "blob", "#F6F1E4"),
+  F("labneh", ["dairy", "protein", "fat"], "לאבנה", "labneh", ["לאבנה", "לבאנה", "לבנה", "labneh"], "blob", "#F6F1E4"),
   F("kefir", ["dairy", "protein"], "קפיר", "kefir", ["קפיר", "kefir"], "drop", "#F4F1E8"),
   F("skyr", ["dairy", "protein"], "סקיר", "skyr", ["סקיר", "skyr"], "blob", "#F8F5EC"),
   // -- oily fish

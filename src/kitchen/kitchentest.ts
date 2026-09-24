@@ -335,9 +335,9 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
 
 // --- an unknown food is captured as an extra, not dropped
 {
-  const full = readPantryFull("שניצל, אורז, קטע מוזר12");
+  const full = readPantryFull("פלאפל, אורז, קטע מוזר12");
   check("known foods still recognised alongside unknowns", full.known.some((f) => f.id === "rice"));
-  check("an unknown food (שניצל) becomes an extra", full.extras.includes("שניצל"));
+  check("an unknown food (פלאפל) becomes an extra", full.extras.includes("פלאפל"));
 }
 
 // --- stopwords never become ingredients
@@ -693,11 +693,36 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
     closestBundled({ id: "your-plate", uses: ["tomato", "egg"] }, lib, have) === "greek-salad");
   check("…and the lead ingredient decides between single matches",
     closestBundled({ id: "your-plate", uses: ["salmon", "tomato"] }, lib, have) === "salmon-rice");
+  check("the main protein decides over shared sides",
+    closestBundled({ id: "your-plate", uses: ["rice", "broccoli", "salmon"] }, lib, have) === "salmon-rice");
   check("no shared ingredient at all is no photo",
     closestBundled({ id: "your-plate", uses: ["dates"] }, lib, have) === null);
   check("a dish without a bundled photo is never chosen",
     closestBundled({ id: "x", uses: ["chickenBreast", "rice", "tomato"] }, lib, new Set(["no-photo-x"])) === null);
   check("an empty plate has no photo", closestBundled({ id: "x", uses: [] }, lib, have) === null);
+}
+
+// The list recognises how people actually write: plurals, prefixes, typos,
+// Israeli names — and a description is not an unknown food.
+{
+  const ids = (t: string) => readPantryFull(t).known.map((f) => f.id);
+  const extras = (t: string) => readPantryFull(t).extras;
+  const cases: [string, string][] = [
+    ["בצלים", "onion"], ["פרגיות", "chicken"], ["שניצל", "chicken"], ["סטייק", "beef"],
+    ["אורז בסמטי", "rice"], ["לבנה", "labneh"], ["נקניקיות", "sausage"], ["קישואים", "zucchini"],
+    ["חצילים", "eggplant"], ["ברוקלי", "broccoli"], ["עגבנייות", "tomato"], ["onions", "onion"],
+    ["avocados", "avocado"], ["strawberries", "strawberries"], ["לחמניה", "bread"], ["והבצל", "onion"],
+  ];
+  for (const [text, id] of cases) {
+    const got = ids(text);
+    check(`"${text}" is read as ${id}`, got.includes(id), got.join(","));
+  }
+  check("\"ביצים קשות\" is eggs, with nothing left over", ids("ביצים קשות").includes("egg") && extras("ביצים קשות").length === 0,
+    extras("ביצים קשות").join(","));
+  check("\"גבינה לבנה\" is still white cheese, not labneh", !ids("גבינה לבנה").includes("labneh"));
+  check("a recognised plural is not also listed as unknown", extras("בצלים, פרגיות").length === 0, extras("בצלים, פרגיות").join(","));
+  check("an unknown dish is still kept", extras("פלאפל").includes("פלאפל"));
+  check("short words are not guessed as typos", !ids("גז").length);
 }
 
 const failed = results.filter(([, ok]) => !ok);

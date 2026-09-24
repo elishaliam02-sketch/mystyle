@@ -49,7 +49,104 @@ const BREAK = /[\s,.;:/\-()·|\n\t]/;
  */
 const HE_PREFIX = new Set(["ו", "ה", "ב", "ל", "מ", "ש", "כ"]);
 
+/**
+ * Every single-word name a food answers to, for the forgiving second pass:
+ * plurals, a missing or extra letter. Built once.
+ */
+const SINGLE_TERMS: Map<string, Food> = (() => {
+  const m = new Map<string, Food>();
+  for (const food of FOODS) {
+    for (const t of food.match) {
+      const term = t.toLowerCase();
+      if (!term.includes(" ") && !m.has(term)) m.set(term, food);
+    }
+  }
+  return m;
+})();
+
+/** The forms a typed word might be the plural or prefixed version of. */
+function wordForms(word: string): string[] {
+  // Up to two prefix letters: "והבצל" is and-the-onion.
+  const bases = [word];
+  if (word.length > 3 && HE_PREFIX.has(word[0]!)) {
+    bases.push(word.slice(1));
+    if (word.length > 4 && HE_PREFIX.has(word[1]!)) bases.push(word.slice(2));
+  }
+  const out: string[] = [];
+  const add = (w: string) => {
+    if (w.length >= 2 && !out.includes(w)) out.push(w);
+  };
+  for (const b of bases) {
+    add(b);
+    // Hebrew plurals: בצלים → בצל, נקניקיות → נקניקייה, עגבניות → עגבנייה
+    if (b.endsWith("ים")) add(b.slice(0, -2));
+    if (b.endsWith("יות")) {
+      add(`${b.slice(0, -3)}ייה`);
+      add(`${b.slice(0, -3)}יה`);
+    }
+    if (b.endsWith("ות")) {
+      add(`${b.slice(0, -2)}ה`);
+      add(`${b.slice(0, -2)}ת`);
+      add(b.slice(0, -2));
+    }
+    // English plurals: berries → berry, tomatoes → tomato, onions → onion
+    if (b.endsWith("ies")) add(`${b.slice(0, -3)}y`);
+    if (b.endsWith("es")) add(b.slice(0, -2));
+    if (b.endsWith("s")) add(b.slice(0, -1));
+  }
+  return out;
+}
+
+/** At most one letter added, dropped or changed — a typo, not another word. */
+function oneEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else {
+      i++;
+      j++;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+/**
+ * The food a leftover word most likely means: its plural or prefixed form
+ * first, then a one-letter typo of a name at least five letters long (short
+ * words are too easily another word). Null when nothing is close.
+ */
+function forgivingMatch(word: string): Food | null {
+  const forms = wordForms(word);
+  for (const f of forms) {
+    const hit = SINGLE_TERMS.get(f);
+    if (hit) return hit;
+  }
+  for (const f of forms) {
+    if (f.length < 5) continue;
+    for (const [term, food] of SINGLE_TERMS) {
+      if (term.length >= 5 && term[0] === f[0] && oneEdit(f, term)) return food;
+    }
+  }
+  return null;
+}
+
 export function readPantry(text: string): Food[] {
+  return scanPantry(text).foods;
+}
+
+/** The recognised foods, plus the typed words the forgiving pass claimed —
+ * so readPantryFull does not list "בצלים" as unknown after reading it as onion. */
+function scanPantry(text: string): { foods: Food[]; claimed: Set<string> } {
   const hay = ` ${text.toLowerCase()} `;
   const found = new Map<string, Food>();
 
@@ -96,7 +193,17 @@ export function readPantry(text: string): Food[] {
     }
   }
 
-  return [...found.values()];
+  // Second pass over what the exact names left: plurals, prefixes, typos.
+  const claimed = new Set<string>();
+  for (const raw of masked.split(BREAK)) {
+    if (raw.length < 3 || STOPWORDS.has(raw)) continue;
+    const food = forgivingMatch(raw);
+    if (!food) continue;
+    claimed.add(raw);
+    if (!found.has(food.id)) found.set(food.id, food);
+  }
+
+  return { foods: [...found.values()], claimed };
 }
 
 /** Words that are not foods, so they never become a phantom ingredient. */
@@ -105,6 +212,16 @@ const STOPWORDS = new Set([
   "טריים", "קצוץ", "קצוצה", "חצי", "כמה", "מעט", "וחצי", "בבית", "אוכל", "ארוחה",
   "the", "and", "with", "some", "of", "to", "fresh", "bought", "have", "today",
   "little", "bit", "half", "few", "food", "meal", "for",
+  // How it is cooked or what state it is in — a description, not a food:
+  // "ביצים קשות" is eggs, "בשר קפוא" is meat.
+  "סלט", "מרק", "ירקות", "פירות",
+  "קשות", "קשה", "קשים", "רכה", "רכות", "מבושל", "מבושלת", "מבושלים", "מבושלות",
+  "מטוגן", "מטוגנת", "מטוגנים", "צלוי", "צלויה", "צלויים", "אפוי", "אפויה", "קלוי", "קלויה",
+  "קפוא", "קפואה", "קפואים", "קפואות", "מיובש", "מיובשים", "טחון", "טחונה", "פרוס", "פרוסות",
+  "מלא", "מלאה", "מלאים", "אורגני", "אורגנית", "ביתי", "ביתית", "גדול", "גדולה", "קטן", "קטנה",
+  "אדום", "אדומה", "ירוק", "ירוקה", "צהוב", "צהובה", "שחור", "שחורה", "לבן",
+  "boiled", "fried", "grilled", "roasted", "frozen", "dried", "sliced", "whole", "organic",
+  "red", "green", "yellow", "black", "white", "large", "small", "big",
 ]);
 
 /**
@@ -115,7 +232,7 @@ const STOPWORDS = new Set([
  * plate, estimated by category.
  */
 export function readPantryFull(text: string): { known: Food[]; extras: string[] } {
-  const known = readPantry(text);
+  const { foods: known, claimed } = scanPantry(text);
 
   // Every word any recognised food answers to, so we do not re-list it.
   const covered = new Set<string>();
@@ -131,7 +248,7 @@ export function readPantryFull(text: string): { known: Food[]; extras: string[] 
     const w = stripPrefix(raw);
     if (w.length < 2) continue;
     if (STOPWORDS.has(w) || STOPWORDS.has(raw)) continue;
-    if (covered.has(w) || covered.has(raw)) continue;
+    if (covered.has(w) || covered.has(raw) || claimed.has(raw)) continue;
     if (!/[a-z\u05d0-\u05ea]/.test(w)) continue; // must hold a real letter
     if (seen.has(w)) continue;
     seen.add(w);

@@ -9,20 +9,20 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-24",
+  id: "2026-09-24-b",
   he: [
-    "תמונות אמיתיות לכל תרגיל — ובהסבר, תמונת התחלה ותמונת סיום.",
-    "תוכנית אימון לפי רמה: מתחיל, בינוני או מתקדם (\"שנה תוכנית\").",
-    "צילום אמיתי לכל ארוחה, גם ל\"המנה שלך\".",
-    "עוזר חדש: \"צריך עזרה?\" עונה איפה הכול ולוקח אותך לשם.",
-    "מחשבון הקלוריות מראה גם פחמימות ושומן.",
+    "תוכנית אימון חדשה לגמרי: נבנית כמו אצל מאמן — תרגיל מרכזי ראשון, ואחריו תרגילי עזר שמתאימים לרמה שלך.",
+    "\"תוכנית חדשה\" מחליפה עכשיו תמיד את התרגילים באמת, לפי הרמה והמטרה.",
+    "רשימת המקרר מזהה הרבה יותר: רבים, שגיאות כתיב, פרגיות, שניצל, סטייק ועוד.",
+    "התמונה של \"המנה שלך\" מתאימה למנה העיקרית (סלמון מקבל סלמון).",
+    "מים: אפשר להגדיר גודל כוס משלך (\"משלי\").",
   ],
   en: [
-    "A real photo for every exercise — and start and finish frames in its explanation.",
-    "Workout plans by level: beginner, intermediate or advanced (\"Change plan\").",
-    "A real photo for every meal, your plate included.",
-    "New guide: \"Need help?\" answers where everything is and takes you there.",
-    "The calorie calculator now shows carbs and fat too.",
+    "A brand-new workout plan: built like a coach's — the main lift first, then accessories that fit your level.",
+    "\"New plan\" now always really changes the exercises, by level and goal.",
+    "The fridge list recognises far more: plurals, typos, and more foods.",
+    "\"Your plate\" wears a photo of its main ingredient (salmon gets salmon).",
+    "Water: set your own cup size (\"Mine\").",
   ],
 };
 

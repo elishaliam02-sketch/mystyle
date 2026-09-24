@@ -1,4 +1,5 @@
-import { applyDayEdits, buildPlan, EQUIP_SETS } from "./plan";
+import { applyDayEdits, buildPlan, EQUIP_SETS, freshSeed, sameShare } from "./plan";
+import { SLOT_OPTIONS } from "./templates";
 import { difficulty, LEVELS } from "./difficulty";
 import { EXERCISES, MUSCLES } from "./exercises";
 import { allExercises, countByMuscle, equipmentKinds, filterExercises, matches } from "./library";
@@ -361,8 +362,9 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("a beginner gym plan is built from beginner moves", all(gymBeg).every((e) => difficulty(e.id) === 1),
     all(gymBeg).filter((e) => difficulty(e.id) !== 1).map((e) => e.id).join(","));
   const adv = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "advanced" });
-  check("an advanced gym plan opens days on hard lifts", adv.sessions.filter((d) => difficulty(d.exercises[0]!.id) === 3).length >= 2,
-    adv.sessions.map((d) => d.exercises[0]!.id).join(","));
+  check("an advanced plan includes the heavy, technical lifts",
+    adv.sessions.flatMap((d) => d.exercises).filter((e) => difficulty(e.id) === 3).length >= 2,
+    adv.sessions.map((d) => d.exercises.map((e) => e.id).join(",")).join(" / "));
   const mid = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "intermediate" });
   check("beginners do fewer sets, advanced more", gymBeg.sets < mid.sets && adv.sets > mid.sets, `${gymBeg.sets} ${mid.sets} ${adv.sets}`);
   check("a beginner session is a move shorter", gymBeg.sessions[0]!.exercises.length < mid.sessions[0]!.exercises.length);
@@ -384,6 +386,63 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   const beg = filterExercises({ level: 1 });
   check("the beginner filter shows only beginner moves", beg.length > 30 && beg.every((e) => difficulty(e.id) === 1));
   check("no level filter shows everything", filterExercises({}).length === EXERCISES.length);
+}
+
+// The coach-shaped generator: every level, goal, kit and split.
+{
+  const byId = new Map(EXERCISES.map((e) => [e.id, e]));
+  const allIds = Object.values(SLOT_OPTIONS).flatMap((o) => [...o.beginner, ...o.intermediate, ...o.advanced]);
+  const missing = allIds.filter((id) => !byId.has(id));
+  check("every template exercise exists in the library", missing.length === 0, missing.join(","));
+  const tooHardB = Object.values(SLOT_OPTIONS).flatMap((o) => o.beginner).filter((id) => difficulty(id) > 1);
+  check("beginner lists hold only beginner moves", tooHardB.length === 0, tooHardB.join(","));
+  const tooHardI = Object.values(SLOT_OPTIONS).flatMap((o) => o.intermediate).filter((id) => difficulty(id) > 2);
+  check("intermediate lists hold no advanced moves", tooHardI.length === 0, tooHardI.join(","));
+
+  const goals = ["cut", "recomp", "maintain", "bulk"] as const;
+  const levels = ["beginner", "intermediate", "advanced"] as const;
+  let short = "", badGym = "", badKit = "", dupes = "", noFinisher = "", tooHard = "";
+  for (const goal of goals) for (const level of levels) for (const equip of ["gym", "home", "bodyweight"]) for (const days of [2, 3, 4, 5, 6]) {
+    const p = buildPlan(goal, days, 60, equip, { seed: `${goal}${level}${equip}${days}`, level });
+    const kit = new Set(EQUIP_SETS[equip]);
+    for (const d of p.sessions) {
+      const tag = `${goal}/${level}/${equip}/${days}/${d.type}`;
+      if (d.exercises.length < (equip === "bodyweight" ? 3 : 4)) short ||= `${tag}:${d.exercises.length}`;
+      if (d.exercises.some((e) => !kit.has(e.equipment))) badKit ||= tag;
+      if (new Set(d.exercises.map((e) => e.id)).size !== d.exercises.length) dupes ||= tag;
+      if (equip === "gym" && d.exercises.some((e) => e.equipment === "band")) badGym ||= tag;
+      if (goal === "cut" && d.exercises.length >= 4 && !["mountain-climber", "step-up", "kb-swing", "burpee", "thruster", "devil-press"].includes(d.exercises.at(-1)!.id)) noFinisher ||= tag;
+      if (level === "beginner" && d.exercises.some((e) => difficulty(e.id) === 3)) tooHard ||= tag;
+    }
+  }
+  check("every day of every plan has a full session", !short, short);
+  check("no plan uses equipment the person does not have", !badKit, badKit);
+  check("no exercise appears twice in one day", !dupes, dupes);
+  check("a gym plan never uses bands", !badGym, badGym);
+  check("a cut day ends on a conditioning finisher", !noFinisher, noFinisher);
+  check("a beginner never gets an advanced lift", !tooHard, tooHard);
+
+  const gymInt = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "intermediate" });
+  const first = gymInt.sessions.map((d) => d.exercises[0]!.id);
+  check("every day opens on its main lift", first.every((id) => ["bench-press", "db-bench", "incline-press", "incline-barbell", "squat", "hack-squat", "leg-press", "goblet-squat", "box-squat"].includes(id)), first.join(","));
+  const upper = gymInt.sessions.filter((d) => d.type === "upper");
+  check("the two upper days are different sessions", upper.length === 2 && sameShare({ ...gymInt, sessions: [upper[0]!] }, { ...gymInt, sessions: [upper[1]!] }) < 0.5);
+
+  const beg = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "beginner" });
+  const adv = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "advanced" });
+  check("a beginner and an advanced lifter get different exercises", sameShare(beg, adv) < 0.3);
+
+  const focus = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "intermediate", focus: ["arms"] });
+  const upperFocus = focus.sessions[0]!.exercises.map((e) => e.muscle);
+  check("a focus muscle gets its work early and twice", upperFocus.slice(1, 4).includes("arms") && upperFocus.filter((m) => m === "arms").length >= 2, upperFocus.join(","));
+
+  // "New plan" always changes the week.
+  for (const [equip, level] of [["gym", "intermediate"], ["home", "beginner"], ["bodyweight", "intermediate"]] as const) {
+    const make = (seed: string) => buildPlan("recomp", 3, 60, equip, { seed, level });
+    const current = make("start");
+    const next = freshSeed(current, make, Array.from({ length: 12 }, (_, k) => `try${k}`));
+    check(`"new plan" changes a ${equip} ${level} week`, sameShare(current, make(next)) <= 0.6, String(sameShare(current, make(next))));
+  }
 }
 
 const failed = results.filter(([, ok]) => !ok);
