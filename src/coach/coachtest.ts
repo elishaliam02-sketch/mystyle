@@ -194,6 +194,21 @@ check("six openers are offered in each language",
   check("'חומוס' is the spread", parseEaten("חומוס", "he")?.items[0]?.food.id === "hummusSpread");
 }
 
+// Word starts, not substrings; and the answers that must be safe.
+{
+  const topic = (q: string) => coachReply(q, ctx, "he").topic;
+  check("'פעמים' is not water", topic("כמה פעמים בשבוע להתאמן") === "plan", topic("כמה פעמים בשבוע להתאמן"));
+  check("a crash target is refused with the healthy pace", topic("אני רוצה לרדת 10 קילו בחודש") === "crash"
+    && coachReply("אני רוצה לרדת 10 קילו בחודש", ctx, "he").text.includes("חצי עד קילו"));
+  check("skipping food is answered with 'eat now'", topic("לא אכלתי כל היום") === "crash");
+  check("a teenager gets a safe yes", topic("אני בן 15 אפשר להתאמן") === "youth");
+  check("knee pain is a pain answer", topic("כואב לי הברך") === "soreness");
+  check("a bad night is a sleep answer", topic("לא ישנתי טוב") === "sleep");
+  check("thanks is answered", topic("תודה") === "thanks");
+  check("feeling fat gets support, not a diet", topic("אני מרגיש שמן") === "bodyImage");
+  check("'how many calories in a banana' looks the food up", topic("כמה קלוריות יש בבננה") === "canEat");
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

@@ -60,6 +60,10 @@ export type CoachTopic =
   | "hunger"
   | "belly"
   | "timeline"
+  | "thanks"
+  | "youth"
+  | "crash"
+  | "bodyImage"
   | "unknown";
 
 export type CoachReply = { topic: CoachTopic; text: string };
@@ -70,13 +74,13 @@ const KEYWORDS: Partial<Record<Exclude<CoachTopic, "unknown">, string[]>> = {
   protein: ["חלבון", "חלבונים", "protein", "whey", "אבקת"],
   water: ["מים", "שתי", "לשתות", "כוסות", "water", "drink", "hydrat"],
   steps: ["צעד", "צעדים", "הליכה", "ללכת", "step", "walk"],
-  weight: ["משקל", "לרדת", "לעלות", "שוקל", "תקוע", "פלטו", "מאזניים", "weight", "lose", "gain", "plateau", "scale"],
-  plan: ["תוכנית", "אימון", "אימונים", "תרגיל", "תרגילים", "סטים", "חזרות", "workout", "plan", "exercise", "sets", "reps", "train"],
+  weight: ["משקל", "לרדת", "לעלות", "חיטוב", "להתחטב", "שוקל", "תקוע", "פלטו", "מאזניים", "weight", "lose", "gain", "plateau", "scale"],
+  plan: ["תוכנית", "אימון", "אימונים", "להתאמן", "מתאמן", "התאמנות", "תרגיל", "תרגילים", "סטים", "חזרות", "workout", "plan", "exercise", "sets", "reps", "train"],
   cardio: ["אירובי", "ריצה", "הליכון", "אופניים", "cardio", "run", "running", "bike"],
   kosher: ["כשר", "כשרות", "בשרי", "חלבי", "kosher", "vegetarian", "צמחוני", "טבעוני", "גלוטן", "gluten"],
   portions: ["מנה", "מנות", "כמות", "גרם", "לשקול", "portion", "serving", "grams", "how much"],
-  soreness: ["כאב", "כאבים", "תפוס", "שרירים כואבים", "פציעה", "sore", "pain", "ache", "injury"],
-  sleep: ["שינה", "לישון", "עייף", "sleep", "tired", "rest"],
+  soreness: ["כאב", "כאבים", "כואב", "כואבת", "תפוס", "שרירים כואבים", "פציעה", "נפצעתי", "ברך", "כתף", "מרפק", "sore", "pain", "ache", "injury", "knee", "shoulder"],
+  sleep: ["שינה", "לישון", "ישנתי", "עייף", "עייפה", "sleep", "slept", "tired", "rest"],
   motivation: ["מוטיבציה", "אין לי כוח", "לוותר", "קשה לי", "נמאס", "להתמיד", "מתמיד", "עקביות", "נשבר", "motivation", "give up", "hard", "quit", "consistent", "stick to"],
   supplements: ["תוסף", "תוספים", "קריאטין", "ויטמין", "supplement", "creatine", "vitamin"],
   bodyfat: ["אחוז שומן", "שומן", "רזה", "body fat", "fat percent", "lean"],
@@ -94,7 +98,13 @@ function fold(s: string): string {
  * about calories in general, and "מה לאכול בערב" wants dishes, not a number.
  */
 const INTENTS: [Exclude<CoachTopic, "unknown">, RegExp][] = [
-  ["canEat", /(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|can i (eat|have)|is .+ (ok|okay|bad|healthy))/],
+  // Safety first: an extreme target or skipping food is answered as such
+  // before anything else reads it as a weight or calorie question.
+  ["crash", /((לרדת|להוריד) ?\d+ ?(קילו|ק"ג|ק״ג|kg).{0,8}(בחודש|בשבוע|בשבועיים|בעשרה ימים)|לא אכלתי כל היום|לא לאכול בכלל|לדלג על ארוח|להפסיק לאכול|lose \d+ ?(kg|kilos?|pounds|lbs) in (a|one|two) (week|month)|skip(ping)? (meals|breakfast|dinner)|stop eating)/],
+  ["youth", /((אני )?(בן|בת) 1[0-7]\b|בגיל 1[0-7]\b|i'?m 1[0-7]\b|i am 1[0-7]\b)/],
+  ["bodyImage", /(מרגיש שמן|מרגישה שמנה|שונא את הגוף|שונאת את הגוף|מכוער|מכוערת|i feel fat|hate my body)/],
+  ["thanks", /^(תודה|תודה רבה|תנקס|אחלה תודה|thanks|thank you|thx|ty)[\s!?.🙏❤️]*$/],
+  ["canEat", /(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|כמה (קלוריות|חלבון) (יש )?ב|can i (eat|have)|is .+ (ok|okay|bad|healthy)|how many calories (are )?in)/],
   ["mealIdea", /(מה (כדאי )?(לאכול|להכין|אוכל)|רעיון ל(ארוחה|אוכל)|מה לבשל|ארוחת (ערב|בוקר|צהריים) (מה|רעיון)|what (should|can) i (eat|cook|make)|meal idea|dinner idea)/],
   ["hunger", /(רעב|רעבה|חשק|נשנוש|לנשנש|hungry|craving|snack)/],
   ["belly", /(בטן|כרס|שומן מקומי|קוביות|six ?pack|belly|abs\b|love handles)/],
@@ -110,10 +120,18 @@ export function classify(question: string): CoachTopic {
   if (!q) return "unknown";
   let best: CoachTopic = "unknown";
   let bestScore = 0;
+  // Keywords match at the start of a word (after one Hebrew prefix letter),
+  // not anywhere inside one: "מים" is not in "פעמים", "שתי" not in "שתיתי בירה".
+  const tokens = q.split(" ");
+  const hits = (w: string): boolean => {
+    const k = fold(w);
+    if (k.includes(" ")) return q.includes(k);
+    return tokens.some((t) => t.startsWith(k) || (t.length > k.length && "והבלמשכ".includes(t[0]!) && t.slice(1).startsWith(k)));
+  };
   for (const [topic, words] of Object.entries(KEYWORDS) as [Exclude<CoachTopic, "unknown">, string[]][]) {
     let score = 0;
     for (const w of words) {
-      if (q.includes(fold(w))) score += w.length >= 5 ? 2 : 1;
+      if (hits(w)) score += w.length >= 5 ? 2 : 1;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -321,6 +339,10 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
         `שינה היא החלק שהכי קל להזניח והכי משפיע: פחות משבע שעות מעלה רעב ומוריד ביצועים באימון.`,
         `Sleep is the easiest thing to neglect and the most costly: under seven hours raises hunger and lowers training performance.`,
       );
+      say(
+        `אחרי לילה גרוע: אימון קל יותר או הליכה במקום אימון כבד, ארוחות עם חלבון כדי לא להתפתות, ומסך כבוי חצי שעה לפני השינה הלילה.`,
+        `After a bad night: train lighter or walk instead of lifting heavy, eat protein so cravings don't win, and screens off half an hour before bed tonight.`,
+      );
       break;
     }
     case "motivation": {
@@ -386,9 +408,50 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
       );
       break;
     }
+    case "thanks": {
+      say(`בכיף! אני פה כשצריך 💪`, `Any time! I'm here when you need me 💪`);
+      break;
+    }
+    case "youth": {
+      say(
+        `כן — אימון בגיל הזה בטוח ומועיל, כשהוא נעשה נכון: קודם טכניקה, משקל גוף ומשקלים קלים, ולהעלות בהדרגה.`,
+        `Yes — training at your age is safe and good for you when it's done right: technique first, bodyweight and light weights, building up gradually.`,
+      );
+      say(
+        `מה שלא עושים: דיאטות קיצוניות, דילוג על ארוחות או תוספים בלי רופא. הגוף עוד גדל — הוא צריך אוכל מלא, חלבון ושינה. כדאי לספר להורה, ואם יש בעיה רפואית — לשאול רופא.`,
+        `What not to do: extreme diets, skipped meals or supplements without a doctor. Your body is still growing — it needs full meals, protein and sleep. Tell a parent, and ask a doctor if you have a medical condition.`,
+      );
+      break;
+    }
+    case "crash": {
+      say(
+        `אני לא אבנה לך תוכנית כזו — ירידה מהירה מדי או ימים בלי אוכל שורפים שריר, מורידים אנרגיה, ומה שיורד מהר חוזר מהר.`,
+        `I won't build that — losing too fast or going days without food burns muscle, drains energy, and what comes off fast comes back fast.`,
+      );
+      say(
+        `הקצב הבריא הוא חצי עד קילו בשבוע. לאכול 3 ארוחות עם חלבון, בגירעון קטן — זה מה שעובד ונשאר. אם לא אכלת היום — תאכל עכשיו משהו עם חלבון, זה לא "מקלקל" כלום.`,
+        `The healthy pace is half a kilo to a kilo a week. Three meals with protein, in a small deficit — that's what works and lasts. If you haven't eaten today, eat something with protein now; it doesn't "ruin" anything.`,
+      );
+      say(
+        `אם אתה מרגיש שהאוכל שולט בך או שקשה לך לאכול — שווה לדבר עם מישהו קרוב או עם רופא.`,
+        `If food feels like it's controlling you, or eating is hard — it's worth talking to someone close or a doctor.`,
+      );
+      break;
+    }
+    case "bodyImage": {
+      say(
+        `זה קורה להרבה אנשים, וזה לא אומר שאתה לא מתקדם. מראה במראה קופץ מיום ליום — הממוצע השבועי והתמונות כל שבוע מראים את האמת.`,
+        `Lots of people feel that, and it doesn't mean you're not progressing. The mirror swings day to day — the weekly average and a weekly photo show the truth.`,
+      );
+      say(
+        `תסתכל על מה שכן עשית השבוע, ותבחר דבר אחד קטן להיום. ואם התחושה הזו כבדה עליך — תדבר עם מישהו שאתה סומך עליו.`,
+        `Look at what you did do this week, and pick one small thing for today. And if this feeling weighs on you, talk to someone you trust.`,
+      );
+      break;
+    }
     case "canEat": {
       const food = question
-        .replace(/(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|can i eat|can i have|is it ok to eat)/gi, "")
+        .replace(/(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|כמה (קלוריות|חלבון) (יש )?ב|can i eat|can i have|is it ok to eat|how many calories (are )?in)/gi, "")
         .replace(/[?!.]/g, "")
         .trim();
       const { score, food: known } = scoreAnything(food || question);
