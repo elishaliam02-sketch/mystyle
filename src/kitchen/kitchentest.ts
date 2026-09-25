@@ -6,7 +6,7 @@
 import { dailyTarget, dietConflicts, dietList, dietSpec, dietOk, dietHidden, foodDietOk, plateLook, plateForGoal, searchFoods, shoppingList, goalFit, commonsSearchUrl, closestBundled, creditFor, pickPhoto, photoQueries, readPantry, readPantryFull, suggestMeals, slotForHour, starterMeals, yourPlate } from "./index";
 import type { CommonsPage } from "./index";
 import type { Meal } from "./data";
-import { MEALS, FOODS, adhocFood, foodNutrition, gramsNutrition, mealAmount, portion, timesLabel } from "./data";
+import { MEALS, FOODS, adhocFood, foodNutrition, gramsNutrition, mealAmount, portion, scaledHousehold, timesLabel } from "./data";
 
 const results: [string, boolean, string?][] = [];
 function check(name: string, pass: boolean, detail?: string) {
@@ -840,6 +840,23 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("\"שניצלים\" finds schnitzel", searchFoods("שניצלים").some((f) => f.id === "schnitzel"));
   check("\"פלאפל\" finds falafel first", searchFoods("פלאפל")[0]?.id === "falafel");
   check("\"קולה\" finds cola", searchFoods("קולה").some((f) => f.id === "cola"));
+}
+
+// --- a plate is one coherent dish, not the fridge
+{
+  const f = (id: string) => FOODS.find((x) => x.id === id)!;
+  const fridge = ["chicken", "rice", "broccoli", "egg", "tomato", "cucumber", "greekYogurt", "banana"].map(f);
+  const lunch = plateForGoal(fridge, "lunch", "cut")!;
+  check("meat on the plate sends the yogurt and banana elsewhere", !lunch.uses.includes("greekYogurt") && !lunch.uses.includes("banana"), lunch.uses.join());
+  check("a plate carries five things at most", plateForGoal(fridge, "lunch", "maintain")!.uses.length <= 5, plateForGoal(fridge, "lunch", "maintain")!.uses.join());
+  const breakfast = plateForGoal(fridge, "breakfast", "cut")!;
+  check("breakfast is built on the eggs, not the chicken", breakfast.uses.includes("egg") && !breakfast.uses.includes("chicken"), breakfast.uses.join());
+  const r = suggestMeals("ביצים, עגבנייה, מלפפון", { goal: "cut", slot: "breakfast" });
+  check("olive oil is assumed at home: the omelette is ready", r.ready.some((m) => m.meal.id === "omelette-salad"));
+  check("and no shopping list asks for oil", !shoppingList(r.almost).some((x) => x.food.id === "oliveOil"));
+  check("2 eggs at ¾ read as 1½ eggs", scaledHousehold("2 ביצים", 0.75, "he") === "\u20661½\u2069 ביצים", scaledHousehold("2 ביצים", 0.75, "he"));
+  check("half a portion reads as half", scaledHousehold("חזה בינוני", 0.5, "he") === "חצי חזה בינוני");
+  check("other amounts keep a multiplier", scaledHousehold("כף", 1.5, "he").includes("×"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

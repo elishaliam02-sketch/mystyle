@@ -17,6 +17,19 @@ type Props = {
   maxLength?: number;
 };
 
+/**
+ * What a number field keeps of what was typed or pasted: digits and one
+ * decimal mark. A phone's number pad already offers little else, but a paste,
+ * a hardware keyboard or the web does not — and "דני" in the weight field used
+ * to reach the store as NaN.
+ */
+export function cleanNumber(raw: string): string {
+  const kept = raw.replace(/[^0-9.,]/g, "");
+  const mark = kept.search(/[.,]/);
+  if (mark === -1) return kept;
+  return kept.slice(0, mark + 1) + kept.slice(mark + 1).replace(/[.,]/g, "");
+}
+
 export function TextField({
   value,
   onChangeText,
@@ -32,6 +45,7 @@ export function TextField({
 }: Props) {
   const { colors, space, radius, type } = useTheme();
   const { isRTL } = useI18n();
+  const numeric = keyboardType === "numeric" || keyboardType === "decimal-pad" || keyboardType === "number-pad";
 
   return (
     <View style={{ gap: space.xs }}>
@@ -42,7 +56,7 @@ export function TextField({
       ) : null}
       <TextInput
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={numeric ? (next) => onChangeText(cleanNumber(next)) : onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.inkFaint}
         keyboardType={keyboardType}

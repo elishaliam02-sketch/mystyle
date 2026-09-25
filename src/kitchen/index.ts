@@ -1,7 +1,7 @@
-import { DIET_CLASS, FOODS, MEALS, foodNutrition, gramsNutrition, portion, timesLabel, type Food, type Meal, type MealNote, type MealSlot, type FoodTag, type Portion } from "./data";
+import { DIET_CLASS, FOODS, MEALS, foodNutrition, gramsNutrition, portion, scaledHousehold, type Food, type Meal, type MealNote, type MealSlot, type FoodTag, type Portion } from "./data";
 
 export type { Food, Meal, MealNote, MealSlot, FoodTag, Shape } from "./data";
-export { FOODS, MEALS, portion, adhocFood, foodNutrition, gramsNutrition, mealAmount, timesLabel } from "./data";
+export { FOODS, MEALS, portion, adhocFood, foodNutrition, gramsNutrition, mealAmount, scaledHousehold, timesLabel } from "./data";
 export type { Portion } from "./data";
 // The meal photographs: real pictures from Wikimedia Commons, the hosts they
 // come from (which the privacy policy has to name), and the picker that keeps a
@@ -16,7 +16,7 @@ export {
   PHOTO_HOSTS,
 } from "./photo";
 export type { CommonsPage, CommonsImage, Photo } from "./photo";
-export { closestBundled, fetchFoodPhoto, foodPhotoQueries, mainIngredient, plateLook, NATIVE_HEADERS } from "./photo";
+export { closestBundled, fetchFoodPhoto, foodPhotoQueries, mainIngredient, plateLook, WEAK_MEAL_PHOTOS, NATIVE_HEADERS } from "./photo";
 export type { PlateLook } from "./photo";
 
 // "Can I eat this?" — any food, priced out of ten, on the device. See `score.ts`.
@@ -500,6 +500,12 @@ export function searchFoods(query: string, limit = 12): Food[] {
     .map((x) => x.food);
 }
 
+/** What any kitchen already has, so no dish waits on it and no list asks for it. */
+export const STAPLES: ReadonlySet<string> = new Set([
+  "oliveOil", "canolaOil", "salt", "blackPepper",
+  ...FOODS.filter((f) => f.tags[0] === "spice").map((f) => f.id),
+]);
+
 /** One thing to buy, and how many of the near-miss meals it would unlock. */
 export type ShoppingItem = { food: Food; count: number };
 
@@ -656,7 +662,9 @@ export function suggestMeals(pantryText: string, opts: SuggestOptions = {}): Kit
   const goal = opts.goal ?? "cut";
   const almostGap = opts.almostGap ?? 2;
   const pantry = readPantry(pantryText);
-  const have = new Set(pantry.map((f) => f.id));
+  // Oil, salt, pepper and the spice rack are in every kitchen whether or not
+  // they made the list: an omelette is not "almost ready — buy olive oil".
+  const have = new Set([...pantry.map((f) => f.id), ...STAPLES]);
   const food = (id: string) => FOODS.find((f) => f.id === id);
 
   const matches: MealMatch[] = MEALS.map((meal) => {
@@ -761,6 +769,12 @@ function kindOf(food: Food): FoodTag {
   return food.tags[0] ?? "carb";
 }
 
+/** Dairy that belongs with fruit and cereal rather than beside meat. */
+const SWEET_DAIRY = new Set(["greekYogurt", "skyr", "kefir", "milk", "cottage", "proteinYogurt", "milky", "leben", "proteinPudding", "chocolateMilk", "iceCream"]);
+
+/** The most ingredients one suggested plate carries. */
+const MAX_PLATE = 5;
+
 /** Salt, a coffee or a cake is on the list, but is not what a plate is made of. */
 const NOT_A_PLATE = new Set<FoodTag>(["spice", "drink", "sweet"]);
 
@@ -811,10 +825,37 @@ export function plateForGoal(
     else byKind.set(k, [f]);
   }
 
+  // Morning and snack plates are built on eggs, dairy or plant protein when
+  // the fridge has them: chicken breast at 8 a.m. is a valid answer, but not
+  // the one a person opening the app at breakfast expects.
+  const lightMeal = slot === "breakfast" || slot === "snack";
+  const morningProtein = (f: Food) => f.id === "egg" || f.id === "omelette" || f.id === "eggWhite" || !isFlesh(f);
+  const proteinRank = (f: Food) => rank(f) + (lightMeal && morningProtein(f) ? 1000 : 0);
+
   const chosen: Food[] = [];
-  for (const [kind, list] of byKind) {
+  for (const [kind, all] of byKind) {
     const take = shape[kind] ?? 1;
-    chosen.push(...[...list].sort((a, b) => rank(b) - rank(a)).slice(0, take));
+    const order = kind === "protein" ? proteinRank : rank;
+    const list = kind === "protein" && lightMeal && all.some(morningProtein) ? all.filter(morningProtein) : all;
+    chosen.push(...[...list].sort((a, b) => order(b) - order(a)).slice(0, take));
+  }
+
+  // One plate, one idea. With meat or fish on it, the yogurt and the banana
+  // belong to another meal — chicken, broccoli, yogurt, banana and eggs on a
+  // single card read as a fridge inventory, not a dish. Hard cheeses and
+  // labneh stay: they go with savoury food.
+  if (chosen.some((f) => kindOf(f) === "protein" && isFlesh(f))) {
+    for (let i = chosen.length - 1; i >= 0; i--) {
+      const f = chosen[i]!;
+      if (kindOf(f) === "fruit" || SWEET_DAIRY.has(f.id)) chosen.splice(i, 1);
+    }
+  }
+  // And five things at most: protein and carbs first, then the vegetables
+  // and the rest, so a long list still yields a plate someone would cook.
+  if (chosen.length > MAX_PLATE) {
+    const priority: FoodTag[] = ["protein", "carb", "veg", "fat", "dairy", "fruit"];
+    chosen.sort((a, b) => priority.indexOf(kindOf(a)) - priority.indexOf(kindOf(b)));
+    chosen.length = MAX_PLATE;
   }
   // A goal that wants none of what is in the fridge must still yield a plate:
   // top it up with whatever ranks best among the leftovers.
@@ -862,8 +903,7 @@ export function plateForGoal(
     const m = share > 1 ? Math.max(0.5, Math.round((whole / share) * 4) / 4) : whole;
     const std = portion(f.id);
     const g = m === 1 ? std.g : Math.max(1, Math.round((std.g * m) / 5) * 5);
-    const times = timesLabel(g / std.g);
-    amounts[f.id] = times ? { g, he: `${std.he} ${times}`, en: `${std.en} ${times}` } : std;
+    amounts[f.id] = g === std.g ? std : { g, he: scaledHousehold(std.he, g / std.g, "he"), en: scaledHousehold(std.en, g / std.g, "en") };
     const n = gramsNutrition(f, g);
     kcal += n.kcal;
     protein += n.protein;

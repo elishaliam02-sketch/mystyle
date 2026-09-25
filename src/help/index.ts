@@ -386,11 +386,11 @@ export const HELP_TOPICS: HelpTopic[] = [
     keys: ["מנוי", "פרימיום", "לשלם", "מחיר", "כמה עולה", "תשלום", "ניסיון", "subscription", "premium", "pro", "price", "pay", "trial"],
     he: {
       title: "המנוי",
-      answer: "במסך המנוי רואים מה כלול, את המחיר ואת ימי הניסיון. חלק מהדברים (כמו הודעות למאמן וסריקת תמונות) מוגבלים ביום בגרסה החינמית.",
+      answer: "כרגע הכול באפליקציה פתוח וחינמי, בלי הגבלות. כשהמנוי ייפתח, מסך המנוי יראה מה כלול, את המחיר ואת שבוע הניסיון — ומה שכבר יצרת יישאר שלך.",
     },
     en: {
       title: "Subscription",
-      answer: "The plans screen shows what's included, the price and the trial. Some things (coach messages, photo scans) have a daily limit on the free plan.",
+      answer: "Right now everything in the app is open and free, with no limits. When the subscription opens, the plans screen will show what's included, the price and the trial week — and everything you've made stays yours.",
     },
   },
   {

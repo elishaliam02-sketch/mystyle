@@ -147,11 +147,34 @@ check("six openers are offered in each language",
     const eggs = one?.items.find((i) => i.food.id === "egg");
     return !!eggs && eggs.count === 1;
   })(), JSON.stringify(parseEaten("אכלתי ביצה","he")));
+  check("two eggs are two eggs, not two portions of two", (() => {
+    const two = parseEaten("אכלתי 2 ביצים", "he");
+    return !!two && two.kcal === 143;
+  })(), String(parseEaten("אכלתי 2 ביצים", "he")?.kcal));
+  check("one egg is half the two-egg portion", parseEaten("אכלתי ביצה", "he")?.kcal === 72);
+  check("grams written are grams eaten", parseEaten("אכלתי 200 גרם חזה עוף", "he")?.kcal === 330);
+  check("three falafel are three balls", parseEaten("אכלתי 3 פלאפל", "he")?.kcal === 170);
+  check("a named portion with no number is one portion", parseEaten("אכלתי שניצל", "he")?.kcal === 387);
   check("an absurd quantity is capped", (() => {
     const lots = parseEaten("אכלתי 9999 ביצים", "he");
     const eggs = lots?.items.find((i) => i.food.id === "egg");
     return !!eggs && eggs.count <= 50;
   })());
+}
+
+// --- the questions people actually type
+{
+  const ctx = { name: "דני", goal: "cut" as const, kcalTarget: 2200, kcalEaten: 1400, steps: 5000, stepGoal: 8000,
+    weeklyChangeKg: -0.5, currentKg: 88, goalKg: 80 };
+  const ask = (q: string) => coachReply(q, ctx, "he");
+  check("'can I eat pizza' is about pizza", ask("מותר לי פיצה?").topic === "canEat" && ask("מותר לי פיצה?").text.includes("/10"));
+  check("'what to eat tonight' names dishes", ask("מה לאכול בערב?").topic === "mealIdea" && ask("מה לאכול בערב?").text.includes("•"));
+  check("hunger gets hunger advice", ask("אני רעב מה לעשות").topic === "hunger");
+  check("belly fat is answered honestly", ask("איך מורידים בטן?").topic === "belly");
+  check("'how long' uses the real pace", ask("כמה זמן עד היעד?").text.includes("16 שבועות"), ask("כמה זמן עד היעד?").text);
+  check("a hello gets a hello", ask("היי").topic === "greeting");
+  check("'can't stick to it' is motivation", ask("אני לא מצליח להתמיד").topic === "motivation");
+  check("3,000 steps is about 30 minutes, not 2", ask("כמה צעדים עשיתי").text.includes("30 דקות"));
 }
 
 const failed = results.filter(([, ok]) => !ok);

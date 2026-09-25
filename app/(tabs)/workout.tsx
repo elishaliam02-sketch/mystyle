@@ -39,7 +39,7 @@ const MINUTES = [30, 45, 60, 75, 90];
 const EQUIP = ["gym", "home", "bodyweight"] as const;
 
 export default function WorkoutScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
     addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode } = useStore();
@@ -58,6 +58,8 @@ export default function WorkoutScreen() {
   // How experienced the person is — decides whether the plan hands them
   // machines and the basics, or deadlifts and pull-ups.
   const [level, setLevel] = useState<Level>(training?.level ?? "intermediate");
+  // The day whose set tables are open; null = the next one to train.
+  const [openDay, setOpenDay] = useState<number | null>(null);
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -442,6 +444,12 @@ export default function WorkoutScreen() {
   // Exercises pulled in from the library for today, shown on the first session.
   const extraIds = todayExtras();
   const extraExercises = [...EXERCISES, ...custom].filter((e) => extraIds.includes(e.id));
+  const exName = (e: { he: string; en: string }) => (locale === "he" ? e.he : e.en);
+  const nextDay = sessions.findIndex((s, i) => {
+    const all = [...s.exercises, ...(i === 0 ? extraExercises : [])];
+    return all.length > 0 && all.some((e) => !isExerciseDone(e.id));
+  });
+  const shownDay = openDay ?? (nextDay === -1 ? 0 : nextDay);
 
   // Lifetime and this-week training figures, straight from the log.
   const log = training.log;
@@ -545,6 +553,36 @@ export default function WorkoutScreen() {
           const dayExercises = [...session.exercises, ...(i === 0 ? extraExercises : [])];
           const done = dayExercises.filter((e) => isExerciseDone(e.id)).length;
           const total = dayExercises.length;
+          // One day open at a time — the one to train next, unless the person
+          // opened another. Three days with every set table showing made a
+          // screen six thousand pixels long, and today's session was lost in it.
+          if (i !== shownDay) {
+            return (
+              <Pressable
+                key={`${session.type}-${i}`}
+                onPress={() => setOpenDay(i)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: false }}
+              >
+                <Card label={fill(t.workout.day, { n: i + 1 })}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[type.title, { color: colors.ink }]}>{dayLabel[session.type]}</Text>
+                      <Text style={[type.small, { color: colors.inkSoft }]} numberOfLines={2}>
+                        {dayExercises.map((e) => exName(e)).join(" · ") || t.workout.dayEmpty}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 2 }}>
+                      <Text style={[type.smallStrong, { color: metricInk(colors, "ticks") }]}>
+                        {fill(t.workout.doneCount, { done, total })}
+                      </Text>
+                      <Ionicons name="chevron-down" size={20} color={colors.inkFaint} />
+                    </View>
+                  </View>
+                </Card>
+              </Pressable>
+            );
+          }
           return (
             <Card key={`${session.type}-${i}`} label={fill(t.workout.day, { n: i + 1 })}>
               <View
@@ -1162,7 +1200,10 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 value={row.kg}
                 decimals
                 onCommit={(n) => updateSet(ex.id, i, { kg: clampKg(n) }, sets)}
-                placeholder={p && p.kg > 0 ? String(p.kg) : "0"}
+                // Last time's numbers when there are any; otherwise a dash for the
+                // load and the target for the reps. A grey "0" read as a value
+                // already entered, and as a zero-kilo set.
+                placeholder={p && p.kg > 0 ? String(p.kg) : "—"}
                 accessibilityLabel={`${name} ${t.workout.kgCol} ${i + 1}`}
                 ink={metricInk(colors, "load")}
               />
@@ -1170,7 +1211,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 value={row.reps}
                 decimals={false}
                 onCommit={(n) => updateSet(ex.id, i, { reps: clampReps(n) }, sets)}
-                placeholder={p && p.reps > 0 ? String(p.reps) : "0"}
+                placeholder={p && p.reps > 0 ? String(p.reps) : String(reps).match(/\d+/)?.[0] ?? "—"}
                 accessibilityLabel={`${name} ${t.workout.repsCol} ${i + 1}`}
                 ink={metricInk(colors, "reps")}
               />
@@ -1364,7 +1405,7 @@ function AddExercise({
   muscleLabel: Record<Muscle, string>;
   onAdd: (ex: Omit<Exercise, "custom">) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { allowance } = useStore();
   const [name, setName] = useState("");
@@ -1438,7 +1479,7 @@ function AddExercise({
           value={yt}
           onChangeText={setYt}
           label={t.workout.addYt}
-          placeholder="squat form"
+          placeholder={locale === "he" ? "למשל: squat form" : "e.g. squat form"}
         />
       </View>
       <View style={{ marginTop: space.md }}>

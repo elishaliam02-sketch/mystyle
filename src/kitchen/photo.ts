@@ -525,6 +525,19 @@ export function mainIngredient(uses: readonly string[]): string | undefined {
   );
 }
 
+/**
+ * Dishes whose shipped photo turned out to be of something else (the contact
+ * sheet in docs/qa shows banana bread for "banana & nuts", pineapple for
+ * "mango & cottage"). They are shown as their own ingredients instead — a
+ * true picture of the parts beats a wrong picture of the whole.
+ */
+export const WEAK_MEAL_PHOTOS: ReadonlySet<string> = new Set([
+  "beef-rice", "hummus-bowl", "turkey-wrap", "yogurt-berries", "nuts-banana", "rice-cakes-pb",
+  "shakshuka-feta", "stuffed-pepper", "dates-nuts", "hummus-veg", "watermelon-feta",
+  "pomegranate-yogurt", "mango-cottage", "buckwheat-mushroom-egg", "skyr-strawberries",
+  "pumpkin-lentil-soup", "fava-cilantro-salad",
+]);
+
 /** How a card pictures its dish. */
 export type PlateLook =
   | { kind: "dish"; id: string }

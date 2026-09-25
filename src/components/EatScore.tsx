@@ -10,6 +10,7 @@ import {
   MEALS,
   NATIVE_HEADERS,
   adhocFood,
+  WEAK_MEAL_PHOTOS,
   closestBundled,
   dietConflicts,
   fetchFoodPhoto,
@@ -264,7 +265,7 @@ function ScoreReadout({ score }: { score: FoodScore }) {
  * feel slower than it is. And the search waits for a pause in the typing —
  * every keystroke is a score, but not every keystroke is worth a request.
  */
-const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS));
+const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS).filter((id) => !WEAK_MEAL_PHOTOS.has(id)));
 
 function FoodShot({ text, food }: { text: string; food: Food | null }) {
   const { colors, radius, type, space } = useTheme();

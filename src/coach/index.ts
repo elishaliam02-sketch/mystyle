@@ -11,7 +11,7 @@
  * Pure and fully testable: no clock, no store, no network.
  */
 
-import type { Goal } from "@/kitchen";
+import { FOODS, MEALS, foodNutrition, goalFit, scoreAnything, type Goal } from "@/kitchen";
 
 export type Locale = "he" | "en";
 
@@ -32,6 +32,9 @@ export type CoachContext = {
   bodyFat?: number | null;
   planDays?: number;
   trainedToday?: boolean;
+  /** Latest weight and the goal weight, for "how long until I get there?". */
+  currentKg?: number;
+  goalKg?: number;
 };
 
 export type CoachTopic =
@@ -50,12 +53,18 @@ export type CoachTopic =
   | "supplements"
   | "bodyfat"
   | "start"
+  | "greeting"
+  | "canEat"
+  | "mealIdea"
+  | "hunger"
+  | "belly"
+  | "timeline"
   | "unknown";
 
 export type CoachReply = { topic: CoachTopic; text: string };
 
 /** Words that point at a topic, in both languages. Matched on a folded string. */
-const KEYWORDS: Record<Exclude<CoachTopic, "unknown">, string[]> = {
+const KEYWORDS: Partial<Record<Exclude<CoachTopic, "unknown">, string[]>> = {
   calories: ["קלורי", "קלוריות", "לאכול", "אוכל", "דיאטה", "גירעון", "עודף", "calorie", "eat", "diet", "deficit"],
   protein: ["חלבון", "חלבונים", "protein", "whey", "אבקת"],
   water: ["מים", "שתי", "לשתות", "כוסות", "water", "drink", "hydrat"],
@@ -67,7 +76,7 @@ const KEYWORDS: Record<Exclude<CoachTopic, "unknown">, string[]> = {
   portions: ["מנה", "מנות", "כמות", "גרם", "לשקול", "portion", "serving", "grams", "how much"],
   soreness: ["כאב", "כאבים", "תפוס", "שרירים כואבים", "פציעה", "sore", "pain", "ache", "injury"],
   sleep: ["שינה", "לישון", "עייף", "sleep", "tired", "rest"],
-  motivation: ["מוטיבציה", "אין לי כוח", "לוותר", "קשה לי", "נמאס", "motivation", "give up", "hard", "quit"],
+  motivation: ["מוטיבציה", "אין לי כוח", "לוותר", "קשה לי", "נמאס", "להתמיד", "מתמיד", "עקביות", "נשבר", "motivation", "give up", "hard", "quit", "consistent", "stick to"],
   supplements: ["תוסף", "תוספים", "קריאטין", "ויטמין", "supplement", "creatine", "vitamin"],
   bodyfat: ["אחוז שומן", "שומן", "רזה", "body fat", "fat percent", "lean"],
   start: ["איך מתחילים", "מאיפה", "התחלה", "חדש", "how do i start", "where do i start", "beginner"],
@@ -78,8 +87,24 @@ function fold(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Questions that are about something specific enough to answer on their own
+ * terms, checked before the keyword vote: "מותר לי פיצה?" is about pizza, not
+ * about calories in general, and "מה לאכול בערב" wants dishes, not a number.
+ */
+const INTENTS: [Exclude<CoachTopic, "unknown">, RegExp][] = [
+  ["canEat", /(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|can i (eat|have)|is .+ (ok|okay|bad|healthy))/],
+  ["mealIdea", /(מה (כדאי )?(לאכול|להכין|אוכל)|רעיון ל(ארוחה|אוכל)|מה לבשל|ארוחת (ערב|בוקר|צהריים) (מה|רעיון)|what (should|can) i (eat|cook|make)|meal idea|dinner idea)/],
+  ["hunger", /(רעב|רעבה|חשק|נשנוש|לנשנש|hungry|craving|snack)/],
+  ["belly", /(בטן|כרס|שומן מקומי|קוביות|six ?pack|belly|abs\b|love handles)/],
+  ["timeline", /(כמה זמן|מתי אגיע|עד היעד|תוך כמה|how long|when will i)/],
+  ["greeting", /^(שלום|היי|הי|אהלן|מה קורה|מה נשמע|בוקר טוב|ערב טוב|hello|hi|hey|yo)[\s!?.]*$/],
+];
+
 /** The topic whose words the question hits hardest. */
 export function classify(question: string): CoachTopic {
+  const raw = question.toLowerCase().trim();
+  for (const [topic, re] of INTENTS) if (re.test(raw)) return topic;
   const q = fold(question);
   if (!q) return "unknown";
   let best: CoachTopic = "unknown";
@@ -185,8 +210,8 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
       if (steps !== null && goal !== null) {
         const left = Math.max(0, goal - steps);
         say(
-          `היום צעדת ${steps.toLocaleString()} מתוך ${goal.toLocaleString()}${left > 0 ? ` — חסרים ${left.toLocaleString()}, בערך ${Math.round(left / 1300)} דקות הליכה` : " — יעד הושלם"}.`,
-          `You've walked ${steps.toLocaleString()} of ${goal.toLocaleString()}${left > 0 ? ` — ${left.toLocaleString()} short, roughly ${Math.round(left / 1300)} minutes of walking` : " — goal met"}.`,
+          `היום צעדת ${steps.toLocaleString()} מתוך ${goal.toLocaleString()}${left > 0 ? ` — חסרים ${left.toLocaleString()}, בערך ${walkMinutes(left)} דקות הליכה` : " — יעד הושלם"}.`,
+          `You've walked ${steps.toLocaleString()} of ${goal.toLocaleString()}${left > 0 ? ` — ${left.toLocaleString()} short, roughly ${walkMinutes(left)} minutes of walking` : " — goal met"}.`,
         );
       }
       say(
@@ -347,6 +372,126 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
       );
       break;
     }
+    case "greeting": {
+      say(
+        `היי${ctx.name ? ` ${ctx.name}` : ""}! אני המאמן שלך — עונה לפי המספרים שלך, על המכשיר, בלי אינטרנט.`,
+        `Hi${ctx.name ? ` ${ctx.name}` : ""}! I'm your coach — I answer from your own numbers, on the device, no internet needed.`,
+      );
+      say(
+        `נסה לשאול: "כמה קלוריות נשארו לי?", "מותר לי פיצה?", "מה לאכול בערב?" — או פשוט לכתוב "אכלתי 2 ביצים" ואני ארשום ליומן.`,
+        `Try: "How many calories do I have left?", "Can I eat pizza?", "What should I eat tonight?" — or just write "I ate 2 eggs" and I'll log it.`,
+      );
+      break;
+    }
+    case "canEat": {
+      const food = question
+        .replace(/(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|can i eat|can i have|is it ok to eat)/gi, "")
+        .replace(/[?!.]/g, "")
+        .trim();
+      const { score, food: known } = scoreAnything(food || question);
+      const band = he
+        ? { great: "מעולה", good: "טוב", ok: "בסדר", sometimes: "לפעמים", rarely: "לעיתים רחוקות" }[score.band]
+        : { great: "great", good: "good", ok: "fine", sometimes: "sometimes", rarely: "rarely" }[score.band];
+      say(
+        `${food || (he ? "זה" : "That")}: ${score.value}/10 — ${band}. אין מאכל אסור; השאלה היא כמה ובאיזו תדירות.`,
+        `${food || "That"}: ${score.value}/10 — ${band}. Nothing is forbidden; the question is how much and how often.`,
+      );
+      const left = n(ctx.kcalTarget) !== null && n(ctx.kcalEaten) !== null ? n(ctx.kcalTarget)! - n(ctx.kcalEaten)! : null;
+      if (known && left !== null) {
+        const kcal = portionKcal(known.id);
+        if (kcal !== null) {
+          say(
+            left >= kcal
+              ? `מנה רגילה היא בערך ${kcal} קלוריות, ונשארו לך היום ${left} — נכנס בתקציב.`
+              : `מנה רגילה היא בערך ${kcal} קלוריות, ונשארו לך היום ${Math.max(0, left)} — אם בא לך, קח חצי מנה או תאזן מחר.`,
+            left >= kcal
+              ? `A normal portion is about ${kcal} kcal and you have ${left} left today — it fits.`
+              : `A normal portion is about ${kcal} kcal and you have ${Math.max(0, left)} left — have half, or balance it tomorrow.`,
+          );
+        }
+      }
+      say(
+        `את הציון המלא, עם הסיבות, תמצא ב"בא לי לאכול" בלשונית המטבח.`,
+        `The full score, with the reasons, is under "I feel like eating" on the Kitchen tab.`,
+      );
+      break;
+    }
+    case "mealIdea": {
+      const q = question.toLowerCase();
+      const slot = /(בוקר|breakfast)/.test(q) ? "breakfast" : /(צהריים|lunch)/.test(q) ? "lunch" : /(ערב|dinner|supper)/.test(q) ? "dinner" : /(נשנוש|snack)/.test(q) ? "snack" : null;
+      const left = n(ctx.kcalTarget) !== null && n(ctx.kcalEaten) !== null ? n(ctx.kcalTarget)! - n(ctx.kcalEaten)! : null;
+      const picks = MEALS
+        .filter((m) => (!slot || m.slot === slot) && (left === null || left <= 0 || m.kcal <= left))
+        .sort((a, b) => goalFit(b, ctx.goal) - goalFit(a, ctx.goal))
+        .slice(0, 3);
+      if (picks.length) {
+        say(
+          `${left !== null && left > 0 ? `נשארו לך ${left} קלוריות. ` : ""}שלושה רעיונות שמתאימים ל${goalWord}:`,
+          `${left !== null && left > 0 ? `You have ${left} kcal left. ` : ""}Three ideas that suit ${goalWord}:`,
+        );
+        lines.push(picks.map((m) => `• ${he ? m.he.title : m.en.title} — ${m.kcal} ${he ? "קלוריות" : "kcal"}, ${m.protein}${he ? "ג' חלבון" : "g protein"}`).join("\n"));
+      }
+      say(
+        `כתוב בלשונית המטבח מה יש לך במקרר, ואבנה לך מנה בדיוק ממה שיש.`,
+        `Write what's in your fridge on the Kitchen tab and I'll build a plate from exactly that.`,
+      );
+      break;
+    }
+    case "hunger": {
+      say(
+        `רעב בגירעון זה נורמלי — הנה מה שעובד: חלבון בכל ארוחה, הרבה ירקות (נפח בלי קלוריות), וכוס מים לפני שמחליטים.`,
+        `Hunger in a deficit is normal — what works: protein at every meal, lots of vegetables (volume without calories), and a glass of water before deciding.`,
+      );
+      const snacks = MEALS.filter((m) => m.slot === "snack" && m.notes.includes("protein")).slice(0, 3);
+      if (snacks.length) {
+        lines.push(snacks.map((m) => `• ${he ? m.he.title : m.en.title} — ${m.kcal} ${he ? "קלוריות" : "kcal"}`).join("\n"));
+      }
+      say(
+        `ואם זה קורה כל ערב — כנראה שהארוחות מוקדם ביום קטנות מדי. תזיז קלוריות מהערב לצהריים.`,
+        `And if it happens every evening, the earlier meals are probably too small — move calories from the evening to lunch.`,
+      );
+      break;
+    }
+    case "belly": {
+      say(
+        `אי אפשר להוריד שומן ממקום אחד — גם לא עם אלף כפיפות בטן. הגוף מוריד שומן מכל הגוף, והבטן היא לרוב האחרונה.`,
+        `You can't lose fat from one spot — not even with a thousand crunches. The body loses fat everywhere, and the belly is usually last.`,
+      );
+      say(
+        `מה כן עובד: גירעון קלורי קבוע, חלבון גבוה, אימוני כוח 3 פעמים בשבוע, וצעדים. תרגילי בטן מחזקים — הם פשוט לא שורפים את השומן שעליה.`,
+        `What does work: a steady calorie deficit, high protein, strength training 3 times a week, and steps. Ab exercises build the muscle — they just don't burn the fat on top of it.`,
+      );
+      break;
+    }
+    case "timeline": {
+      const now = ctx.currentKg;
+      const goal = ctx.goalKg;
+      const rate = ctx.weeklyChangeKg;
+      if (now && goal && Math.abs(now - goal) >= 0.3) {
+        const toGo = Math.round(Math.abs(now - goal) * 10) / 10;
+        const rightWay = rate != null && rate !== 0 && Math.sign(goal - now) === Math.sign(rate);
+        if (rightWay) {
+          const weeks = Math.ceil(toGo / Math.abs(rate!));
+          say(
+            `נשארו ${toGo} ק״ג עד ${goal}. בקצב של השבוע האחרון (${Math.abs(rate!)} ק״ג בשבוע) — בערך ${weeks} שבועות.`,
+            `${toGo} kg to go to ${goal}. At last week's pace (${Math.abs(rate!)} kg a week) — about ${weeks} weeks.`,
+          );
+        } else {
+          say(
+            `נשארו ${toGo} ק״ג עד ${goal}. בקצב בריא של חצי ק״ג בשבוע זה בערך ${Math.ceil(toGo / 0.5)} שבועות — תשקול פעם בשבוע ואחשב לפי הקצב האמיתי שלך.`,
+            `${toGo} kg to go to ${goal}. At a healthy half a kilo a week that's about ${Math.ceil(toGo / 0.5)} weeks — weigh in weekly and I'll work it out from your real pace.`,
+          );
+        }
+      } else if (now && goal) {
+        say(`אתה כבר על היעד. עכשיו המטרה היא לשמור.`, `You're at your goal. Now the aim is to hold it.`);
+      } else {
+        say(
+          `כדי לחשב אני צריך משקל נוכחי ויעד — אפשר להזין אותם בפרופיל ובלשונית ההתקדמות.`,
+          `To work it out I need your current weight and a goal — set them on Profile and the Progress tab.`,
+        );
+      }
+      break;
+    }
     default: {
       say(
         `לא בטוח שהבנתי. אני יכול לעזור עם: קלוריות, חלבון, מים, צעדים, משקל, תוכנית האימון, אירובי, כשרות, מנות, כאבי שרירים ומוטיבציה.`,
@@ -357,6 +502,17 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
   }
 
   return { topic, text: lines.join("\n\n") };
+}
+
+/** About a hundred steps a minute at an ordinary walking pace. */
+function walkMinutes(steps: number): number {
+  return Math.max(1, Math.round(steps / 100));
+}
+
+/** Calories in one standard portion of a food, from the kitchen's table. */
+function portionKcal(foodId: string): number | null {
+  const food = FOODS.find((f) => f.id === foodId);
+  return food ? foodNutrition(food).kcal : null;
 }
 
 /** Openers offered as taps, so the chat is never a blank box. */

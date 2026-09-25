@@ -518,9 +518,13 @@ function StepsCard() {
         />
       )}
 
-      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-        {t.steps.note}
-      </Text>
+      {/* "The phone counts for you" only when it does — beside "this phone
+          cannot count" it contradicted the line above it. */}
+      {auto.running ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
+          {t.steps.note}
+        </Text>
+      ) : null}
     </Card>
   );
 }
@@ -907,19 +911,35 @@ function MeasurementsSection() {
   const { t } = useI18n();
   const { space, type } = useTheme();
   const { colors } = useTheme();
+  const { state } = useStore();
+  // Waist first and always; the rest only once measured or asked for. Six
+  // empty cards in a row made this the longest, emptiest part of the screen.
+  const [all, setAll] = useState(false);
+  const measured = BODY_PARTS.filter((p) => (state.measurements?.[p]?.length ?? 0) > 0);
+  const shown = all ? BODY_PARTS : BODY_PARTS.filter((p) => p === "waist" || measured.includes(p));
+  const hiddenCount = BODY_PARTS.length - shown.length;
   return (
     <Card label={t.progress.measureTitle}>
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.measureBody}</Text>
       {/* Every Add below stays greyed until a number is typed — said once here,
           quietly, rather than once on every part card. */}
       <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
-        {fill(t.body.rangeError, { min: MIN_CM, max: MAX_CM })}
+        {fill(t.body.rangeHint, { min: MIN_CM, max: MAX_CM })}
       </Text>
       <View style={{ gap: space.md, marginTop: space.md }}>
-        {BODY_PARTS.map((part) => (
+        {shown.map((part) => (
           <PartCard key={part} part={part} />
         ))}
       </View>
+      {hiddenCount > 0 ? (
+        <PillButton
+          tone="soft"
+          icon="add"
+          label={fill(t.progress.measureMore, { n: hiddenCount })}
+          onPress={() => setAll(true)}
+          style={{ alignSelf: "flex-start", marginTop: space.md }}
+        />
+      ) : null}
     </Card>
   );
 }

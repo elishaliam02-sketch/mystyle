@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { PAYMENTS_LIVE } from "@/billing/launch";
 import { Chevron } from "@/components/Chevron";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -364,6 +365,7 @@ export default function ProfileScreen() {
 
         {/* the way in to the subscription — a paywall nobody can reach is not
             a paywall, and this is the screen people look for it on */}
+        {PAYMENTS_LIVE ? (
         <Pressable onPress={() => router.push("/paywall")} accessibilityRole="button">
           <Card>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -393,6 +395,7 @@ export default function ProfileScreen() {
             </View>
           </Card>
         </Pressable>
+        ) : null}
 
         <ChallengeLevelCard />
 

@@ -89,7 +89,8 @@ export default function Onboarding() {
       heightCm: num(heightCm),
       onboarded: true,
     });
-    if (currentKg) addWeighIn(Number(currentKg));
+    const kg = num(currentKg);
+    if (kg !== undefined && Number.isFinite(kg)) addWeighIn(kg);
     const id = addHabit(habit, slot);
     // One navigation, straight to the habit's tips — the first thing a new
     // user sees is the guidance. Its back button goes home when there is no

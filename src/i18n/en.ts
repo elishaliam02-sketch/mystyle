@@ -549,6 +549,7 @@ export const en: typeof he = {
     fatNeedWaist: "Measure your waist (in Measurements below) to see body fat.",
     sexMale: "Male",
     sexFemale: "Female",
+    measureMore: "More measurements ({n})",
     measureTitle: "Body measurements",
     measureBody: "The centimetres that move when the scale won't.",
     photosTitle: "Progress photos",
@@ -922,6 +923,7 @@ export const en: typeof he = {
     empty: "No measurements yet. Add your first to start tracking.",
     cmPlaceholder: "cm",
     cm: "cm",
+    rangeHint: "Any measurement from {min} to {max} cm, with a soft tape.",
     rangeError: "The measurement should be between {min} and {max} cm.",
     readings: "{count} readings",
     parts: {

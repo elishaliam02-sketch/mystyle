@@ -562,6 +562,7 @@ export const he = {
     fatNeedWaist: "מדוד היקף מותן (בפינת המידות למטה) כדי לראות אחוז שומן.",
     sexMale: "גבר",
     sexFemale: "אישה",
+    measureMore: "עוד מידות ({n})",
     measureTitle: "מידות גוף",
     measureBody: "הסנטימטרים שזזים כשהמשקל תקוע.",
     photosTitle: "צילומי התקדמות",
@@ -935,6 +936,7 @@ export const he = {
     empty: "עוד לא מדדת. הוסף מדידה ראשונה כדי להתחיל לעקוב.",
     cmPlaceholder: "ס\"מ",
     cm: "ס\"מ",
+    rangeHint: "כל מידה בין {min} ל־{max} ס\"מ, בסרט מדידה רך.",
     rangeError: "המדידה צריכה להיות בין {min} ל־{max} ס\"מ.",
     readings: "{count} מדידות",
     parts: {

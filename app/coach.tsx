@@ -87,6 +87,8 @@ export default function CoachScreen() {
         sex: state.profile.sex as Sex | undefined,
       }),
       planDays: state.training?.days,
+      currentKg: state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg,
+      goalKg: state.profile.goalKg,
       trainedToday: (state.training?.log?.[today()]?.length ?? 0) > 0,
     };
   }, [state, goal, todayIntake, todayWater, waterGoal, todaySteps, stepGoal]);

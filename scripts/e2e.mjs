@@ -341,7 +341,9 @@ check("it offers muscle filters", (await page.getByRole("button",{name:"חזה"}
 check("and shows the catalogue with more than a handful of moves",
   (await page.getByRole("button").filter({hasText:/לחיצת|סקוואט|חתירה|כפיפ/}).count())>3);
 // pick a specific move by its visible name, then commit
-const pickRow = page.getByRole("button").filter({hasText:"לחיצת חזה במוט"}).first();
+// .last(): the sheet sits at the end of the page, and a folded day card behind
+// it can list the same move in its summary.
+const pickRow = page.getByRole("button").filter({hasText:"לחיצת חזה במוט"}).last();
 await pickRow.click(); await settle();
 check("selecting a move updates the add button to a count",
   (await page.getByRole("button",{name:/הוסף 1/}).count())>0);
@@ -650,6 +652,28 @@ check("the coach answers about the plan using the goal",
   await fresh.close();
 }
 
+// Payments are switched on in one constant (src/billing/launch.ts). Until they
+// are, nobody can buy Pro, so the app must hold nothing back behind it — the
+// launch-day paywall and limits are asserted only once it is live.
+const PAYMENTS_LIVE = /PAYMENTS_LIVE\s*=\s*true/.test(fs.readFileSync("src/billing/launch.ts","utf8"));
+if (!PAYMENTS_LIVE) {
+  await go("/profile");
+  check("before launch, the profile offers no Pro that cannot be bought",
+    (await page.getByText("APEX Pro").count())===0);
+  const mk = (n) => Array.from({length:n},(_,i)=>({ id:`g${i}`, title:`הרגל ${i+1}`, slot:"morning",
+    createdAt:dayAgo(3), archived:false, updatedAt:now.toISOString() }));
+  const ctx2 = await browser.newContext({viewport:{width:393,height:852}});
+  await ctx2.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({...seed, habits: mk(12), subscription:{ status:"expired", currentPeriodEnd:"2020-01-01T00:00:00.000Z" }}));
+  const pg = await ctx2.newPage(); const errs=[]; pg.on("pageerror",e=>errs.push(String(e).slice(0,160)));
+  await pg.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"}); await pg.waitForTimeout(2000);
+  check("before launch, twelve habits and a lapsed account meet no wall",
+    (await pg.getByLabel("זה נפתח ב-Pro").count())===0);
+  check("and every habit is listed", (await pg.getByRole("checkbox").count())===12, String(await pg.getByRole("checkbox").count()));
+  await pg.goto(`http://localhost:${PORT}/paywall`,{waitUntil:"networkidle"}); await pg.waitForTimeout(1500);
+  check("the paywall, opened directly, says it is not open yet", errs.length===0 && (await pg.locator("body").innerText()).length>0, errs.join(" | "));
+  await ctx2.close();
+} else {
 // 17) THE PAYWALL — it must be reachable, honest, and never crash signed-out.
 await go("/profile");
 check("the subscription is reachable from the profile",
@@ -766,6 +790,8 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       (await pg.getByLabel("זה נפתח ב-Pro").count())>0);
     check("no page errors for a lapsed account", errs.length===0, errs.join(" | "));
     await ctx2.close(); }
+}
+
 }
 
 // 19) THE CALORIE CALCULATOR — the counting that works with no key and no

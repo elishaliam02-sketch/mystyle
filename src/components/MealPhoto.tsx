@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Image, Text, View } from "react-native";
 import { MealImage } from "@/components/MealImage";
 import {
-  MEALS, NATIVE_HEADERS, fetchMealPhoto, plateLook, type Food, type Meal, type Photo,
+  MEALS, NATIVE_HEADERS, WEAK_MEAL_PHOTOS, fetchMealPhoto, plateLook, type Food, type Meal, type Photo,
 } from "@/kitchen";
 import { BUNDLED_FOOD_PHOTOS } from "@/kitchen/foodPhotoAssets";
 import { BUNDLED_MEAL_PHOTOS, type BundledPhoto } from "@/kitchen/mealPhotoAssets";
@@ -26,7 +26,7 @@ import { useTheme } from "@/theme";
  * `src/kitchen/photo.ts`, which also holds the consent gate this depends on.
  */
 
-const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS));
+const BUNDLED_IDS = new Set(Object.keys(BUNDLED_MEAL_PHOTOS).filter((id) => !WEAK_MEAL_PHOTOS.has(id)));
 const FOOD_IDS = new Set(Object.keys(BUNDLED_FOOD_PHOTOS));
 
 /** Gap between tiles, in the card's own surface colour. */
@@ -192,7 +192,6 @@ function Tiles({ ids, names, width, height }: { ids: string[]; names: string[]; 
   const row = (children: ReactNode[]) => (
     <View style={{ flex: 1, flexDirection: "row", gap: GAP }}>{children}</View>
   );
-  const credits = [...new Set(ids.map((id) => BUNDLED_FOOD_PHOTOS[id]?.credit).filter((c): c is string => !!c))];
   return (
     <View style={{ position: "absolute", top: 0, left: 0, width, height, gap: GAP, backgroundColor: colors.surface }}>
       {ids.length === 1
@@ -205,7 +204,9 @@ function Tiles({ ids, names, width, height }: { ids: string[]; names: string[]; 
                 <View key="r1" style={{ flex: 1, flexDirection: "row", gap: GAP }}>{[tile(0), tile(1)]}</View>,
                 <View key="r2" style={{ flex: 1, flexDirection: "row", gap: GAP }}>{[tile(2), tile(3)]}</View>,
               ]}
-      <Credit text={credits.length ? credits.join(" · ") : null} />
+      {/* No credit strip across the tiles: four names squeezed into one
+          line read as noise. Every tile photo is credited on the licences
+          screen (Profile → open-source licences). */}
     </View>
   );
 }

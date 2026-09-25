@@ -906,6 +906,26 @@ export function timesLabel(mult: number): string {
   return `\u2066×${whole > 0 ? whole : ""}${f}\u2069`;
 }
 
+/**
+ * A household amount scaled the way a person says it: "2 ביצים" at ¾ is
+ * "1½ ביצים", "חזה בינוני" at ½ is "חצי חזה בינוני"; anything else keeps
+ * the portion and shows the multiplier ("כף ×1½").
+ */
+export function scaledHousehold(text: string, mult: number, lang: "he" | "en"): string {
+  const q = Math.round(mult * 4) / 4;
+  if (q === 1) return text;
+  const lead = /^(\d+(?:\.\d+)?)\s+(.*)$/.exec(text);
+  if (lead) {
+    const n = Math.round(Number(lead[1]) * q * 2) / 2;
+    const whole = Math.floor(n);
+    const half = n - whole === 0.5;
+    const num = half ? (whole === 0 ? "½" : `${whole}½`) : String(whole);
+    if (n > 0) return `\u2066${num}\u2069 ${lead[2]}`;
+  }
+  if (q === 0.5) return lang === "he" ? `חצי ${text}` : `half of ${text}`;
+  return `${text} ${timesLabel(q)}`;
+}
+
 /** Amounts a recipe spells out rather than taking the standard portion. */
 const tsp = (he = "כפית", en = "1 tsp"): Portion => ({ g: 5, he, en });
 const MEAL_AMOUNTS: Record<string, Record<string, Portion>> = {

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { PAYMENTS_LIVE } from "@/billing/launch";
 import {
   createContext,
   useCallback,
@@ -970,8 +971,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.habits, state.photos, state.training, state.usage, trustedToday],
   );
 
+  // Until payments are live nobody can buy Pro, so nothing may be held back
+  // behind it: a limit whose only way past is a "coming soon" screen is just a
+  // broken feature. The server keeps its own ceilings on what costs money.
   const allowance = useCallback(
-    (feature: Feature) => check(feature, entitlement(), usedCount(feature)),
+    (feature: Feature) =>
+      PAYMENTS_LIVE ? check(feature, entitlement(), usedCount(feature)) : { ok: true as const, remaining: null },
     [entitlement, usedCount],
   );
 

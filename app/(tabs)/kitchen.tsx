@@ -38,8 +38,8 @@ import {
   shoppingList,
   slotForHour,
   starterMeals,
+  scaledHousehold,
   suggestMeals,
-  timesLabel,
   type Food,
   type Goal,
   type Meal,
@@ -836,7 +836,7 @@ function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
               const label =
                 units === "grams"
                   ? `${g} ${t.kitchen.gram}`
-                  : `${m === 1 ? "" : `${timesLabel(m)} `}${locale === "he" ? std.he : std.en}`;
+                  : scaledHousehold(locale === "he" ? std.he : std.en, m, locale === "he" ? "he" : "en");
               return (
                 <SelectTile
                   key={m}
