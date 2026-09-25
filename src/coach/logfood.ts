@@ -132,16 +132,18 @@ export function parseEaten(text: string, locale: "he" | "en" = "he"): EatenMeal 
   };
 }
 
+/** A weight and its unit, then whatever follows: "200 גרם חזה עוף". Fixed,
+ * so no pattern is ever built from text. */
+const WEIGHED = /(\d+(?:[.,]\d+)?)\s*(?:גרם|גר'|גר|ג'|ג׳|grams|gram|gr|g)\s+(?:של\s+)?/g;
+
 /** "200 גרם חזה עוף", "150g rice" → the grams written before the food. */
 function gramsBefore(text: string, terms: string[]): number | null {
-  for (const term of terms) {
-    const t = term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(?:גרם|גר'|גר|ג'|ג׳|grams|gram|gr|g)\\s+(?:של\\s+)?(?:ה)?${t}`);
-    const m = re.exec(text);
-    if (m) {
-      const g = Number(m[1]!.replace(",", "."));
-      if (Number.isFinite(g) && g > 0) return Math.min(MAX_GRAMS, Math.round(g));
-    }
+  const names = terms.map((x) => x.toLowerCase());
+  for (const m of text.matchAll(WEIGHED)) {
+    const rest = text.slice((m.index ?? 0) + m[0].length).replace(/^ה/, "");
+    if (!names.some((n) => rest.startsWith(n))) continue;
+    const g = Number(m[1]!.replace(",", "."));
+    if (Number.isFinite(g) && g > 0) return Math.min(MAX_GRAMS, Math.round(g));
   }
   return null;
 }
