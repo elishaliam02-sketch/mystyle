@@ -362,11 +362,15 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("a beginner gym plan is built from beginner moves", all(gymBeg).every((e) => difficulty(e.id) === 1),
     all(gymBeg).filter((e) => difficulty(e.id) !== 1).map((e) => e.id).join(","));
   const adv = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "advanced" });
-  check("an advanced plan includes a heavy, technical lift",
-    adv.sessions.flatMap((d) => d.exercises).filter((e) => difficulty(e.id) === 3).length >= 1,
+  const avgDiff = (p: typeof adv) => {
+    const xs = p.sessions.flatMap((d) => d.exercises).map((e) => difficulty(e.id));
+    return xs.reduce((n, x) => n + x, 0) / Math.max(1, xs.length);
+  };
+  check("an advanced plan is built from harder moves than a beginner's",
+    avgDiff(adv) > avgDiff(gymBeg),
     adv.sessions.map((d) => d.exercises.map((e) => e.id).join(",")).join(" / "));
   const mid = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "intermediate" });
-  check("beginners do fewer sets, advanced more", gymBeg.sets < mid.sets && adv.sets > mid.sets, `${gymBeg.sets} ${mid.sets} ${adv.sets}`);
+  check("sets rise with experience and never pass four", gymBeg.sets <= mid.sets && mid.sets <= adv.sets && gymBeg.sets >= 3 && adv.sets <= 4, `${gymBeg.sets} ${mid.sets} ${adv.sets}`);
   check("a beginner session is a move shorter", gymBeg.sessions[0]!.exercises.length < mid.sessions[0]!.exercises.length);
   check("the plan remembers its level", adv.level === "advanced");
   // A plan from before levels must not change on update.
@@ -440,7 +444,10 @@ for (const days of [2, 3, 4, 5, 6] as const) {
 
   const focus = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "intermediate", focus: ["arms"] });
   const upperFocus = focus.sessions[0]!.exercises.map((e) => e.muscle);
-  check("a focus muscle gets its work early and twice", upperFocus.slice(1, 4).includes("arms") && upperFocus.filter((m) => m === "arms").length >= 2, upperFocus.join(","));
+  const firstArm = upperFocus.indexOf("arms");
+  check("a focus muscle comes right after the big lifts, twice", firstArm >= 1 && firstArm <= 4 && upperFocus.filter((m) => m === "arms").length >= 2, upperFocus.join(","));
+  check("a focus muscle never pushes the day's compounds out",
+    focus.sessions[0]!.exercises.slice(0, 4).every((e) => e.compound), focus.sessions[0]!.exercises.map((e) => e.id).join(","));
 
   // "New plan" always changes the week.
   for (const [equip, level] of [["gym", "intermediate"], ["home", "beginner"], ["bodyweight", "intermediate"]] as const) {

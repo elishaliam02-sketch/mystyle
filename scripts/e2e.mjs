@@ -586,7 +586,7 @@ check("the coach answers about the plan using the goal",
   await build.click(); await p2.waitForTimeout(1400);
   const st2 = JSON.parse(await p2.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
   check("the chosen level is saved with the plan", st2.training?.level === "beginner", String(st2.training?.level));
-  check("the plan says it is a beginner plan", /מתחיל · 2 סטים/.test(await p2.locator("body").innerText()));
+  check("the plan says it is a beginner plan", /מתחיל · 3 סטים/.test(await p2.locator("body").innerText()));
   check("and hands a beginner no deadlift or pull-ups",
     !/דדליפט במוט|^מתח$/m.test(await p2.locator("body").innerText()));
   check("pressing it actually writes a plan", !!st2.training && st2.training.days>0,

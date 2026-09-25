@@ -71,6 +71,31 @@ function norm(s: string): string {
  * against any of the names, so "לחיצה חזה" and "chest press" both land — a
  * search that demands the exact phrase is a search that finds nothing.
  */
+/** What gym-goers actually call a move, when the library's name is another. */
+const MOVE_ALIASES: Record<string, string[]> = {
+  dips: ["דיפס"],
+  "bench-dip": ["דיפס"],
+  lunge: ["לאנג", "מספריים"],
+  "walking-lunge": ["לאנג", "מספריים"],
+  "bw-lunge": ["לאנג", "מספריים"],
+  "reverse-lunge": ["לאנג"],
+  "bulgarian-split-squat": ["בולגרי", "לאנג"],
+  "pec-deck": ["פק דק", "פרפר"],
+  "lat-pulldown": ["פולי", "לט"],
+  "rdl": ["רומני", "rdl"],
+  "hip-thrust": ["היפ", "גשר"],
+  "face-pull": ["פייס פול", "משיכת פנים"],
+  "lateral-raise": ["הרחקת כתף", "הרחקה"],
+  "hack-squat": ["הק", "האק"],
+  pullup: ["מתח", "פול אפ"],
+  chinup: ["מתח", "צ'ין"],
+  pushup: ["שכיבות", "פוש אפ"],
+  squat: ["סקוואט", "סקוואט במוט"],
+  deadlift: ["דדליפט", "מתים"],
+  plank: ["פלאנק", "פלנק"],
+  "leg-press": ["לחיצת רגליים", "לג פרס"],
+};
+
 export function matches(ex: Exercise, query: string, muscleLabel?: string): boolean {
   const q = norm(query);
   if (!q) return true;
@@ -84,6 +109,7 @@ export function matches(ex: Exercise, query: string, muscleLabel?: string): bool
       ex.equipment,
       ...MUSCLE_ALIASES[ex.muscle],
       ...EQUIPMENT_ALIASES[ex.equipment],
+      ...(MOVE_ALIASES[ex.id] ?? []),
     ].join(" "),
   );
   return q.split(/\s+/).every((word) => hay.includes(word));

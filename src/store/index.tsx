@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AppState as RNAppState } from "react-native";
+import { AppState as RNAppState, Platform } from "react-native";
 import { PAYMENTS_LIVE } from "@/billing/launch";
 import {
   createContext,
@@ -35,7 +35,7 @@ import type { Difficulty } from "@/tasks/difficulty";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
-import { demoLink } from "@/workout/video";
+import { demoLink, searchUrl } from "@/workout/video";
 import { entitlement as entitlementOf, trialEndsAt, TRIAL_DAYS, type Entitlement } from "@/billing/plans";
 import { check, type Feature, type Verdict } from "@/billing/gate";
 import { isHeightCm, isStorableGoal } from "@/health";
@@ -177,7 +177,7 @@ type Store = {
   /** Appends an extra set to today's exercise. */
   addSet: (exerciseId: string, prescribed: number) => void;
   /** Drops the last set of today's exercise. */
-  removeSet: (exerciseId: string) => void;
+  removeSet: (exerciseId: string, prescribed: number) => void;
   /** What this exercise looked like the previous time it was trained. */
   lastSession: (exerciseId: string) => SetEntry[] | null;
   /** Adds a library exercise to today's session. */
@@ -909,14 +909,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const next = edit(current);
         // Ticking a set also marks the exercise done for the day, so the
         // session counters and the streak stay in step with the set table.
+        // Only a change in whether any set is ticked touches the day's log:
+        // typing a weight after "finish the whole workout" (which ticks the
+        // exercise, not its sets) used to un-mark it.
         const anyDone = next.some((r) => r.done);
+        const wasDone = current.some((r) => r.done);
         const doneToday = base.log[date] ?? [];
-        const log = {
-          ...base.log,
-          [date]: anyDone
-            ? [...new Set([...doneToday, exerciseId])]
-            : doneToday.filter((x) => x !== exerciseId),
-        };
+        const log =
+          anyDone === wasDone
+            ? base.log
+            : {
+                ...base.log,
+                [date]: anyDone
+                  ? [...new Set([...doneToday, exerciseId])]
+                  : doneToday.filter((x) => x !== exerciseId),
+              };
         return {
           ...s,
           clockHighWaterMs: highWater,
@@ -946,8 +953,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const removeSet = useCallback(
-    (exerciseId: string) => {
-      writeSets(exerciseId, 1, (rows) => (rows.length <= 1 ? rows : rows.slice(0, -1)));
+    (exerciseId: string, prescribed: number) => {
+      // Seeded from the prescribed count: an untouched 3-set exercise goes to
+      // 2, not straight to 1.
+      writeSets(exerciseId, prescribed, (rows) => (rows.length <= 1 ? rows : rows.slice(0, -1)));
     },
     [writeSets],
   );
@@ -1119,7 +1128,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // into a lookup on every tap but the first.
   const demoFor = useCallback(
     (ex: Exercise) =>
-      demoLink(ex, {
+      // The web build's security policy refuses the lookup (and a new tab
+      // opened after a wait is blocked as a popup): open the search at once.
+      Platform.OS === "web"
+        ? Promise.resolve(searchUrl(ex))
+        : demoLink(ex, {
         fetchText: async (url) => {
           const res = await fetch(url, { headers: { "Accept-Language": "en" } });
           return res.text();

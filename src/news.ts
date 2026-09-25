@@ -9,8 +9,11 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-25b",
+  id: "2026-09-25c",
   he: [
+    "אימון: היום הבא נפתח לבד אחרי שהתאמנת (דחיפה → משיכה → רגליים), טווח חזרות לכל תרגיל, פלאנק בשניות, ותמונות נכונות לתרגילים.",
+    "מים נספרים במ״ל — החלפת גודל כוס לא משנה את מה שכבר שתית. היעד בליטרים.",
+    "התקדמות: אפשר לתקן או למחוק שקילה, והצפי ליעד לפי 4 השבועות האחרונים.",
     "מחשבון הקלוריות קורא ארוחה שלמה: \"2 ביצים ופרוסת לחם\", \"חזה עוף 200 גרם\", \"2 כפות טחינה\" — עם הכמויות, בלחיצה אחת.",
     "תוכנית האימונים בנויה רק מתרגילים מוכרים עם תמונה, ובכל תרגיל יש \"איך עושים?\" עם תמונות והסבר.",
     "חדש בהתקדמות: \"מסע ההתקדמות\" — תמונה בשבוע, וליד כל תמונה הממוצע השבועי של המשקל. לפני מול עכשיו, כמה ירדת ובאיזה קצב.",
@@ -20,6 +23,9 @@ export const NEWS: News = {
     "באימון פתוח רק היום הבא — המסך קצר ונקי.",
   ],
   en: [
+    "Workout: the next day opens by itself after you train (push → pull → legs), a rep range per move, planks in seconds, and correct exercise photos.",
+    "Water is counted in ml — changing the glass no longer changes what you drank. The goal is in litres.",
+    "Progress: fix or delete a weigh-in, and the goal ETA reads the last 4 weeks.",
     "The calorie calculator reads a whole meal: \"2 eggs and a slice of bread\", \"chicken breast 200 g\" — amounts included, one tap.",
     "The workout plan uses only familiar exercises with photos, and every one has \"How to do it\" with photos and steps.",
     "New in Progress: the progress journey — a photo a week, each beside the week's average weight. Before vs now, how much and how fast.",

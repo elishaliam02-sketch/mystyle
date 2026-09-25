@@ -115,6 +115,9 @@ export function ExercisePicker({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          // A row of chips, not a panel: on the web a horizontal scroller
+          // grows to fill the sheet and left two results on screen.
+          style={{ flexGrow: 0, flexShrink: 0 }}
           contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.xs, paddingVertical: space.sm, alignItems: "center" }}
         >
           {(["all", ...MUSCLES] as const).map((m) => {
@@ -144,6 +147,9 @@ export function ExercisePicker({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          // A row of chips, not a panel: on the web a horizontal scroller
+          // grows to fill the sheet and left two results on screen.
+          style={{ flexGrow: 0, flexShrink: 0 }}
           contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.xs, paddingBottom: space.sm, alignItems: "center" }}
         >
           {(["all", ...kits] as const).map((k) => {

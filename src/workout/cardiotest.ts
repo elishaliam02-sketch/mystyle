@@ -48,7 +48,12 @@ const summary = (g: "cut" | "recomp" | "maintain" | "bulk", seed = "") =>
       cardioPlan(g, "x").sessions.every((s) => cardioIds.has(s.exerciseId))));
   check("minutes are within the goal's band",
     (["cut", "recomp", "maintain", "bulk"] as const).every((g) =>
-      cardioPlan(g, "x").sessions.every((s) => s.minutes >= 15 && s.minutes <= 40)));
+      cardioPlan(g, "x").sessions.every((s) =>
+        s.style === "interval" ? s.minutes >= 12 && s.minutes <= 20 : s.minutes >= 15 && s.minutes <= 40)));
+  check("a home plan never sends someone to a gym machine",
+    (["cut", "recomp", "maintain", "bulk"] as const).every((g) =>
+      cardioPlan(g, "x", "intermediate", "home").sessions.every((s) =>
+        ["brisk-walk", "easy-run", "jump-rope", "swimming", "sprint-intervals", "burpee", "mountain-climber"].includes(s.exerciseId))));
   check("every session names the move in both languages",
     cardioPlan("cut", "x").sessions.every((s) => s.he.length > 1 && s.en.length > 1));
   check("a plan carries a why in both languages", (() => {

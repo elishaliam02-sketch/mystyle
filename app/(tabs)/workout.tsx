@@ -26,7 +26,7 @@ import {
   type Exercise,
   type Muscle,
 } from "@/workout/exercises";
-import { applyDayEdits, buildPlan, type DayType } from "@/workout/plan";
+import { applyDayEdits, buildPlan, HOLDS, nextDayIndex, repsFor, type DayType } from "@/workout/plan";
 import { LEVELS, type Level } from "@/workout/difficulty";
 import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
 import { cardioPlan } from "@/workout/cardio";
@@ -42,7 +42,7 @@ export default function WorkoutScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
-    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode } = useStore();
+    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode, todayKey } = useStore();
 
   const training = state.training;
   // Default to the app-wide goal, so the plan starts on the goal the person
@@ -447,11 +447,20 @@ export default function WorkoutScreen() {
   const extraIds = todayExtras();
   const extraExercises = [...EXERCISES, ...custom].filter((e) => extraIds.includes(e.id));
   const exName = (e: { he: string; en: string }) => (locale === "he" ? e.he : e.en);
-  const nextDay = sessions.findIndex((s, i) => {
-    const all = [...s.exercises, ...(i === 0 ? extraExercises : [])];
-    return all.length > 0 && all.some((e) => !isExerciseDone(e.id));
-  });
-  const shownDay = openDay ?? (nextDay === -1 ? 0 : nextDay);
+  // Each move's own range, isolated so "8–12" does not read "12–8" in Hebrew.
+  const repsLabel = (ex: Exercise) => {
+    const r = repsFor(ex, training.goal);
+    const range = `\u2066${r.range}\u2069`;
+    return r.hold ? fill(t.workout.holdSecs, { range }) : range;
+  };
+  // Today's plan day follows the one last trained; moves pulled in from the
+  // library join that day, not always day 1.
+  const todayDay = nextDayIndex(
+    sessions.map((s) => s.exercises.map((e) => e.id)),
+    training.log,
+    todayKey(),
+  );
+  const shownDay = openDay ?? todayDay;
 
   // Lifetime and this-week training figures, straight from the log.
   const log = training.log;
@@ -477,7 +486,7 @@ export default function WorkoutScreen() {
           </Text>
           <Text style={[type.body, { color: ON_HERO_SOFT, marginTop: 2 }]}>
             {plan.level ? `${levelLabel[plan.level]} · ` : ""}
-            {fill(t.workout.setsReps, { sets: plan.sets, reps: plan.reps })}
+            {fill(t.workout.setsOnly, { sets: plan.sets })}
             {plan.minutes ? ` · ${fill(t.workout.session, { min: plan.minutes })}` : ""}
           </Text>
           {focusNote ? (
@@ -552,7 +561,7 @@ export default function WorkoutScreen() {
 
 
         {sessions.map((session, i) => {
-          const dayExercises = [...session.exercises, ...(i === 0 ? extraExercises : [])];
+          const dayExercises = [...session.exercises, ...(i === todayDay ? extraExercises : [])];
           const done = dayExercises.filter((e) => isExerciseDone(e.id)).length;
           const total = dayExercises.length;
           // One day open at a time — the one to train next, unless the person
@@ -622,7 +631,7 @@ export default function WorkoutScreen() {
                     key={ex.id}
                     ex={ex}
                     sets={plan.sets}
-                    reps={plan.reps}
+                    reps={repsLabel(ex)}
                     muscleLabel={muscleLabel}
                     onRemove={() => removeFromDay(i, ex.id)}
                   />
@@ -697,7 +706,7 @@ export default function WorkoutScreen() {
 
         <RestTimer />
 
-        <CardioCard goal={training.goal} seed={seed} level={training.level} />
+        <CardioCard goal={training.goal} seed={seed} level={training.level} equipment={training.equipment} />
 
         {custom.length > 0 ? (
           <Card label={t.workout.myExercises}>
@@ -706,7 +715,7 @@ export default function WorkoutScreen() {
                 key={ex.id}
                 ex={ex}
                 sets={plan.sets}
-                reps={plan.reps}
+                reps={repsLabel(ex)}
                 muscleLabel={muscleLabel}
               />
             ))}
@@ -814,21 +823,25 @@ const REST_PRESETS = [60, 90, 120];
  * per-device seed as the plan, so it truly differs between a cut and a bulk and
  * between one person and the next. Each row opens its own demo video.
  */
-function CardioCard({ goal, seed, level }: { goal: Goal; seed: string; level?: Level }) {
+function CardioCard({ goal, seed, level, equipment }: { goal: Goal; seed: string; level?: Level; equipment?: string }) {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { demoFor } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
 
-  const plan = useMemo(() => cardioPlan(goal, seed, level), [goal, seed, level]);
+  const plan = useMemo(() => cardioPlan(goal, seed, level, equipment), [goal, seed, level, equipment]);
   if (plan.sessions.length === 0) return null;
 
   const openDemo = async (exerciseId: string) => {
     const ex = EXERCISES.find((e) => e.id === exerciseId);
     if (!ex) return;
     setLoading(exerciseId);
+    setFailed(null);
     try {
-      Linking.openURL(await demoFor(ex));
+      await Linking.openURL(await demoFor(ex));
+    } catch {
+      setFailed(exerciseId);
     } finally {
       setLoading(null);
     }
@@ -880,6 +893,7 @@ function CardioCard({ goal, seed, level }: { goal: Goal; seed: string; level?: L
           </View>
         ))}
       </View>
+      {failed ? <Text style={[type.small, { color: colors.orangeInk }]}>{t.workout.videoFailed}</Text> : null}
     </Card>
   );
 }
@@ -988,6 +1002,7 @@ type RowProps = {
  * day as soon as any set is ticked.
  */
 function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
+  const hold = HOLDS.has(ex.id);
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { setsFor, updateSet, addSet, removeSet, lastSession, demoFor } = useStore();
@@ -1052,7 +1067,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
           <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={2}>
             {name}
           </Text>
-          <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+          <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={2}>
             {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
           </Text>
           {/* said in words: a bare chevron did not tell anyone the row
@@ -1133,7 +1148,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             <MuscleMap
               primary={w.primary}
               secondary={w.secondary}
-              view={view(ex.muscle)}
+              view={view(ex.muscle, ex.id)}
               size={78}
             />
             <View style={{ flex: 1, gap: 2 }}>
@@ -1149,7 +1164,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 </Text>
               ) : null}
               <Text style={[type.small, { color: colors.inkFaint }]}>
-                {view(ex.muscle) === "front" ? t.workout.viewFront : t.workout.viewBack}
+                {view(ex.muscle, ex.id) === "front" ? t.workout.viewFront : t.workout.viewBack}
               </Text>
             </View>
           </View>
@@ -1180,7 +1195,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             {t.workout.kgCol}
           </Text>
           <Text style={[type.label, { color: metricInk(colors, "reps"), flex: 1, textAlign: "center" }]}>
-            {t.workout.repsCol}
+            {hold ? t.workout.secsCol : t.workout.repsCol}
           </Text>
           <View style={{ width: 30 }} />
         </View>
@@ -1195,7 +1210,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 {i + 1}
               </Text>
               <Text style={[type.small, { color: colors.inkFaint, width: 62, textAlign: "center" }]}>
-                {p && p.kg > 0 ? `${p.kg}×${p.reps}` : "—"}
+                {p && p.kg > 0 ? `${p.kg}×${p.reps}` : p && p.reps > 0 ? String(p.reps) : "—"}
               </Text>
 
               <SetField
@@ -1256,7 +1271,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
           />
           {rows.length > 1 ? (
             <Pressable
-              onPress={() => removeSet(ex.id)}
+              onPress={() => removeSet(ex.id, sets)}
               accessibilityRole="button"
               style={{
                 paddingVertical: 9,
@@ -1431,8 +1446,8 @@ function AddExercise({
       muscle,
       equipment: "bodyweight",
       compound: false,
-      howHe: [],
-      howEn: [],
+      howHe: [t.library.ownHow],
+      howEn: [t.library.ownHow],
       // Fall back to the name itself so the demo link still opens something useful.
       yt: (yt.trim() || clean) + " exercise form",
     });

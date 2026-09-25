@@ -67,6 +67,9 @@ function hash(str: string): number {
 /** Cardio moves that suit steady work vs the ones that suit hard intervals. */
 const STEADY = ["incline-walk", "stationary-bike", "elliptical", "treadmill-run", "rowing-machine", "stair-master", "swimming"];
 const INTERVAL = ["sprint-intervals", "assault-bike", "ski-erg", "battle-ropes", "jump-rope", "box-jump", "rowing-machine"];
+/** Without a gym: the street, a rope and the floor — never a treadmill. */
+const STEADY_HOME = ["brisk-walk", "easy-run", "jump-rope", "swimming"];
+const INTERVAL_HOME = ["sprint-intervals", "jump-rope", "burpee", "mountain-climber"];
 
 function findEx(id: string): Exercise | undefined {
   return EXERCISES.find((e) => e.id === id);
@@ -77,7 +80,8 @@ function findEx(id: string): Exercise | undefined {
  * same plan (so it is stable across opens); a different seed, or a different
  * goal, gives a different one.
  */
-export function cardioPlan(goal: Goal, seed = "", level?: Level): CardioPlan {
+export function cardioPlan(goal: Goal, seed = "", level?: Level, equipment = "gym"): CardioPlan {
+  const gym = equipment === "gym";
   const base = shape(goal);
   // A beginner builds the base first: the interval slots become steady work,
   // and the sessions start at the short end. Intervals on an assault bike in
@@ -99,15 +103,18 @@ export function cardioPlan(goal: Goal, seed = "", level?: Level): CardioPlan {
       const ex = findEx(id);
       if (!ex) continue;
       usedForVariety.push(id);
-      const span = sh.minHigh - sh.minLow;
-      const minutes = sh.minLow + (hash(`${seed}|${id}|${slot}`) % (span + 1));
+      // Hard intervals are short: 12–20 minutes including the easy parts,
+      // not the 30–40 of a steady session.
+      const lo = style === "interval" ? 12 : sh.minLow;
+      const hi = style === "interval" ? 20 : sh.minHigh;
+      const minutes = lo + (hash(`${seed}|${id}|${slot}`) % (hi - lo + 1));
       sessions.push({ exerciseId: id, he: ex.he, en: ex.en, style, minutes });
       return;
     }
   };
 
-  for (let i = 0; i < sh.steady; i++) pickFrom(STEADY, "steady", i);
-  for (let i = 0; i < sh.interval; i++) pickFrom(INTERVAL, "interval", i);
+  for (let i = 0; i < sh.steady; i++) pickFrom(gym ? STEADY : STEADY_HOME, "steady", i);
+  for (let i = 0; i < sh.interval; i++) pickFrom(gym ? INTERVAL : INTERVAL_HOME, "interval", i);
 
   return {
     goal,
@@ -119,7 +126,7 @@ export function cardioPlan(goal: Goal, seed = "", level?: Level): CardioPlan {
 }
 
 const HE_NOTE: Record<Goal, string> = {
-  cut: "בחיטוב האירובי עושה חצי מהעבודה — שילוב של סטדי לשריפה ואינטרוולים לאפטרברן.",
+  cut: "בחיטוב האירובי עושה חצי מהעבודה — שילוב של קצב קבוע לשריפה ואינטרוולים לאפטרברן.",
   recomp: "במיצוק מספיק אירובי מתון כדי להישאר רזה בזמן שבונים.",
   maintain: "לשמירה — קצת אירובי קבוע כדי לשמור על הלב והכושר.",
   bulk: "במסה מעט אירובי קליל בלבד — מספיק לבריאות, בלי לאכול את העודף.",

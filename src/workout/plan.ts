@@ -1,7 +1,7 @@
 import { EXERCISES, type Equipment, type Exercise, type Muscle } from "./exercises";
 import type { Goal } from "@/kitchen";
 import { difficulty, maxDifficulty, type Level } from "./difficulty";
-import { DAY_SLOTS, SLOT_MUSCLE, slotCandidates, type SlotId } from "./templates";
+import { DAY_SLOTS, SLOT_MUSCLE, slotCandidates, type SlotId, COMPOUND_SLOTS } from "./templates";
 
 /** What equipment the person can train with — drives which moves a plan uses. */
 export const EQUIP_SETS: Record<string, Equipment[]> = {
@@ -76,6 +76,25 @@ function split(days: number): DayType[] {
     case 5: return ["push", "pull", "legs", "upper", "lower"];
     default: return ["push", "pull", "legs", "push", "pull", "legs"];
   }
+}
+
+/** Moves held for time, not counted in reps. */
+export const HOLDS: ReadonlySet<string> = new Set([
+  "plank", "side-plank", "weighted-plank", "wall-sit", "dead-hang", "l-sit", "hollow-hold",
+]);
+
+/**
+ * The rep range for one move: heavy compounds lower, isolation higher, a
+ * cut a little higher still — and a hold in seconds. One range for the whole
+ * plan put squats at 12–15 on a cut and lateral raises at 6 on a bulk.
+ */
+export function repsFor(
+  ex: { id: string; compound: boolean },
+  goal: Goal,
+): { range: string; hold: boolean } {
+  if (HOLDS.has(ex.id)) return { range: "20–45", hold: true };
+  if (ex.compound) return { range: goal === "cut" || goal === "maintain" ? "8–12" : "6–10", hold: false };
+  return { range: goal === "cut" ? "12–20" : "10–15", hold: false };
 }
 
 /** Sets and rep range by goal. */
@@ -264,7 +283,9 @@ export function buildPlan(
   const base = volume(goal);
   // A beginner recovers from less and learns more from fewer, cleaner sets; an
   // advanced lifter needs more work to keep progressing.
-  const sets = level === "beginner" ? Math.max(2, base.sets - 1) : level === "advanced" ? Math.min(5, base.sets + 1) : base.sets;
+  // Three working sets a move for a beginner (two was a 25-minute hour),
+  // four for an advanced lifter, never five: 30+ sets do not fit an hour.
+  const sets = level === "beginner" ? 3 : level === "advanced" ? 4 : base.sets;
   const reps = base.reps;
   // Time drives the count when the person told us how long they have; otherwise
   // fall back to a goal-based default (bulk runs a little longer). A beginner's
@@ -328,20 +349,22 @@ function leveledDay(
   gym: boolean,
 ): Exercise[] {
   let slots: SlotId[] = [...(DAY_SLOTS[type] ?? DAY_SLOTS.fullA!)];
+  let strength = count;
   if (focus.length) {
     const wanted = slots.filter((sl) => focus.includes(SLOT_MUSCLE[sl] as Muscle));
     if (wanted.length) {
-      // The main lift stays first; the focus slots follow it, then the rest,
-      // and one focus slot is repeated as extra volume.
-      const [lead, ...rest] = slots;
-      const focusFirst = rest.filter((sl) => wanted.includes(sl));
-      const others = rest.filter((sl) => !wanted.includes(sl));
-      slots = [lead!, ...focusFirst, wanted[0]!, ...others];
+      // The day's big lifts keep their places at the front; the focus
+      // accessories come straight after them, then the rest. The extra focus
+      // move is one more on top — it used to push the row and the shoulder
+      // press out of a beginner's upper day.
+      const compounds = slots.filter((sl) => COMPOUND_SLOTS.has(sl));
+      const accessories = slots.filter((sl) => !COMPOUND_SLOTS.has(sl));
+      const focusAcc = accessories.filter((sl) => wanted.includes(sl));
+      const otherAcc = accessories.filter((sl) => !wanted.includes(sl));
+      slots = [...compounds, ...focusAcc, wanted.at(-1)!, ...otherAcc];
+      strength = count + 1;
     }
   }
-  // Every slot is strength work: cardio for a cut lives in its own card, not
-  // as a burpee finisher tacked onto the end of a lifting session.
-  const strength = count;
 
   const out: Exercise[] = [];
   const used = new Set<string>();
@@ -396,4 +419,51 @@ export function freshSeed(current: Plan, make: (seed: string) => Plan, candidate
     }
   }
   return best;
+}
+
+/**
+ * Which plan day to train today. The day trained today, if a session has
+ * begun; otherwise the one after the day last trained — found by matching
+ * that date's logged moves to the plan. Reading only "what is not done
+ * today" opened day 1 every morning: a push/pull/legs week became push, push,
+ * push.
+ */
+export function nextDayIndex(
+  sessions: string[][],
+  log: Record<string, string[]>,
+  today: string,
+): number {
+  const n = sessions.length;
+  if (n === 0) return 0;
+  const bestMatch = (ids: string[]): number => {
+    let best = -1;
+    let score = 0;
+    sessions.forEach((day, i) => {
+      const overlap = day.filter((id) => ids.includes(id)).length;
+      if (overlap > score) {
+        score = overlap;
+        best = i;
+      }
+    });
+    return best;
+  };
+  const nonEmpty = (i: number) => {
+    for (let k = 0; k < n; k++) {
+      const j = (i + k) % n;
+      if (sessions[j]!.length > 0) return j;
+    }
+    return 0;
+  };
+  const todays = log[today] ?? [];
+  if (todays.length > 0) {
+    const i = bestMatch(todays);
+    if (i !== -1) return i;
+  }
+  const last = Object.keys(log)
+    .filter((d) => d < today && (log[d]?.length ?? 0) > 0)
+    .sort()
+    .at(-1);
+  if (!last) return nonEmpty(0);
+  const i = bestMatch(log[last]!);
+  return i === -1 ? nonEmpty(0) : nonEmpty((i + 1) % n);
 }

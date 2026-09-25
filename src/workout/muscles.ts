@@ -42,9 +42,16 @@ export function worked(ex: Pick<Exercise, "muscle" | "compound">): Worked {
  * all. Drawing a lat pulldown on a front view highlights nothing a person can
  * see, which is worse than drawing no picture.
  */
-export function view(m: Muscle): "front" | "back" {
+export function view(m: Muscle, exerciseId?: string): "front" | "back" {
+  // Hamstring moves are "legs" too, but the muscle is on the back of the thigh.
+  if (exerciseId && HAMSTRING_MOVES.has(exerciseId)) return "back";
   return m === "back" || m === "glutes" ? "back" : "front";
 }
+
+const HAMSTRING_MOVES: ReadonlySet<string> = new Set([
+  "leg-curl", "seated-leg-curl", "lying-leg-curl", "stiff-leg-deadlift", "nordic-curl",
+  "glute-ham-raise", "single-leg-rdl", "rdl", "good-morning",
+]);
 
 /** The worked muscles in the order they should be read: primary first. */
 export function workedList(w: Worked): Muscle[] {
