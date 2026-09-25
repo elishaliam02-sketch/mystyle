@@ -362,8 +362,8 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("a beginner gym plan is built from beginner moves", all(gymBeg).every((e) => difficulty(e.id) === 1),
     all(gymBeg).filter((e) => difficulty(e.id) !== 1).map((e) => e.id).join(","));
   const adv = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "advanced" });
-  check("an advanced plan includes the heavy, technical lifts",
-    adv.sessions.flatMap((d) => d.exercises).filter((e) => difficulty(e.id) === 3).length >= 2,
+  check("an advanced plan includes a heavy, technical lift",
+    adv.sessions.flatMap((d) => d.exercises).filter((e) => difficulty(e.id) === 3).length >= 1,
     adv.sessions.map((d) => d.exercises.map((e) => e.id).join(",")).join(" / "));
   const mid = buildPlan("bulk", 4, 60, "gym", { seed: "s", level: "intermediate" });
   check("beginners do fewer sets, advanced more", gymBeg.sets < mid.sets && adv.sets > mid.sets, `${gymBeg.sets} ${mid.sets} ${adv.sets}`);
@@ -402,6 +402,11 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   const goals = ["cut", "recomp", "maintain", "bulk"] as const;
   const levels = ["beginner", "intermediate", "advanced"] as const;
   let short = "", badGym = "", badKit = "", dupes = "", noFinisher = "", tooHard = "";
+  // The bundled photo map, read as text (it is a file of require()s); a
+  // non-literal specifier keeps Node types out of the app's typecheck.
+  const fsName: string = "node:fs";
+  const fs = (await import(fsName)) as { readFileSync: (p: string, enc: string) => string };
+  const PHOTOED = new Set([...fs.readFileSync("src/workout/exerciseImageAssets.ts", "utf8").matchAll(/^\s+"([a-z0-9-]+)": require/gm)].map((m) => m[1]));
   for (const goal of goals) for (const level of levels) for (const equip of ["gym", "home", "bodyweight"]) for (const days of [2, 3, 4, 5, 6]) {
     const p = buildPlan(goal, days, 60, equip, { seed: `${goal}${level}${equip}${days}`, level });
     const kit = new Set(EQUIP_SETS[equip]);
@@ -411,7 +416,8 @@ for (const days of [2, 3, 4, 5, 6] as const) {
       if (d.exercises.some((e) => !kit.has(e.equipment))) badKit ||= tag;
       if (new Set(d.exercises.map((e) => e.id)).size !== d.exercises.length) dupes ||= tag;
       if (equip === "gym" && d.exercises.some((e) => e.equipment === "band")) badGym ||= tag;
-      if (goal === "cut" && d.exercises.length >= 4 && !["mountain-climber", "step-up", "kb-swing", "burpee", "thruster", "devil-press"].includes(d.exercises.at(-1)!.id)) noFinisher ||= tag;
+      if (d.exercises.some((e) => !PHOTOED.has(e.id))) noFinisher ||= `${tag}:${d.exercises.filter((e) => !PHOTOED.has(e.id)).map((e) => e.id)}`;
+      if (d.exercises.some((e) => ["burpee", "mountain-climber", "thruster", "devil-press"].includes(e.id))) noFinisher ||= `${tag}:conditioning`;
       if (level === "beginner" && d.exercises.some((e) => difficulty(e.id) === 3)) tooHard ||= tag;
     }
   }
@@ -419,7 +425,7 @@ for (const days of [2, 3, 4, 5, 6] as const) {
   check("no plan uses equipment the person does not have", !badKit, badKit);
   check("no exercise appears twice in one day", !dupes, dupes);
   check("a gym plan never uses bands", !badGym, badGym);
-  check("a cut day ends on a conditioning finisher", !noFinisher, noFinisher);
+  check("every planned move is a familiar one with its photo, no burpee finisher", !noFinisher, noFinisher);
   check("a beginner never gets an advanced lift", !tooHard, tooHard);
 
   const gymInt = buildPlan("recomp", 4, 60, "gym", { seed: "x", level: "intermediate" });

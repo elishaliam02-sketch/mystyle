@@ -138,7 +138,7 @@ export const EXTRA_FOODS: ExtraRow[] = [
   X("sandwich", ["carb", "protein"], "כריך", "sandwich", ["כריך", "כריכים", "סנדוויץ'", "סנדוויץ", "sandwich"], "slice", "#D6A868",
     n(230, 10, 28, 8.5, "asSold"), p(200, "כריך", "1 sandwich"), "G", "r", "sandwich"),
   // -------------------------------------------------- salads & spreads
-  X("israeliSalad", ["veg"], "סלט ירקות", "chopped salad", ["סלט ירקות", "סלט ישראלי", "סלט קצוץ", "israeli salad", "chopped salad"], "leaf", "#6FA84A",
+  X("israeliSalad", ["veg"], "סלט ירקות", "chopped salad", ["סלט ירקות", "סלט ישראלי", "סלט קצוץ", "סלט", "israeli salad", "chopped salad", "salad"], "leaf", "#6FA84A",
     n(60, 1, 4, 4.5, "asSold"), p(200, "קערה", "1 bowl"), "", "f", "israeli salad"),
   X("tabbouleh", ["veg", "carb"], "טאבולה", "tabbouleh", ["טאבולה", "tabbouleh", "tabouli"], "leaf", "#5E9A3C",
     n(120, 2.5, 12, 7, "asSold"), p(150, "קערה קטנה", "a small bowl"), "G", "fo", "tabbouleh"),

@@ -100,6 +100,40 @@ export function addFood(items: CalcItem[], food: Food): CalcItem[] {
   return next;
 }
 
+/** Add a weight of a food — a typed sentence's reading — merging with a row
+ * already on the plate rather than listing the food twice. */
+export function addGrams(items: CalcItem[], food: Food, grams: number): CalcItem[] {
+  const g = clampGrams(grams);
+  if (g < MIN_GRAMS) return items;
+  const at = items.findIndex((i) => i.food.id === food.id);
+  if (at === -1) {
+    if (items.length >= MAX_ITEMS) return items;
+    return [...items, { food, grams: g }];
+  }
+  const next = [...items];
+  next[at] = { ...next[at]!, grams: clampGrams(next[at]!.grams + g) };
+  return next;
+}
+
+/** Dry staples weighed raw, and the cooked twin a plate is actually weighed as. */
+const COOKED_OF: Record<string, string> = { rice: "cookedRice", pasta: "cookedPasta" };
+
+/** Search hits with a cooked twin ahead of the dry food: on a plate, "rice"
+ * is cooked rice, and a row reading "75 g" of dry rice misleads. */
+export function cookedFirst(foods: Food[]): Food[] {
+  const out = [...foods];
+  for (const [dry, cooked] of Object.entries(COOKED_OF)) {
+    const d = out.findIndex((f) => f.id === dry);
+    if (d === -1) continue;
+    const c = out.findIndex((f) => f.id === cooked);
+    const twin = c === -1 ? FOODS.find((f) => f.id === cooked) : out[c];
+    if (!twin) continue;
+    if (c !== -1) out.splice(c, 1);
+    out.splice(d, 0, twin);
+  }
+  return out;
+}
+
 /** Nudge one row by whole portions. Stepping to zero removes it, because a row
  * reading "0 g" is a thing to tidy up rather than information. */
 export function step(items: CalcItem[], foodId: string, direction: 1 | -1): CalcItem[] {

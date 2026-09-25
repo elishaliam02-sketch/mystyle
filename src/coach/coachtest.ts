@@ -177,6 +177,23 @@ check("six openers are offered in each language",
   check("3,000 steps is about 30 minutes, not 2", ask("כמה צעדים עשיתי").text.includes("30 דקות"));
 }
 
+// Amounts the way people write them: measures, weights after the food, cooked grains.
+{
+  const g = (text: string, id: string) => parseEaten(text, "he")?.items.find((i) => i.food.id === id)?.grams;
+  check("'3 פרוסות לחם' is three slices", g("3 פרוסות לחם", "bread") === 90, String(g("3 פרוסות לחם", "bread")));
+  check("'2 ביצים ופרוסת לחם' reads both", g("2 ביצים ופרוסת לחם", "egg") === 100 && g("2 ביצים ופרוסת לחם", "bread") === 30);
+  check("'חזה עוף 200 גרם' — the weight after the food", g("חזה עוף 200 גרם", "chicken") === 200, String(g("חזה עוף 200 גרם", "chicken")));
+  check("'2 כוסות חלב' is two cups of milk and nothing else",
+    g("2 כוסות חלב", "milk") === 400 && parseEaten("2 כוסות חלב", "he")!.items.length === 1);
+  check("'2 כפות טחינה' is two spoons", g("2 כפות טחינה", "tahini") === 40);
+  check("'כפית סוכר' is a teaspoon", (g("כפית סוכר", "sugar") ?? 0) <= 5);
+  check("rice on a plate is weighed cooked", g("אכלתי אורז", "cookedRice") === 150);
+  check("dry rice stays dry when said", g("100 גרם אורז יבש", "rice") === 100);
+  check("a slice of pizza is one slice, not 30 g", (g("2 פרוסות פיצה", "pizza") ?? 0) >= 200);
+  check("'סקופ חלבון' is a scoop of protein powder", g("סקופ חלבון", "proteinPowder") === 30);
+  check("'חומוס' is the spread", parseEaten("חומוס", "he")?.items[0]?.food.id === "hummusSpread");
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

@@ -73,11 +73,11 @@ export const HELP_TOPICS: HelpTopic[] = [
     keys: ["מחשבון", "מחשבון קלוריות", "לחשב", "גרמים", "כמה קלוריות יש", "calculator", "calculate", "grams", "how many calories in"],
     he: {
       title: "מחשבון הקלוריות",
-      answer: "במחשבון מחפשים מאכל, מוסיפים לצלחת ומשנים את המשקל בגרמים — הקלוריות, החלבון, הפחמימות והשומן מתעדכנים. \"רשום ליומן\" שומר הכול. מאכל שלא נמצא אפשר לחפש במאגר Open Food Facts.",
+      answer: "במחשבון כותבים מאכל או ארוחה שלמה עם כמויות (\"2 ביצים ופרוסת לחם\", \"חזה עוף 200 גרם\") ולוחצים \"הוסף הכל\". אפשר גם לחפש מאכל, להוסיף לצלחת ולשנות את המשקל בגרמים — הקלוריות, החלבון, הפחמימות והשומן מתעדכנים. \"רשום ליומן\" שומר הכול. מאכל שלא נמצא אפשר לחפש במאגר Open Food Facts.",
     },
     en: {
       title: "Calorie calculator",
-      answer: "Search a food, add it to the plate and set the grams — calories, protein, carbs and fat update. \"Log it\" saves it. A food the app lacks can be searched on Open Food Facts.",
+      answer: "Type a food or a whole meal with amounts (\"2 eggs and a slice of bread\", \"chicken breast 200 g\") and tap \"Add all\". Or search a food, add it to the plate and set the grams — calories, protein, carbs and fat update. \"Log it\" saves it. A food the app lacks can be searched on Open Food Facts.",
     },
   },
   {

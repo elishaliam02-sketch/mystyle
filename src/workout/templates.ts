@@ -38,8 +38,8 @@ export const SLOT_OPTIONS: Record<SlotId, ByLevel> = {
   },
   vpush: {
     beginner: ["machine-shoulder-press", "seated-db-press", "db-shoulder-press", "smith-ohp"],
-    intermediate: ["db-shoulder-press", "ohp", "seated-db-press", "arnold-press", "pike-pushup"],
-    advanced: ["ohp", "push-press", "arnold-press", "db-shoulder-press", "pike-pushup"],
+    intermediate: ["db-shoulder-press", "seated-db-press", "machine-shoulder-press", "arnold-press", "smith-ohp"],
+    advanced: ["db-shoulder-press", "arnold-press", "smith-ohp", "seated-db-press", "machine-shoulder-press"],
   },
   lateral: {
     beginner: ["lateral-raise", "machine-lateral", "cable-lateral", "band-lateral"],
@@ -49,7 +49,7 @@ export const SLOT_OPTIONS: Record<SlotId, ByLevel> = {
   triceps: {
     beginner: ["triceps-pushdown", "rope-pushdown", "overhead-triceps", "triceps-kickback", "bench-dip"],
     intermediate: ["rope-pushdown", "skullcrusher", "overhead-triceps", "close-grip-bench", "triceps-pushdown", "bench-dip"],
-    advanced: ["close-grip-bench", "dips", "skullcrusher", "jm-press", "db-overhead-extension", "diamond-pushup"],
+    advanced: ["close-grip-bench", "dips", "skullcrusher", "rope-pushdown", "overhead-triceps", "diamond-pushup"],
   },
   vpull: {
     beginner: ["lat-pulldown", "wide-pulldown", "close-pulldown", "band-pulldown"],
@@ -57,9 +57,9 @@ export const SLOT_OPTIONS: Record<SlotId, ByLevel> = {
     advanced: ["pullup", "chinup", "wide-pulldown", "lat-pulldown"],
   },
   hrow: {
-    beginner: ["seated-row", "machine-row", "chest-supported-row", "db-row", "inverted-row"],
+    beginner: ["seated-row", "chest-supported-row", "db-row", "inverted-row"],
     intermediate: ["bent-row", "db-row", "t-bar-row", "seated-row", "chest-supported-row", "inverted-row"],
-    advanced: ["bent-row", "pendlay-row", "t-bar-row", "kroc-row", "seal-row", "inverted-row"],
+    advanced: ["bent-row", "t-bar-row", "db-row", "seated-row", "chest-supported-row", "inverted-row"],
   },
   rear: {
     beginner: ["face-pull", "reverse-pec-deck", "rear-delt-fly"],
@@ -69,62 +69,62 @@ export const SLOT_OPTIONS: Record<SlotId, ByLevel> = {
   biceps: {
     beginner: ["biceps-curl", "cable-curl", "machine-curl", "preacher-curl", "band-curl"],
     intermediate: ["barbell-curl", "biceps-curl", "incline-db-curl", "ez-curl", "cable-curl", "band-curl"],
-    advanced: ["barbell-curl", "incline-db-curl", "spider-curl", "ez-curl", "drag-curl"],
+    advanced: ["barbell-curl", "incline-db-curl", "ez-curl", "biceps-curl", "cable-curl"],
   },
   biceps2: {
     beginner: ["hammer-curl", "concentration-curl", "cable-curl"],
     intermediate: ["hammer-curl", "preacher-curl", "concentration-curl", "cable-curl"],
-    advanced: ["hammer-curl", "zottman-curl", "preacher-curl", "spider-curl"],
+    advanced: ["hammer-curl", "preacher-curl", "concentration-curl", "cable-curl"],
   },
   squat: {
     beginner: ["leg-press", "goblet-squat", "smith-squat", "air-squat"],
     intermediate: ["squat", "hack-squat", "leg-press", "goblet-squat", "box-squat"],
-    advanced: ["squat", "front-squat", "hack-squat", "box-squat", "pistol-squat"],
+    advanced: ["squat", "front-squat", "hack-squat", "leg-press", "goblet-squat"],
   },
   hinge: {
     beginner: ["kb-deadlift", "back-extension", "glute-bridge"],
-    intermediate: ["rdl", "trap-bar-deadlift", "stiff-leg-deadlift", "single-leg-rdl", "kb-deadlift"],
-    advanced: ["deadlift", "rdl", "sumo-deadlift", "trap-bar-deadlift", "single-leg-rdl"],
+    intermediate: ["rdl", "trap-bar-deadlift", "stiff-leg-deadlift", "kb-deadlift", "glute-bridge"],
+    advanced: ["deadlift", "rdl", "sumo-deadlift", "trap-bar-deadlift", "kb-deadlift"],
   },
   single: {
-    beginner: ["step-up", "bw-lunge", "reverse-lunge", "wall-sit"],
+    beginner: ["step-up", "bw-lunge", "reverse-lunge"],
     intermediate: ["walking-lunge", "bulgarian-split-squat", "reverse-lunge", "lunge", "step-up"],
-    advanced: ["bulgarian-split-squat", "walking-lunge", "reverse-lunge", "pistol-squat"],
+    advanced: ["bulgarian-split-squat", "walking-lunge", "reverse-lunge", "lunge"],
   },
   hamcurl: {
     beginner: ["lying-leg-curl", "seated-leg-curl", "leg-curl", "glute-bridge"],
-    intermediate: ["lying-leg-curl", "seated-leg-curl", "leg-curl", "single-leg-rdl"],
-    advanced: ["nordic-curl", "lying-leg-curl", "seated-leg-curl", "glute-ham-raise"],
+    intermediate: ["lying-leg-curl", "seated-leg-curl", "leg-curl", "glute-bridge"],
+    advanced: ["lying-leg-curl", "seated-leg-curl", "leg-curl", "glute-bridge"],
   },
   quad: {
-    beginner: ["leg-extension", "wall-sit"],
-    intermediate: ["leg-extension", "wall-sit", "goblet-squat"],
-    advanced: ["leg-extension", "sissy-squat", "jump-squat"],
+    beginner: ["leg-extension", "goblet-squat", "air-squat"],
+    intermediate: ["leg-extension", "goblet-squat", "air-squat"],
+    advanced: ["leg-extension", "goblet-squat", "air-squat"],
   },
   glute: {
-    beginner: ["glute-bridge", "cable-kickback", "abductor-machine", "banded-walk"],
-    intermediate: ["hip-thrust", "cable-kickback", "single-leg-hip-thrust", "banded-walk"],
+    beginner: ["glute-bridge", "cable-kickback"],
+    intermediate: ["hip-thrust", "cable-kickback", "glute-bridge", "single-leg-hip-thrust"],
     advanced: ["hip-thrust", "single-leg-hip-thrust", "cable-kickback"],
   },
   calves: {
     beginner: ["standing-calf", "seated-calf-raise", "calf-raise"],
-    intermediate: ["standing-calf", "seated-calf-raise", "donkey-calf", "calf-raise"],
-    advanced: ["standing-calf", "donkey-calf", "seated-calf-raise", "calf-raise"],
+    intermediate: ["standing-calf", "seated-calf-raise", "calf-raise"],
+    advanced: ["standing-calf", "seated-calf-raise", "calf-raise"],
   },
   core: {
-    beginner: ["plank", "dead-bug", "cable-crunch", "side-plank", "reverse-crunch"],
-    intermediate: ["hanging-knee-raise", "cable-crunch", "pallof-press", "woodchop", "side-plank", "bicycle-crunch"],
-    advanced: ["hanging-leg-raise", "ab-wheel", "toes-to-bar", "l-sit", "cable-crunch"],
+    beginner: ["plank", "crunch", "cable-crunch", "side-plank", "reverse-crunch"],
+    intermediate: ["hanging-knee-raise", "cable-crunch", "plank", "side-plank", "bicycle-crunch", "reverse-crunch"],
+    advanced: ["hanging-leg-raise", "ab-wheel", "hanging-knee-raise", "cable-crunch", "plank"],
   },
   lowback: {
     beginner: ["back-extension", "superman"],
     intermediate: ["back-extension", "superman"],
-    advanced: ["good-morning", "back-extension", "superman"],
+    advanced: ["back-extension", "superman"],
   },
   conditioning: {
-    beginner: ["mountain-climber", "step-up"],
-    intermediate: ["kb-swing", "burpee", "mountain-climber"],
-    advanced: ["burpee", "thruster", "devil-press", "kb-swing"],
+    beginner: ["step-up"],
+    intermediate: ["kb-swing", "step-up"],
+    advanced: ["kb-swing", "step-up"],
   },
 };
 
@@ -154,8 +154,8 @@ export const SLOT_MUSCLE: Record<SlotId, string> = {
  */
 const GYM_BODYWEIGHT_OK = new Set([
   "pullup", "chinup", "dips", "nordic-curl", "glute-ham-raise", "back-extension",
-  "plank", "side-plank", "dead-bug", "reverse-crunch", "bicycle-crunch", "hanging-knee-raise",
-  "hanging-leg-raise", "toes-to-bar", "ab-wheel", "l-sit", "mountain-climber", "burpee",
+  "plank", "side-plank", "crunch", "reverse-crunch", "bicycle-crunch", "hanging-knee-raise",
+  "hanging-leg-raise", "ab-wheel",
 ]);
 
 /** The candidates for a slot at a level, in preference order: the level's own

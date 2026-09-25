@@ -75,7 +75,7 @@ const BASE_FOODS: Food[] = [
   F("fish", ["protein"], "דג", "fish", ["דג לבן", "דג", "פילה דג", "white fish", "fish"], "long", "#D9C2A6"),
   F("tofu", ["protein"], "טופו", "tofu", ["טופו", "tofu"], "blob", "#F0EAD6"),
   F("lentils", ["protein"], "עדשים", "lentils", ["עדשים", "עדשה", "עדשים כתומות", "עדשים ירוקות", "עדשים שחורות", "lentil", "lentils", "red lentils"], "grain", "#B5713B"),
-  F("chickpeas", ["protein"], "גרגירי חומוס", "chickpeas", ["גרגירי חומוס", "גרגרי חומוס", "חומוס", "chickpea", "chickpeas"], "grain", "#D9B36A"),
+  F("chickpeas", ["protein"], "גרגירי חומוס", "chickpeas", ["גרגירי חומוס", "גרגרי חומוס", "חומוס מבושל", "חומוס גרגרים", "chickpea", "chickpeas"], "grain", "#D9B36A"),
   F("beans", ["protein"], "שעועית", "beans", ["שעועית", "שעועית לבנה", "white beans", "beans", "bean"], "grain", "#8C4A2F"),
   F("edamame", ["protein", "veg"], "אדממה", "edamame", ["אדממה", "edamame"], "grain", "#7FB05A"),
   // -- dairy (also protein)
@@ -126,15 +126,15 @@ const BASE_FOODS: Food[] = [
   F("nuts", ["fat", "protein"], "אגוזים", "nuts", ["אגוזים מעורבים", "אגוזים", "nuts", "mixed nuts"], "grain", "#A9743F"),
   F("peanutButter", ["fat", "protein"], "חמאת בוטנים", "peanut butter", ["חמאת בוטנים", "peanut butter"], "blob", "#C58A3D"),
   F("olives", ["fat"], "זיתים", "olives", ["זיתים", "זית", "olives"], "round", "#5B6B34"),
-  F("hummusSpread", ["protein", "fat"], "ממרח חומוס", "hummus", ["ממרח חומוס", "חומוס מוכן", "hummus"], "blob", "#DFC98F"),
+  F("hummusSpread", ["protein", "fat"], "ממרח חומוס", "hummus", ["ממרח חומוס", "חומוס מוכן", "חומוס", "hummus"], "blob", "#DFC98F"),
 
   // -- more proteins & meats
   F("pork", ["protein"], "בשר חזיר", "pork", ["בשר חזיר", "חזיר", "פילה חזיר", "pork"], "blob", "#D98C7A"),
   F("lamb", ["protein"], "כבש", "lamb", ["בשר כבש", "כבש", "lamb"], "blob", "#8C4A3B"),
-  F("sausage", ["protein", "fat"], "נקניקייה", "sausage", ["נקניקייה", "נקניקיות", "נקניק", "sausage"], "long", "#A24B3A"),
+  F("sausage", ["protein", "fat"], "נקניקייה", "sausage", ["נקניקייה", "נקניקיה", "נקניקיות", "נקניק", "sausage"], "long", "#A24B3A"),
   F("shrimp", ["protein"], "שרימפס", "shrimp", ["שרימפס", "חסילונים", "שרימפ", "shrimp", "prawns"], "long", "#E88A6B"),
   F("sardines", ["protein", "fat"], "סרדינים", "sardines", ["סרדינים", "סרדין", "sardines"], "long", "#B0A48A"),
-  F("proteinPowder", ["protein"], "אבקת חלבון", "protein powder", ["אבקת חלבון", "אבקה חלבון", "protein powder", "whey"], "grain", "#C9A36B"),
+  F("proteinPowder", ["protein"], "אבקת חלבון", "protein powder", ["אבקת חלבון", "אבקה חלבון", "שייק חלבון", "סקופ חלבון", "protein powder", "protein shake", "whey"], "grain", "#C9A36B"),
   // -- more dairy
   F("butter", ["fat", "dairy"], "חמאה", "butter", ["חמאה", "butter"], "blob", "#F2D98A"),
   F("mozzarella", ["dairy", "protein"], "מוצרלה", "mozzarella", ["מוצרלה", "mozzarella"], "blob", "#FAF6EC"),

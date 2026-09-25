@@ -311,7 +311,7 @@ export function buildPlan(
 /**
  * One day, built slot by slot. The day's template decides what kind of
  * movement comes when; focus muscles move their slots forward (and earn one
- * more); a cut ends on a conditioning finisher. Within each slot the seed picks
+ * more). Within each slot the seed picks
  * from the level's list, skipping anything already in the session and — when
  * there is a choice — anything the same kind of day had earlier in the week.
  */
@@ -339,9 +339,9 @@ function leveledDay(
       slots = [lead!, ...focusFirst, wanted[0]!, ...others];
     }
   }
-  // A cut ends on a conditioning finisher; everything before it is strength.
-  const finisher = goal === "cut" && count >= 4;
-  const strength = finisher ? count - 1 : count;
+  // Every slot is strength work: cardio for a cut lives in its own card, not
+  // as a burpee finisher tacked onto the end of a lifting session.
+  const strength = count;
 
   const out: Exercise[] = [];
   const used = new Set<string>();
@@ -365,7 +365,6 @@ function leveledDay(
   slots.forEach((slot, k) => {
     if (out.length < strength) fill(slot, k);
   });
-  if (finisher) fill("conditioning", slots.length);
   return out;
 }
 

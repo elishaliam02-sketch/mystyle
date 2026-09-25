@@ -230,6 +230,10 @@ const STOPWORDS = new Set([
   "סלסלה", "סלסלת", "חתיכה", "חתיכות", "נתח", "נתחי", "פילה", "אריזה", "אריזת", "תריסר", "זוג",
   "kg", "gr", "gram", "grams", "liter", "litre", "pack", "packet", "can", "cans", "bottle",
   "bottles", "bag", "box", "jar", "carton", "tray", "dozen", "pieces", "piece",
+  // Household measures in a meal sentence: "2 כוסות חלב" is milk, not buckwheat.
+  "כוס", "כוסות", "כף", "כפות", "כפית", "כפיות", "פרוסה", "פרוסת", "קערה", "קערת", "צלחת",
+  "מנה", "מנת", "מנות", "סקופ", "סקופים", "חופן", "חופנים",
+  "cup", "cups", "glass", "tbsp", "tsp", "spoon", "slice", "slices", "bowl", "plate", "serving", "scoop",
 ]);
 
 /**

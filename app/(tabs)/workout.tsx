@@ -124,7 +124,9 @@ export default function WorkoutScreen() {
         ? buildPlan(training.goal, training.days, training.minutes, training.equipment, {
             seed,
             focus: (training.focus as Muscle[]) ?? [],
-            level: training.level,
+            // No level on file (an early plan) still gets the coach-shaped
+            // week, not the old draw-anything generator.
+            level: training.level ?? "intermediate",
           })
         : null,
     [training, seed],
@@ -1050,16 +1052,16 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
           <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={2}>
             {name}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-            <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
-              {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
+          <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+            {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
+          </Text>
+          {/* said in words: a bare chevron did not tell anyone the row
+              holds photos of the movement and how to do it */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 1 }}>
+            <Text style={[type.smallStrong, { color: colors.accent }]}>
+              {open ? t.workout.howHide : t.workout.howShow}
             </Text>
-            {/* the only sign the row opens at all */}
-            <Ionicons
-              name={open ? "chevron-up" : "chevron-down"}
-              size={13}
-              color={colors.inkFaint}
-            />
+            <Ionicons name={open ? "chevron-up" : "chevron-down"} size={13} color={colors.accent} />
           </View>
         </Pressable>
 

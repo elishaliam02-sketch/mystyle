@@ -44,7 +44,7 @@ const seed = {
   pantry:"חזה עוף, אורז, ביצים, עגבנייה, מלפפון, יוגורט יווני, בננה, לחם, טונה, חסה, גבינה לבנה, שמן זית, בטטה, ברוקולי, שיבולת שועל, אגוזים",
   salt:"e2e-salt",
   nutritionGoal:"cut", dietFilter:"all",
-  training:{goal:"recomp",days:3,minutes:60,equipment:"gym",log:{},custom:[],weights:{},
+  training:{goal:"recomp",days:3,minutes:60,equipment:"gym",planSeed:"e2e-4",log:{},custom:[],weights:{},
     // last time this person benched, two days ago — the set table must show it back
     setLog:{[dayAgo(2)]:{"bench-press":[{kg:70,reps:8,done:true},{kg:70,reps:7,done:true},{kg:65,reps:8,done:true}]}}},
 };
@@ -841,7 +841,7 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   check("and it cannot log an empty plate",
     await cp.getByRole("button",{name:/רשום ליומן/}).first().isDisabled().catch(()=>false));
 
-  await cp.getByPlaceholder(/לדוגמה/).first().fill("ביצים"); await cp.waitForTimeout(700);
+  await cp.getByPlaceholder(/ארוחה שלמה/).first().fill("ביצים"); await cp.waitForTimeout(700);
   await cp.getByRole("button",{name:"ביצים"}).first().click(); await cp.waitForTimeout(600);
   check("adding a food puts it on the plate",
     await cp.getByText(/100 גרם/).first().isVisible().catch(()=>false));
@@ -867,7 +867,7 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
     check("and named after what was on the plate",
       String(rows[0]?.label ?? "").includes("ביצים"), String(rows[0]?.label)); }
   // a food outside the library must still be loggable
-  await cp.getByPlaceholder(/לדוגמה/).first().fill("מופלטה"); await cp.waitForTimeout(600);
+  await cp.getByPlaceholder(/ארוחה שלמה/).first().fill("מופלטה"); await cp.waitForTimeout(600);
   check("an unknown food offers a category to add it by",
     (await cp.getByRole("button",{name:/מופלטה · פחמימה/}).count())>0);
   await cp.getByRole("button",{name:/מופלטה · פחמימה/}).first().click(); await cp.waitForTimeout(600);
@@ -883,6 +883,19 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
     const t = Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
     check("a typed weight recomputes the total", t === 325, String(t));
   }
+  // a whole meal typed as a sentence is read into rows with their amounts
+  await cp.getByPlaceholder(/ארוחה שלמה/).first().fill("2 ביצים ופרוסת לחם"); await cp.waitForTimeout(700);
+  check("a typed meal is read as a meal",
+    await cp.getByText("זיהיתי את הארוחה").first().isVisible().catch(()=>false));
+  await cp.getByRole("button",{name:/הוסף הכל/}).first().click(); await cp.waitForTimeout(600);
+  { const t = await readTotal();
+    check("adding the read meal adds two eggs and a slice (223)", t === 325 + 223, String(t)); }
+  // Enter on the keyboard does the same, and a weight after the food counts
+  const box = cp.getByPlaceholder(/ארוחה שלמה/).first();
+  await box.fill("חזה עוף 200 גרם"); await cp.waitForTimeout(600);
+  await box.press("Enter"); await cp.waitForTimeout(700);
+  { const t = await readTotal();
+    check("Enter adds the read meal; '200 גרם' after the food is honoured (330)", t === 325 + 223 + 330, String(t)); }
 
   check("the calculator raises no page errors", cerr.length===0, cerr.join(" | "));
   await cctx.close();

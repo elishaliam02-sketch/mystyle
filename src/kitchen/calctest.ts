@@ -1,5 +1,5 @@
 import {
-  addFood, clampGrams, fromAnalysis, itemNutrition, label, matchFood, MAX_GRAMS, MAX_ITEMS,
+  addFood, addGrams, clampGrams, cookedFirst, fromAnalysis, itemNutrition, label, matchFood, MAX_GRAMS, MAX_ITEMS,
   aiFood, macros, portions, removeFood, setGrams, step, stepFor, total, type CalcItem,
 } from "./calc";
 import { FOODS, adhocFood, portion } from "./data";
@@ -179,6 +179,18 @@ const oil = FOODS.find((f) => f.tags[0] === "fat")!;
   check("…and its fat is the egg's alone", mixed !== null && m !== null && mixed.fat === m.fat);
   const bad = macros([{ food: egg, grams: NaN as number }]);
   check("a NaN weight is zero, not NaN", bad !== null && bad.carbs === 0 && bad.fat === 0);
+}
+
+// A typed meal's rows merge into the plate; cooked rice leads the search.
+{
+  const rice = FOODS.find((f) => f.id === "rice")!;
+  const cooked = FOODS.find((f) => f.id === "cookedRice")!;
+  let plate: CalcItem[] = addGrams([], cooked, 150);
+  plate = addGrams(plate, cooked, 50);
+  check("adding a read food twice merges its grams", plate.length === 1 && plate[0]!.grams === 200);
+  check("a zero reading adds nothing", addGrams([], cooked, 0).length === 0);
+  check("cooked rice is offered before dry rice", cookedFirst([rice])[0]!.id === "cookedRice");
+  check("cookedFirst keeps every other food", cookedFirst([rice, cooked]).filter((f) => f.id === "cookedRice").length === 1);
 }
 
 const failed = results.filter(([, ok]) => !ok);

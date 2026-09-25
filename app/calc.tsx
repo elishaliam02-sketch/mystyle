@@ -6,15 +6,17 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
 import { Screen } from "@/components/Screen";
+import { FoodThumb } from "@/components/FoodThumb";
 import { TextField } from "@/components/TextField";
 import {
-  addFood, fromAnalysis, label as calcLabel, macros, portions, removeFood, setGrams, step, total,
+  addFood, addGrams, cookedFirst, fromAnalysis, label as calcLabel, macros, portions, removeFood, setGrams, step, total,
   type CalcItem, type ReadItem,
 } from "@/kitchen/calc";
 import { adhocFood, type FoodTag } from "@/kitchen/data";
 import { foodFromFact, searchFoodFacts, type FactHit } from "@/kitchen/foodfacts";
 import { dailyTarget, searchFoods } from "@/kitchen";
 import { recentMeals } from "@/kitchen/recent";
+import { mentionsAmount, parseEaten } from "@/coach/logfood";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
@@ -76,7 +78,24 @@ export default function CalcScreen() {
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
-  const hits = useMemo(() => (q.trim() ? searchFoods(q, 8) : []), [q]);
+  const hits = useMemo(() => (q.trim() ? cookedFirst(searchFoods(q, 8)) : []), [q]);
+  // A whole meal typed in one go — "2 ביצים ופרוסת לחם", "חזה עוף 200 גרם" —
+  // read into rows with their amounts, so nobody taps five foods one by one.
+  // Shown when there is more than one food or an amount to honour; a single
+  // bare word stays an ordinary search.
+  const read = useMemo(() => {
+    const text = q.trim();
+    if (!text) return null;
+    const meal = parseEaten(text, locale === "he" ? "he" : "en");
+    if (!meal) return null;
+    return meal.items.length >= 2 || mentionsAmount(text) ? meal : null;
+  }, [q, locale]);
+  function addRead() {
+    if (!read) return;
+    setItems((prev) => read.items.reduce((acc, it) => addGrams(acc, it.food, it.grams), prev));
+    setQ("");
+    setFacts(null);
+  }
   // Whether a hit holds the whole query. When the only hits are foods named
   // inside it (a brand, a dish), the product lookup stays on offer.
   const direct = useMemo(() => {
@@ -211,8 +230,49 @@ export default function CalcScreen() {
               if (saved) setSaved(false);
             }}
             placeholder={t.kitchen.calcSearchHint}
+            maxLength={120}
+            onSubmitEditing={() => {
+              if (read) addRead();
+              else if (hits.length > 0) {
+                setItems((prev) => addFood(prev, hits[0]!));
+                setQ("");
+              }
+            }}
           />
-          {hits.length > 0 ? (
+          {read ? (
+            <View
+              style={{
+                marginTop: space.sm,
+                padding: space.md,
+                gap: 6,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentWash,
+                borderWidth: 1,
+                borderColor: colors.accent,
+              }}
+            >
+              <Text style={[type.smallStrong, { color: colors.accent }]}>{t.kitchen.calcReadTitle}</Text>
+              {read.items.map((it) => (
+                <View key={it.food.id} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+                  <FoodThumb food={it.food} size={26} />
+                  <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                    {locale === "he" ? it.food.he : it.food.en}
+                  </Text>
+                  <Text style={[type.small, { color: colors.inkSoft }]}>
+                    {it.grams} {t.kitchen.calcGrams} · {it.kcal} {t.kitchen.kcal}
+                  </Text>
+                </View>
+              ))}
+              <Button
+                icon="add"
+                label={fill(t.kitchen.calcReadAdd, { kcal: `${read.kcal} ${t.kitchen.kcal}` })}
+                onPress={addRead}
+                style={{ marginTop: 4 }}
+              />
+              <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.calcReadEdit}</Text>
+            </View>
+          ) : null}
+          {hits.length > 0 && !read ? (
             <View style={{ gap: 6, marginTop: space.sm }}>
               {hits.map((f) => (
                 <Pressable
@@ -233,16 +293,7 @@ export default function CalcScreen() {
                     backgroundColor: pressed ? colors.accentWash : colors.surfaceAlt,
                   })}
                 >
-                  <View
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: radius.pill,
-                      backgroundColor: f.color,
-                      borderWidth: 1,
-                      borderColor: colors.ruleStrong,
-                    }}
-                  />
+                  <FoodThumb food={f} size={28} />
                   <Text style={[type.body, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
                     {locale === "he" ? f.he : f.en}
                   </Text>
@@ -251,7 +302,7 @@ export default function CalcScreen() {
               ))}
             </View>
           ) : null}
-          {q.trim().length > 0 && !direct ? (
+          {q.trim().length > 0 && !direct && !read ? (
             // The library is ~130 foods; a plate is not. When nothing matches,
             // the typed word is still loggable — pick the closest category so
             // the estimate lands in the right ballpark, the way the pantry and
@@ -385,16 +436,7 @@ export default function CalcScreen() {
                     borderTopColor: colors.rule,
                   }}
                 >
-                  <View
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: radius.pill,
-                      backgroundColor: item.food.color,
-                      borderWidth: 1,
-                      borderColor: colors.ruleStrong,
-                    }}
-                  />
+                  <FoodThumb food={item.food} size={32} />
                   <View style={{ flex: 1 }}>
                     <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
                       {locale === "he" ? item.food.he : item.food.en}
