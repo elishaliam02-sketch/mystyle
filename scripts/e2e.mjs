@@ -107,11 +107,11 @@ await page.getByRole("checkbox").first().click(); await settle();
 await go("/water");
 await page.getByLabel("הוסף כוס מים").click(); await settle();
 await page.getByLabel("הוסף כוס מים").click(); await settle();
-{ const s=await st(); check("water + twice stores 2", (s.water?.[today]??0)===2, String(s.water?.[today])); }
+{ const s=await st(); check("water + twice stores two 250 ml glasses (500 ml)", (s.waterMl?.[today]??0)===500, String(s.waterMl?.[today])); }
 await page.getByLabel("הורד כוס מים").click(); await settle();
-{ const s=await st(); check("water − stores 1", (s.water?.[today]??0)===1, String(s.water?.[today])); }
+{ const s=await st(); check("water − takes one glass off (250 ml)", (s.waterMl?.[today]??0)===250, String(s.waterMl?.[today])); }
 await page.getByLabel("הורד כוס מים").click(); await settle();
-{ const s=await st(); check("water never goes negative", (s.water?.[today]??0)===0, String(s.water?.[today])); }
+{ const s=await st(); check("water never goes negative", (s.waterMl?.[today]??0)===0, String(s.waterMl?.[today])); }
 // at zero the − is a dead control unless it says so: it must be disabled, not
 // lit and unresponsive
 check("the − turns itself off at zero rather than doing nothing",
@@ -119,19 +119,24 @@ check("the − turns itself off at zero rather than doing nothing",
 
 // 3b) WATER — the bottle shows a recommended range and a settable goal
 check("a recommended water range is shown",
-  await page.getByText(/מומלץ .* כוסות ביום/).first().isVisible().catch(()=>false));
+  await page.getByText(/מומלץ .* ליטר ביום/).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"שנה יעד"}).first().click(); await settle();
 // the cup size lives in the same editor — the vessel the person drinks from
 check("the cup-size options are offered",
   await page.getByText("גודל כוס").first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:/500 מ/}).first().click(); await settle();
 { const s=await st(); check("a chosen cup size is stored", s.cupMl===500, String(s.cupMl)); }
-await page.getByRole("button",{name:/250 מ/}).first().click(); await settle();
-{ // the goal chips are the whole numbers inside the recommended band; 14 is the
-  // top of the band for the seeded weight and is a button, so it is unambiguous
-  await page.getByRole("button",{name:"14",exact:true}).first().click(); await settle();
+{ // a glass drunk at 500 ml stays 500 ml when the glass size changes back
+  await page.getByLabel("הוסף כוס מים").click(); await settle();
+  await page.getByRole("button",{name:/250 מ/}).first().click(); await settle();
   const s=await st();
-  check("choosing a water goal stores it", s.waterGoal===14, String(s.waterGoal)); }
+  check("changing the glass never rescales what was drunk", (s.waterMl?.[today]??0)===500, String(s.waterMl?.[today]));
+  await page.getByLabel("הורד כוס מים").click(); await settle();
+  await page.getByLabel("הורד כוס מים").click(); await settle(); }
+{ // the goal chips are litres; 3 L sits inside the band for the seeded weight
+  await page.getByRole("button",{name:"3 ל׳",exact:true}).first().click(); await settle();
+  const s=await st();
+  check("choosing a water goal stores it in ml", s.waterGoalMl===3000, String(s.waterGoalMl)); }
 
 // 3c) KITCHEN — a saved list comes back as a list, not an empty box
 await go("/kitchen");
@@ -455,7 +460,7 @@ check("no manual step-adding buttons are offered any more",
 check("no blank step box to fill in",
   (await page.getByPlaceholder("כמה צעדים סה״כ היום?").count())===0);
 check("the step card explains that counting is automatic",
-  await page.getByText(/ספירה אוטומטית|לא מאפשר ספירה אוטומטית|מבקש הרשאה/).first().isVisible().catch(()=>false));
+  await page.getByText(/ספירה אוטומטית|ספירת צעדים אוטומטית|מבקש הרשאה/).first().isVisible().catch(()=>false));
 // the daily target is still the person's to set
 await page.getByRole("button",{name:"שנה יעד יומי"}).first().click(); await settle();
 await box("יעד צעדים ליום").fill("12000"); await page.waitForTimeout(200);
@@ -539,7 +544,7 @@ check("openers are offered rather than a blank box",
   await page.getByRole("button",{name:"כמה מים שתיתי?"}).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"כמה מים שתיתי?"}).first().click(); await settle();
 check("the coach answers with this person's real water numbers",
-  await page.getByText(/כוסות/).first().isVisible().catch(()=>false));
+  await page.getByText(/שתית .* ליטר/).first().isVisible().catch(()=>false));
 await page.getByRole("button",{name:"מה התוכנית שלי אומרת?"}).first().click(); await settle();
 check("the coach answers about the plan using the goal",
   await page.getByText(/תוכנית שלך בנויה/).first().isVisible().catch(()=>false));

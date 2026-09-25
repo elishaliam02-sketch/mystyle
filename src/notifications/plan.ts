@@ -113,7 +113,7 @@ export function planReminders(state: AppState, copy: ReminderCopy): Reminder[] {
   }
 
   // water, mid-afternoon, when there is still time to catch up
-  if (used(state.water)) {
+  if (used(state.water) || used(state.waterMl)) {
     daily.push({ id: "water", hour: 15, minute: 0, title: copy.waterTitle, body: copy.waterBody });
   }
 

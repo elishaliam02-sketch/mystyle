@@ -8,7 +8,8 @@ import { NEWS, newsUnseen } from "@/news";
 import { useTheme } from "@/theme";
 
 /** Device-local on purpose: what one phone has been told is not account data. */
-const KEY = "apex.news.seen";
+export const NEWS_SEEN_KEY = "apex.news.seen";
+const KEY = NEWS_SEEN_KEY;
 
 /** "What's new" — shown on Today once per update, until dismissed. */
 export function WhatsNew() {

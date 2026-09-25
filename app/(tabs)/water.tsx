@@ -9,10 +9,11 @@ import { WaterBottle } from "@/components/WaterBottle";
 import {
   CUP_SIZES,
   fillFraction,
-  MAX_WATER_GOAL,
-  MIN_WATER_GOAL,
-  recommendedRange,
-  waterStatus,
+  GOAL_CHOICES_ML,
+  litres,
+  MAX_DAY_ML,
+  recommendedMl,
+  waterStatusMl,
   isStorableCupMl,
   MIN_CUP_ML,
   MAX_CUP_ML,
@@ -25,22 +26,25 @@ import { useTheme } from "@/theme";
 export default function WaterScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl } = useStore();
+  const { state, addWater, todayWater, waterGoal, waterLog, setWaterGoal, cupMl, setCupMl, todayKey } = useStore();
   const [editing, setEditing] = useState(false);
   // The person's own glass: any size, typed in, not only the five offered.
   const [ownOpen, setOwnOpen] = useState(false);
   const [ownDraft, setOwnDraft] = useState("");
   const [ownError, setOwnError] = useState(false);
 
-  const cups = todayWater();
+  // Everything is millilitres; a "cup" is just the glass chosen below.
+  const drunk = todayWater();
   const goal = waterGoal();
   const ml = cupMl();
+  const cups = Math.round((drunk / ml) * 10) / 10;
   const weightKg =
     [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
     state.profile.startKg;
-  const range = recommendedRange(weightKg, ml);
-  const status = waterStatus(cups, goal, weightKg);
-  const pct = fillFraction(cups, goal);
+  const range = recommendedMl(weightKg);
+  const status = waterStatusMl(drunk, goal, weightKg);
+  const pct = fillFraction(drunk, goal);
+  const cupsLeft = Math.ceil(Math.max(0, goal - drunk) / ml);
 
   const statusText =
     status === "over"
@@ -49,23 +53,28 @@ export default function WaterScreen() {
         ? t.water.met
         : status === "low"
           ? t.water.low
-          : cups === 0
+          : drunk === 0
             ? t.water.start
             : t.water.keep;
 
-  // The last seven days of cups, oldest first, zeros included.
-  const log = state.water ?? {};
+  // The last seven days in ml, oldest first, zeros included.
+  const log = waterLog();
   const week = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => daysAgo(6 - i)).map((d) => ({ date: d, cups: log[d] ?? 0 })),
+    () => Array.from({ length: 7 }, (_, i) => daysAgo(6 - i)).map((d) => ({ date: d, ml: log[d] ?? 0 })),
     [log],
   );
-  const avg = Math.round(week.reduce((n, d) => n + d.cups, 0) / 7);
-  const peak = Math.max(goal, ...week.map((d) => d.cups), 1);
-  // Days in a row, counting back from today, that hit the goal.
+  const avg = litres(week.reduce((n, d) => n + d.ml, 0) / 7);
+  const peak = Math.max(goal, ...week.map((d) => d.ml), 1);
+  // Days in a row, counting back from today, that hit the goal — over the
+  // whole log, not only the seven days on the chart.
   let streak = 0;
-  for (let i = week.length - 1; i >= 0; i--) {
-    if (week[i]!.cups >= goal) streak += 1;
-    else if (week[i]!.date !== today()) break; // an unlogged today doesn't break it
+  {
+    const now = todayKey();
+    for (let i = 0; i < 400; i++) {
+      const d = daysAgo(i);
+      if ((log[d] ?? 0) >= goal) streak += 1;
+      else if (d !== now) break; // an unfinished today doesn't break it
+    }
   }
 
   return (
@@ -75,19 +84,28 @@ export default function WaterScreen() {
           <WaterBottle fill={pct} met={cups >= goal} width={92} height={186} onHero />
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={[type.figure, { color: ON_HERO, fontSize: 44 }]}>
-              {cups}
+              {litres(drunk)}
               <Text style={[type.small, { color: ON_HERO_SOFT }]}>
                 {" "}
-                {fill(t.water.ofGoal, { goal })}
+                {fill(t.water.ofGoal, { goal: litres(goal) })}
               </Text>
             </Text>
             <Text style={[type.small, { color: ON_HERO, fontWeight: "700" }]}>{statusText}</Text>
             <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-              {fill(t.water.range, { min: range.min, max: range.max })}
+              {fill(t.water.cupsToday, { n: cups, ml })}
+              {cupsLeft > 0 ? ` · ${fill(t.water.cupsLeft, { n: cupsLeft })}` : ""}
             </Text>
             <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-              ≈ {fill(t.water.ml, { ml: (cups * ml).toLocaleString() })}
+              {fill(t.water.range, { min: litres(range.min), max: litres(range.max) })}
             </Text>
+            {state.weighIns.length === 0 && !state.profile.startKg ? (
+              <Text style={[type.small, { color: ON_HERO_SOFT }]}>{t.water.noWeight}</Text>
+            ) : null}
+            {drunk >= MAX_DAY_ML ? (
+              <Text style={[type.small, { color: ON_HERO_SOFT }]}>
+                {fill(t.water.capped, { l: litres(MAX_DAY_ML) })}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -216,10 +234,10 @@ export default function WaterScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.lg }}>
           <Pressable
             onPress={() => addWater(-1)}
-            disabled={cups === 0}
+            disabled={drunk === 0}
             accessibilityRole="button"
             accessibilityLabel={t.water.removeOne}
-            accessibilityState={{ disabled: cups === 0 }}
+            accessibilityState={{ disabled: drunk === 0 }}
             hitSlop={8}
             style={{
               width: 52,
@@ -227,14 +245,14 @@ export default function WaterScreen() {
               borderRadius: radius.pill,
               // Dimmed with the hero's own white washes rather than opacity, so
               // it stays readable on red instead of sinking into it.
-              backgroundColor: cups === 0 ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.16)",
+              backgroundColor: drunk === 0 ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.16)",
               borderWidth: 1,
-              borderColor: cups === 0 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.22)",
+              borderColor: drunk === 0 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.22)",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="remove" size={26} color={cups === 0 ? ON_HERO_SOFT : ON_HERO} />
+            <Ionicons name="remove" size={26} color={drunk === 0 ? ON_HERO_SOFT : ON_HERO} />
           </Pressable>
           <Pressable
             onPress={() => addWater(1)}
@@ -284,13 +302,10 @@ export default function WaterScreen() {
       {editing ? (
         <Card label={t.water.editGoal}>
           <Text style={[type.small, { color: colors.inkSoft }]}>
-            {fill(t.water.goalRecommended, { min: range.min, max: range.max })}
+            {fill(t.water.goalRecommended, { min: litres(range.min), max: litres(range.max) })}
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs, marginTop: space.xs }}>
-            {Array.from(
-              { length: MAX_WATER_GOAL - MIN_WATER_GOAL + 1 },
-              (_, i) => MIN_WATER_GOAL + i,
-            ).map((n) => {
+            {GOAL_CHOICES_ML.map((n) => {
               const selected = goal === n;
               const recommended = n >= range.min && n <= range.max;
               return (
@@ -323,7 +338,7 @@ export default function WaterScreen() {
                       },
                     ]}
                   >
-                    {n}
+                    {fill(t.water.litre, { l: litres(n) })}
                   </Text>
                 </SelectTile>
               );
@@ -347,12 +362,12 @@ export default function WaterScreen() {
               <View
                 style={{
                   width: "100%",
-                  height: Math.max(4, Math.round((d.cups / peak) * 70)),
+                  height: Math.max(4, Math.round((d.ml / peak) * 70)),
                   borderRadius: radius.sm,
-                  backgroundColor: d.cups >= goal ? colors.accent : colors.chartBar,
+                  backgroundColor: d.ml >= goal ? colors.accent : colors.chartBar,
                 }}
               />
-              <Text style={[type.label, { color: colors.inkSoft }]}>{d.cups}</Text>
+              <Text style={[type.label, { color: colors.inkSoft }]}>{litres(d.ml)}</Text>
               {/* which day each bar is — without it the chart is seven
                   anonymous columns */}
               <Text style={[type.label, { color: colors.inkFaint }]}>
@@ -363,7 +378,7 @@ export default function WaterScreen() {
         </View>
         <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>
           {fill(t.water.weekAverage, { avg })}
-          {streak > 0 ? ` · ${fill(t.water.streak, { days: streak })}` : ""}
+          {streak === 1 ? ` · ${t.water.streakOne}` : streak > 1 ? ` · ${fill(t.water.streak, { days: streak })}` : ""}
         </Text>
       </Card>
 

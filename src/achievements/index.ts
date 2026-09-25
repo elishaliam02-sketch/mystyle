@@ -96,7 +96,11 @@ export function computeAchievements(state: AppState): Achievement[] {
   const sorted = [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date));
   const startKg = state.profile.startKg ?? sorted[0]?.kg;
   const latestKg = sorted[sorted.length - 1]?.kg;
-  const kgLost = startKg && latestKg ? Math.max(0, Math.round(startKg - latestKg)) : 0;
+  // Unrounded, and only for someone losing: 2.5 kg is not "lost 3 kg", and a
+  // bulk's gain is not a loss.
+  const goal = state.goal ?? state.nutritionGoal;
+  const losing = goal !== "bulk" && goal !== "maintain";
+  const kgLost = losing && startKg && latestKg ? Math.max(0, Math.floor((startKg - latestKg) * 10) / 10) : 0;
 
   return [
     // habits

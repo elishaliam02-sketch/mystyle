@@ -1,3 +1,4 @@
+import { goalMlOf, waterMlLog } from "@/health/water";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
 
@@ -214,10 +215,18 @@ export type AppState = {
    * list of cravings, which is nobody's business but theirs.
    */
   wishlist?: Wish[];
-  /** Glasses of water logged each day (YYYY-MM-DD → count). */
+  /** Legacy: glasses of water per day, from builds that counted cups. Read
+   * once into waterMl and then left empty. */
   water?: Record<string, number>;
-  /** The person's chosen daily water goal, in cups. Undefined = derive from weight. */
+  /** Weigh-ins the person deleted (date → when), so a sync does not bring a
+   * deleted typo back from the server. Device-local. */
+  weighInsRemoved?: Record<string, string>;
+  /** Water drunk each day (YYYY-MM-DD → ml). */
+  waterMl?: Record<string, number>;
+  /** Legacy: the chosen goal in cups. */
   waterGoal?: number;
+  /** The person's chosen daily water goal in ml. Undefined = derive from weight. */
+  waterGoalMl?: number;
   /** The size of one cup in ml, so the tracker counts the vessel the person
    * actually drinks from. Undefined = 250 ml. */
   cupMl?: number;
@@ -363,9 +372,14 @@ export function migrateState(raw: unknown): AppState {
     // Device-local, like the pantry: a list of cravings is nobody's business
     // but the person's, and it rides through a sync untouched.
     wishlist: Array.isArray(s.wishlist) ? s.wishlist : undefined,
-    water: s.water,
-    waterGoal: s.waterGoal,
+    // Water moved from cups to ml: fold any cup counts in at the glass size
+    // they were shown at, then drop the cup record so it is converted once.
+    water: undefined,
+    waterMl: s.water || s.waterMl ? waterMlLog(s) : undefined,
+    waterGoal: undefined,
+    waterGoalMl: goalMlOf(s) ?? undefined,
     cupMl: s.cupMl,
+    weighInsRemoved: s.weighInsRemoved,
     measurements: s.measurements,
     // The canonical goal: prefer an explicit one, else adopt whatever the
     // kitchen or the plan was last set to, so an upgrade doesn't reset it.

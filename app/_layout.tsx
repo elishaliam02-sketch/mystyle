@@ -126,6 +126,10 @@ function Shell() {
     <View style={{ flex: 1, backgroundColor: colors.ground }}>
       <StatusBar style="light" />
       {ready ? <OnboardingGate /> : null}
+      {/* Until the saved state is read, the ground colour and nothing else:
+          otherwise every launch flashed "no habits yet" and a nameless
+          greeting before the real Today arrived. */}
+      {!ready ? <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: colors.ground }} /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth" />

@@ -14,6 +14,7 @@
  * than inventing a trend from a single reading or a day's noise, because a
  * dashboard that cries "off track!" at everyone is one nobody trusts.
  */
+import { recentTrend } from "@/store/projection";
 
 export type WeighPoint = { date: string; kg: number };
 
@@ -95,7 +96,10 @@ export function readTrajectory(
   const days = (Date.parse(last.date) - Date.parse(first.date)) / DAY_MS;
   if (!Number.isFinite(days) || days < MIN_SPAN_DAYS) return base;
 
-  const perWeek = Math.round(((last.kg - first.kg) / days) * 7 * 100) / 100;
+  // The recent pace (least squares over the last four weeks) — the same
+  // reading the person sees, so a plateau after months of loss is a plateau.
+  const trend = recentTrend(clean);
+  const perWeek = Math.round((trend?.perWeek ?? ((last.kg - first.kg) / days) * 7) * 100) / 100;
   const changeKg = Math.round((last.kg - first.kg) * 10) / 10;
 
   // Which direction counts as "toward the goal". With a goal, it is the sign

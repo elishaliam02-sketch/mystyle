@@ -10,7 +10,7 @@ import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
-import { today, useStore, type CheckIn, type Habit } from "@/store";
+import { useStore, type CheckIn, type Habit } from "@/store";
 import { useTheme } from "@/theme";
 
 const MOODS: CheckIn["mood"][] = ["good", "ok", "hard"];
@@ -26,9 +26,12 @@ const SLOT_WORDS: Record<string, Habit["slot"]> = {
 export default function CheckinScreen() {
   const { t, locale } = useI18n();
   const { colors, space, type } = useTheme();
-  const { state, addCheckIn, isDone, updateHabit } = useStore();
+  const { state, addCheckIn, isDone, updateHabit, todayKey } = useStore();
 
-  const existing = state.checkIns.find((c) => c.date === today());
+  // Read with the same clock the recap is written with, or a phone that was
+  // once set ahead saves a recap the screen then cannot find.
+  const dayNow = todayKey();
+  const existing = state.checkIns.find((c) => c.date === dayNow);
   const [editing, setEditing] = useState(false);
   // No mood is pre-selected for a fresh recap, so saving is an intentional
   // tap rather than an accidental "ok". Editing an existing recap prefills it.
@@ -51,7 +54,7 @@ export default function CheckinScreen() {
     doneToday: isDone(h.id),
   }));
   const recentNotes = state.checkIns
-    .filter((c) => c.date !== today() && c.note)
+    .filter((c) => c.date !== dayNow && c.note)
     .slice(-5)
     .reverse()
     .map((c) => c.note);

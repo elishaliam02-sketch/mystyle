@@ -23,6 +23,7 @@ export type CoachContext = {
   kcalEaten?: number;
   proteinTarget?: number;
   proteinEaten?: number;
+  /** Water today and its goal, both in ml. */
   waterCups?: number;
   waterGoal?: number;
   steps?: number;
@@ -189,13 +190,15 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
       break;
     }
     case "water": {
-      const cups = n(ctx.waterCups);
+      // Both in ml (the tracker's unit); said in litres.
+      const drunk = n(ctx.waterCups);
       const goal = n(ctx.waterGoal);
-      if (cups !== null && goal !== null) {
-        const left = Math.max(0, goal - cups);
+      if (drunk !== null && goal !== null) {
+        const l = (ml: number) => String(Math.round(ml / 100) / 10);
+        const left = Math.max(0, goal - drunk);
         say(
-          `שתית ${cups} מתוך ${goal} כוסות${left > 0 ? ` — עוד ${left} והיעד סגור` : " — היעד הושלם 💧"}.`,
-          `You've had ${cups} of ${goal} cups${left > 0 ? ` — ${left} more and it's done` : " — goal met 💧"}.`,
+          `שתית ${l(drunk)} ליטר מתוך ${l(goal)}${left > 0 ? ` — עוד ${l(left)} ליטר והיעד סגור` : " — היעד הושלם 💧"}.`,
+          `You've had ${l(drunk)} of ${l(goal)} litres${left > 0 ? ` — ${l(left)} L more and it's done` : " — goal met 💧"}.`,
         );
       }
       say(

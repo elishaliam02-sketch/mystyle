@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -14,6 +15,8 @@ import { fill, useI18n } from "@/i18n";
 import { checkGoalWeight, isHeightCm, MAX_HEIGHT_CM, MIN_HEIGHT_CM } from "@/health";
 import { isStorableWeight, MAX_KG, MIN_KG } from "@/store/weight";
 import { useStore, type Habit } from "@/store";
+import { NEWS } from "@/news";
+import { NEWS_SEEN_KEY } from "@/components/WhatsNew";
 import type { Difficulty } from "@/tasks/difficulty";
 import { useTheme } from "@/theme";
 
@@ -25,7 +28,10 @@ export default function Onboarding() {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, saveProfile, addHabit, addWeighIn, setChallengeLevel } = useStore();
+  const { state, saveProfile, addHabit, addWeighIn, setChallengeLevel, setGoal } = useStore();
+  // Which way the person wants to go — it sets the calories, the kitchen and
+  // the plan. Chosen here, or read from the two weights when they give both.
+  const [direction, setDirection] = useState<"cut" | "recomp" | "bulk" | null>(null);
 
   // Arrived here while already onboarded (a stale link, a re-mount): go home.
   // Checked once at mount, so finish() flipping the flag can never trigger it.
@@ -49,6 +55,11 @@ export default function Onboarding() {
   const ideas = Object.values(t.onboarding.ideas);
 
   const num = (v: string) => (v.trim() ? Number(v.replace(",", ".")) : undefined);
+  // Height typed in metres ("1.75") is centimetres the person meant.
+  const heightOf = (v: string) => {
+    const n = num(v);
+    return n !== undefined && n >= 1.2 && n <= 2.4 ? Math.round(n * 100) : n;
+  };
 
   /**
    * The same refusal as the profile screen, applied at the very first screen a
@@ -56,7 +67,7 @@ export default function Onboarding() {
    * through, because nothing here used to check anything.
    */
   function goalProblem(): string | null {
-    const cm = num(heightCm);
+    const cm = heightOf(heightCm);
     if (cm !== undefined && !isHeightCm(cm)) {
       return fill(t.profile.heightRange, { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM });
     }
@@ -86,16 +97,30 @@ export default function Onboarding() {
     saveProfile({
       name: name.trim(),
       goalKg: num(goalKg),
-      heightCm: num(heightCm),
+      heightCm: heightOf(heightCm),
       onboarded: true,
     });
     const kg = num(currentKg);
     if (kg !== undefined && Number.isFinite(kg)) addWeighIn(kg);
-    const id = addHabit(habit, slot);
-    // One navigation, straight to the habit's tips — the first thing a new
-    // user sees is the guidance. Its back button goes home when there is no
-    // history behind it, so this is not a dead end.
-    router.replace(id ? `/habit/${id}` : "/");
+    // The goal drives the calorie target, the kitchen and the training plan.
+    // Someone who typed 95 → 75 wants to lose weight; they were getting a
+    // maintenance target and "recomp" meals.
+    const target = num(goalKg);
+    const inferred =
+      kg !== undefined && target !== undefined && Number.isFinite(kg) && Number.isFinite(target)
+        ? target < kg - 1
+          ? "cut"
+          : target > kg + 1
+            ? "bulk"
+            : "recomp"
+        : null;
+    const chosen = direction ?? inferred;
+    if (chosen) setGoal(chosen);
+    addHabit(habit.trim().slice(0, 80), slot);
+    // A first run lands on Today with its day already set up — and without
+    // the changelog of an app it has never seen.
+    AsyncStorage.setItem(NEWS_SEEN_KEY, NEWS.id).catch(() => {});
+    router.replace("/");
   }
 
   // The habit step is the only one that cannot be left empty; the challenge
@@ -167,11 +192,54 @@ export default function Onboarding() {
             />
             <TextField
               value={goalKg}
-              onChangeText={setGoalKg}
+              onChangeText={(v) => {
+                setGoalKg(v);
+                // A goal weight answers the direction question by itself.
+                const cur = num(currentKg);
+                const g = num(v);
+                if (cur && g && Number.isFinite(cur) && Number.isFinite(g)) {
+                  setDirection(g < cur - 1 ? "cut" : g > cur + 1 ? "bulk" : "recomp");
+                }
+              }}
               label={t.onboarding.step2Goal}
               placeholder="0"
               keyboardType="numeric"
             />
+            <View style={{ gap: space.xs }}>
+              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+                {t.onboarding.directionTitle}
+              </Text>
+              <View style={{ flexDirection: "row", gap: space.xs }}>
+                {(
+                  [
+                    ["cut", t.onboarding.directionCut],
+                    ["recomp", t.onboarding.directionRecomp],
+                    ["bulk", t.onboarding.directionBulk],
+                  ] as const
+                ).map(([id, label]) => (
+                  <SelectTile
+                    key={id}
+                    selected={direction === id}
+                    onPress={() => setDirection(id)}
+                    style={{
+                      flex: 1,
+                      borderRadius: radius.md,
+                      paddingVertical: 12,
+                      paddingHorizontal: 6,
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: direction === id ? colors.accent : colors.rule,
+                    }}
+                  >
+                    <Text
+                      style={[type.smallStrong, { color: direction === id ? colors.onAccent : colors.ink, textAlign: "center" }]}
+                    >
+                      {label}
+                    </Text>
+                  </SelectTile>
+                ))}
+              </View>
+            </View>
             {note ? (
               <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>{note}</Text>
             ) : null}
@@ -243,6 +311,7 @@ export default function Onboarding() {
               value={habit}
               onChangeText={setHabit}
               placeholder={t.onboarding.step3Placeholder}
+              maxLength={80}
               multiline
             />
 
@@ -331,7 +400,7 @@ export default function Onboarding() {
                 // needs it — so it survives, unless it is unusable anyway.
                 setCurrentKg("");
                 setGoalKg("");
-                const cm = num(heightCm);
+                const cm = heightOf(heightCm);
                 if (cm !== undefined && !isHeightCm(cm)) setHeightCm("");
                 setNote(null);
                 setStep(2);

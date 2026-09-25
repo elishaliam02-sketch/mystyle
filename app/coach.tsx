@@ -407,7 +407,7 @@ function factsFor(c: CoachContext, locale: "he" | "en"): string {
     `goal: ${c.goal}`,
     c.kcalTarget != null ? `calories today: ${c.kcalEaten ?? 0} of ${c.kcalTarget}` : null,
     c.proteinTarget != null ? `protein today: ${c.proteinEaten ?? 0}g of ${c.proteinTarget}g` : null,
-    c.waterGoal != null ? `water today: ${c.waterCups ?? 0} of ${c.waterGoal} cups` : null,
+    c.waterGoal != null ? `water today: ${c.waterCups ?? 0} ml of ${c.waterGoal} ml` : null,
     c.stepGoal != null ? `steps today: ${c.steps ?? 0} of ${c.stepGoal}` : null,
     c.weeklyChangeKg != null ? `weekly average change: ${c.weeklyChangeKg} kg vs last week` : null,
     c.bodyFat != null ? `estimated body fat: ${c.bodyFat}%` : null,

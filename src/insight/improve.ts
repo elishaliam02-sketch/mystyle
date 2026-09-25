@@ -20,6 +20,7 @@
  * Pure: state in, readings out. The words live in `src/i18n`.
  */
 
+import { goalMlOf, waterMlLog } from "@/health/water";
 import type { AppState } from "@/store/types";
 
 export type ImproveArea = "habits" | "workout" | "water" | "steps" | "food" | "weighIn" | "recap";
@@ -125,11 +126,13 @@ export function improvements(state: AppState, today: string): Improvement {
   }
 
   // Water, steps: daily goals, averaged.
-  const waterGoal = state.waterGoal ?? 0;
+  // In ml — the old cup record folded in at the glass size it was shown at.
+  const waterGoal = goalMlOf(state) ?? 0;
   if (waterGoal > 0) {
-    const logged = days.filter((d) => state.water?.[d] !== undefined);
-    const drunk = logged.reduce((n, d) => n + (state.water?.[d] ?? 0), 0);
-    add("water", drunk / Math.max(1, logged.length), waterGoal, logged.length, 2);
+    const water = waterMlLog(state);
+    const logged = days.filter((d) => water[d] !== undefined);
+    const drunk = logged.reduce((n, d) => n + (water[d] ?? 0), 0);
+    add("water", Math.round(drunk / Math.max(1, logged.length) / 50) * 50, waterGoal, logged.length, 2);
   }
 
   const stepGoal = state.stepGoal ?? 0;

@@ -140,7 +140,12 @@ export function mergeState(local: AppState, remote: Rows): AppState {
     profile: mergeProfile(local.profile, remote.profile),
     habits: mergeHabits(local.habits, remote.habits),
     completions: mergeCompletions(local.completions, remote.completions),
-    weighIns: mergeByDate(local.weighIns, remote.weighIns),
+    // A weigh-in deleted here stays deleted: the server's copy of that day is
+    // dropped unless it was written after the deletion (a new reading).
+    weighIns: mergeByDate(local.weighIns, remote.weighIns).filter((w) => {
+      const gone = local.weighInsRemoved?.[w.date];
+      return !gone || w.updatedAt > gone;
+    }),
     checkIns: mergeByDate(local.checkIns, remote.checkIns),
   };
 }

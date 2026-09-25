@@ -12,7 +12,7 @@ import { fill, useI18n } from "@/i18n";
 import { askHabitSupport } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
-import { daysAgo, useStore } from "@/store";
+import { useStore } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 import { confirm } from "@/ui/confirm";
@@ -23,19 +23,24 @@ const SMALLER_JOIN = " — ";
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
 function DayGrid({ habitId }: { habitId: string }) {
   const { colors, space } = useTheme();
-  const { isDone } = useStore();
-  const days = Array.from({ length: 14 }, (_, i) => daysAgo(13 - i));
+  const { isDone, dayKeyAgo } = useStore();
+  // The same clock the ticks were written with, or a phone once set ahead
+  // shows a streak above an empty grid.
+  const days = Array.from({ length: 14 }, (_, i) => dayKeyAgo(13 - i));
 
+  // One row of fourteen that shares the width: fixed 18 px cells wrapped the
+  // last day, today, onto a line of its own.
   return (
-    <View style={{ flexDirection: "row", gap: 5, marginTop: space.sm, flexWrap: "wrap" }}>
+    <View style={{ flexDirection: "row", gap: 4, marginTop: space.sm }}>
       {days.map((date) => {
         const done = isDone(habitId, date);
         return (
           <View
             key={date}
             style={{
-              width: 18,
-              height: 18,
+              flex: 1,
+              maxWidth: 20,
+              aspectRatio: 1,
               borderRadius: 5,
               backgroundColor: done ? colors.accent : "transparent",
               borderWidth: done ? 0 : 1,
@@ -112,7 +117,7 @@ export default function HabitDetail() {
   const router = useRouter();
   const { state, streak, updateHabit, archiveHabit } = useStore();
 
-  const habit = state.habits.find((h) => h.id === id);
+  const habit = state.habits.find((h) => h.id === id && !h.archived);
   const [customAnchor, setCustomAnchor] = useState("");
   // Held only while it differs from what is stored, so applying a smaller
   // option — which rewrites the title — does not leave a stale draft behind.
@@ -181,7 +186,10 @@ export default function HabitDetail() {
       destructive: true,
       onConfirm: () => {
         archiveHabit(habit.id);
-        router.back();
+        // Right after onboarding or from a link there is nothing to go back
+        // to — go home rather than stay on a page for a habit that is gone.
+        if (router.canGoBack()) router.back();
+        else router.replace("/");
       },
     });
   }
@@ -205,6 +213,7 @@ export default function HabitDetail() {
             }}
             placeholder={t.habit.placeholder}
             onSubmitEditing={saveTitle}
+            maxLength={80}
           />
           {titleSaved ? (
             <Text style={[type.small, { color: colors.accent }]}>{t.common.savedOk}</Text>
@@ -232,7 +241,7 @@ export default function HabitDetail() {
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>
           <Text style={[type.title, { color: colors.ink }]}>
-            {days > 0 ? fill(t.detail.streakDays, { days }) : t.detail.streakNone}
+            {days === 1 ? t.detail.streakOne : days > 0 ? fill(t.detail.streakDays, { days }) : t.detail.streakNone}
           </Text>
           <Text style={[type.label, { color: colors.inkFaint, marginTop: space.md }]}>
             {t.detail.last14}

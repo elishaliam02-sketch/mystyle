@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
 import { useStore } from "@/store";
+import { useI18n } from "@/i18n";
 import { desaturate } from "./grayscale";
 import { accentGradient, elevation, font, heroGlow, heroGradient, palette, radius, space, type, type Colors } from "./tokens";
 import { METRIC_FAMILY, metricFill, metricInk, metricWash, onMetric, type Metric, type MetricFamily } from "./metrics";
@@ -28,6 +29,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // all, rather than a hunt through ninety screens.
   const { focusOn } = useStore();
   const focus = focusOn();
+  const { isRTL } = useI18n();
+  // Every text style carries the app's writing direction. Without it the web
+  // guesses from the first letter, so "Gym 3 פעמים בשבוע" or a line opening on
+  // an emoji was laid out left-to-right with its Hebrew words scrambled.
+  const directed = useMemo(() => {
+    const dir = isRTL ? ("rtl" as const) : ("ltr" as const);
+    return Object.fromEntries(
+      // Figures are numbers ("-3.6", "+2") and keep the browser's own
+      // reading, or a signed number shows its minus on the wrong side.
+      Object.entries(type).map(([k, v]) => [k, k === "figure" ? v : { ...v, writingDirection: dir }]),
+    ) as unknown as typeof type;
+  }, [isRTL]);
 
   const value = useMemo<Theme>(
     () => ({
@@ -35,13 +48,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       scheme,
       space,
       radius,
-      type,
+      type: directed,
       font,
       focus,
       elevation: (level: 1 | 2 = 1) =>
         elevation(focus ? desaturate(palette[scheme]) : palette[scheme], level),
     }),
-    [scheme, focus],
+    [scheme, focus, directed],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

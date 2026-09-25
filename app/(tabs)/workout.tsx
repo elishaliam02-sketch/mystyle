@@ -1290,7 +1290,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
               ]}
             >
               {fill(t.workout.vsLast, {
-                delta: `${prog.deltaPct > 0 ? "+" : ""}${prog.deltaPct}`,
+                delta: `\u2066${prog.deltaPct > 0 ? "+" : ""}${prog.deltaPct}\u2069`,
               })}
             </Text>
           ) : null}

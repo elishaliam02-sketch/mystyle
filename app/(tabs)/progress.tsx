@@ -4,20 +4,22 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import Svg, { Circle, Path } from "react-native-svg";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
-import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, type BodyPart } from "@/body";
+import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, rangeOf, type BodyPart } from "@/body";
 import {
   bodyFatPercent,
   bodyFatTarget,
   fatFraction,
   fatTier,
   weeklyAverages,
-  weeklyChange,
+  weeklyStep,
+  weekMonday,
   type Sex,
 } from "@/health/composition";
 import { useAutoSteps } from "@/health/pedometer";
@@ -30,6 +32,7 @@ import { ImproveCard } from "@/components/ImproveCard";
 import { fill, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
 import { checkWeight } from "@/store/weight";
+import { projectGoal } from "@/store/projection";
 import {
   averageSteps,
   isStorableGoal as isStorableStepGoal,
@@ -84,35 +87,175 @@ function Heatmap() {
 }
 
 function TrendChart({ values }: { values: WeighIn[] }) {
-  const { colors, space, radius } = useTheme();
-  const kgs = values.map((v) => v.kg);
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const [width, setWidth] = useState(0);
+  // The last 60 days, placed by date — a missing week shows as a gap, not
+  // as two neighbouring bars — drawn as a line with its dots.
+  const lastDate = values.at(-1)?.date ?? today();
+  const fromMs = Date.parse(lastDate) - 60 * 86_400_000;
+  const pts = values.filter((v) => Date.parse(v.date) >= fromMs);
+  const shown = pts.length >= 2 ? pts : values.slice(-2);
+  const kgs = shown.map((v) => v.kg);
   const min = Math.min(...kgs);
   const max = Math.max(...kgs);
-  const range = max - min || 1;
+  const range = Math.max(0.5, max - min);
+  const t0 = Date.parse(shown[0]!.date);
+  const t1 = Date.parse(shown.at(-1)!.date);
+  const H = 120;
+  const PAD = 8;
+  const x = (d: string) => PAD + ((Date.parse(d) - t0) / Math.max(1, t1 - t0)) * Math.max(1, width - PAD * 2);
+  const y = (kg: number) => PAD + (1 - (kg - min) / range) * (H - PAD * 2);
+  const dm = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
+  const path = shown.map((v, i) => `${i ? "L" : "M"}${x(v.date).toFixed(1)},${y(v.kg).toFixed(1)}`).join(" ");
 
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: space.sm,
-        height: 110,
-        marginTop: space.sm,
-      }}
+      style={{ marginTop: space.sm }}
       accessibilityRole="image"
-      accessibilityLabel={`${values.length} readings from ${max} to ${min} kilograms`}
+      accessibilityLabel={fill(t.progress.trendA11y, { n: shown.length, from: shown[0]!.kg, to: shown.at(-1)!.kg })}
     >
-      {values.map((v, index) => (
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Text style={[type.label, { color: colors.inkFaint }]}>{fill(t.progress.trendMax, { kg: max })}</Text>
+        <Text style={[type.label, { color: colors.inkFaint }]}>{fill(t.progress.trendMin, { kg: min })}</Text>
+      </View>
+      {/* time runs left to right in both languages, like every chart */}
+      <View style={{ height: H, direction: "ltr" }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 ? (
+          <Svg width={width} height={H}>
+            <Path d={path} stroke={colors.chartBar} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
+            {shown.map((v, i) => (
+              <Circle
+                key={v.date}
+                cx={x(v.date)}
+                cy={y(v.kg)}
+                r={i === shown.length - 1 ? 5 : 3}
+                fill={i === shown.length - 1 ? colors.accent : colors.chartBar}
+              />
+            ))}
+          </Svg>
+        ) : null}
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", direction: "ltr" }}>
+        <Text style={[type.label, { color: colors.inkFaint }]}>{dm(shown[0]!.date)}</Text>
+        <Text style={[type.label, { color: colors.inkFaint }]}>{dm(shown.at(-1)!.date)}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The recent readings, newest first, each correctable or deletable — one typo
+ * (58 for 88) used to sit in the average, the ETA and the badges forever.
+ * Delete takes two taps.
+ */
+function WeighLog() {
+  const { t, locale } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const { state, editWeighIn, removeWeighIn } = useStore();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [armed, setArmed] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const rows = [...state.weighIns].reverse();
+  const shown = all ? rows.slice(0, 60) : rows.slice(0, 5);
+  const dateOf = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "numeric",
+    });
+  return (
+    <View style={{ marginTop: space.lg, gap: 2 }}>
+      <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>{t.progress.logTitle}</Text>
+      {shown.map((w) => (
         <View
-          key={v.date}
+          key={w.date}
           style={{
-            flex: 1,
-            height: 20 + ((v.kg - min) / range) * 80,
-            borderRadius: radius.sm,
-            backgroundColor: index === values.length - 1 ? colors.accent : colors.chartBar,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: space.sm,
+            paddingVertical: 8,
+            borderTopWidth: 1,
+            borderTopColor: colors.rule,
           }}
-        />
+        >
+          <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>{dateOf(w.date)}</Text>
+          {editing === w.date ? (
+            <>
+              <View style={{ width: 90 }}>
+                <TextField
+                  value={draft}
+                  onChangeText={setDraft}
+                  keyboardType="numeric"
+                  autoFocus
+                  placeholder={String(w.kg)}
+                  onSubmitEditing={() => {
+                    const v = Number(draft.replace(",", "."));
+                    if (v > 0) editWeighIn(w.date, v);
+                    setEditing(null);
+                  }}
+                />
+              </View>
+              <PillButton
+                label={t.progress.logSave}
+                onPress={() => {
+                  const v = Number(draft.replace(",", "."));
+                  if (v > 0) editWeighIn(w.date, v);
+                  setEditing(null);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={[type.bodyStrong, { color: colors.ink }]}>
+                {w.kg} {t.progress.kgUnit}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setEditing(w.date);
+                  setDraft(String(w.kg));
+                  setArmed(null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.progress.logEdit} ${dateOf(w.date)}`}
+                hitSlop={8}
+                style={{ padding: 6 }}
+              >
+                <Ionicons name="create-outline" size={18} color={colors.accent} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (armed === w.date) {
+                    removeWeighIn(w.date);
+                    setArmed(null);
+                  } else setArmed(w.date);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={armed === w.date ? t.progress.logDeleteSure : `${t.progress.logDelete} ${dateOf(w.date)}`}
+                hitSlop={8}
+                style={{
+                  paddingVertical: 4,
+                  paddingHorizontal: armed === w.date ? 10 : 6,
+                  borderRadius: radius.pill,
+                  backgroundColor: armed === w.date ? colors.alert : "transparent",
+                }}
+              >
+                {armed === w.date ? (
+                  <Text style={[type.label, { color: colors.onAccent }]}>{t.progress.logDeleteSure}</Text>
+                ) : (
+                  <Ionicons name="trash-outline" size={18} color={colors.inkFaint} />
+                )}
+              </Pressable>
+            </>
+          )}
+        </View>
       ))}
+      {rows.length > 5 && !all ? (
+        <Pressable onPress={() => setAll(true)} accessibilityRole="button" hitSlop={8} style={{ paddingVertical: 6 }}>
+          <Text style={[type.smallStrong, { color: colors.accent }]}>{t.progress.logMore}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -120,7 +263,7 @@ function TrendChart({ values }: { values: WeighIn[] }) {
 export default function ProgressScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addWeighIn, weeklyConsistency, isDone } = useStore();
+  const { state, addWeighIn, weeklyConsistency, isDone, goal: goalOf } = useStore();
   const router = useRouter();
 
   const achievements = useMemo(() => computeAchievements(state), [state]);
@@ -137,6 +280,12 @@ export default function ProgressScreen() {
   const latest = weighIns[weighIns.length - 1];
   const first = weighIns[0];
   const delta = latest && first ? latest.kg - first.kg : 0;
+  // Whether a change is good depends on the goal: a gain is the point of a bulk.
+  const g = goalOf();
+  const goodChange = (d: number) => (g === "bulk" ? d >= 0 : g === "maintain" ? Math.abs(d) < 1 : d <= 0);
+  const goalKg = state.profile.goalKg;
+  const proj = projectGoal(weighIns, goalKg);
+  const staleDays = latest ? Math.floor((Date.parse(today()) - Date.parse(latest.date)) / 86_400_000) : 0;
   const consistency = Math.round(weeklyConsistency() * 100);
 
   const activeHabits = state.habits.filter((h) => !h.archived);
@@ -175,13 +324,17 @@ export default function ProgressScreen() {
   // instantly and needs no server; when Claude's reading arrives it takes
   // over. Either way the card is never an apology with no content behind it.
   const localWeek = weekReading(
-    { consistency, habits: perHabit, weights: weighIns },
+    { consistency, habits: perHabit, weights: weighIns, goal: g },
     t.insight,
   );
 
   function save() {
     const value = Number(kg.replace(",", "."));
-    const check = checkWeight(value, latest?.kg);
+    // Against the last reading before today: re-weighing today to fix a typo
+    // must not be measured against the typo itself.
+    const prior = weighIns.filter((w) => w.date < today()).at(-1);
+    const todays = weighIns.find((w) => w.date === today());
+    const check = checkWeight(value, prior?.kg);
 
     if (check.status === "out-of-range") {
       setWeighNote(fill(t.progress.weighRange, { min: check.min, max: check.max }));
@@ -196,8 +349,9 @@ export default function ProgressScreen() {
     }
     addWeighIn(value);
     setKg("");
-    setWeighNote(null);
     setJumpArmed(false);
+    // Re-weighing today replaces today's reading — say so, rather than a bare ✓.
+    setWeighNote(todays && todays.kg !== value ? fill(t.progress.weighUpdated, { old: todays.kg, new: value }) : null);
     setSaved(true);
   }
 
@@ -214,7 +368,10 @@ export default function ProgressScreen() {
             <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md }}>
               <View>
                 <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.latest}</Text>
-                <Text style={[type.figure, { color: colors.ink }]}>{latest.kg}</Text>
+                <Text style={[type.figure, { color: colors.ink }]}>
+                  {latest.kg}
+                  <Text style={[type.small, { color: colors.inkSoft }]}> {t.progress.kgUnit}</Text>
+                </Text>
               </View>
               {weighIns.length > 1 ? (
                 <View>
@@ -222,7 +379,7 @@ export default function ProgressScreen() {
                   <Text
                     style={[
                       type.figure,
-                      { color: delta <= 0 ? colors.accent : colors.orangeInk },
+                      { color: goodChange(delta) ? colors.accent : colors.orangeInk },
                     ]}
                   >
                     {delta > 0 ? "+" : ""}
@@ -236,6 +393,25 @@ export default function ProgressScreen() {
               {t.progress.weighEmpty}
             </Text>
           )}
+          {goalKg && latest ? (
+            <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>
+              {!proj
+                ? Math.abs(latest.kg - goalKg) < 0.5
+                  ? fill(t.progress.goalReached, { goal: goalKg })
+                  : null
+                : proj.kind === "toward"
+                  ? fill(t.progress.goalLine, { goal: goalKg, togo: proj.toGo, weeks: proj.weeksLeft })
+                  : fill(proj.kind === "plateau" ? t.progress.goalPlateau : t.progress.goalAway, {
+                      goal: goalKg,
+                      togo: proj.toGo,
+                    })}
+            </Text>
+          ) : null}
+          {latest && staleDays >= 10 ? (
+            <Text style={[type.small, { color: colors.orangeInk, marginTop: space.xs }]}>
+              {fill(t.progress.staleWeigh, { n: staleDays })}
+            </Text>
+          ) : null}
 
           <View style={{ gap: space.sm, marginTop: space.lg }}>
             <TextField
@@ -253,7 +429,7 @@ export default function ProgressScreen() {
               onSubmitEditing={save}
             />
             {weighNote ? (
-              <Text style={[type.small, { color: colors.alert }]}>{weighNote}</Text>
+              <Text style={[type.small, { color: saved ? colors.accent : colors.alert }]}>{weighNote}</Text>
             ) : saved ? (
               <Text style={[type.smallStrong, { color: colors.accent }]}>{t.common.savedOk}</Text>
             ) : null}
@@ -266,6 +442,7 @@ export default function ProgressScreen() {
               disabled={!kg.trim()}
             />
           </View>
+          {weighIns.length > 0 ? <WeighLog /> : null}
         </Card>
 
         <Pressable onPress={() => router.push("/achievements")} accessibilityRole="button">
@@ -484,6 +661,7 @@ function StepsCard() {
       )}
 
 
+
       {editingGoal ? (
         <View style={{ gap: 6, marginTop: space.sm }}>
           <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
@@ -541,8 +719,10 @@ function WeeklyAverageCard() {
   const { state, goal } = useStore();
 
   const weeks = useMemo(() => weeklyAverages(state.weighIns), [state.weighIns]);
-  const change = useMemo(() => weeklyChange(state.weighIns), [state.weighIns]);
+  const step = useMemo(() => weeklyStep(state.weighIns), [state.weighIns]);
+  const change = step?.change ?? null;
   const latest = weeks.at(-1);
+  const dm = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
 
   if (!latest) {
     return (
@@ -567,6 +747,11 @@ function WeeklyAverageCard() {
   const changeColor = change === null || change === 0 ? colors.inkSoft : good ? colors.accent : colors.orangeInk;
   const dirWord =
     change === null || change === 0 ? t.progress.weeklyFlat : change < 0 ? t.progress.weeklyDown : t.progress.weeklyUp;
+  // The newest week with readings may not be this one — then it is named by
+  // its date, not called "this week".
+  const current = weekMonday(latest.from) === weekMonday(today());
+  // Losing more than 1% of body weight a week is a warning, not praise.
+  const tooFast = step !== null && step.perWeek < 0 && Math.abs(step.perWeek) > latest.avgKg * 0.01;
 
   const peak = Math.max(...weeks.map((w) => w.avgKg));
   const low = Math.min(...weeks.map((w) => w.avgKg));
@@ -577,7 +762,9 @@ function WeeklyAverageCard() {
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.weeklyAvgBody}</Text>
       <View style={{ flexDirection: "row", gap: space.xl, marginTop: space.md, alignItems: "flex-end" }}>
         <View>
-          <Text style={[type.label, { color: colors.inkFaint }]}>{t.progress.weeklyAvgLatest}</Text>
+          <Text style={[type.label, { color: colors.inkFaint }]}>
+            {current ? t.progress.weeklyAvgLatest : fill(t.progress.weeklyAvgWeekOf, { date: dm(weekMonday(latest.from)) })}
+          </Text>
           <Text style={[type.figure, { color: metricInk(colors, "bodyWeight") }]}>{latest.avgKg}</Text>
         </View>
         {change !== null ? (
@@ -589,19 +776,34 @@ function WeeklyAverageCard() {
             </Text>
           </View>
         ) : null}
-        <Text style={[type.small, { color: changeColor, fontWeight: "700", paddingBottom: 6 }]}>{dirWord}</Text>
+        {!tooFast ? (
+          <Text style={[type.small, { color: changeColor, fontWeight: "700", paddingBottom: 6 }]}>{dirWord}</Text>
+        ) : null}
       </View>
+      {step && step.weeksApart > 1 ? (
+        <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>
+          {fill(t.progress.weeklyAvgGap, { n: step.weeksApart, per: `\u2066${step.perWeek > 0 ? "+" : ""}${step.perWeek}\u2069` })}
+        </Text>
+      ) : null}
+      {tooFast ? (
+        <Text style={[type.small, { color: colors.orangeInk, marginTop: 2 }]}>{t.progress.weeklyAvgFast}</Text>
+      ) : null}
 
       <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
-        {fill(t.progress.weeklyCount, { n: latest.count })}
+        {!current
+          ? fill(t.progress.weeklyCountThen, { n: latest.count })
+          : latest.count === 1
+            ? t.progress.weeklyCountOne
+            : fill(t.progress.weeklyCount, { n: latest.count })}
         {latest.count < 2 ? ` · ${t.progress.weeklyMore}` : ""}
       </Text>
 
       {weeks.length >= 2 ? (
         // Each week's own number above its bar and the week's first day under
         // it: a bar with no value on it is a shape, not a reading.
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: space.md }} accessibilityRole="image">
-          {weeks.slice(-8).map((w, i, arr) => {
+        // Six weeks at most: eight columns cut every date to "21/…" on a phone.
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: space.md }} accessibilityRole="image">
+          {weeks.slice(-6).map((w, i, arr) => {
             const last = i === arr.length - 1;
             return (
               <View key={w.week} style={{ flex: 1, alignItems: "center", gap: 3 }}>
@@ -617,7 +819,7 @@ function WeeklyAverageCard() {
                   }}
                 />
                 <Text style={[type.label, { color: colors.inkFaint, fontSize: 10 }]} numberOfLines={1}>
-                  {w.from.slice(8, 10)}/{w.from.slice(5, 7)}
+                  {dm(weekMonday(w.from))}
                 </Text>
               </View>
             );
@@ -914,9 +1116,13 @@ function PhotosCard() {
                 { color: cmp.deltaKg === null ? colors.inkSoft : good(cmp.deltaKg) ? colors.accent : colors.orangeInk },
               ]}
             >
-              {cmp.deltaKg === null
+              {cmp.days < 7
+                ? fill(t.progress.journeyTooSoon, { n: cmp.days })
+                : cmp.deltaKg === null
                 ? fill(t.progress.journeySpanOnly, { weeks: Math.max(1, cmp.weeks) })
-                : fill(cmp.deltaKg <= 0 ? t.progress.journeyDown : t.progress.journeyUp, {
+                : cmp.deltaKg === 0
+                ? fill(t.progress.journeySame, { weeks: Math.max(1, cmp.weeks) })
+                : fill(cmp.deltaKg < 0 ? t.progress.journeyDown : t.progress.journeyUp, {
                     kg: Math.abs(cmp.deltaKg),
                     weeks: Math.max(1, cmp.weeks),
                   })}
@@ -1127,8 +1333,9 @@ function PartCard({ part }: { part: BodyPart }) {
 
   function save() {
     const cm = Number(draft.replace(",", "."));
-    if (!Number.isFinite(cm) || cm < MIN_CM || cm > MAX_CM) {
-      setError(fill(t.body.rangeError, { min: MIN_CM, max: MAX_CM }));
+    const range = rangeOf(part);
+    if (!Number.isFinite(cm) || cm < range.min || cm > range.max) {
+      setError(fill(t.body.rangeError, range));
       return;
     }
     addMeasurement(part, cm);

@@ -1,3 +1,4 @@
+import { litres } from "@/health/water";
 import { HelpEntry } from "@/components/HelpEntry";
 import { WhatsNew } from "@/components/WhatsNew";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -261,16 +262,18 @@ function TodayHub() {
   };
   const tiles: Tile[] = [
     { icon: "checkbox", value: `${doneCount}/${habits.length}`, label: t.today.hubHabits },
+    // What is left, not "1875/2300": a quarter-width tile cut the target off
+    // once a day passed a thousand calories.
     {
       icon: "restaurant",
-      value: `${eaten}/${target.kcal}`,
-      label: t.today.hubKcal,
+      value: eaten > target.kcal ? `+${(eaten - target.kcal).toLocaleString()}` : (target.kcal - eaten).toLocaleString(),
+      label: eaten > target.kcal ? t.today.hubKcalOver : t.today.hubKcalLeft,
       onPress: () => router.push("/kitchen"),
     },
     {
       icon: "water",
-      value: `${water}/${wGoal}`,
-      label: t.today.hubWater,
+      value: `${litres(water)}/${litres(wGoal)}`,
+      label: t.today.hubWaterL,
       onPress: () => router.push("/water"),
     },
     {
@@ -291,7 +294,11 @@ function TodayHub() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Ionicons name="flame" size={16} color={ON_HERO} />
             <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-              {bestStreak > 0 ? fill(t.today.hubStreak, { days: bestStreak }) : t.today.hubStreakNone}
+              {bestStreak === 1
+                ? t.today.hubStreakOne
+                : bestStreak > 0
+                  ? fill(t.today.hubStreak, { days: bestStreak })
+                  : t.today.hubStreakNone}
             </Text>
           </View>
         </View>
@@ -404,7 +411,15 @@ export default function TodayScreen() {
 
   const hour = new Date().getHours();
   const greeting =
-    hour < 12 ? t.today.greetingMorning : hour < 17 ? t.today.greetingNoon : t.today.greetingEvening;
+    hour < 5
+      ? t.today.greetingNight
+      : hour < 12
+        ? t.today.greetingMorning
+        : hour < 16
+          ? t.today.greetingNoon
+          : hour < 22
+            ? t.today.greetingEvening
+            : t.today.greetingNight;
   const title = state.profile.name
     ? fill(t.today.greetingNamed, { greeting, name: state.profile.name })
     : greeting;

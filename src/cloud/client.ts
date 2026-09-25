@@ -119,6 +119,9 @@ export type AuthResult =
 
 function readableError(message: string): string {
   const m = message.toLowerCase();
+  // No connection is not "something went wrong": supabase hands a failed
+  // fetch back as an error rather than throwing it.
+  if (m.includes("fetch") || m.includes("network") || m.includes("timeout") || m.includes("timed out")) return "local";
   if (m.includes("already registered") || m.includes("already been registered")) return "exists";
   if (m.includes("invalid login")) return "badLogin";
   if (m.includes("password")) return "weakPassword";
@@ -132,7 +135,20 @@ function readableError(message: string): string {
  * synced stays the person's. This is what makes "sign up" safe — the data you
  * built up before you had an email comes with you.
  */
+/** No auth call may leave the button on "connecting…" forever. */
+const AUTH_TIMEOUT_MS = 15_000;
+function inTime<T>(work: Promise<T>): Promise<T> {
+  return Promise.race([
+    work,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), AUTH_TIMEOUT_MS)),
+  ]);
+}
+
 export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
+  return inTime(signUpInner(email, password)).catch(() => ({ ok: false as const, message: "local" }));
+}
+
+async function signUpInner(email: string, password: string): Promise<AuthResult> {
   const db = supabase();
   if (!db) return { ok: false, message: "local" };
   try {
@@ -270,7 +286,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
   const db = supabase();
   if (!db) return { ok: false, message: "local" };
   try {
-    const { error } = await db.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await inTime(db.auth.signInWithPassword({ email: email.trim(), password }));
     if (error) return { ok: false, message: readableError(error.message) };
     return { ok: true };
   } catch {

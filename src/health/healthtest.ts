@@ -30,6 +30,12 @@ import {
   cupMlOf,
   isStorableCupMl,
   CUP_SIZES,
+  recommendedMl,
+  defaultGoalMl,
+  waterStatusMl,
+  waterMlLog,
+  goalMlOf,
+  litres,
 } from "./water";
 import {
   averageSteps,
@@ -350,6 +356,28 @@ function check(name: string, pass: boolean, detail?: string) {
   const soon = photoDue([later], "2026-10-04");
   check("before that, it says when", soon.state === "soon" && soon.inDays === 4, JSON.stringify(soon));
   check("weeks with a photo are counted once each", photoWeeks([first, { ...first, id: "x" }, later]) === 2);
+}
+
+// --- water in ml: a glass size is a display unit, never a rescale
+{
+  const band = recommendedMl(85);
+  check("the ml band is 30-40 ml per kilo", band.min === 2550 && band.max === 3400, JSON.stringify(band));
+  check("the band's minimum never exceeds its maximum, even at 130 kg",
+    recommendedMl(130).min < recommendedMl(130).max && recommendedMl(130).max <= 5000, JSON.stringify(recommendedMl(130)));
+  check("a light person is not pushed to 3 L", recommendedMl(45).min === 1500 && recommendedMl(45).max <= 1800, JSON.stringify(recommendedMl(45)));
+  check("the default goal sits inside the band", defaultGoalMl(85) >= band.min && defaultGoalMl(85) <= band.max);
+  check("met at the goal, over a litre past the band",
+    waterStatusMl(3000, 3000, 85) === "met" && waterStatusMl(4500, 3000, 85) === "over" && waterStatusMl(0, 3000) === "empty");
+  const old = { water: { "2026-09-24": 4 }, cupMl: 500 };
+  check("old cup counts fold in at the glass they were shown at", waterMlLog(old)["2026-09-24"] === 2000);
+  check("a day in ml wins over the old count for that day",
+    waterMlLog({ ...old, waterMl: { "2026-09-24": 750 } })["2026-09-24"] === 750);
+  check("changing the glass never rescales a stored day",
+    waterMlLog({ waterMl: { d: 500 }, cupMl: 750 }).d === 500);
+  check("an old cup goal converts to ml", goalMlOf({ waterGoal: 10, cupMl: 250 }) === 2500);
+  check("an ml goal is kept as is", goalMlOf({ waterGoalMl: 2750 }) === 2750);
+  check("no goal reads as none", goalMlOf({}) === null);
+  check("litres read naturally", litres(2500) === "2.5" && litres(3000) === "3" && litres(0) === "0");
 }
 
 const failed = results.filter(([, ok]) => !ok);

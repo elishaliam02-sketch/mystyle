@@ -58,11 +58,15 @@ export default function TabsLayout() {
         minimumFontScale={0.8}
         style={{
           fontFamily: focused ? font.bodyBold : font.bodyMedium,
-          fontSize: 11,
+          // Seven tabs share a phone's width; a long word ("התקדמות",
+          // "Progress") gets a smaller size instead of an ellipsis — the web
+          // ignores adjustsFontSizeToFit.
+          fontSize: text.length > 6 ? 9.5 : text.length > 5 ? 10 : 11,
+          letterSpacing: text.length > 5 ? -0.2 : 0,
           lineHeight: 14,
           color: String(color),
           marginTop: 3,
-          paddingHorizontal: 1,
+          paddingHorizontal: 0,
         }}
       >
         {text}

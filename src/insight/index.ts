@@ -24,7 +24,7 @@ export type Weight = { date: string; kg: number };
 export type WeekReading = { headline: string; body: string };
 
 export function weekReading(
-  data: { consistency: number; habits: HabitWeek[]; weights: Weight[] },
+  data: { consistency: number; habits: HabitWeek[]; weights: Weight[]; goal?: string },
   d: Insight,
 ): WeekReading {
   const { consistency, habits, weights } = data;
@@ -66,7 +66,13 @@ export function weekReading(
     const sorted = weights.slice().sort((a, b) => a.date.localeCompare(b.date));
     const delta = sorted[0].kg - sorted[sorted.length - 1].kg; // positive = lost
     const kg = Math.abs(Math.round(delta * 10) / 10);
-    if (delta >= 0.3) lines.push(fill(d.weekWeightDown, { kg }));
+    // On a bulk the gain is the point: it is praised, and a loss is the
+    // thing to fix — not the other way round.
+    if (data.goal === "bulk") {
+      if (delta <= -0.3) lines.push(fill(d.weekWeightUpBulk, { kg }));
+      else if (delta >= 0.3) lines.push(fill(d.weekWeightDownBulk, { kg }));
+      else lines.push(d.weekWeightFlat);
+    } else if (delta >= 0.3) lines.push(fill(d.weekWeightDown, { kg }));
     else if (delta <= -0.3) lines.push(d.weekWeightUp);
     else lines.push(d.weekWeightFlat);
   }

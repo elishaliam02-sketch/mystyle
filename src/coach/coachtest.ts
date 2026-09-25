@@ -16,8 +16,8 @@ const ctx: CoachContext = {
   kcalEaten: 1400,
   proteinTarget: 150,
   proteinEaten: 90,
-  waterCups: 5,
-  waterGoal: 8,
+  waterCups: 1250,
+  waterGoal: 2500,
   steps: 6000,
   stepGoal: 10000,
   weeklyChangeKg: -0.6,
@@ -64,7 +64,7 @@ check("an empty question is unknown", classify("   ") === "unknown");
 }
 {
   const r = coachReply("כמה מים שתיתי", ctx, "he");
-  check("the water answer counts the cups left", r.text.includes("3"), r.text.slice(0, 120));
+  check("the water answer says the litres left", r.text.includes("1.3") && r.text.includes("2.5"), r.text.slice(0, 120));
 }
 {
   const r = coachReply("למה אני תקוע", ctx, "he");

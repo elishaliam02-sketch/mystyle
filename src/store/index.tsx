@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState as RNAppState } from "react-native";
 import { PAYMENTS_LIVE } from "@/billing/launch";
 import {
   createContext,
@@ -43,7 +44,7 @@ import {
   DEFAULT_STEP_GOAL,
   isStorableGoal as isStorableStepGoal,
 } from "@/health/steps";
-import { cupMlOf, defaultWaterGoal, isStorableCupMl, isStorableWaterGoal } from "@/health/water";
+import { cupMlOf, defaultGoalMl, goalMlOf, isStorableCupMl, isStorableGoalMl, MAX_DAY_ML, waterMlLog } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import type { Goal } from "@/kitchen";
 import type { Exercise, Muscle } from "@/workout/exercises";
@@ -75,6 +76,10 @@ type Store = {
   toggleCompletion: (habitId: string) => void;
   isDone: (habitId: string, date?: string) => boolean;
   addWeighIn: (kg: number) => void;
+  /** Corrects the reading of one day. */
+  editWeighIn: (date: string, kg: number) => void;
+  /** Deletes the reading of one day (a typo), for good — a sync keeps it gone. */
+  removeWeighIn: (date: string) => void;
   addCheckIn: (entry: Omit<CheckIn, "date" | "updatedAt">) => void;
   /** Completions of active habits over the last 7 days, as a 0–1 ratio. */
   weeklyConsistency: () => number;
@@ -108,13 +113,17 @@ type Store = {
   todayIntake: () => { items: IntakeItem[]; kcal: number; protein: number };
   /** Today, as the clock-safe date key the diary and logs are written under. */
   todayKey: () => string;
-  /** Adds (or, with a negative delta, removes) a glass of water today. */
-  addWater: (delta: number) => void;
-  /** Glasses of water logged today. */
+  /** The clock-safe date key n days back — what the logs were written under. */
+  dayKeyAgo: (n: number) => string;
+  /** Adds (or, with a negative delta, removes) glasses of the chosen size today. */
+  addWater: (deltaCups: number) => void;
+  /** Millilitres of water logged today. */
   todayWater: () => number;
-  /** The daily water goal in cups — the person's own, or derived from weight. */
+  /** The daily water goal in ml — the person's own, or derived from weight. */
   waterGoal: () => number;
-  setWaterGoal: (cups: number) => void;
+  setWaterGoal: (ml: number) => void;
+  /** Water per day in ml, every day there is. */
+  waterLog: () => Record<string, number>;
   /** The size of one cup in ml. */
   cupMl: () => number;
   setCupMl: (ml: number) => void;
@@ -374,9 +383,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // The calendar day, re-read at local midnight and whenever the app comes
+  // back to the front: without it an app left open overnight kept showing
+  // (and undoing into) yesterday's water, food and habits.
+  const [dayKey, setDayKey] = useState(() => toLocalDate(Date.now()));
+  useEffect(() => {
+    const refresh = () => setDayKey(toLocalDate(Date.now()));
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2);
+    const timer = setTimeout(refresh, Math.max(1000, midnight.getTime() - now.getTime()));
+    const sub = RNAppState.addEventListener("change", (s) => {
+      if (s === "active") refresh();
+    });
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [dayKey]);
+
   const trustedToday = useCallback(
     () => toLocalDate(trustedNowMs(Date.now(), state.clockHighWaterMs ?? 0)),
-    [state.clockHighWaterMs],
+    // dayKey is not read here, but a new day must hand out a new function so
+    // every screen that asked "what is today" asks again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.clockHighWaterMs, dayKey],
   );
 
   // The same anchor, n calendar days back — so streak windows count from the
@@ -388,7 +418,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const pad = (x: number) => String(x).padStart(2, "0");
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     },
-    [state.clockHighWaterMs],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.clockHighWaterMs, dayKey],
   );
 
   const isDone = useCallback(
@@ -415,6 +446,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         profile: s.profile.startKg ? s.profile : { ...s.profile, startKg: kg },
       };
     });
+  }, []);
+
+  const editWeighIn = useCallback((date: string, kg: number) => {
+    if (!isStorableWeight(kg)) return;
+    setState((s) => {
+      if (!s.weighIns.some((w) => w.date === date)) return s;
+      return {
+        ...s,
+        weighIns: s.weighIns.map((w) => (w.date === date ? { ...w, kg, updatedAt: now() } : w)),
+      };
+    });
+  }, []);
+
+  const removeWeighIn = useCallback((date: string) => {
+    setState((s) => ({
+      ...s,
+      weighIns: s.weighIns.filter((w) => w.date !== date),
+      weighInsRemoved: { ...s.weighInsRemoved, [date]: now() },
+    }));
   }, []);
 
   const addCheckIn = useCallback((entry: Omit<CheckIn, "date" | "updatedAt">) => {
@@ -580,25 +630,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [state.intake, trustedToday]);
 
-  const addWater = useCallback((delta: number) => {
+  const addWater = useCallback((deltaCups: number) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
-      const next = Math.max(0, (s.water?.[date] ?? 0) + delta);
+      const log = waterMlLog(s);
+      const next = Math.max(0, Math.min(MAX_DAY_ML, (log[date] ?? 0) + deltaCups * cupMlOf(s.cupMl)));
       return {
         ...s,
         clockHighWaterMs: highWater,
-        water: { ...s.water, [date]: next },
+        waterMl: { ...s.waterMl, [date]: next },
       };
     });
   }, []);
 
+  const waterLog = useCallback(() => waterMlLog(state), [state.water, state.waterMl, state.cupMl]);
+
   const waterGoal = useCallback(() => {
-    if (state.waterGoal && isStorableWaterGoal(state.waterGoal)) return state.waterGoal;
+    const own = goalMlOf(state);
+    if (own !== null) return own;
     const kg =
       [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
       state.profile.startKg;
-    return defaultWaterGoal(kg);
-  }, [state.waterGoal, state.weighIns, state.profile.startKg]);
+    return defaultGoalMl(kg);
+  }, [state.waterGoal, state.waterGoalMl, state.cupMl, state.weighIns, state.profile.startKg]);
 
   const cupMl = useCallback(() => cupMlOf(state.cupMl), [state.cupMl]);
   const setCupMl = useCallback((ml: number) => {
@@ -606,18 +660,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, cupMl: Math.round(ml) }));
   }, []);
 
-  const setWaterGoal = useCallback((cups: number) => {
-    if (!isStorableWaterGoal(cups)) return;
-    setState((s) => ({ ...s, waterGoal: cups }));
+  const setWaterGoal = useCallback((ml: number) => {
+    if (!isStorableGoalMl(ml)) return;
+    setState((s) => ({ ...s, waterGoalMl: Math.round(ml), waterGoal: undefined }));
   }, []);
 
   const todayWater = useCallback(
-    () => state.water?.[trustedToday()] ?? 0,
-    [state.water, trustedToday],
+    () => waterMlLog(state)[trustedToday()] ?? 0,
+    [state.water, state.waterMl, state.cupMl, trustedToday],
   );
 
   const addMeasurement = useCallback((part: string, cm: number) => {
-    if (!isStorableCm(cm)) return;
+    if (!isStorableCm(cm, part)) return;
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
       const prior = (s.measurements?.[part] ?? []).filter((r) => r.date !== date);
@@ -1213,6 +1267,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleCompletion,
       isDone,
       addWeighIn,
+      editWeighIn,
+      removeWeighIn,
       addCheckIn,
       weeklyConsistency,
       readyForAnotherHabit,
@@ -1230,9 +1286,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeWish,
       todayIntake,
       todayKey: trustedToday,
+      dayKeyAgo: trustedDaysAgo,
       addWater,
       todayWater,
       waterGoal,
+      waterLog,
       setWaterGoal,
       cupMl,
       setCupMl,
@@ -1289,10 +1347,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reset,
       replaceAll,
     }),
-    [state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
-     toggleCompletion, isDone, addWeighIn, addCheckIn, weeklyConsistency,
+    [
+      trustedDaysAgo,state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
+     toggleCompletion, isDone, addWeighIn, editWeighIn, removeWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, wishes, addWish, removeWish, todayIntake,
-     addWater, todayWater, waterGoal, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
+     addWater, todayWater, waterGoal, waterLog, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,

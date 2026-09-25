@@ -80,3 +80,85 @@ export function fillFraction(cups: number, goal: number): number {
   if (goal <= 0) return 0;
   return Math.max(0, Math.min(1, cups / goal));
 }
+
+// ---------------------------------------------------------------- in ml
+//
+// The tracker stores millilitres, not cups: a cup count multiplied by
+// whatever glass is chosen *now* turned yesterday's 500 ml into a litre the
+// moment someone picked a bigger bottle. Cups are only a display unit.
+
+/** Nobody drinks more than this in a day; a runaway tap stops here. */
+export const MAX_DAY_ML = 8000;
+/** The goal a person may set for themselves, in ml. */
+export const MIN_GOAL_ML = 1000;
+export const MAX_GOAL_ML = 6000;
+/** The goals offered as chips. */
+export const GOAL_CHOICES_ML = [1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 4000, 4500, 5000] as const;
+
+const round50 = (n: number) => Math.round(n / 50) * 50;
+
+/** The recommended daily band in ml: 30–40 ml per kilo, kept to 1.5–5 L. */
+export function recommendedMl(weightKg?: number): { min: number; max: number } {
+  const w = weightKg && weightKg > 0 ? weightKg : 70;
+  const min = round50(Math.min(4750, Math.max(1500, w * 30)));
+  const max = round50(Math.min(5000, Math.max(min + 250, w * 40)));
+  return { min, max };
+}
+
+/** The default goal: 35 ml per kilo, inside the band. */
+export function defaultGoalMl(weightKg?: number): number {
+  const { min, max } = recommendedMl(weightKg);
+  const w = weightKg && weightKg > 0 ? weightKg : 70;
+  return Math.max(min, Math.min(max, round50(w * 35)));
+}
+
+export function isStorableGoalMl(n: number): boolean {
+  return Number.isFinite(n) && n >= MIN_GOAL_ML && n <= MAX_GOAL_ML;
+}
+
+/** Where today's millilitres sit against the goal. "over" starts a litre past
+ * the larger of the goal and the top of the healthy band. */
+export function waterStatusMl(ml: number, goalMl: number, weightKg?: number): WaterStatus {
+  const { max } = recommendedMl(weightKg);
+  if (ml <= 0) return "empty";
+  if (ml >= Math.max(goalMl, max) + 1000) return "over";
+  if (ml >= goalMl) return "met";
+  if (ml >= goalMl / 2) return "onTrack";
+  return "low";
+}
+
+/** "2.5" litres, one decimal only when there is one. */
+export function litres(ml: number): string {
+  const l = Math.round(ml / 100) / 10;
+  return Number.isInteger(l) ? String(l) : l.toFixed(1);
+}
+
+/**
+ * The per-day ml log, from whatever the state holds: the ml record, plus any
+ * day only the old cup-count record knows (an older build, or a restored
+ * backup), converted at the cup size in use — the size those cups were shown
+ * at.
+ */
+export function waterMlLog(
+  s: { waterMl?: Record<string, number>; water?: Record<string, number>; cupMl?: number },
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  const cup = cupMlOf(s.cupMl);
+  for (const [d, cups] of Object.entries(s.water ?? {})) {
+    if (Number.isFinite(cups) && cups > 0) out[d] = Math.min(MAX_DAY_ML, Math.round(cups * cup));
+  }
+  for (const [d, ml] of Object.entries(s.waterMl ?? {})) {
+    if (Number.isFinite(ml) && ml >= 0) out[d] = Math.min(MAX_DAY_ML, Math.round(ml));
+  }
+  return out;
+}
+
+/** The goal in ml: the ml goal, else an old cup goal converted, else null. */
+export function goalMlOf(s: { waterGoalMl?: number; waterGoal?: number; cupMl?: number }): number | null {
+  if (s.waterGoalMl !== undefined && isStorableGoalMl(s.waterGoalMl)) return Math.round(s.waterGoalMl);
+  if (s.waterGoal !== undefined && isStorableWaterGoal(s.waterGoal)) {
+    const ml = round50(s.waterGoal * cupMlOf(s.cupMl));
+    return Math.max(MIN_GOAL_ML, Math.min(MAX_GOAL_ML, ml));
+  }
+  return null;
+}

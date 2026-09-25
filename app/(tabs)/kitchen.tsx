@@ -947,13 +947,17 @@ function ProjectionCard() {
   const p = projectGoal(state.weighIns, state.profile.goalKg);
   if (!p) return null;
 
-  const losing = p.perWeek < 0;
-  const line = losing ? t.kitchen.projBody : t.kitchen.projGain;
+  const line =
+    p.kind === "toward"
+      ? fill(p.perWeek < 0 ? t.kitchen.projBody : t.kitchen.projGain, {
+          rate: Math.abs(p.perWeek),
+          togo: p.toGo,
+          weeks: p.weeksLeft,
+        })
+      : fill(p.kind === "plateau" ? t.kitchen.projPlateau : t.kitchen.projAway, { togo: p.toGo });
   return (
     <Card label={t.kitchen.projTitle} tone="accent">
-      <Text style={[type.body, { color: colors.ink }]}>
-        {fill(line, { rate: Math.abs(p.perWeek), togo: p.toGo, weeks: p.weeksLeft })}
-      </Text>
+      <Text style={[type.body, { color: colors.ink }]}>{line}</Text>
     </Card>
   );
 }

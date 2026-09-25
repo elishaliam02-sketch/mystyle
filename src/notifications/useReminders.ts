@@ -48,7 +48,7 @@ export function useReminders() {
   const signature = [
     habits.filter((h) => !h.archived).map((h) => `${h.id}:${h.slot ?? ""}:${h.title}`).join("|"),
     Object.keys(state.intake ?? {}).length > 0 ? "food" : "",
-    Object.keys(state.water ?? {}).length > 0 ? "water" : "",
+    Object.keys({ ...state.water, ...state.waterMl }).length > 0 ? "water" : "",
     state.training ? "train" : "",
     Object.keys(state.steps ?? {}).length > 0 ? "steps" : "",
     Object.keys(state.measurements ?? {}).length > 0 ? "measure" : "",

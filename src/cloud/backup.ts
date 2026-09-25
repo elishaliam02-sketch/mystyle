@@ -22,7 +22,10 @@ export const BACKUP_KEYS = [
   "training",
   "intake",
   "water",
+  "waterMl",
   "waterGoal",
+  "waterGoalMl",
+  "cupMl",
   "measurements",
   "goal",
   "nutritionGoal",
@@ -120,6 +123,7 @@ export function isEmptyBackup(bundle: BackupBundle): boolean {
     has(bundle.training) ||
     has(bundle.intake) ||
     has(bundle.water) ||
+    has(bundle.waterMl) ||
     has(bundle.steps) ||
     has(bundle.measurements) ||
     has(bundle.favorites) ||
@@ -139,7 +143,10 @@ const SHAPE: Record<BackupKey, (v: unknown) => boolean> = {
   training: isRecord,
   intake: isRecord,
   water: isRecord,
+  waterMl: isRecord,
   waterGoal: isNum,
+  waterGoalMl: isNum,
+  cupMl: isNum,
   measurements: isRecord,
   goal: (v) => typeof v === "string",
   nutritionGoal: (v) => typeof v === "string",

@@ -67,11 +67,50 @@ export function weeklyAverages(weighIns: WeighInLike[]): WeekAverage[] {
  * in kg/week. Null until there are two distinct weeks to compare.
  */
 export function weeklyChange(weighIns: WeighInLike[]): number | null {
-  const weeks = weeklyAverages(weighIns);
-  if (weeks.length < 2) return null;
-  const last = weeks[weeks.length - 1]!;
-  const prev = weeks[weeks.length - 2]!;
-  return Math.round((last.avgKg - prev.avgKg) * 10) / 10;
+  return weeklyStep(weighIns)?.perWeek ?? null;
+}
+
+/** The Monday of a date's week, as YYYY-MM-DD. */
+export function weekMonday(date: string): string {
+  const d = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return date;
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const pad = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * The latest week against the one before it that has readings — honest about
+ * a gap: three weeks apart is a change over three weeks, not "since last
+ * week". From the unrounded means, so two averages that round alike can
+ * still show their real 0.1.
+ */
+export function weeklyStep(
+  weighIns: WeighInLike[],
+): { change: number; perWeek: number; weeksApart: number } | null {
+  const byWeek = new Map<string, { sum: number; count: number }>();
+  for (const w of weighIns) {
+    if (!Number.isFinite(w.kg)) continue;
+    const key = weekMonday(w.date);
+    const cur = byWeek.get(key) ?? { sum: 0, count: 0 };
+    cur.sum += w.kg;
+    cur.count += 1;
+    byWeek.set(key, cur);
+  }
+  const keys = [...byWeek.keys()].sort();
+  if (keys.length < 2) return null;
+  const a = byWeek.get(keys[keys.length - 2]!)!;
+  const b = byWeek.get(keys[keys.length - 1]!)!;
+  const weeksApart = Math.max(
+    1,
+    Math.round((Date.parse(keys[keys.length - 1]!) - Date.parse(keys[keys.length - 2]!)) / (7 * 86_400_000)),
+  );
+  const change = b.sum / b.count - a.sum / a.count;
+  return {
+    change: Math.round(change * 10) / 10,
+    perWeek: Math.round((change / weeksApart) * 10) / 10,
+    weeksApart,
+  };
 }
 
 /** RFM body-fat estimate, in %, from height and waist in cm. Null if either is unusable. */
