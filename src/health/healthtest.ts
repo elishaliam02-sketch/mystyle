@@ -1,3 +1,4 @@
+import { comparePhotos, photoDue, photoWeeks, photoWeight } from "./journey";
 /**
  * Tests for the body-number guards. The headline case is the real one that
  * started this: someone weighing 71 kg setting a target of 20 kg, and the app
@@ -326,6 +327,29 @@ function check(name: string, pass: boolean, detail?: string) {
     const a = recommendedRange(80); const b = recommendedRange(80, 250);
     return a.min === b.min && a.max === b.max;
   })());
+}
+
+// --- the progress-photo journey: each photo stands beside its week's average
+{
+  const w = [
+    { date: "2026-09-07", kg: 90.4 }, { date: "2026-09-09", kg: 89.6 }, { date: "2026-09-11", kg: 90.0 },
+    { date: "2026-09-28", kg: 87.9 }, { date: "2026-09-30", kg: 88.3 },
+  ];
+  const weeks = weeklyAverages(w);
+  const first = { id: "a", date: "2026-09-08", kg: 91 };
+  const later = { id: "b", date: "2026-10-01", kg: 87 };
+  check("a photo takes its week's average, not the frozen reading", photoWeight(first, weeks)?.kg === 90 && photoWeight(first, weeks)?.source === "week");
+  check("a photo in a week with no weigh-ins keeps its frozen number", photoWeight({ id: "c", date: "2026-09-20", kg: 89 }, weeks)?.source === "frozen");
+  check("a photo with no weight at all says so", photoWeight({ id: "d", date: "2026-09-20" }, weeks) === null);
+  const c = comparePhotos(first, later, w);
+  check("before vs now: the weekly averages' difference", c.deltaKg === -1.9, String(c.deltaKg));
+  check("and the weeks between", c.weeks === 3 && c.days === 23, `${c.weeks}/${c.days}`);
+  check("and the pace per week", c.perWeek === -0.6, String(c.perWeek));
+  check("no photo yet asks for the first", photoDue([], "2026-10-01").state === "first");
+  check("a week after the last photo it is due", photoDue([later], "2026-10-08").state === "due");
+  const soon = photoDue([later], "2026-10-04");
+  check("before that, it says when", soon.state === "soon" && soon.inDays === 4, JSON.stringify(soon));
+  check("weeks with a photo are counted once each", photoWeeks([first, { ...first, id: "x" }, later]) === 2);
 }
 
 const failed = results.filter(([, ok]) => !ok);

@@ -2,13 +2,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
-import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, type BodyPart } from "@/body";
@@ -22,6 +21,7 @@ import {
   type Sex,
 } from "@/health/composition";
 import { useAutoSteps } from "@/health/pedometer";
+import { comparePhotos, photoDue, photoWeeks, photoWeight } from "@/health/journey";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
@@ -592,22 +592,36 @@ function WeeklyAverageCard() {
         <Text style={[type.small, { color: changeColor, fontWeight: "700", paddingBottom: 6 }]}>{dirWord}</Text>
       </View>
 
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
+        {fill(t.progress.weeklyCount, { n: latest.count })}
+        {latest.count < 2 ? ` · ${t.progress.weeklyMore}` : ""}
+      </Text>
+
       {weeks.length >= 2 ? (
-        <View
-          style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, height: 80, marginTop: space.md }}
-          accessibilityRole="image"
-        >
-          {weeks.slice(-8).map((w, i, arr) => (
-            <View
-              key={w.week}
-              style={{
-                flex: 1,
-                height: 14 + ((w.avgKg - low) / span) * 60,
-                borderRadius: radius.sm,
-                backgroundColor: i === arr.length - 1 ? colors.accent : colors.chartBar,
-              }}
-            />
-          ))}
+        // Each week's own number above its bar and the week's first day under
+        // it: a bar with no value on it is a shape, not a reading.
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: space.md }} accessibilityRole="image">
+          {weeks.slice(-8).map((w, i, arr) => {
+            const last = i === arr.length - 1;
+            return (
+              <View key={w.week} style={{ flex: 1, alignItems: "center", gap: 3 }}>
+                <Text style={[type.label, { color: last ? colors.accent : colors.inkSoft, fontSize: 10 }]} numberOfLines={1}>
+                  {w.avgKg}
+                </Text>
+                <View
+                  style={{
+                    width: "100%",
+                    height: 14 + ((w.avgKg - low) / span) * 60,
+                    borderRadius: radius.sm,
+                    backgroundColor: last ? colors.accent : colors.chartBar,
+                  }}
+                />
+                <Text style={[type.label, { color: colors.inkFaint, fontSize: 10 }]} numberOfLines={1}>
+                  {w.from.slice(8, 10)}/{w.from.slice(5, 7)}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       ) : null}
     </Card>
@@ -740,17 +754,27 @@ function BodyFatCard() {
 }
 
 /**
- * Progress photos — the record the scale and the tape can't keep. A photo every
- * few weeks, each with the day's weight and body-fat frozen beside it, and a
- * start-vs-now compare once there are two. The files never leave the phone.
+ * The progress-photo journey: one photo a week, each shown beside that week's
+ * average weight, with any two side by side and the change between them in
+ * kilos, weeks and kilos a week. See src/health/journey.ts for the numbers.
  */
 function PhotosCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, addPhoto, removePhoto, allowance } = useStore();
+  const { state, addPhoto, removePhoto, goal } = useStore();
   const [note, setNote] = useState<string | null>(null);
+  // The two photos being compared; null = the first and the latest.
+  const [beforeId, setBeforeId] = useState<string | null>(null);
+  const [afterId, setAfterId] = useState<string | null>(null);
+  // The photo open full size, and whether its delete is waiting on a confirm.
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const photos = state.photos ?? [];
+  const photos = useMemo(
+    () => [...(state.photos ?? [])].sort((a, b) => a.date.localeCompare(b.date)),
+    [state.photos],
+  );
+  const weeks = useMemo(() => weeklyAverages(state.weighIns), [state.weighIns]);
   const sortedWeighIns = useMemo(
     () => [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)),
     [state.weighIns],
@@ -763,9 +787,7 @@ function PhotosCard() {
     sex: state.profile.sex as Sex | undefined,
   });
   const canPick = Platform.OS !== "web";
-  // Only *taking* another one is capped. The roll below, and its per-photo
-  // delete, stay exactly as they are — deleting is how room is made.
-  const canAdd = allowance("progressPhotos").ok;
+  const due = photoDue(photos, today());
 
   const pick = async (fromCamera: boolean) => {
     setNote(null);
@@ -781,10 +803,7 @@ function PhotosCard() {
         const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
         if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
       } else {
-        const res = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.6,
-        });
+        const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.6 });
         if (!res.canceled && res.assets[0]) addPhoto(res.assets[0].uri, latestKg, bf ?? undefined);
       }
     } catch {
@@ -792,115 +811,243 @@ function PhotosCard() {
     }
   };
 
-  const first = photos[0];
-  const last = photos.at(-1);
+  const byId = (id: string | null) => (id ? photos.find((p) => p.id === id) : undefined);
+  const before = byId(beforeId) ?? photos[0];
+  const after = byId(afterId) ?? photos.at(-1);
+  const comparing = before && after && before.id !== after.id;
+  const cmp = comparing ? comparePhotos(before!, after!, state.weighIns) : null;
+
+  // Whether the change serves the goal: down is good on a cut, up on a bulk.
+  const g = goal();
+  const good = (d: number) => (g === "bulk" ? d > 0 : g === "maintain" ? Math.abs(d) < 1 : d < 0);
+
+  const weightLine = (p: { id: string; date: string; kg?: number }) => {
+    const w = photoWeight(p, weeks);
+    if (!w) return t.progress.journeyNoWeight;
+    return fill(w.source === "week" ? t.progress.journeyAvg : t.progress.journeyAt, { kg: w.kg });
+  };
+  const dateLabel = (d: string) => d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(2, 4);
+
+  const open = byId(viewing);
 
   return (
-    <Card label={t.progress.photosTitle}>
-      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.photosBody}</Text>
+    <Card label={t.progress.journeyTitle}>
+      <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.journeyBody}</Text>
 
-      {!canPick ? (
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
-          {t.progress.photosUnavailable}
+      {/* the weekly rhythm: first photo, due, or when the next one is */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.sm,
+          marginTop: space.md,
+          padding: space.md,
+          borderRadius: radius.md,
+          backgroundColor: due.state === "soon" ? colors.surfaceAlt : colors.accentWash,
+        }}
+      >
+        <Ionicons
+          name={due.state === "soon" ? "calendar-outline" : "camera"}
+          size={18}
+          color={due.state === "soon" ? colors.inkSoft : colors.accent}
+        />
+        <Text style={[type.smallStrong, { color: due.state === "soon" ? colors.inkSoft : colors.accent, flex: 1 }]}>
+          {due.state === "first"
+            ? t.progress.journeyFirst
+            : due.state === "due"
+              ? fill(t.progress.journeyDue, { n: due.daysSince })
+              : fill(t.progress.journeyNext, { n: due.inDays })}
         </Text>
-      ) : canAdd ? (
-        <View style={{ gap: space.xs, marginTop: space.md }}>
-          <View style={{ flexDirection: "row", gap: space.sm }}>
-            <PillButton icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
-            <PillButton tone="soft" icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
-          </View>
-          <ProRemaining feature="progressPhotos" />
+      </View>
+
+      {canPick ? (
+        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+          <PillButton icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+          <PillButton tone="soft" icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
         </View>
       ) : (
-        <View style={{ marginTop: space.md }}>
-          <ProGate feature="progressPhotos" />
-        </View>
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.progress.photosUnavailable}</Text>
       )}
+      <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.progress.journeyTip}</Text>
 
-      {note ? (
-        <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text>
-      ) : null}
-      {/* The one place the app can lose something without saying so: photos
-          are files on this phone and are never uploaded, so a new phone starts
-          with none. Saying it next to the pictures, rather than only in the
-          privacy policy, is the difference between a choice and a surprise. */}
-      {photos.length > 0 ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-start",
-            gap: space.sm,
-            backgroundColor: colors.surfaceAlt,
-            borderRadius: radius.md,
-            padding: space.md,
-            marginTop: space.md,
-          }}
-        >
-          <Ionicons name="phone-portrait-outline" size={15} color={colors.inkFaint} />
-          <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>
-            {t.progress.photosLocalOnly}
-          </Text>
-        </View>
-      ) : null}
+      {note ? <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text> : null}
 
-      {photos.length === 0 ? (
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.md }]}>
-          {t.progress.photosEmpty}
-        </Text>
-      ) : (
-        <>
-          {/* start vs now */}
-          {first && last && first.id !== last.id ? (
-            <View style={{ marginTop: space.md }}>
-              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase", marginBottom: 6 }]}>
-                {t.progress.photosCompare}
-              </Text>
-              <View style={{ flexDirection: "row", gap: space.sm }}>
-                {[first, last].map((p, i) => (
-                  <View key={p.id} style={{ flex: 1 }}>
-                    <Image
-                      source={{ uri: p.uri }}
-                      style={{ width: "100%", height: 200, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
-                      resizeMode="cover"
-                    />
-                    <Text style={[type.small, { color: colors.inkSoft, marginTop: 4 }]}>
-                      {i === 0 ? "▶ " : "◀ "}
-                      {p.date}
-                      {p.kg ? ` · ${p.kg}kg` : ""}
-                      {p.bf ? ` · ${p.bf}%` : ""}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {/* the whole roll */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.md }}>
-            {[...photos].reverse().map((p) => (
-              <View key={p.id} style={{ width: "31%" }}>
+      {/* before and now, with what changed between them */}
+      {comparing && cmp ? (
+        <View style={{ marginTop: space.lg, gap: space.sm }}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            {[
+              { p: before!, label: t.progress.journeyBefore },
+              { p: after!, label: t.progress.journeyNow },
+            ].map(({ p, label }) => (
+              <Pressable
+                key={p.id}
+                onPress={() => {
+                  setViewing(p.id);
+                  setConfirmDelete(false);
+                }}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={`${label} · ${p.date}`}
+                style={{ flex: 1 }}
+              >
                 <Image
                   source={{ uri: p.uri }}
-                  style={{ width: "100%", height: 120, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
+                  style={{ width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
                   resizeMode="cover"
                 />
-                <Pressable
-                  onPress={() => removePhoto(p.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.progress.photoRemove}
-                  hitSlop={6}
-                  style={{ position: "absolute", top: 4, right: 4 }}
-                >
-                  <Ionicons name="close-circle" size={22} color={colors.onAccent} style={{ opacity: 0.9 }} />
-                </Pressable>
-                <Text style={[type.label, { color: colors.inkFaint, marginTop: 2 }]} numberOfLines={1}>
-                  {p.date}
-                </Text>
-              </View>
+                <Text style={[type.label, { color: colors.accent, marginTop: 6, textTransform: "uppercase" }]}>{label}</Text>
+                <Text style={[type.smallStrong, { color: colors.ink }]}>{dateLabel(p.date)}</Text>
+                <Text style={[type.small, { color: colors.inkSoft }]}>{weightLine(p)}</Text>
+              </Pressable>
             ))}
+          </View>
+          <View
+            style={{
+              padding: space.md,
+              borderRadius: radius.md,
+              backgroundColor: cmp.deltaKg !== null && good(cmp.deltaKg) ? colors.accentWash : colors.surfaceAlt,
+            }}
+          >
+            <Text
+              style={[
+                type.bodyStrong,
+                { color: cmp.deltaKg === null ? colors.inkSoft : good(cmp.deltaKg) ? colors.accent : colors.orangeInk },
+              ]}
+            >
+              {cmp.deltaKg === null
+                ? fill(t.progress.journeySpanOnly, { weeks: Math.max(1, cmp.weeks) })
+                : fill(cmp.deltaKg <= 0 ? t.progress.journeyDown : t.progress.journeyUp, {
+                    kg: Math.abs(cmp.deltaKg),
+                    weeks: Math.max(1, cmp.weeks),
+                  })}
+            </Text>
+            {cmp.perWeek !== null ? (
+              <Text style={[type.small, { color: colors.inkSoft, marginTop: 2 }]}>
+                {fill(t.progress.journeyPace, { kg: Math.abs(cmp.perWeek) })}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.progress.journeyPickHint}</Text>
+        </View>
+      ) : null}
+
+      {/* the roll, newest first, each with its week's average */}
+      {photos.length === 0 ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.md }]}>{t.progress.photosEmpty}</Text>
+      ) : (
+        <>
+          <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase", marginTop: space.lg }]}>
+            {fill(t.progress.journeyCount, { n: photos.length, weeks: photoWeeks(photos) })}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.sm }}>
+            {[...photos].reverse().map((p) => {
+              const w = photoWeight(p, weeks);
+              const picked = p.id === before?.id || p.id === after?.id;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => {
+                    setViewing(p.id);
+                    setConfirmDelete(false);
+                  }}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`${p.date}${w ? ` · ${w.kg}` : ""}`}
+                  style={{ width: "31%" }}
+                >
+                  <Image
+                    source={{ uri: p.uri }}
+                    style={{
+                      width: "100%",
+                      height: 120,
+                      borderRadius: radius.md,
+                      backgroundColor: colors.surfaceAlt,
+                      borderWidth: picked ? 2 : 0,
+                      borderColor: colors.accent,
+                    }}
+                    resizeMode="cover"
+                  />
+                  <Text style={[type.label, { color: colors.inkSoft, marginTop: 2 }]} numberOfLines={1}>
+                    {dateLabel(p.date)}
+                  </Text>
+                  <Text style={[type.smallStrong, { color: metricInk(colors, "bodyWeight") }]} numberOfLines={1}>
+                    {w ? `${w.kg} ${t.progress.kgShort}` : "—"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* photos are files on this phone and are never uploaded, so a new
+              phone starts with none — said beside the pictures, not only in
+              the privacy policy */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: space.sm,
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: radius.md,
+              padding: space.md,
+              marginTop: space.md,
+            }}
+          >
+            <Ionicons name="phone-portrait-outline" size={15} color={colors.inkFaint} />
+            <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]}>{t.progress.photosLocalOnly}</Text>
           </View>
         </>
       )}
+
+      {/* one photo, full size, with what can be done to it */}
+      <Modal visible={!!open} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", padding: space.lg, gap: space.md }}>
+          {open ? (
+            <>
+              <Image source={{ uri: open.uri }} style={{ width: "100%", height: "60%", borderRadius: radius.md }} resizeMode="contain" />
+              <Text style={[type.title, { color: "#FFFFFF", textAlign: "center" }]}>{dateLabel(open.date)}</Text>
+              <Text style={[type.body, { color: "rgba(255,255,255,0.8)", textAlign: "center" }]}>{weightLine(open)}</Text>
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                <PillButton
+                  tone="soft"
+                  icon="arrow-back"
+                  label={t.progress.journeyUseBefore}
+                  onPress={() => {
+                    setBeforeId(open.id);
+                    setViewing(null);
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <PillButton
+                  tone="soft"
+                  icon="arrow-forward"
+                  label={t.progress.journeyUseNow}
+                  onPress={() => {
+                    setAfterId(open.id);
+                    setViewing(null);
+                  }}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              {/* a progress photo cannot be taken again — deleting asks twice */}
+              <PillButton
+                tone="soft"
+                icon="trash"
+                label={confirmDelete ? t.progress.journeyDeleteConfirm : t.progress.photoRemove}
+                onPress={() => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
+                  removePhoto(open.id);
+                  if (beforeId === open.id) setBeforeId(null);
+                  if (afterId === open.id) setAfterId(null);
+                  setViewing(null);
+                  setConfirmDelete(false);
+                }}
+              />
+              <PillButton tone="soft" icon="close" label={t.progress.journeyClose} onPress={() => setViewing(null)} />
+            </>
+          ) : null}
+        </View>
+      </Modal>
     </Card>
   );
 }

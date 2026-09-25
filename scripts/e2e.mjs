@@ -794,6 +794,34 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
 
 }
 
+// 18b) THE PROGRESS JOURNEY — a photo a week, each beside its week's average,
+// any two compared with the change between them, and a delete that asks twice.
+{
+  const px = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="80"><rect width="60" height="80" fill="#c86"/></svg>');
+  const jctx = await browser.newContext({viewport:{width:393,height:852}});
+  const weighIns = [{date:dayAgo(42),kg:90.4},{date:dayAgo(0),kg:87.0}];
+  const photos = [{id:"p1",uri:px,date:dayAgo(42),kg:90.4},{id:"p2",uri:px,date:dayAgo(21)},{id:"p3",uri:px,date:dayAgo(0),kg:87.0}];
+  await jctx.addInitScript(s=>{try{localStorage.setItem("mystyle.state.v1",s);localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({...seed, weighIns, photos}));
+  const jp = await jctx.newPage(); const jerr=[]; jp.on("pageerror",e=>jerr.push(String(e).slice(0,160)));
+  await jp.goto(`http://localhost:${PORT}/progress`,{waitUntil:"networkidle"}); await jp.waitForTimeout(2200);
+  const body = async ()=> (await jp.locator("body").innerText());
+  check("the journey compares before and now", (await body()).includes("לפני") && (await body()).includes("עכשיו"));
+  check("and says what changed, from the weekly averages", /ירדת \d+(\.\d)? ק"ג ב־6 שבועות/.test(await body()), (await body()).match(/ירדת[^\n]*/)?.[0]);
+  check("the next weekly photo is scheduled", (await body()).includes("התמונה השבועית הבאה בעוד 7 ימים"));
+  await jp.getByLabel(new RegExp(dayAgo(21))).first().click(); await jp.waitForTimeout(600);
+  check("tapping a photo opens it with its choices", await jp.getByText("השווה כ'לפני'").first().isVisible().catch(()=>false));
+  check("a photo from a week with no weigh-in says so", (await body()).includes("אין שקילה מהשבוע הזה"));
+  await jp.getByText("מחק תמונה").first().click(); await jp.waitForTimeout(400);
+  { const st2 = JSON.parse(await jp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    check("one tap on delete does not delete", (st2.photos??[]).length===3); }
+  await jp.getByText("בטוח? לחץ שוב כדי למחוק").first().click(); await jp.waitForTimeout(600);
+  { const st2 = JSON.parse(await jp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+    check("the second tap deletes that photo only", (st2.photos??[]).length===2 && !(st2.photos??[]).some(p=>p.id==="p2")); }
+  check("the journey raises no page errors", jerr.length===0, jerr.join(" | "));
+  await jctx.close();
+}
+
 // 19) THE CALORIE CALCULATOR — the counting that works with no key and no
 // network. This is the path most people will actually use, so it is asserted
 // end to end: search, add, step, total, and the row that lands in the diary.

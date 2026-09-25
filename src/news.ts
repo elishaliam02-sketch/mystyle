@@ -9,20 +9,20 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-24-c",
+  id: "2026-09-25",
   he: [
-    "המטבח מכיר עכשיו מעל 300 מאכלים: פלאפל, שווארמה, סביח, בורקס, פיצה, סושי, משקאות, מתוקים, תבלינים ועוד.",
-    "\"המנה שלך\" מוצגת בתמונות אמיתיות של המצרכים שלך עצמם, ומשתנה בכל פעם שהרשימה משתנה.",
-    "גרמים או יחידות: כפתור בכל מנה, וכל מצרך מראה כמה קלוריות הוא. הסכום תמיד מסתדר.",
-    "\"רשום משהו שאכלת\": בוחרים כמות (חצי, מנה, מנה וחצי, 2) או מקלידים גרמים.",
-    "כשר, צמחוני וללא גלוטן אפשר לסמן יחד, ו\"בא לי לאכול\" מזהיר כשמאכל לא מתאים.",
+    "חדש בהתקדמות: \"מסע ההתקדמות\" — תמונה בשבוע, וליד כל תמונה הממוצע השבועי של המשקל. לפני מול עכשיו, כמה ירדת ובאיזה קצב.",
+    "הממוצע השבועי מראה עכשיו את המספר של כל שבוע ואת התאריך שלו.",
+    "המאמן עונה על \"מותר לי פיצה?\", \"מה לאכול בערב?\", \"אני רעב\" ו\"כמה זמן עד היעד\" — ורושם כמויות נכון (2 ביצים = 2 ביצים).",
+    "המטבח בונה מנה הגיונית אחת, ושמן, מלח ותבלינים נחשבים כמשהו שיש בבית.",
+    "באימון פתוח רק היום הבא — המסך קצר ונקי.",
   ],
   en: [
-    "The kitchen now knows 300+ foods: falafel, shawarma, sabich, bourekas, pizza, sushi, drinks, sweets, spices and more.",
-    "\"Your plate\" is shown with real photos of your own ingredients, and changes whenever your list does.",
-    "Grams or household units: a switch on every dish, and each ingredient shows its calories. The total always adds up.",
-    "\"Log something you ate\": pick an amount (half, one, one and a half, two) or type grams.",
-    "Kosher, vegetarian and gluten-free can be combined, and \"I feel like eating\" warns when a food doesn't fit.",
+    "New in Progress: the progress journey — a photo a week, each beside the week's average weight. Before vs now, how much and how fast.",
+    "The weekly average now shows each week's number and date.",
+    "The coach answers \"can I eat pizza?\", \"what should I eat tonight?\", \"I'm hungry\" and \"how long to my goal\" — and logs amounts correctly.",
+    "The kitchen builds one coherent plate, and oil, salt and spices count as already at home.",
+    "Workout shows only the next day open — a shorter, cleaner screen.",
   ],
 };
 
