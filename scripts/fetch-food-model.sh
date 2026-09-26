@@ -10,6 +10,9 @@ KAGGLE=https://www.kaggle.com/api/v1/models/google/aiy/tensorFlow1/vision-classi
 LABELS=https://www.gstatic.com/aihub/tfhub/labelmaps/aiy_food_V1_labelmap.csv
 
 python -m pip install --quiet "tensorflowjs==4.17.0" "tensorflow_hub==0.16.1"
+# The converter pulls in decision forests, whose protobuf build clashes with
+# TensorFlow's; the converter only imports it optionally, so drop it.
+python -m pip uninstall -y --quiet tensorflow_decision_forests yggdrasil_decision_forests ydf || true
 
 rm -rf "$OUT" /tmp/food && mkdir -p "$OUT" /tmp/food
 # The Kaggle archive is the module itself; the hub URL is the fallback.
