@@ -9,10 +9,11 @@ HUB=https://tfhub.dev/google/aiy/vision/classifier/food_V1/1
 KAGGLE=https://www.kaggle.com/api/v1/models/google/aiy/tensorFlow1/vision-classifier-food-v1/1/download
 LABELS=https://www.gstatic.com/aihub/tfhub/labelmaps/aiy_food_V1_labelmap.csv
 
-# hub.Module (the TF1 module format this model ships in) was removed after
-# tensorflow_hub 0.12.
+# hub.Module (the TF1 module format this model ships in) was removed in
+# tensorflow_hub 0.16, and TensorFlow 2.16 dropped the TF1 pieces it uses.
 python -m pip install --quiet "tensorflow==2.15.1" "tensorflowjs==4.17.0"
-python -m pip install --quiet --no-deps --force-reinstall "tensorflow_hub==0.12.0"
+python -m pip install --quiet --no-deps --force-reinstall "tensorflow_hub==0.15.0"
+export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 # The converter pulls in decision forests, whose protobuf build clashes with
 # TensorFlow's; the converter only imports it optionally, so drop it.
 python -m pip uninstall -y --quiet tensorflow_decision_forests yggdrasil_decision_forests ydf || true
