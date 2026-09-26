@@ -4,7 +4,8 @@
  * hostile cases matter more than the happy one.
  */
 import { base64Bytes, rank, toInput } from "./foodvisionpure";
-import { labelToFood } from "./foodlabels";
+import { ALIASES, labelToFood } from "./foodlabels";
+import { FOODS } from "@/kitchen";
 import {
   extractJson,
   MAX_ITEM_KCAL,
@@ -121,6 +122,10 @@ check("extractJson refuses junk", extractJson("no braces here") === null);
   check("Shakshouka is the library's shakshuka", (id("Shakshouka") ?? "").startsWith("shakshuka"), String(id("Shakshouka")));
   check("Omelette maps to a library food", id("Omelette") !== null);
   check("Hummus is the spread", id("Hummus") === "hummusSpread", String(id("Hummus")));
+  const known = new Set(FOODS.map((f) => f.id));
+  const broken = Object.values(ALIASES).filter((t) => !known.has(t));
+  check("every label alias points at a real library food", broken.length === 0, broken.join(", "));
+  check("Hamburger is the library burger", id("Hamburger") === "hamburger", String(id("Hamburger")));
   check("a dish is read by its head noun: key lime pie is not lime", id("Key lime pie") !== "lime", String(id("Key lime pie")));
   check("cereal soups are not cornflakes", id("West Slavic fermented cereal soups") !== "cornflakes", String(id("West Slavic fermented cereal soups")));
   check("grilled salmon is salmon", id("Grilled salmon") === "salmon", String(id("Grilled salmon")));

@@ -8,9 +8,9 @@
 import { FOODS, type Food } from "@/kitchen";
 
 /** Labels whose library food is not spelled the same way. */
-const ALIASES: Record<string, string> = {
-  shakshouka: "shakshuka",
-  shakshuka: "shakshuka",
+export const ALIASES: Record<string, string> = {
+  shakshouka: "shakshukaDish",
+  shakshuka: "shakshukaDish",
   "hummus": "hummusSpread",
   "falafel": "falafel",
   "schnitzel": "schnitzel",
@@ -25,8 +25,8 @@ const ALIASES: Record<string, string> = {
   "scrambled eggs": "egg",
   "french fries": "fries",
   "chips": "fries",
-  "hamburger": "burger",
-  "cheeseburger": "burger",
+  "hamburger": "hamburger",
+  "cheeseburger": "hamburger",
   "pizza": "pizza",
   "margherita pizza": "pizza",
   "sushi": "sushi",
@@ -59,6 +59,34 @@ const ALIASES: Record<string, string> = {
   "banana": "banana",
   "apple": "apple",
   "watermelon": "watermelon",
+  "meatball": "meatballs",
+  "meatballs": "meatballs",
+  "baba ghanoush": "eggplantSalad",
+  "muesli": "granola",
+  "waffle": "pancakes",
+  "waffles": "pancakes",
+  "challah": "bread",
+  "cornbread": "bread",
+  "pierogi": "burekas",
+  "chicken nugget": "chickenNuggets",
+  "chicken fingers": "chickenNuggets",
+  "potato wedges": "fries",
+  "deviled egg": "egg",
+  "eggs benedict": "egg",
+  "steak tartare": "beef",
+  // Head nouns: a dish the library has no twin for still lands on its kind —
+  // any soup on a soup, any pie or cake on a slice of cake.
+  "soup": "vegSoup",
+  "pie": "cake",
+  "cake": "cake",
+  "cheesecake": "cake",
+  "cupcake": "cake",
+  "shortcake": "cake",
+  "babka": "cake",
+  "cookie": "cookies",
+  "cookies": "cookies",
+  "doughnut": "donut",
+  "donut": "donut",
 };
 
 const byId = new Map(FOODS.map((f) => [f.id, f]));
