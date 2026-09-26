@@ -78,3 +78,22 @@ export function rank(scores: ArrayLike<number>, labels: string[], top = 5): Gues
   idx.sort((a, b) => scores[b]! - scores[a]!);
   return idx.slice(0, top).map((i) => ({ label: labels[i]!, score: scores[i]! }));
 }
+
+/**
+ * The same centre square as `toInput`, as the RGB bytes a quantised TensorFlow
+ * Lite model takes (uint8, 0–255): what the native classifier reads.
+ */
+export function toRgbBytes(rgba: Uint8Array, width: number, height: number): Uint8Array {
+  const f = toInput(rgba, width, height);
+  const out = new Uint8Array(f.length);
+  for (let i = 0; i < f.length; i++) out[i] = Math.max(0, Math.min(255, Math.round(f[i]! * 255)));
+  return out;
+}
+
+/** A quantised model's scores back to probabilities: (q − zeroPoint) × scale. */
+export function dequantize(q: ArrayLike<number>, scale: number, zeroPoint: number): Float32Array {
+  const out = new Float32Array(q.length);
+  const s = scale > 0 ? scale : 1 / 255;
+  for (let i = 0; i < q.length; i++) out[i] = (q[i]! - zeroPoint) * s;
+  return out;
+}

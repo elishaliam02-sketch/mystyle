@@ -31,9 +31,60 @@ export type ModelSource = {
 
 let loaded: Promise<{ model: GraphModel; labels: string[] }> | null = null;
 
+const isTyped = (a: unknown): a is Float32Array | Int32Array | Uint8Array | Uint8ClampedArray =>
+  a instanceof Float32Array || a instanceof Int32Array || a instanceof Uint8Array || a instanceof Uint8ClampedArray;
+
+function utf8Encode(text: string): Uint8Array {
+  if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
+  const out: number[] = [];
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+  }
+  return Uint8Array.from(out);
+}
+
+function utf8Decode(bytes: Uint8Array): string {
+  if (typeof TextDecoder !== "undefined") return new TextDecoder("utf-8").decode(bytes);
+  let s = "";
+  for (let i = 0; i < bytes.length; ) {
+    const b = bytes[i++]!;
+    let c: number;
+    if (b < 0x80) c = b;
+    else if (b < 0xe0) c = ((b & 31) << 6) | (bytes[i++]! & 63);
+    else if (b < 0xf0) c = ((b & 15) << 12) | ((bytes[i++]! & 63) << 6) | (bytes[i++]! & 63);
+    else c = ((b & 7) << 18) | ((bytes[i++]! & 63) << 12) | ((bytes[i++]! & 63) << 6) | (bytes[i++]! & 63);
+    s += String.fromCodePoint(c);
+  }
+  return s;
+}
+
+/**
+ * TensorFlow.js registers a "platform" only in a browser (a `document`) or in
+ * Node (`process.versions`). React Native has neither, so on the phone there
+ * was none and every tensor it built was mistyped ("got string tensor") —
+ * which is why the scanner read nothing on a real device while the browser
+ * and Node tests passed. This gives it the few services it needs.
+ */
+export function ensurePlatform() {
+  const e = tf.env() as unknown as { platform?: unknown; setPlatform: (n: string, p: unknown) => void };
+  if (e.platform) return;
+  e.setPlatform("react-native", {
+    fetch: (path: string, init?: RequestInit) => fetch(path, init),
+    now: () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()),
+    encode: (text: string) => utf8Encode(text),
+    decode: (bytes: Uint8Array) => utf8Decode(bytes),
+    isTypedArray: isTyped,
+  });
+}
+
 async function ready(source: () => Promise<ModelSource>) {
   if (!loaded) {
     loaded = (async () => {
+      ensurePlatform();
       // Named, so no bundler drops the import that registers the CPU kernels.
       if (!version_cpu) throw new Error("no cpu backend");
       await tf.setBackend("cpu");

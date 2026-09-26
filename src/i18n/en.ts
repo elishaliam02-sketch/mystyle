@@ -1195,11 +1195,15 @@ export const en: typeof he = {
   },
 
   scan: {
+    searchIt: "Not in the library — tap to search",
+    howMuch: "How much did you have?",
+    addMore: "More on the plate? Add it in the calculator ›",
+    readingSlow: "Recognising the food… on this version of the app it can take up to a minute. Install the new version to read it in a second.",
     title: "Calories from a photo",
     body: "Photograph the plate — the phone recognises what is on it, and you pick and confirm the amount.",
     take: "Photograph a meal",
     pick: "From gallery",
-    reading: "Recognising the food… (a few seconds)",
+    reading: "Recognising the food…",
     looksLike: "Looks like…",
     pickOne: "Pick the right dish — the calculator counts it by weight.",
     noneOfThese: "None of these — search",

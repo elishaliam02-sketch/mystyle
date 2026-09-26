@@ -8,9 +8,9 @@ import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
 import { mealLabel, type MealAnalysis } from "@/ai/nutrition";
-import { manipulator, recognizePhoto, type Recognition } from "@/ai/recognize";
+import { fastRecognition, manipulator, recognizePhoto, type Recognition } from "@/ai/recognize";
 import { FoodThumb } from "@/components/FoodThumb";
-import { dailyTarget } from "@/kitchen";
+import { dailyTarget, gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -38,6 +38,10 @@ export function MealScanner() {
   const { colors, space, radius, type } = useTheme();
   const { logMeal, state, goal: goalOf, todayIntake, allowance, noteUsed } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  // The guess being weighed and how many portions of it: the best guess is
+  // open from the start, so a correct photo is two taps from the diary.
+  const [chosen, setChosen] = useState(0);
+  const [mult, setMult] = useState(1);
   const router = useRouter();
 
   const canPick = Platform.OS !== "web";
@@ -79,10 +83,28 @@ export function MealScanner() {
         return;
       }
       noteUsed("mealPhoto");
+      setChosen(Math.max(0, guesses.findIndex((g) => g.food)));
+      setMult(1);
       setPhase({ kind: "guessed", uri: asset.uri, guesses });
     } catch {
       setPhase({ kind: "failed", reason: "unreadable" });
     }
+  }
+
+  /** One portion of a recognised food, scaled — what the row shows and logs. */
+  function amountOf(food: Food, m: number) {
+    const std = portion(food.id);
+    const grams = Math.round(std.g * m);
+    const lang = locale === "he" ? "he" : "en";
+    return { grams, text: scaledHousehold(lang === "he" ? std.he : std.en, m, lang), ...gramsNutrition(food, grams) };
+  }
+
+  function logGuess(g: Recognition) {
+    if (!g.food) return;
+    const a = amountOf(g.food, mult);
+    logMeal(`${g.name} · ${a.grams} ${t.kitchen.gram}`, a.kcal, a.protein);
+    const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
+    setPhase({ kind: "saved", kcal: todayIntake().kcal + a.kcal, goal: dailyTarget(weightKg, goalOf()).kcal });
   }
 
   function save() {
@@ -185,7 +207,7 @@ export function MealScanner() {
             source={{ uri: phase.uri }}
             style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
           />
-          <Text style={[type.body, { color: colors.inkSoft, flex: 1 }]}>{t.scan.reading}</Text>
+          <Text style={[type.body, { color: colors.inkSoft, flex: 1 }]}>{fastRecognition() ? t.scan.reading : t.scan.readingSlow}</Text>
         </View>
       ) : null}
 
@@ -205,39 +227,95 @@ export function MealScanner() {
               picks the right one and the calculator weighs it with real
               nutrition. The best guess is first and marked. */}
           <View style={{ gap: 6 }}>
-            {phase.guesses.map((g, i) => (
-              <Pressable
-                key={`${g.label}-${i}`}
-                onPress={() => {
-                  setPhase({ kind: "idle" });
-                  if (g.food) {
-                    router.push({ pathname: "/calc", params: { items: JSON.stringify([{ label: g.name }]) } });
-                  } else {
-                    router.push({ pathname: "/calc", params: { q: g.label } });
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={g.name}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: space.sm,
-                  paddingVertical: 9,
-                  paddingHorizontal: space.md,
-                  borderRadius: radius.md,
-                  borderWidth: i === 0 ? 1 : 0,
-                  borderColor: colors.accent,
-                  backgroundColor: pressed ? colors.accentWash : i === 0 ? colors.accentWash : colors.surfaceAlt,
-                })}
-              >
-                {g.food ? <FoodThumb food={g.food} size={30} /> : <Ionicons name="restaurant" size={20} color={colors.inkFaint} />}
-                <Text style={[type.bodyStrong, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
-                  {g.name}
-                </Text>
-                <Text style={[type.small, { color: colors.inkFaint }]}>{Math.round(g.score * 100)}%</Text>
-                <Ionicons name="add-circle" size={22} color={colors.accent} />
-              </Pressable>
-            ))}
+            {phase.guesses.map((g, i) => {
+              const open = i === chosen && !!g.food;
+              const one = g.food ? amountOf(g.food, 1) : null;
+              const now = g.food && open ? amountOf(g.food, mult) : null;
+              return (
+                <View
+                  key={`${g.label}-${i}`}
+                  style={{
+                    borderRadius: radius.md,
+                    borderWidth: open ? 1 : 0,
+                    borderColor: colors.accent,
+                    backgroundColor: open ? colors.accentWash : colors.surfaceAlt,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      if (g.food) {
+                        setChosen(i);
+                        setMult(1);
+                      } else {
+                        setPhase({ kind: "idle" });
+                        router.push({ pathname: "/calc", params: { q: g.label } });
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={g.name}
+                    accessibilityState={{ selected: open }}
+                    style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: 9, paddingHorizontal: space.md }}
+                  >
+                    {g.food ? <FoodThumb food={g.food} size={30} /> : <Ionicons name="restaurant" size={20} color={colors.inkFaint} />}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
+                        {g.name}
+                      </Text>
+                      <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+                        {one ? `≈${one.kcal} ${t.kitchen.kcal} · ${one.text}` : t.scan.searchIt}
+                      </Text>
+                    </View>
+                    <Text style={[type.small, { color: colors.inkFaint }]}>{Math.round(g.score * 100)}%</Text>
+                    <Ionicons name={g.food ? (open ? "checkmark-circle" : "ellipse-outline") : "search"} size={22} color={colors.accent} />
+                  </Pressable>
+
+                  {open && now ? (
+                    <View style={{ paddingHorizontal: space.md, paddingBottom: space.md, gap: space.sm }}>
+                      <Text style={[type.smallStrong, { color: colors.inkSoft }]}>{t.scan.howMuch}</Text>
+                      <View style={{ flexDirection: "row", gap: 6 }}>
+                        {[0.5, 1, 1.5, 2].map((m) => (
+                          <Pressable
+                            key={m}
+                            onPress={() => setMult(m)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: mult === m }}
+                            style={{
+                              flex: 1,
+                              alignItems: "center",
+                              paddingVertical: 8,
+                              borderRadius: radius.pill,
+                              backgroundColor: mult === m ? colors.accent : colors.surface,
+                            }}
+                          >
+                            <Text style={[type.smallStrong, { color: mult === m ? colors.onAccent : colors.ink }]}>
+                              {m === 0.5 ? "½" : m === 1.5 ? "1½" : String(m)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "baseline", gap: space.md }}>
+                        <Text style={[type.figure, { color: colors.ink }]}>≈{now.kcal}</Text>
+                        <Text style={[type.small, { color: colors.inkSoft }]}>
+                          {t.kitchen.kcal} · {now.protein}
+                          {t.kitchen.grams} {t.kitchen.protein} · {now.text} ({now.grams} {t.kitchen.gram})
+                        </Text>
+                      </View>
+                      <Button icon="add-circle" label={t.scan.save} onPress={() => logGuess(g)} />
+                      <Pressable
+                        onPress={() => {
+                          setPhase({ kind: "idle" });
+                          router.push({ pathname: "/calc", params: { items: JSON.stringify([{ label: g.name, grams: now.grams }]) } });
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Text style={[type.smallStrong, { color: colors.accent }]}>{t.scan.addMore}</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
           <View style={{ flexDirection: "row", gap: space.sm }}>
             <PillButton
