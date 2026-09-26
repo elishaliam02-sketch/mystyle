@@ -12,6 +12,7 @@ on:
   push:
     paths:
       - "scripts/fetch-food-model.sh"
+      - "scripts/fetch-food-tflite.sh"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +35,11 @@ jobs:
           python-version: "3.11"
 
       - name: Fetch and convert
+        if: ${{ hashFiles('assets/model/food/model.json') == '' }}
         run: bash scripts/fetch-food-model.sh
+
+      - name: Fetch the native (TensorFlow Lite) model
+        run: bash scripts/fetch-food-tflite.sh
 
       - name: Commit the model
         run: |
