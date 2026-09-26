@@ -1,0 +1,51 @@
+name: Food recognition model
+
+# Fetches an open, on-device food classifier and commits it into the app, so a
+# photographed plate is recognised on the phone itself: no key, no account,
+# no network, no quota.
+#
+# The model is Google's AIY "food_V1" classifier (MobileNet, ~2,000 dishes,
+# Apache-2.0), converted to TensorFlow.js and quantised to 8 bits. It lives
+# in CI because the development sandbox cannot reach the model host.
+
+on:
+  push:
+    paths:
+      - ".github/workflows/food-model.yml"
+      - "scripts/fetch-food-model.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  model:
+    name: Convert the food classifier to TensorFlow.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch and convert
+        run: bash scripts/fetch-food-model.sh
+
+      - name: Commit the model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/model
+          if git diff --cached --quiet; then
+            echo "The model is unchanged; nothing to commit."
+          else
+            git commit -m "Add the on-device food recognition model"
+            git pull --rebase origin ${GITHUB_REF_NAME}
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
