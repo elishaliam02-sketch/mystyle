@@ -819,6 +819,14 @@ function SetField({
 const REST_PRESETS = [60, 90, 120];
 
 /**
+ * Ticking a set off starts the rest clock by itself, the way a lifting app
+ * should: the row and the clock live in different cards, so they meet here.
+ * The clock runs for whatever length was last chosen (90 s until then).
+ */
+const restListeners = new Set<() => void>();
+const startRest = () => restListeners.forEach((fn) => fn());
+
+/**
  * The cardio card — conditioning tailored to the goal and rolled from the same
  * per-device seed as the plan, so it truly differs between a cut and a bulk and
  * between one person and the next. Each row opens its own demo video.
@@ -906,7 +914,19 @@ function RestTimer() {
   const { colors, space, radius, type } = useTheme();
   const [total, setTotal] = useState(0);
   const [left, setLeft] = useState(0);
+  const [preset, setPreset] = useState(90);
   const running = left > 0;
+
+  useEffect(() => {
+    const go = () => {
+      setTotal(preset);
+      setLeft(preset);
+    };
+    restListeners.add(go);
+    return () => {
+      restListeners.delete(go);
+    };
+  }, [preset]);
 
   // One ticking interval lives only while the clock is counting; it tears down
   // the moment it hits zero or the screen leaves.
@@ -964,6 +984,7 @@ function RestTimer() {
             <Pressable
               key={sec}
               onPress={() => {
+                setPreset(sec);
                 setTotal(sec);
                 setLeft(sec);
               }}
@@ -1234,7 +1255,10 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
               />
 
               <Pressable
-                onPress={() => updateSet(ex.id, i, { done: !row.done }, sets)}
+                onPress={() => {
+                  updateSet(ex.id, i, { done: !row.done }, sets);
+                  if (!row.done) startRest();
+                }}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: row.done }}
                 accessibilityLabel={`${name} ${t.workout.setCol} ${i + 1}`}

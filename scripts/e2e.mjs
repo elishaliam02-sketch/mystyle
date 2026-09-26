@@ -287,6 +287,10 @@ await page.getByRole("checkbox",{name:/לחיצת חזה במוט סט 1$/}).fir
   check("a ticked set marks the exercise done for the day",
     (s.training?.log?.[today]??[]).includes("bench-press"), JSON.stringify(s.training?.log?.[today])); }
 
+// 9b1) ticking a set starts the rest clock by itself; skip it to carry on
+check("ticking a set starts the rest timer", await page.getByText("דלג",{exact:true}).first().isVisible().catch(()=>false));
+await page.getByText("דלג",{exact:true}).first().click(); await settle();
+
 // 9b2) progression against last time is shown once a set is ticked
 check("today's volume is shown", await page.getByText(/^נפח: /).first().isVisible().catch(()=>false));
 check("the change against last time is shown",
