@@ -13,6 +13,10 @@ python -m pip install --quiet "tensorflowjs==4.17.0" "tensorflow_hub==0.16.1"
 # The converter pulls in decision forests, whose protobuf build clashes with
 # TensorFlow's; the converter only imports it optionally, so drop it.
 python -m pip uninstall -y --quiet tensorflow_decision_forests yggdrasil_decision_forests ydf || true
+# ...but it imports the name unconditionally: an empty stand-in satisfies it
+# (it is only consulted for decision-forest models, which this is not).
+SITE=$(python -c "import site; print(site.getsitepackages()[0])")
+mkdir -p "$SITE/tensorflow_decision_forests" && : > "$SITE/tensorflow_decision_forests/__init__.py"
 
 rm -rf "$OUT" /tmp/food && mkdir -p "$OUT" /tmp/food
 # The Kaggle archive is the module itself; the hub URL is the fallback.
