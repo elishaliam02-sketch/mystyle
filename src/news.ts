@@ -9,8 +9,9 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-25c",
+  id: "2026-09-26",
   he: [
+    "צילום ארוחה מזהה עכשיו את האוכל בטלפון עצמו — בלי אינטרנט ובלי מפתח. בוחרים את המנה הנכונה, והמחשבון סופר לפי משקל.",
     "אימון: היום הבא נפתח לבד אחרי שהתאמנת (דחיפה → משיכה → רגליים), טווח חזרות לכל תרגיל, פלאנק בשניות, ותמונות נכונות לתרגילים.",
     "מים נספרים במ״ל — החלפת גודל כוס לא משנה את מה שכבר שתית. היעד בליטרים.",
     "התקדמות: אפשר לתקן או למחוק שקילה, והצפי ליעד לפי 4 השבועות האחרונים.",
@@ -23,6 +24,7 @@ export const NEWS: News = {
     "באימון פתוח רק היום הבא — המסך קצר ונקי.",
   ],
   en: [
+    "Photographing a meal now recognises the food on the phone itself — no internet, no key. Pick the right dish and the calculator counts it by weight.",
     "Workout: the next day opens by itself after you train (push → pull → legs), a rep range per move, planks in seconds, and correct exercise photos.",
     "Water is counted in ml — changing the glass no longer changes what you drank. The goal is in litres.",
     "Progress: fix or delete a weigh-in, and the goal ETA reads the last 4 weeks.",

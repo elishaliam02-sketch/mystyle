@@ -3,6 +3,8 @@
  * the only thing standing between it and the person's food diary — so the
  * hostile cases matter more than the happy one.
  */
+import { base64Bytes, rank, toInput } from "./foodvisionpure";
+import { labelToFood } from "./foodlabels";
 import {
   extractJson,
   MAX_ITEM_KCAL,
@@ -104,6 +106,24 @@ check("extractJson refuses junk", extractJson("no braces here") === null);
   check("the prompt asks for the right language", p.includes("Hebrew"));
   check("the English prompt asks for English", mealPhotoPrompt("en").includes("English"));
   check("the prompt tells the model what to do with a non-food photo", p.includes('"items":[]'));
+}
+
+// On-device recognition: the pure parts (the model itself runs in the app).
+{
+  const bytes = base64Bytes("aGVsbG8=");
+  check("base64 decodes without Buffer or atob", String.fromCharCode(...bytes) === "hello", String(bytes));
+  const top = rank([0.9, 0.05, 0.6, 0.3], ["__background__", "Hummus", "Falafel", "Pita"], 2);
+  check("the background class never counts as a dish", top[0]!.label === "Falafel" && top.length === 2, JSON.stringify(top));
+  const rgba = new Uint8Array(4 * 4 * 4).fill(255);
+  const input = toInput(rgba, 4, 4);
+  check("pixels are scaled to 0..1 at the model's side", input.length === 192 * 192 * 3 && input[0] === 1);
+  const id = (l: string) => labelToFood(l)?.id ?? null;
+  check("Shakshouka is the library's shakshuka", (id("Shakshouka") ?? "").startsWith("shakshuka"), String(id("Shakshouka")));
+  check("Omelette maps to a library food", id("Omelette") !== null);
+  check("Hummus is the spread", id("Hummus") === "hummusSpread", String(id("Hummus")));
+  check("a dish is read by its head noun: key lime pie is not lime", id("Key lime pie") !== "lime", String(id("Key lime pie")));
+  check("cereal soups are not cornflakes", id("West Slavic fermented cereal soups") !== "cornflakes", String(id("West Slavic fermented cereal soups")));
+  check("grilled salmon is salmon", id("Grilled salmon") === "salmon", String(id("Grilled salmon")));
 }
 
 const failed = results.filter(([, ok]) => !ok);

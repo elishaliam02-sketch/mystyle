@@ -76,6 +76,9 @@ export default function LicensesScreen() {
         </Pressable>
       }
     >
+      <Card label={t.legal.modelTitle}>
+        <Text style={[type.small, { color: colors.inkSoft }]}>{t.legal.modelBody}</Text>
+      </Card>
       {photoCredits.length > 0 ? (
         <Card label={`${t.legal.photoCredits} · ${photoCredits.length}`}>
           <Text style={[type.small, { color: colors.inkFaint, marginBottom: space.xs }]}>{t.legal.photoCreditsBody}</Text>

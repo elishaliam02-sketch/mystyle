@@ -251,6 +251,8 @@ export const he = {
     licensesBody: "האפליקציה בנויה על הספריות האלה. תודה למי שכתב אותן.",
     licensesCount: "{count} חבילות",
     photoCredits: "קרדיט לתמונות",
+    modelTitle: "זיהוי אוכל מתמונה",
+    modelBody: "מודל AIY Food V1 של Google (רישיון Apache 2.0), רץ על הטלפון עם TensorFlow.js (Apache 2.0). התמונה לא נשלחת לשום מקום.",
     photoCreditsBody: "תמונות המאכלים והמנות מוויקישיתוף (Wikimedia Commons), לפי הרישיון של כל צלם.",
   },
 
@@ -1207,10 +1209,14 @@ export const he = {
 
   scan: {
     title: "ספירת קלוריות מתמונה",
-    body: "צלם את הצלחת ואני אזהה מה יש בה ואעריך קלוריות וחלבון.",
+    body: "צלם את הצלחת — הטלפון מזהה מה יש בה, ואתה בוחר ומאשר את הכמות.",
+    looksLike: "נראה כמו…",
+    pickOne: "בחר את המנה הנכונה — והמחשבון יחשב קלוריות לפי משקל.",
+    noneOfThese: "אף אחד מאלה — חפש",
+    onDeviceNote: "הזיהוי נעשה בטלפון עצמו — התמונה לא יוצאת מהמכשיר.",
     take: "צלם ארוחה",
     pick: "מהגלריה",
-    reading: "קורא את התמונה…",
+    reading: "מזהה את האוכל… (כמה שניות)",
     save: "רשום ביומן",
     fallbackLabel: "ארוחה",
     confidence: "ביטחון {pct}%",

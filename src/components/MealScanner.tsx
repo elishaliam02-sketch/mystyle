@@ -7,10 +7,10 @@ import { Card } from "@/components/Card";
 import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
-import { askServer } from "@/ai/server";
-import { mealLabel, parseMealAnalysis, type MealAnalysis } from "@/ai/nutrition";
+import { mealLabel, type MealAnalysis } from "@/ai/nutrition";
+import { manipulator, recognizePhoto, type Recognition } from "@/ai/recognize";
+import { FoodThumb } from "@/components/FoodThumb";
 import { dailyTarget } from "@/kitchen";
-import { groundAnalysis } from "@/kitchen/calc";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -19,6 +19,8 @@ type Phase =
   | { kind: "idle" }
   | { kind: "reading"; uri: string }
   | { kind: "read"; uri: string; analysis: MealAnalysis }
+  /** Recognised on the phone: the dishes the photo most looks like. */
+  | { kind: "guessed"; uri: string; guesses: Recognition[] }
   | { kind: "saved"; kcal: number; goal: number }
   | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" };
 
@@ -46,7 +48,10 @@ export function MealScanner() {
     // plate, take the shot and only then be told it will not be read.
     if (!allowance("mealPhoto").ok) return;
     try {
-      const opts = { quality: 0.5, base64: true } as const;
+      // With the resizer the photo is shrunk natively before it is read; the
+      // full-size base64 is only asked for when it is missing (an older
+      // install), because decoding a 12 MP picture in JavaScript is slow.
+      const opts = { quality: 0.7, base64: !manipulator() } as const;
       let res;
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -60,41 +65,23 @@ export function MealScanner() {
       } else {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
       }
-      if (res.canceled || !res.assets[0]?.base64) return;
+      if (res.canceled || !res.assets[0]) return;
       const asset = res.assets[0];
       setPhase({ kind: "reading", uri: asset.uri });
+      // Let the "reading…" state paint before the model takes the thread.
+      await new Promise((r) => setTimeout(r, 50));
 
-      const answer = await askServer({
-        task: "meal",
-        locale: locale === "en" ? "en" : "he",
-        imageBase64: asset.base64!,
-        mimeType: asset.mimeType ?? "image/jpeg",
-      });
-
-      if (!answer.ok) {
-        setPhase({
-          kind: "failed",
-          reason:
-            answer.reason === "quota" ? "quota" : answer.reason === "declined" ? "off" : "unavailable",
-        });
-        return;
-      }
-      const read = parseMealAnalysis(answer.text);
-      // The model says what is on the plate and how much; the calories come
-      // from the food table wherever it knows the food, so the number shown,
-      // saved and opened in the calculator is one grounded answer.
-      const analysis = read ? groundAnalysis(read, locale === "he" ? "he" : "en") : null;
-      if (!analysis) {
+      // Recognised on the phone itself: no key, no server, no quota — the
+      // photo never leaves the device.
+      const guesses = await recognizePhoto(asset.uri, asset.base64 ?? null, locale === "he" ? "he" : "en");
+      if (guesses.length === 0) {
         setPhase({ kind: "failed", reason: "unreadable" });
         return;
       }
-      // A photograph was read and came back as food. Anything short of this —
-      // a cancelled picker, a refused camera, a server that never answered, a
-      // reply we could not parse — cost them nothing and is not counted.
       noteUsed("mealPhoto");
-      setPhase({ kind: "read", uri: asset.uri, analysis });
+      setPhase({ kind: "guessed", uri: asset.uri, guesses });
     } catch {
-      setPhase({ kind: "failed", reason: "unavailable" });
+      setPhase({ kind: "failed", reason: "unreadable" });
     }
   }
 
@@ -199,6 +186,73 @@ export function MealScanner() {
             style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
           />
           <Text style={[type.body, { color: colors.inkSoft, flex: 1 }]}>{t.scan.reading}</Text>
+        </View>
+      ) : null}
+
+      {phase.kind === "guessed" ? (
+        <View style={{ marginTop: space.md, gap: space.sm }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <Image
+              source={{ uri: phase.uri }}
+              style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.title, { color: colors.ink }]}>{t.scan.looksLike}</Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>{t.scan.pickOne}</Text>
+            </View>
+          </View>
+          {/* A classifier names what the plate most looks like; the person
+              picks the right one and the calculator weighs it with real
+              nutrition. The best guess is first and marked. */}
+          <View style={{ gap: 6 }}>
+            {phase.guesses.map((g, i) => (
+              <Pressable
+                key={`${g.label}-${i}`}
+                onPress={() => {
+                  setPhase({ kind: "idle" });
+                  if (g.food) {
+                    router.push({ pathname: "/calc", params: { items: JSON.stringify([{ label: g.name }]) } });
+                  } else {
+                    router.push({ pathname: "/calc", params: { q: g.label } });
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={g.name}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: space.sm,
+                  paddingVertical: 9,
+                  paddingHorizontal: space.md,
+                  borderRadius: radius.md,
+                  borderWidth: i === 0 ? 1 : 0,
+                  borderColor: colors.accent,
+                  backgroundColor: pressed ? colors.accentWash : i === 0 ? colors.accentWash : colors.surfaceAlt,
+                })}
+              >
+                {g.food ? <FoodThumb food={g.food} size={30} /> : <Ionicons name="restaurant" size={20} color={colors.inkFaint} />}
+                <Text style={[type.bodyStrong, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
+                  {g.name}
+                </Text>
+                <Text style={[type.small, { color: colors.inkFaint }]}>{Math.round(g.score * 100)}%</Text>
+                <Ionicons name="add-circle" size={22} color={colors.accent} />
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <PillButton
+              tone="soft"
+              icon="search"
+              label={t.scan.noneOfThese}
+              onPress={() => {
+                setPhase({ kind: "idle" });
+                router.push("/calc");
+              }}
+              style={{ flex: 1 }}
+            />
+            <PillButton tone="soft" label={t.common.cancel} onPress={() => setPhase({ kind: "idle" })} />
+          </View>
+          <Text style={[type.small, { color: colors.inkFaint }]}>{t.scan.onDeviceNote}</Text>
         </View>
       ) : null}
 

@@ -246,6 +246,8 @@ export const en: typeof he = {
     licensesBody: "This app is built on these libraries. Thanks to the people who wrote them.",
     licensesCount: "{count} packages",
     photoCredits: "Photo credits",
+    modelTitle: "Food recognition from photos",
+    modelBody: "Google's AIY Food V1 model (Apache 2.0 licence), running on the phone with TensorFlow.js (Apache 2.0). The photo is never sent anywhere.",
     photoCreditsBody: "Food and dish photos are from Wikimedia Commons, used under each photographer's licence.",
   },
 
@@ -1194,10 +1196,14 @@ export const en: typeof he = {
 
   scan: {
     title: "Calories from a photo",
-    body: "Photograph the plate and I'll name what's on it and estimate calories and protein.",
+    body: "Photograph the plate — the phone recognises what is on it, and you pick and confirm the amount.",
     take: "Photograph a meal",
     pick: "From gallery",
-    reading: "Reading the photo…",
+    reading: "Recognising the food… (a few seconds)",
+    looksLike: "Looks like…",
+    pickOne: "Pick the right dish — the calculator counts it by weight.",
+    noneOfThese: "None of these — search",
+    onDeviceNote: "Recognised on the phone itself — the photo never leaves the device.",
     save: "Log it",
     fallbackLabel: "Meal",
     confidence: "{pct}% confident",
