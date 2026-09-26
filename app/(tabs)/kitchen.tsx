@@ -11,6 +11,8 @@ import { EatScore } from "@/components/EatScore";
 import { FoodThumb } from "@/components/FoodThumb";
 import { MealPhoto } from "@/components/MealPhoto";
 import { MealScanner } from "@/components/MealScanner";
+import { bookSize } from "@/kitchen/book";
+import { recipeOf } from "@/kitchen/recipes";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -427,6 +429,42 @@ export default function KitchenScreen() {
             answers it about the food they were already thinking about rather
             than about what happens to be in the fridge. */}
         <EatScore />
+
+        {/* the recipe book: every dish with its method, for every diet */}
+        <Pressable
+          onPress={() => router.push("/recipes")}
+          accessibilityRole="button"
+          accessibilityLabel={t.recipes.openTitle}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: space.md,
+            padding: space.lg,
+            borderRadius: radius.lg,
+            backgroundColor: colors.accentWash,
+            borderWidth: 1,
+            borderColor: colors.accent,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="book" size={24} color={colors.onAccent} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[type.title, { color: colors.ink }]}>{t.recipes.openTitle}</Text>
+            <Text style={[type.small, { color: colors.inkSoft }]}>{fill(t.recipes.openBody, { n: bookSize(diet) })}</Text>
+          </View>
+          <Ionicons name={locale === "he" ? "chevron-back" : "chevron-forward"} size={20} color={colors.accent} />
+        </Pressable>
 
         {dailyFirst ? (
           <>
@@ -1005,6 +1043,8 @@ function MealCard({ meal, match, have, foodsById, units, onUnits, goal, goalKcal
     return () => clearTimeout(id);
   }, [logged]);
   const m = match?.meal ?? meal!;
+  const recipe = recipeOf(m.id);
+  const router = useRouter();
   const starred = isFavorite(m.id);
   const copy = locale === "he" ? m.he : m.en;
   const foods = m.uses.map((id) => foodsById.get(id)).filter((f): f is Food => !!f);
@@ -1089,6 +1129,30 @@ function MealCard({ meal, match, have, foodsById, units, onUnits, goal, goalKcal
       </View>
 
       <Text style={[type.body, { color: colors.inkSoft, marginTop: 4 }]}>{copy.how}</Text>
+      {recipe ? (
+        <Pressable
+          onPress={() => router.push({ pathname: "/recipe/[id]", params: { id: m.id } })}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.recipes.howTo} · ${copy.title}`}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            alignSelf: "flex-start",
+            gap: 6,
+            marginTop: space.sm,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            borderRadius: radius.pill,
+            backgroundColor: colors.accentWash,
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Ionicons name="book-outline" size={16} color={colors.accent} />
+          <Text style={[type.smallStrong, { color: colors.accent }]}>
+            {t.recipes.howTo} · ⏱ {fill(t.recipes.minutes, { n: recipe.minutes })}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {/* ingredients with amounts — grams for those who weigh, or household
           units — and what each one comes to, so the total below is visibly

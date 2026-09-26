@@ -404,6 +404,39 @@ await page.getByRole("button",{name:"שמור",exact:true}).first().click(); awa
 check("and saving says so on screen",
   await page.getByText("נשמר ✓").first().isVisible().catch(()=>false));
 
+// 15b) RECIPE BOOK — every dish with its method: found, opened, cooked, logged
+await go("/kitchen");
+check("the kitchen opens the recipe book",
+  await page.getByRole("button",{name:"ספר המתכונים"}).first().isVisible().catch(()=>false));
+check("each meal card links to its method",
+  (await page.getByRole("button",{name:/^הוראות הכנה ·/}).count())>0);
+await page.getByRole("button",{name:"ספר המתכונים"}).first().click(); await settle();
+check("the book lists over a hundred recipes",
+  Number(((await page.evaluate(()=>document.body.innerText)).match(/(\d+) מתכונים/)||[])[1]||0) >= 130);
+await page.getByPlaceholder(/חפש מתכון/).fill("טחינה"); await page.waitForTimeout(500);
+{ const n=Number(((await page.evaluate(()=>document.body.innerText)).match(/(\d+) מתכונים/g)||[]).map(x=>parseInt(x)).pop()||0);
+  check("searching an ingredient narrows the book", n>3 && n<60, String(n)); }
+await page.getByPlaceholder(/חפש מתכון/).fill("שקשוקה"); await page.waitForTimeout(500);
+await page.getByRole("button",{name:"שקשוקה",exact:true}).first().click(); await settle();
+check("a recipe opens with its method",
+  await page.getByText("איך מכינים").first().isVisible().catch(()=>false));
+check("and the steps say what to do",
+  await page.getByText(/שוברים לתוכן 2 ביצים/).first().isVisible().catch(()=>false));
+check("and options for other diets",
+  await page.getByText("אפשרויות לכל אחד").first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:/מנות \+/}).first().click(); await page.waitForTimeout(300);
+check("the servings stepper rescales the amounts",
+  await page.getByText("הכמויות ל-2 מנות").first().isVisible().catch(()=>false));
+check("a timed step offers a timer",
+  (await page.getByRole("button",{name:/טיימר \d+ דק׳/}).count())>0);
+{ const before=((await st()).intake?.[today]??[]).length;
+  await page.getByRole("button",{name:/רשום ביומן/}).first().click(); await settle();
+  const s=await st(); const rows=s.intake?.[today]??[];
+  check("logging from a recipe writes one serving to the diary",
+    rows.length===before+1 && rows[rows.length-1]?.label==="שקשוקה", JSON.stringify(rows.slice(-1)));
+  // take it back out, so the diary counts later in this run are unchanged
+  await page.evaluate(()=>{ const s=JSON.parse(localStorage.getItem("mystyle.state.v1")); for (const k of Object.keys(s.intake||{})) s.intake[k]=s.intake[k].filter(r=>r.label!=="שקשוקה"); localStorage.setItem("mystyle.state.v1", JSON.stringify(s)); }); }
+
 // 16) KITCHEN — grams vs household units really change the amounts
 await go("/kitchen");
 { // read the whole ingredient block of the first card, whatever its shape
