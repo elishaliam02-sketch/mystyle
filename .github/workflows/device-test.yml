@@ -39,7 +39,15 @@ jobs:
           RUN_ID: ${{ inputs.apk_run_id }}
         run: |
           id="$RUN_ID"
-          [ -n "$id" ] || id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build-app.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          # The newest build that produced an APK (the run as a whole can be
+          # red because this very test failed on it).
+          if [ -z "$id" ]; then
+            for r in $(gh run list -R "$GITHUB_REPOSITORY" --workflow build-app.yml --status completed --limit 10 --json databaseId -q '.[].databaseId'); do
+              if [ -n "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$r/artifacts" -q '.artifacts[] | select(.name == "apex-apk" and (.expired | not)) | .id')" ]; then
+                id=$r; break
+              fi
+            done
+          fi
           echo "Testing the APK from run $id"
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
