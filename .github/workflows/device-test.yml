@@ -3,20 +3,22 @@ name: Test the APK on an Android phone
 # Installs a built APK on an Android emulator and uses it the way a person
 # does (scripts/device-test.sh, e2e/device/*.yaml): scan a meal photo from the
 # gallery, log it, open the recipe book. Screenshots and the phone's log are
-# kept as the "device-test" artifact. Runs after every APK build, or by hand
-# with the id of any "Build the app (APK)" run.
+# kept as the "device-test" artifact. Runs after every APK build, and on a
+# push that changes the test itself (against the latest APK built).
 
 on:
-  workflow_dispatch:
-    inputs:
-      apk_run_id:
-        description: "Run id of the 'Build the app (APK)' run whose APK to test"
-        required: true
+  push:
+    paths:
+      - e2e/device/**
+      - scripts/device-test.sh
+      - scripts/device-seed.mjs
+      - .github/workflows/device-test.yml
   workflow_call:
     inputs:
       apk_run_id:
         type: string
-        required: true
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -30,11 +32,22 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Pick the APK
+        id: apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.apk_run_id }}
+        run: |
+          id="$RUN_ID"
+          [ -n "$id" ] || id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build-app.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "Testing the APK from run $id"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
       - name: Get the APK
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: apex-apk
-          run-id: ${{ inputs.apk_run_id }}
+          run-id: ${{ steps.apk.outputs.id }}
           github-token: ${{ github.token }}
 
       - name: Set up Java for Maestro

@@ -30,6 +30,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   local:
@@ -139,6 +140,14 @@ jobs:
             --title "APEX APK #$RUN_NUMBER" \
             --notes "Built from $REF_NAME at $SHA. Open this page on the phone, tap apex.apk, and install." \
             --prerelease
+
+  # The APK just built, installed on an Android emulator and used the way a
+  # person does: scan a meal photo, log it, open the recipe book.
+  device-test:
+    needs: local
+    uses: ./.github/workflows/device-test.yml
+    with:
+      apk_run_id: ${{ github.run_id }}
 
   cloud:
     if: ${{ inputs.builder == 'cloud' }}
