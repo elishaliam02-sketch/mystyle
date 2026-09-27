@@ -7,14 +7,28 @@ appId: com.mystyle.app
       visible: "Wait"
     commands:
       - tapOn: "Wait"
-- openLink: mystyle://recipes
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "מטבח"
+    timeout: 90000
+- tapOn: "מטבח"
+- scrollUntilVisible:
+    element: "ספר המתכונים"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "ספר המתכונים"
 - extendedWaitUntil:
     visible: "הפתע אותי"
     timeout: 30000
 - takeScreenshot: device-test/06-book
-- openLink: mystyle://recipe/green-shakshuka
+- scrollUntilVisible:
+    element: "שקשוקה ירוקה"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "שקשוקה ירוקה"
 - extendedWaitUntil:
-    visible: ".*שקשוקה.*"
+    visible: ".*פטה.*"
     timeout: 30000
 - takeScreenshot: device-test/07-recipe
 - scrollUntilVisible:

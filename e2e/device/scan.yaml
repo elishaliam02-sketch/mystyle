@@ -14,7 +14,7 @@ appId: com.mystyle.app
     visible: "מטבח"
     timeout: 90000
 - takeScreenshot: device-test/01-today
-- openLink: mystyle://kitchen
+- tapOn: "מטבח"
 - scrollUntilVisible:
     element: "מהגלריה"
     direction: DOWN

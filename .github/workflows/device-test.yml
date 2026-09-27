@@ -92,7 +92,7 @@ jobs:
       - name: Commit the screenshots
         if: always() && github.ref_type == 'branch'
         run: |
-          sudo apt-get install -y -qq imagemagick > /dev/null 2>&1 || true
+          (sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick) > /dev/null 2>&1 || true
           rm -rf docs/qa/device && mkdir -p docs/qa/device
           find device-test -name '*.png' -not -path '*/.maestro/*' | while read -r f; do
             convert "$f" -resize 432x -quality 70 "docs/qa/device/$(basename "${f%.png}").jpg" || true
