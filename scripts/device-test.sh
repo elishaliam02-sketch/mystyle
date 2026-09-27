@@ -16,12 +16,16 @@ ui() {
 }
 
 adb wait-for-device
-adb install -r apex.apk || exit 1
+# The APK carries arm64 code only (what phones run); the emulator is x86_64
+# with ARM translation, so the app is installed as an ARM app explicitly.
+adb install -r --abi arm64-v8a apex.apk || exit 1
+# A slow emulator boot can leave a "launcher isn't responding" dialog up.
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null 2>&1 || true
 adb logcat -c
 
 # First launch creates the app's storage; then it is closed and seeded.
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /dev/null
-sleep 25
+sleep 40
 adb exec-out screencap -p > "$OUT/00-first-launch.png"
 ui "first launch"
 echo "app running: $(adb shell pidof "$PKG" | tr -d '\r')"

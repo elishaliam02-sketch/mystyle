@@ -1,6 +1,12 @@
 # The recipe book and one recipe page, rendered by the real app on a phone.
 appId: com.mystyle.app
 ---
+# A slow emulator can show "… isn't responding" over the app.
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
 - openLink: mystyle://recipes
 - extendedWaitUntil:
     visible: "הפתע אותי"

@@ -56,9 +56,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # A pinned release, checked against its known checksum before it runs.
       - name: Install Maestro
+        env:
+          MAESTRO_VERSION: "2.10.0"
+          MAESTRO_SHA256: 29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991
         run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum -c -
+          unzip -q maestro.zip -d "$RUNNER_TEMP"
+          mv "$RUNNER_TEMP/maestro" "$HOME/.maestro"
+          rm maestro.zip
           "$HOME/.maestro/bin/maestro" --version
 
       - name: Let the emulator use hardware acceleration
@@ -86,7 +94,7 @@ jobs:
         run: |
           rm -rf docs/qa/device && mkdir -p docs/qa/device
           find device-test -name '*.png' | while read -r f; do
-            convert "$f" -resize 432x -quality 70 "docs/qa/device/$(basename "${f%.png}").jpg" || true
+            ffmpeg -loglevel error -y -i "$f" -vf scale=432:-2 -q:v 6 "docs/qa/device/$(basename "${f%.png}").jpg" || true
           done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
