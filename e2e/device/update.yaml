@@ -1,0 +1,23 @@
+# Does an installed APK end up on the newest over-the-air update by itself?
+# Run last: by now the app has been opened several times with a network.
+appId: com.mystyle.app
+---
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "פרופיל"
+    timeout: 90000
+- tapOn: "פרופיל"
+- scrollUntilVisible:
+    element: "גרסה ועדכונים"
+    direction: DOWN
+    timeout: 60000
+    speed: 30
+    visibilityPercentage: 1
+    centerElement: true
+- takeScreenshot: device-test/09-version

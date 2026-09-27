@@ -61,6 +61,15 @@ sleep 8
 adb exec-out screencap -p > "$OUT/book-end-later.png"
 ui "after the book flow"
 
+# Over-the-air: give the app a minute with the network, then look at what it
+# runs. The log says what expo-updates did; the profile screen says whether
+# the running code came from the APK or from an update.
+sleep 60
+maestro test --debug-output "$OUT/maestro-update" e2e/device/update.yaml || status=1
+ui "version and updates"
+echo "── expo-updates log"
+adb logcat -d | grep -E "dev\.expo\.updates" | grep -vE "embeddedAssetFileMap" | tail -40
+
 # Maestro saves takeScreenshot paths next to the flow files.
 find e2e/device "$OUT" "$HOME/.maestro" -name '[0-9][0-9]-*.png' -not -path "$OUT/[0-9][0-9]-*" -exec cp {} "$OUT/" \; 2>/dev/null || true
 ls "$OUT"

@@ -76,3 +76,12 @@ jobs:
         # waits for a keypress that a runner can never send, and the job hangs
         # until GitHub's six-hour timeout instead of failing in seconds.
         run: eas update --branch preview --message "$COMMIT_MSG" --non-interactive
+
+      # Installed apps ask for the "preview" channel; this shows which branch
+      # that channel hands out, so an update published to a branch no phone
+      # reads is visible here instead of silently reaching nobody.
+      - name: Show where installed apps get updates from
+        continue-on-error: true
+        run: |
+          eas channel:view preview --non-interactive || true
+          eas update:list --branch preview --limit 3 --non-interactive || true
