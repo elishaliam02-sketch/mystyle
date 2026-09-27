@@ -69,6 +69,19 @@ const source = async () => {
   const salad = toRecognitions([{ label: "Ceviche", score: 0.3 }, { label: "Fattoush", score: 0.22 }], "he");
   check("a dish the app can count comes before one it can only search", salad[0]?.food?.id === "israeliSalad", JSON.stringify(salad));
 
+  const noisy = toRecognitions(
+    [
+      { label: "Shakshouka", score: 0.97 },
+      { label: "Chorizo", score: 0.01 },
+      { label: "Piperade", score: 0.008 },
+      { label: "Hummus", score: 0.004 },
+    ],
+    "he",
+  );
+  check("1% alternatives under a sure guess are not offered", noisy.length === 1 && noisy[0]?.food?.id === "shakshukaDish", JSON.stringify(noisy));
+  const unsure = toRecognitions([{ label: "Chorizo", score: 0.02 }, { label: "Paella", score: 0.015 }], "he");
+  check("an unsure photo still gets its best guess", unsure.length === 1 && unsure[0]?.label === "Chorizo", JSON.stringify(unsure));
+
   const failed = results.filter(([, ok]) => !ok);
   for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);

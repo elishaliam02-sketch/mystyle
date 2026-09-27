@@ -22,13 +22,19 @@ appId: com.mystyle.app
     visible: "הפתע אותי"
     timeout: 30000
 - takeScreenshot: device-test/06-book
+# Narrowed to breakfast so the dish is a short scroll away.
+- tapOn: "בוקר"
 - scrollUntilVisible:
     element: "שקשוקה ירוקה"
     direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
+    timeout: 60000
+    speed: 20
+    visibilityPercentage: 1
+    waitToSettleTimeoutMs: 800
     centerElement: true
-- tapOn: "שקשוקה ירוקה"
+- tapOn:
+    text: "שקשוקה ירוקה"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: ".*פטה.*"
     timeout: 30000

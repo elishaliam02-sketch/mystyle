@@ -142,6 +142,9 @@ async function classifyJs(uri: string, fullBase64: string | null, m: Manipulator
   );
 }
 
+/** The least chance an alternative needs to be offered at all. */
+export const MIN_ALTERNATIVE = 0.03;
+
 /** What recognised labels are in the app's own food list: one row per food, best first. */
 export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recognition[] {
   // Several labels can land on one library food ("Hummus", "Hummus with
@@ -160,9 +163,13 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
     byKey.set(key, r);
     out.push(r);
   }
+  // A 1% "Chorizo" under a 97% shakshuka is noise, not an alternative: past
+  // the best guess, only the ones the model gives a real chance are shown.
+  const best = Math.max(0, ...out.map((r) => r.score));
+  const likely = out.filter((r) => r.score >= MIN_ALTERNATIVE || r.score === best);
   // A dish the app can count comes before one it can only search for.
-  out.sort((a, b) => (a.food ? 0 : 1) - (b.food ? 0 : 1) || b.score - a.score);
-  return out.slice(0, 5);
+  likely.sort((a, b) => (a.food ? 0 : 1) - (b.food ? 0 : 1) || b.score - a.score);
+  return likely.slice(0, 5);
 }
 
 export async function recognizePhoto(
