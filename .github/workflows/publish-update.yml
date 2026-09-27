@@ -66,6 +66,13 @@ jobs:
           eas-version: 24.7.0
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # Installed apps ask the "preview" channel for updates; the channel hands
+      # out whatever branch it points at. It pointed at none, so every update
+      # published to the "preview" branch reached no phone at all. Pointing it
+      # here, on every run, keeps that from ever silently breaking again.
+      - name: Point the app's channel at the branch updates go to
+        run: eas channel:edit preview --branch preview --non-interactive
+
       - name: Publish the update
         env:
           # Passed through the environment (not interpolated into the shell) so
