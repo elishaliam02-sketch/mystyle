@@ -23,6 +23,9 @@ const q = (s) => `'${s.replace(/'/g, "''")}'`;
 const row = (k, v) => `INSERT OR REPLACE INTO catalystLocalStorage (key, value) VALUES (${q(k)}, ${q(v)});`;
 process.stdout.write(
   [
+    // version 1 is what React Native's storage helper expects; without it the
+    // helper would try to create the table again on a database made here.
+    "PRAGMA user_version = 1;",
     "CREATE TABLE IF NOT EXISTS catalystLocalStorage (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
     row("mystyle.state.v1", JSON.stringify(state)),
     row("mystyle.locale", "he"),

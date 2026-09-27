@@ -21,7 +21,7 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -78,6 +78,25 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash scripts/device-test.sh
+
+      # Artifacts cannot be opened everywhere the app is worked on, so small
+      # copies of the screenshots go into the branch too (docs/qa/device).
+      - name: Commit the screenshots
+        if: always() && github.ref_type == 'branch'
+        run: |
+          rm -rf docs/qa/device && mkdir -p docs/qa/device
+          find device-test -name '*.png' | while read -r f; do
+            convert "$f" -resize 432x -quality 70 "docs/qa/device/$(basename "${f%.png}").jpg" || true
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs/qa/device
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Device test screenshots"
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break
+            sleep 5
+          done
 
       - name: Keep screenshots and the phone's log
         if: always()
