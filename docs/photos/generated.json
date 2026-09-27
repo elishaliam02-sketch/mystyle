@@ -1574,5 +1574,181 @@
  {
   "key": "food:spirits",
   "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260926_090952_b4b376cf-a48c-4921-bb6b-071fe92e1ef1.png"
+ },
+ {
+  "key": "meal:green-shakshuka",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_684848cd-29ef-4d7f-a5a0-e76292e3b07e.png"
+ },
+ {
+  "key": "meal:protein-pancakes",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_8cce228b-48f8-4f82-a284-9a0cc1002784.png"
+ },
+ {
+  "key": "meal:tofu-scramble",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_6fbb0f8d-02c2-4499-a6d6-66aab019e2e1.png"
+ },
+ {
+  "key": "meal:french-toast-berries",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_bb7bd6aa-6a41-4e41-a8eb-b4b1506104b0.png"
+ },
+ {
+  "key": "meal:hummus-egg-plate",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_fa306e8f-1658-4816-b75a-f86835cee156.png"
+ },
+ {
+  "key": "meal:labneh-zaatar-toast",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062809_c382dff0-cfce-4380-81ca-ff5836171e9d.png"
+ },
+ {
+  "key": "meal:oat-banana-muffins",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062844_a487defe-0e71-4497-a4dc-34afdc95a759.png"
+ },
+ {
+  "key": "meal:oven-schnitzel",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062916_c488b270-f6cf-4509-9113-562434e7f89b.png"
+ },
+ {
+  "key": "meal:chicken-shawarma-plate",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062844_ba5ede36-f437-45e6-bf0c-8fbddebf1080.png"
+ },
+ {
+  "key": "meal:baked-falafel-bowl",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062916_a48d9380-b961-46af-a11d-46f396bdc067.png"
+ },
+ {
+  "key": "meal:salmon-poke",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062844_53ce0d4a-26d4-4620-8a08-d9f567e171a4.png"
+ },
+ {
+  "key": "meal:tuna-pasta-salad",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062845_fa25b1b4-0d0e-4ca5-8b67-3348d7992a27.png"
+ },
+ {
+  "key": "meal:quinoa-tabbouleh",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062916_4e96654c-ae75-44ea-8257-5d7d9d0a11db.png"
+ },
+ {
+  "key": "meal:lentil-salad",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062916_10311044-1db0-4233-82d9-fa036af86f1a.png"
+ },
+ {
+  "key": "meal:chicken-tahini-salad",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062946_b92b3393-e00c-43dd-bb2a-501241c18ac3.png"
+ },
+ {
+  "key": "meal:black-bean-bowl",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062916_3ef30e84-5db6-4724-ac77-ba07b25df0b1.png"
+ },
+ {
+  "key": "meal:egg-salad-sandwich",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062946_9edd4f1c-5690-4188-a1cc-6d1dcfb686e2.png"
+ },
+ {
+  "key": "meal:halloumi-watermelon-salad",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062946_1348178b-7412-4b06-8df2-f4e955386098.png"
+ },
+ {
+  "key": "meal:chicken-meatballs",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_fb116714-aed4-4cb0-b2e3-aa4d326f9185.png"
+ },
+ {
+  "key": "meal:fish-chraime",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062946_6012ec6b-276e-4834-85ed-fbbb09294790.png"
+ },
+ {
+  "key": "meal:beef-lentil-bolognese",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_062946_3fbd704f-09d5-43ee-8c4c-fc6ab340ccfd.png"
+ },
+ {
+  "key": "meal:stuffed-zucchini",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_f9fad821-ce35-4bd4-94c4-4556de64406f.png"
+ },
+ {
+  "key": "meal:shepherds-pie",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_a7507aab-a215-44d9-a896-d00b683c46c9.png"
+ },
+ {
+  "key": "meal:chicken-turmeric-curry",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_ce362be3-73d7-4a1b-9b7f-3b21ec8a72a2.png"
+ },
+ {
+  "key": "meal:salmon-teriyaki",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_c2f2ba2d-61fe-47a9-9eed-ce3a95fdc56f.png"
+ },
+ {
+  "key": "meal:turkey-burger",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063017_27da0ab0-9267-49a4-b0a2-ed2fc5771439.png"
+ },
+ {
+  "key": "meal:roasted-cauliflower-tahini",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063048_08f1905e-9c1f-447a-8d09-6c3b185ee17c.png"
+ },
+ {
+  "key": "meal:grandma-chicken-soup",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063048_74324fb5-7348-4130-8879-5b77cd4456e9.png"
+ },
+ {
+  "key": "meal:minestrone",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063048_ff722e3e-6d6f-4695-8164-d2fd53ae5f99.png"
+ },
+ {
+  "key": "meal:eggplant-parmigiana",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063049_2258ed64-0271-40ad-a991-6312f042c518.png"
+ },
+ {
+  "key": "meal:tofu-teriyaki-noodles",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063049_1ce4f2ec-d5e6-46cb-800a-dc7fee8f3a46.png"
+ },
+ {
+  "key": "meal:chicken-fajitas",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063048_23ce09ba-3304-4b70-a9c1-c6209a5a0792.png"
+ },
+ {
+  "key": "meal:pita-pizza",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063220_cb116887-ffc9-4001-8f36-77708843bf51.png"
+ },
+ {
+  "key": "meal:baked-nuggets",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063220_01072611-e63f-4509-ba8e-1e369f7d8e03.png"
+ },
+ {
+  "key": "meal:stuffed-sweet-potato-beans",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063219_009be8e9-6f99-4dd6-a528-b749356a65fc.png"
+ },
+ {
+  "key": "meal:barley-mushroom-risotto",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063247_984d50e6-c649-4f1b-ac7d-371eac8cb76c.png"
+ },
+ {
+  "key": "meal:energy-balls",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063219_63a354ee-48cf-4e1f-9241-f42d65628f2d.png"
+ },
+ {
+  "key": "meal:roasted-chickpeas",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063219_c11c6c37-be1c-44d2-a60d-825d859ca449.png"
+ },
+ {
+  "key": "meal:yogurt-bark",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063247_dbf06d3d-9860-4535-9f12-b4122edcd225.png"
+ },
+ {
+  "key": "meal:baba-ganoush-veg",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063247_35b9d485-56bf-40e4-b416-72bfdce15df0.png"
+ },
+ {
+  "key": "meal:fruit-skewers",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063247_f051f628-fedf-44cc-84f3-3aa08fad0f4d.png"
+ },
+ {
+  "key": "meal:homemade-popcorn",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063247_ffce97da-8b88-4aac-86e1-af66dd1823ce.png"
+ },
+ {
+  "key": "meal:edamame-lime",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063311_72d4add9-e036-43a2-b0aa-09c633951a1a.png"
+ },
+ {
+  "key": "meal:baked-apple-cinnamon",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FHH6sHkwEbCkw1GztHoGoDZd78/hf_20260927_063311_678b914a-c7e9-41c0-89e6-88f900b9ca8b.png"
  }
 ]
