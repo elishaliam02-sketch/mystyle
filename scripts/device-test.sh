@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Runs inside the Android emulator job (.github/workflows/device-test.yml):
+# installs the built APK, seeds a signed-up person, puts a food photo in the
+# gallery and drives the app with Maestro the way a person would.
+set -uo pipefail
+PKG=com.mystyle.app
+OUT=device-test
+mkdir -p "$OUT"
+export PATH="$HOME/.maestro/bin:$PATH"
+
+adb wait-for-device
+adb install -r apex.apk || exit 1
+adb logcat -c
+
+# First launch creates the app's storage; then it is closed and seeded.
+adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /dev/null
+sleep 25
+adb exec-out screencap -p > "$OUT/00-first-launch.png"
+adb shell am force-stop "$PKG"
+
+adb root > /dev/null; sleep 3; adb wait-for-device
+DB="/data/data/$PKG/databases/RKStorage"
+node scripts/device-seed.mjs > seed.sql
+adb push seed.sql /data/local/tmp/seed.sql > /dev/null
+adb shell "sqlite3 $DB < /data/local/tmp/seed.sql" || exit 1
+OWNER=$(adb shell stat -c %u:%g "/data/data/$PKG" | tr -d '\r')
+adb shell chown -R "$OWNER" "/data/data/$PKG/databases"
+adb shell restorecon -R "/data/data/$PKG/databases"
+echo "seeded: $(adb shell "sqlite3 $DB 'select key from catalystLocalStorage'" | tr '\r\n' '  ')"
+
+# A food photo in the gallery, as if the person had taken it.
+adb push assets/meals/shakshuka.jpg /sdcard/Pictures/shakshuka.jpg > /dev/null
+adb shell content call --uri content://media --method scan_volume --arg external_primary > /dev/null 2>&1 || true
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/shakshuka.jpg > /dev/null 2>&1 || true
+sleep 3
+
+status=0
+maestro test --format junit --output "$OUT/report.xml" --debug-output "$OUT/maestro" e2e/device/scan.yaml || status=1
+adb exec-out screencap -p > "$OUT/scan-end.png"
+maestro test --debug-output "$OUT/maestro-book" e2e/device/book.yaml || status=1
+adb exec-out screencap -p > "$OUT/book-end.png"
+
+adb logcat -d > "$OUT/logcat.txt"
+if grep -E "FATAL EXCEPTION|ReactNativeJS.*(Error|TypeError)" "$OUT/logcat.txt" | grep -i "$PKG\|ReactNativeJS" > "$OUT/errors.txt"; then
+  echo "::warning::errors in logcat:"; head -40 "$OUT/errors.txt"
+fi
+grep -iE "tflite|litert|tensorflow" "$OUT/logcat.txt" | head -20
+exit $status

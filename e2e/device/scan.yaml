@@ -1,0 +1,44 @@
+# A person on a real Android phone: opens the kitchen, picks a photo of a
+# shakshuka from the gallery, gets it recognised on the device and logs it.
+appId: com.mystyle.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "מטבח"
+    timeout: 90000
+- takeScreenshot: device-test/01-today
+- openLink: mystyle://kitchen
+- scrollUntilVisible:
+    element: "מהגלריה"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: device-test/02-kitchen-scanner
+- tapOn: "מהגלריה"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: device-test/03-picker
+# Android's photo picker, or the older document picker on some phones.
+- runFlow:
+    when:
+      visible:
+        id: ".*icon_thumbnail"
+    commands:
+      - tapOn:
+          id: ".*icon_thumbnail"
+          index: 0
+- runFlow:
+    when:
+      visible: "shakshuka.*"
+    commands:
+      - tapOn: "shakshuka.*"
+- extendedWaitUntil:
+    visible: "נראה כמו…"
+    timeout: 60000
+- takeScreenshot: device-test/04-recognised
+- assertVisible: "שקשוקה"
+- tapOn: "רשום ביומן"
+- extendedWaitUntil:
+    visible: "נרשם · .*"
+    timeout: 10000
+- takeScreenshot: device-test/05-logged

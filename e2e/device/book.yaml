@@ -1,0 +1,18 @@
+# The recipe book and one recipe page, rendered by the real app on a phone.
+appId: com.mystyle.app
+---
+- openLink: mystyle://recipes
+- extendedWaitUntil:
+    visible: "הפתע אותי"
+    timeout: 30000
+- takeScreenshot: device-test/06-book
+- openLink: mystyle://recipe/green-shakshuka
+- extendedWaitUntil:
+    visible: ".*שקשוקה.*"
+    timeout: 30000
+- takeScreenshot: device-test/07-recipe
+- scrollUntilVisible:
+    element: "איך מכינים"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: device-test/08-recipe-steps

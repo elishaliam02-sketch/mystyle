@@ -1,0 +1,75 @@
+name: Test the APK on an Android phone
+
+# Installs a built APK on an Android emulator and uses it the way a person
+# does (scripts/device-test.sh, e2e/device/*.yaml): scan a meal photo from the
+# gallery, log it, open the recipe book. Screenshots and the phone's log are
+# kept as the "device-test" artifact. Runs after every APK build, or by hand
+# with the id of any "Build the app (APK)" run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_run_id:
+        description: "Run id of the 'Build the app (APK)' run whose APK to test"
+        required: true
+  workflow_call:
+    inputs:
+      apk_run_id:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Get the APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: apex-apk
+          run-id: ${{ inputs.apk_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Set up Java for Maestro
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Let the emulator use hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Use the app on the emulator
+        uses: ReactiveCircus/android-emulator-runner@b530d96654c385303d652368551fb075bc2f0b6b # v2.35.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/device-test.sh
+
+      - name: Keep screenshots and the phone's log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: device-test
+          path: device-test
+          retention-days: 14
