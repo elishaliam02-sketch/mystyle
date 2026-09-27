@@ -26,6 +26,8 @@ appId: com.mystyle.app
     element: "שקשוקה ירוקה"
     direction: DOWN
     timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
 - tapOn: "שקשוקה ירוקה"
 - extendedWaitUntil:
     visible: ".*פטה.*"

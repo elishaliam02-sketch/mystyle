@@ -41,8 +41,13 @@ appId: com.mystyle.app
 - extendedWaitUntil:
     visible: "נראה כמו…"
     timeout: 60000
+- scrollUntilVisible:
+    element: "רשום ביומן"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 - takeScreenshot: device-test/04-recognised
-- assertVisible: "שקשוקה"
+- assertVisible: ".*שקשוקה.*"
 - tapOn: "רשום ביומן"
 - extendedWaitUntil:
     visible: "נרשם · .*"

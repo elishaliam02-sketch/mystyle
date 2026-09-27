@@ -54,10 +54,14 @@ status=0
 maestro test --format junit --output "$OUT/report.xml" --debug-output "$OUT/maestro" e2e/device/scan.yaml || status=1
 adb exec-out screencap -p > "$OUT/scan-end.png"
 ui "after the scan flow"
+adb logcat -d | grep -E "ReactNativeJS" | tail -20
 maestro test --debug-output "$OUT/maestro-book" e2e/device/book.yaml || status=1
 adb exec-out screencap -p > "$OUT/book-end.png"
 ui "after the book flow"
 
+# Maestro saves takeScreenshot paths next to the flow files.
+find e2e/device -name '*.png' -exec mv {} "$OUT/" \; 2>/dev/null || true
+ls "$OUT"
 adb logcat -d > "$OUT/logcat.txt"
 grep -E "ReactNativeJS|AndroidRuntime" "$OUT/logcat.txt" | tail -40
 if grep -E "FATAL EXCEPTION|ReactNativeJS.*(Error|TypeError)" "$OUT/logcat.txt" | grep -i "$PKG\|ReactNativeJS" > "$OUT/errors.txt"; then
