@@ -57,10 +57,12 @@ ui "after the scan flow"
 adb logcat -d | grep -E "ReactNativeJS" | tail -20
 maestro test --debug-output "$OUT/maestro-book" e2e/device/book.yaml || status=1
 adb exec-out screencap -p > "$OUT/book-end.png"
+sleep 8
+adb exec-out screencap -p > "$OUT/book-end-later.png"
 ui "after the book flow"
 
 # Maestro saves takeScreenshot paths next to the flow files.
-find e2e/device -name '*.png' -exec mv {} "$OUT/" \; 2>/dev/null || true
+find e2e/device "$OUT" "$HOME/.maestro" -name '[0-9][0-9]-*.png' -not -path "$OUT/[0-9][0-9]-*" -exec cp {} "$OUT/" \; 2>/dev/null || true
 ls "$OUT"
 adb logcat -d > "$OUT/logcat.txt"
 grep -E "ReactNativeJS|AndroidRuntime" "$OUT/logcat.txt" | tail -40
