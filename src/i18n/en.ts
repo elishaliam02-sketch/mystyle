@@ -281,7 +281,9 @@ export const en: typeof he = {
 
   updates: {
     bannerTitle: "A new version is ready",
-    bannerBody: "The update is already on your phone. Restarting takes a second.",
+    bannerBody: "It installs by itself the next time you come back to the app. Or now — it takes a second and nothing is lost.",
+    updatedTitle: "The app was updated ✓",
+    updatedBody: "The new version is running. Updates install by themselves from now on.",
     restart: "Restart now",
     later: "Later",
     aboutTitle: "Version and updates",
@@ -295,7 +297,7 @@ export const en: typeof he = {
     upToDate: "Everything is up to date ✓",
     failed: "Could not check right now. Try again when you are online.",
     unsupported: "In-app updates work in the build installed from the store. In a browser, refreshing the page is enough.",
-    note: "Content updates arrive straight in the app. A change that needs a new store build will ask you to update from there.",
+    note: "Updates arrive and install by themselves — when you open the app or come back to it. Everything you logged is kept. A change that needs a new install will ask you to update.",
   },
 
   challenge: {

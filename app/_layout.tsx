@@ -20,6 +20,7 @@ import { SUBSCRIPTION_REQUIRED } from "@/billing/launch";
 import { currentAccount } from "@/cloud/client";
 import { I18nProvider } from "@/i18n";
 import { StoreProvider, useStore } from "@/store";
+import { UpdatedToast } from "@/components/UpdatedToast";
 import { ThemeProvider, useTheme } from "@/theme";
 import { trustedNowMs } from "@/time/clock";
 
@@ -145,6 +146,7 @@ function Shell() {
         <Stack.Screen name="legal/terms" options={{ presentation: "modal" }} />
         <Stack.Screen name="legal/licenses" options={{ presentation: "modal" }} />
       </Stack>
+      <UpdatedToast />
     </View>
   );
 }

@@ -6,13 +6,13 @@ import { useAppUpdate } from "@/updates";
 import { useTheme } from "@/theme";
 
 /**
- * "There is a new version — restart when you like."
+ * "A new version is ready — it installs by itself, or now."
  *
- * Shown only once an update is actually downloaded and sitting on the device,
- * so pressing restart is instant and works with no signal. It can be
- * dismissed, and dismissing it costs nothing: the update applies by itself the
- * next time the app is opened from cold. Nothing here ever restarts the app on
- * its own — someone mid-set does not need their phone deciding to reboot.
+ * Updates normally install on their own the moment the app is opened (see
+ * src/updates). This shows only in the rarer case where one finished
+ * downloading while the app was already in use: then it waits for the next
+ * return to the app rather than restarting under someone mid-set, and this
+ * offers it now for whoever does not want to wait. Dismissing costs nothing.
  */
 export function UpdateBanner() {
   const { t } = useI18n();

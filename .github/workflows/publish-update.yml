@@ -1,9 +1,10 @@
 name: Publish OTA update
 
-# Publishes an over-the-air (JS/asset) update to the "preview" channel so the
-# installed APEX app picks up the change the next time it opens. Runs on every
-# push to main (i.e. when a pull request is merged), and can also be started by
-# hand from the GitHub app: Actions -> Publish OTA update -> Run workflow.
+# Publishes an over-the-air (JS/asset) update to the "preview" channel; the
+# installed APEX app downloads and installs it by itself (src/updates). Runs on
+# every push to main (a merged pull request) and to the branch the app is
+# developed on, whenever the push changes something the app is made of, and
+# can also be started by hand: Actions -> Publish OTA update -> Run workflow.
 #
 # One-time setup: add a repository secret named EXPO_TOKEN (an Expo access
 # token from expo.dev -> account settings -> Access tokens).
@@ -13,8 +14,23 @@ name: Publish OTA update
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/daily-routine-app-rgxm42]
+    # Test screenshots, docs and workflow edits change nothing on the phone.
+    paths:
+      - app/**
+      - src/**
+      - assets/**
+      - app.json
+      - package.json
+      - package-lock.json
+      - metro.config.js
   workflow_dispatch:
+
+# One publish at a time, in push order: two at once could land out of order
+# and leave phones on the older one.
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
 
 permissions:
   contents: read

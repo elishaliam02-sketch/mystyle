@@ -1,35 +1,52 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
+import { AppState, Platform, TextInput } from "react-native";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 
 /**
- * Updating the app from inside the app.
+ * Updating the app from inside the app — automatically.
  *
  * A store release takes days to review and days more to reach the people who
  * have automatic updates off. An over-the-air update — the JavaScript, the
- * strings, the palette, the food library, every screen — reaches a phone the
- * next time it is opened. Native code still needs a store build, which is why
- * `runtimeVersion` in app.json is tied to the app version: an update is only
- * ever handed to a build that can actually run it.
+ * strings, the palette, the food library, every screen — reaches a phone
+ * without anyone doing anything. Native code still needs a new build, which is
+ * why `runtimeVersion` in app.json is tied to the app version: an update is
+ * only ever handed to a build that can actually run it.
  *
- * The rules this follows:
+ * How it arrives, with nobody pressing anything:
  *
- * - Never interrupt. An update is fetched quietly in the background and then
- *   *offered*. Restarting the app under someone who is mid-set, mid-meal or
- *   mid-sentence is a good way to lose what they were writing.
- * - Never in development. `Updates.isEnabled` is false in Expo Go and in a dev
- *   client, and on web there is no update mechanism at all — the browser
- *   reloads the bundle by itself. Everything here no-ops there rather than
- *   throwing.
- * - Never spam the server. One check per launch and one per return from the
- *   background, and not more often than `MIN_GAP_MS`.
- * - Never fail loudly. A check that cannot reach the network is not an error
- *   worth a dialog; the app carries on with the version it has.
+ * - On every launch and every return to the app, the server is asked (a small
+ *   request, at most once a minute). A new version downloads in the
+ *   background.
+ * - If it is down within a few seconds of the app being opened, the app
+ *   restarts into it right away — the person has only just arrived, so
+ *   nothing is interrupted. Everything they entered is saved on the phone
+ *   and is there after the restart.
+ * - If the download took longer (slow network), it waits and installs the
+ *   next time the app is opened or brought back — never in the middle of use,
+ *   and never while the keyboard is up.
+ * - After an update the app says so once ("updated ✓"), so the person knows
+ *   the new things are there.
+ *
+ * Never in development: `Updates.isEnabled` is false in Expo Go and in a dev
+ * client, and on web the browser reloads the bundle by itself. Everything here
+ * no-ops there rather than throwing. A check that cannot reach the network is
+ * not an error worth a dialog; the app carries on with the version it has.
  */
 
 /** The least time between two automatic checks. */
-const MIN_GAP_MS = 15 * 60 * 1000;
+const MIN_GAP_MS = 60 * 1000;
+
+/**
+ * How long after the app is opened a finished download may still restart it
+ * on the spot. Past this the person may be in the middle of something, so the
+ * update waits for the next time the app is opened.
+ */
+const APPLY_WINDOW_MS = 12 * 1000;
+
+/** The id of the downloaded update waiting to be installed. */
+let pendingId: string | null = null;
 
 export type UpdateState =
   /** Nothing to do — either up to date, or updates do not apply here. */
@@ -38,7 +55,7 @@ export type UpdateState =
   | "checking"
   /** There is, and it is coming down now. */
   | "downloading"
-  /** Downloaded and waiting for the person to say when. */
+  /** Downloaded, waiting for a moment it can install without interrupting. */
   | "ready"
   /** Checked, and this is the newest version. */
   | "current"
@@ -71,8 +88,7 @@ export function runningVersion(): {
 
 /**
  * Checks for an update, downloads it if there is one, and reports where it
- * got to. Returns the state rather than acting on it: whether to restart is
- * the person's call, not this function's.
+ * got to. Installing is `checkAndApply`'s decision, not this function's.
  */
 export async function fetchUpdate(): Promise<UpdateState> {
   if (!updatesSupported) return "idle";
@@ -80,6 +96,7 @@ export async function fetchUpdate(): Promise<UpdateState> {
     const check = await Updates.checkForUpdateAsync();
     if (!check.isAvailable) return "current";
     const fetched = await Updates.fetchUpdateAsync();
+    if (fetched.isNew) pendingId = fetched.manifest?.id ?? null;
     return fetched.isNew ? "ready" : "current";
   } catch {
     // Offline, or the update server is having a bad day. Neither is the
@@ -99,63 +116,146 @@ export async function applyUpdate(): Promise<void> {
   }
 }
 
+// One state for the whole app: the automatic checker in the root layout and
+// every screen that shows it (the banner, the profile line) read the same one.
+let shared: UpdateState = "idle";
+const listeners = new Set<(s: UpdateState) => void>();
+function setShared(next: UpdateState) {
+  shared = next;
+  for (const l of listeners) l(next);
+}
+let lastCheck = 0;
+let busy = false;
+
+/** Whether restarting now would throw away something being typed. */
+function typing(): boolean {
+  try {
+    return TextInput.State.currentlyFocusedInput() != null;
+  } catch {
+    return false;
+  }
+}
+
+const TRIED_KEY = "mystyle.updates.autoTried";
+
 /**
- * The hook the screens use: checks once on mount, again whenever the app comes
- * back to the foreground, and exposes a manual check for the profile screen.
+ * Restarts into a downloaded update if nobody is mid-sentence. An update that
+ * could not start (the phone fell back to the previous version) is not
+ * restarted into again and again: two automatic tries per update, then it
+ * waits for the next one.
  */
-export function useAppUpdate() {
-  const [state, setState] = useState<UpdateState>("idle");
-  const lastCheck = useRef(0);
-  const busy = useRef(false);
-  const alive = useRef(true);
-  // The foreground listener is installed once and keeps whatever closure it
-  // was given, so the current state has to reach it through a ref rather than
-  // through a dependency — otherwise the "already downloaded" guard below
-  // would forever see the state as it was at mount.
-  const current = useRef<UpdateState>(state);
-  current.current = state;
+async function applyIfIdle(): Promise<boolean> {
+  if (AppState.currentState !== "active" || typing()) return false;
+  if (Updates.isEmergencyLaunch) return false;
+  try {
+    const raw = await AsyncStorage.getItem(TRIED_KEY);
+    const tried = raw ? (JSON.parse(raw) as { id: string | null; n: number }) : null;
+    const n = tried && tried.id === pendingId ? tried.n : 0;
+    if (n >= 2) return false;
+    await AsyncStorage.setItem(TRIED_KEY, JSON.stringify({ id: pendingId, n: n + 1 }));
+  } catch {
+    // Storage refused: still install — a missing counter is not a reason to
+    // keep someone on an old version.
+  }
+  await applyUpdate();
+  return true;
+}
 
-  const run = useCallback(async (manual: boolean) => {
-    if (!updatesSupported) {
-      // A manual check on web or in Expo Go should still answer, rather than
-      // leaving a button spinning forever.
-      if (manual) setState("idle");
-      return;
-    }
-    if (busy.current) return;
-    const now = Date.now();
-    if (!manual && now - lastCheck.current < MIN_GAP_MS) return;
-    // An update already downloaded stays offered; re-checking would only
-    // replace "restart to update" with "you are up to date", which is a lie.
-    if (current.current === "ready") return;
+type Trigger = "launch" | "resume" | "manual";
 
-    busy.current = true;
-    lastCheck.current = now;
-    setState("checking");
-    const result = await fetchUpdate();
-    if (alive.current) setState(result);
-    busy.current = false;
-  }, []);
+/** Asks for an update, downloads it, and installs it when that is safe. */
+export async function checkAndApply(trigger: Trigger): Promise<UpdateState> {
+  if (!updatesSupported) {
+    // A manual check on web or in Expo Go should still answer, rather than
+    // leaving a button spinning forever.
+    if (trigger === "manual") setShared("idle");
+    return "idle";
+  }
+  // Already downloaded: this is the moment it was waiting for.
+  if (shared === "ready") {
+    if (trigger !== "launch") await applyIfIdle();
+    return shared;
+  }
+  if (busy) return shared;
+  const started = Date.now();
+  if (trigger === "resume" && started - lastCheck < MIN_GAP_MS) return shared;
 
+  busy = true;
+  lastCheck = started;
+  setShared("checking");
+  const result = await fetchUpdate();
+  busy = false;
+  setShared(result);
+  // Downloaded quickly after the app was opened (or the person asked): the
+  // restart is part of opening the app, not an interruption.
+  if (result === "ready" && (trigger === "manual" || Date.now() - started < APPLY_WINDOW_MS)) {
+    await applyIfIdle();
+  }
+  return result;
+}
+
+/**
+ * Mounted once, at the root: checks at launch and on every return to the
+ * app, and installs what it finds.
+ */
+export function useAutoUpdates() {
   useEffect(() => {
-    alive.current = true;
-    void run(false);
-
+    if (!updatesSupported) return;
+    void checkAndApply("launch");
     const sub = AppState.addEventListener("change", (next) => {
-      if (next === "active") void run(false);
+      if (next === "active") void checkAndApply("resume");
     });
-    return () => {
-      alive.current = false;
-      sub.remove();
-    };
-  }, [run]);
+    return () => sub.remove();
+  }, []);
+}
 
+const LAST_UPDATE_KEY = "mystyle.updates.lastId";
+
+/**
+ * True for the first launch after an update was installed — once, so the app
+ * can say "updated ✓" and the person knows the new things are there.
+ */
+export function useJustUpdated(): boolean {
+  const [fresh, setFresh] = useState(false);
+  useEffect(() => {
+    if (!updatesSupported) return;
+    const id = Updates.isEmbeddedLaunch ? "embedded" : (Updates.updateId ?? "");
+    if (!id) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const seen = await AsyncStorage.getItem(LAST_UPDATE_KEY);
+        await AsyncStorage.setItem(LAST_UPDATE_KEY, id);
+        // The very first launch has nothing to compare against: that is an
+        // install, not an update.
+        if (alive && seen && seen !== id && id !== "embedded") setFresh(true);
+      } catch {
+        // Storage refused: no "updated" note, nothing else lost.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return fresh;
+}
+
+/** What the screens show: the shared state and a manual check. */
+export function useAppUpdate() {
+  const [state, setState] = useState<UpdateState>(shared);
+  useEffect(() => {
+    listeners.add(setState);
+    setState(shared);
+    return () => {
+      listeners.delete(setState);
+    };
+  }, []);
   return {
     state,
-    /** True once there is a downloaded update waiting for a restart. */
+    /** True once there is a downloaded update waiting to be installed. */
     ready: state === "ready",
     supported: updatesSupported,
-    check: () => run(true),
+    check: () => checkAndApply("manual"),
     apply: applyUpdate,
     running: runningVersion(),
   };
