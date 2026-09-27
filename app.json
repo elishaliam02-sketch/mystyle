@@ -23,8 +23,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "APEX uses your photos so you can add progress pictures.",
-          "cameraPermission": "APEX uses the camera so you can take progress pictures."
+          "photosPermission": "APEX uses your photos so you can scan a meal from the gallery and add progress pictures.",
+          "cameraPermission": "APEX uses the camera so you can scan a meal and take progress pictures."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
         }
       ]
     ],
