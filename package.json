@@ -63,6 +63,7 @@
     "test:book": "node scripts/run-book-tests.mjs",
     "test:updates": "node scripts/run-updates-tests.mjs",
     "test:native": "node scripts/run-native-tests.mjs",
+    "test:adaptive": "node scripts/run-adaptive-tests.mjs",
     "test:date": "node scripts/run-date-tests.mjs",
     "test:insight": "node scripts/run-insight-tests.mjs",
     "test:kitchen": "node scripts/run-kitchen-tests.mjs",

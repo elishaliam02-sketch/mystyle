@@ -890,7 +890,8 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   check("one portion reads as one, in Hebrew that is a sentence",
     (await cp.getByText("1 מנות").count())===0);
 
-  const readTotal = async () => Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+  // The plate's total, as the day card previews it ("+143 על הצלחת").
+  const readTotal = async () => Number((await cp.evaluate(()=>document.body.innerText)).match(/\+(\d+) על הצלחת/)?.[1] ?? -1);
   const t1 = await readTotal();
   // eggs: 143 kcal per 100 g (USDA), their own nutrition row
   check("a portion of eggs is its per-100 figure", t1 === 143, String(t1));
@@ -900,7 +901,10 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await cp.getByLabel("פחות מנה").first().click(); await cp.waitForTimeout(600);
   check("and stepping back down returns to where it was", (await readTotal()) === 143);
 
-  await cp.getByRole("button",{name:/רשום ליומן/}).first().click(); await cp.waitForTimeout(1200);
+  await cp.getByRole("button",{name:/הוסף ליומן/}).first().click(); await cp.waitForTimeout(1400);
+  check("the day's total on the same screen rises by what was added",
+    /קלוריות היום\s*\n\s*143\b/.test(await cp.evaluate(()=>document.body.innerText)));
+  check("and it says so", await cp.getByText(/נוסף ליומן: 143/).first().isVisible().catch(()=>false));
   { const s2 = JSON.parse(await cp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
     const rows = Object.values(s2.intake ?? {}).flat();
     check("logging it writes exactly one diary row", rows.length === 1, JSON.stringify(rows));
@@ -922,7 +926,7 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   if (await gbox.count()) {
     await gbox.fill("250"); await cp.waitForTimeout(400);
     await cp.mouse.click(20, 700); await cp.waitForTimeout(400);
-    const t = Number((await cp.evaluate(()=>document.body.innerText)).match(/סך הכול\s*\n\s*(\d+)/)?.[1] ?? -1);
+    const t = Number((await cp.evaluate(()=>document.body.innerText)).match(/\+(\d+) על הצלחת/)?.[1] ?? -1);
     check("a typed weight recomputes the total", t === 325, String(t));
   }
   // a whole meal typed as a sentence is read into rows with their amounts

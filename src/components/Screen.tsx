@@ -43,35 +43,7 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
       contentContainerStyle={{ paddingBottom: space.xxl }}
       keyboardShouldPersistTaps="handled"
     >
-      <LinearGradient
-        colors={[colors.bandTop, colors.bandBottom]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          paddingTop: insets.top + space.xxl,
-          paddingBottom: space.xxl,
-          paddingHorizontal: space.lg,
-          borderBottomStartRadius: radius.xl,
-          borderBottomEndRadius: radius.xl,
-          gap: space.md,
-        }}
-      >
-        <View style={[centered, { gap: space.md }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-            <View style={{ flex: 1, gap: space.xs }}>
-              {eyebrow ? (
-                <Text style={[type.label, { color: colors.bandInkSoft }]}>{eyebrow}</Text>
-              ) : null}
-              <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
-              {subtitle ? (
-                <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>
-              ) : null}
-            </View>
-            {aside}
-          </View>
-          {banner}
-        </View>
-      </LinearGradient>
+      <ScreenBand eyebrow={eyebrow} title={title} subtitle={subtitle} aside={aside} banner={banner} />
 
       <View
         style={[
@@ -82,6 +54,54 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
         {children}
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * The screen's heading band on its own, for a screen whose body is a
+ * virtualized list rather than a scroll view (the recipe book): the list
+ * scrolls the band away with it, exactly as Screen does.
+ */
+export function ScreenBand({
+  eyebrow,
+  title,
+  subtitle,
+  aside,
+  banner,
+}: Pick<Props, "eyebrow" | "title" | "subtitle" | "aside" | "banner">) {
+  const { colors, space, radius, type } = useTheme();
+  const insets = useSafeAreaInsets();
+  const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
+  return (
+    <LinearGradient
+      colors={[colors.bandTop, colors.bandBottom]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        paddingTop: insets.top + space.xxl,
+        paddingBottom: space.xxl,
+        paddingHorizontal: space.lg,
+        borderBottomStartRadius: radius.xl,
+        borderBottomEndRadius: radius.xl,
+        gap: space.md,
+      }}
+    >
+      <View style={[centered, { gap: space.md }]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+          <View style={{ flex: 1, gap: space.xs }}>
+            {eyebrow ? (
+              <Text style={[type.label, { color: colors.bandInkSoft }]}>{eyebrow}</Text>
+            ) : null}
+            <Text style={[type.hero, { color: colors.bandInk }]}>{title}</Text>
+            {subtitle ? (
+              <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{subtitle}</Text>
+            ) : null}
+          </View>
+          {aside}
+        </View>
+        {banner}
+      </View>
+    </LinearGradient>
   );
 }
 

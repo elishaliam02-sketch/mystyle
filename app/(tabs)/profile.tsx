@@ -1,5 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { PAYMENTS_LIVE } from "@/billing/launch";
+import { imagePicker, sensors } from "@/native/optional";
+import { fastRecognition } from "@/ai/recognize";
 import { Chevron } from "@/components/Chevron";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -712,6 +714,18 @@ function UpdatesCard() {
         <Text style={[type.small, { color: colors.inkFaint }]}>
           {fill(t.updates.channelLine, { channel })}
         </Text>
+      ) : null}
+      {Platform.OS !== "web" ? (
+        // What this install can do: an update brings screens and fixes, but
+        // the camera, fast photo reading and the step sensor come with the
+        // installed app itself.
+        <Text style={[type.small, { color: colors.inkSoft }]}>
+          {t.updates.caps}: {t.updates.capCamera} {imagePicker() ? "✓" : "✗"} · {t.updates.capScan}{" "}
+          {fastRecognition() ? "✓" : "✗"} · {t.updates.capSteps} {sensors() ? "✓" : "✗"}
+        </Text>
+      ) : null}
+      {Platform.OS !== "web" && (!imagePicker() || !fastRecognition()) ? (
+        <Text style={[type.small, { color: colors.orangeInk }]}>{t.updates.capsOld}</Text>
       ) : null}
 
       {update.supported ? (

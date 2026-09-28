@@ -46,6 +46,7 @@ import {
 } from "@/health/steps";
 import { cupMlOf, defaultGoalMl, goalMlOf, isStorableCupMl, isStorableGoalMl, MAX_DAY_ML, waterMlLog } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
+import { adaptiveTarget, type AdaptiveTarget } from "@/kitchen/adaptive";
 import type { Goal } from "@/kitchen";
 import type { Exercise, Muscle } from "@/workout/exercises";
 import { buildPlan, freshSeed } from "@/workout/plan";
@@ -89,6 +90,8 @@ type Store = {
   setPantry: (text: string) => void;
   /** The one goal the whole app follows (training, kitchen, cardio, targets). */
   goal: () => Goal;
+  /** Today's calorie and protein target, learned week by week from the scale. */
+  calorieTarget: () => AdaptiveTarget;
   /** Sets the unified goal — mirrors to the kitchen and re-rolls the plan. */
   setGoal: (goal: Goal) => void;
   /** Remembers the kitchen's nutrition goal across opens (alias of setGoal). */
@@ -544,6 +547,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       goal,
       nutritionGoal: goal,
+      // A new goal starts the calorie target's learning over; the same goal
+      // tapped again keeps what was learned.
+      goalSince:
+        goal === (s.goal ?? s.nutritionGoal) && s.goalSince
+          ? s.goalSince
+          : trustedStamp(s).date,
       training: s.training
         ? { ...s.training, goal, planSeed: newId() }
         : s.training,
@@ -553,6 +562,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const goal = useCallback(
     (): Goal => state.goal ?? state.nutritionGoal ?? state.training?.goal ?? "recomp",
     [state.goal, state.nutritionGoal, state.training],
+  );
+
+  const calorieTarget = useCallback(
+    () =>
+      adaptiveTarget({
+        weighIns: state.weighIns,
+        goal: goal(),
+        goalSince: state.goalSince ?? null,
+        fallbackKg: state.profile.startKg,
+        today: trustedToday(),
+      }),
+    [state.weighIns, state.goalSince, state.profile.startKg, goal, trustedToday],
   );
 
   // Kept for the kitchen's own goal chips; routes through the unified setter so
@@ -710,6 +731,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // The plan's goal is the app's goal — keep them in step.
           goal,
           nutritionGoal: goal,
+          goalSince:
+            goal === (s.goal ?? s.nutritionGoal) && s.goalSince ? s.goalSince : trustedStamp(s).date,
           training: {
             goal,
             days,
@@ -1287,6 +1310,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       readyForAnotherHabit,
       setPantry,
       goal,
+      calorieTarget,
       setGoal,
       setNutritionGoal,
       setDietFilter,

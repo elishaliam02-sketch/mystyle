@@ -11,6 +11,8 @@ import { EatScore } from "@/components/EatScore";
 import { FoodThumb } from "@/components/FoodThumb";
 import { MealPhoto } from "@/components/MealPhoto";
 import { MealScanner } from "@/components/MealScanner";
+import { DayCalories } from "@/components/DayCalories";
+import { Rise } from "@/components/motion";
 import { bookSize } from "@/kitchen/book";
 import { recipeOf } from "@/kitchen/recipes";
 import { Screen } from "@/components/Screen";
@@ -23,7 +25,6 @@ import {
   FOODS,
   MEALS,
   adhocFood,
-  dailyTarget,
   dietHidden,
   dietList,
   dietOk,
@@ -63,7 +64,7 @@ export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const router = useRouter();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry, goal: goalOf, setGoal, setDietFilter, mealSeed, shuffleMeals } = useStore();
+  const { state, setPantry, goal: goalOf, calorieTarget, setGoal, setDietFilter, mealSeed, shuffleMeals } = useStore();
   const favorites = state.favorites ?? [];
 
   // The store hydrates from disk a tick after this screen first renders, so
@@ -173,8 +174,7 @@ export default function KitchenScreen() {
 
   // The day's calorie goal, so every confirmation can say where the day stands
   // now instead of only that something was saved.
-  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-  const goalKcal = dailyTarget(weightKg, goal).kcal;
+  const goalKcal = calorieTarget().kcal;
 
   // The list itself: an editor while there is nothing saved or on request,
   // otherwise the read-back of what was understood.
@@ -424,6 +424,12 @@ export default function KitchenScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Screen title={t.kitchen.heading} subtitle={t.kitchen.body}>
+        {/* The day's calories lead the kitchen: the number everything else on
+            this screen (the scanner, the calculator, the log) adds to. */}
+        <Rise>
+          <DayCalories />
+        </Rise>
+
         {/* "Can I eat this?" sits at the top whatever else the screen is doing:
             it answers the question somebody opened the kitchen to ask, and it
             answers it about the food they were already thinking about rather
@@ -622,67 +628,14 @@ function HeroBar({ pct }: { pct: number }) {
   );
 }
 
-function TodayCard({ goal }: { goal: Goal }) {
+function TodayCard(_: { goal: Goal }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, todayIntake, removeMeal } = useStore();
-
-  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-  const target = dailyTarget(weightKg, goal);
+  const { todayIntake, removeMeal } = useStore();
   const eaten = todayIntake();
-
-  const kcalLeft = target.kcal - eaten.kcal;
-  const proLeft = target.protein - eaten.protein;
-  const kcalPct = Math.min(100, Math.round((eaten.kcal / target.kcal) * 100));
-  const proPct = Math.min(100, Math.round((eaten.protein / target.protein) * 100));
 
   return (
     <>
-      {/* The one figure a person opens the kitchen for, said once and large:
-          it used to be a row inside the card, indistinguishable from the four
-          rows around it. The metric's own colour still carries the meaning. */}
-    <Card label={t.kitchen.todayTitle}>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm }}>
-        <Text style={[type.figure, { color: metricInk(colors, "calories"), fontSize: 44, lineHeight: 48 }]}>
-          {Math.abs(kcalLeft)}
-        </Text>
-        <Text style={[type.small, { color: colors.inkSoft, paddingBottom: 7 }]}>
-          {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining} · ${t.kitchen.kcal}`}
-        </Text>
-      </View>
-
-      {/* calories */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetKcal}</Text>
-        <Text style={[type.smallStrong, { color: metricInk(colors, "calories") }]}>
-          {eaten.kcal} / {target.kcal} {t.kitchen.kcal}
-        </Text>
-      </View>
-      <Bar pct={kcalPct} over={kcalLeft < 0} metric="calories" />
-      <Text style={[type.small, { color: kcalLeft < 0 ? colors.orangeInk : colors.inkFaint, marginTop: 4 }]}>
-        {kcalLeft < 0 ? t.kitchen.over : `${t.kitchen.remaining}: ${kcalLeft} ${t.kitchen.kcal}`}
-      </Text>
-
-      {/* protein */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginTop: space.md,
-        }}
-      >
-        <Text style={[type.smallStrong, { color: colors.ink }]}>{t.kitchen.targetProtein}</Text>
-        <Text style={[type.smallStrong, { color: metricInk(colors, "protein") }]}>
-          {eaten.protein} / {target.protein} {t.kitchen.grams}
-        </Text>
-      </View>
-      <Bar pct={proPct} over={false} metric="protein" />
-      <Text style={[type.small, { color: colors.inkFaint, marginTop: 4 }]}>
-        {proLeft > 0 ? `${t.kitchen.remaining}: ${proLeft} ${t.kitchen.grams}` : t.kitchen.over}
-      </Text>
-    </Card>
-
     <Card label={t.kitchen.loggedTitle}>
       {/* logged today */}
       <View style={{ gap: 6 }}>

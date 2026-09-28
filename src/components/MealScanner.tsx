@@ -10,7 +10,7 @@ import { ProGate, ProRemaining } from "@/components/ProGate";
 import { mealLabel, type MealAnalysis } from "@/ai/nutrition";
 import { fastRecognition, manipulator, recognizePhoto, type Recognition } from "@/ai/recognize";
 import { FoodThumb } from "@/components/FoodThumb";
-import { dailyTarget, gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
+import { gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -36,7 +36,7 @@ type Phase =
 export function MealScanner() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { logMeal, state, goal: goalOf, todayIntake, allowance, noteUsed } = useStore();
+  const { logMeal, todayIntake, calorieTarget, allowance, noteUsed } = useStore();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   // The guess being weighed and how many portions of it: the best guess is
   // open from the start, so a correct photo is two taps from the diary.
@@ -108,8 +108,7 @@ export function MealScanner() {
     if (!g.food) return;
     const a = amountOf(g.food, mult);
     logMeal(`${g.name} · ${a.grams} ${t.kitchen.gram}`, a.kcal, a.protein);
-    const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-    setPhase({ kind: "saved", kcal: todayIntake().kcal + a.kcal, goal: dailyTarget(weightKg, goalOf()).kcal });
+    setPhase({ kind: "saved", kcal: todayIntake().kcal + a.kcal, goal: calorieTarget().kcal });
   }
 
   function save() {
@@ -118,11 +117,10 @@ export function MealScanner() {
     logMeal(mealLabel(analysis, t.scan.fallbackLabel), analysis.kcal, analysis.protein);
     // The card collapsing was the only sign anything happened, and the diary it
     // wrote to is a screen away — so the card says where the day stands instead.
-    const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
     setPhase({
       kind: "saved",
       kcal: todayIntake().kcal + analysis.kcal,
-      goal: dailyTarget(weightKg, goalOf()).kcal,
+      goal: calorieTarget().kcal,
     });
   }
 

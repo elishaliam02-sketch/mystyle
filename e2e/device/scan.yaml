@@ -53,3 +53,10 @@ appId: com.mystyle.app
     visible: "נרשם · .*"
     timeout: 10000
 - takeScreenshot: device-test/05-logged
+# The day's total at the top of the kitchen counted the meal.
+- scrollUntilVisible:
+    element: "קלוריות היום"
+    direction: UP
+    timeout: 20000
+- assertVisible: "נשארו .* קלוריות להיום"
+- takeScreenshot: device-test/05b-day-total

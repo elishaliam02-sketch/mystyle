@@ -22,7 +22,6 @@ import { askServer } from "@/ai/server";
 import { answerHelp, isAppQuestion } from "@/help";
 import { AiNote } from "@/components/AiNote";
 import { ProGate, ProRemaining } from "@/components/ProGate";
-import { dailyTarget } from "@/kitchen";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -44,6 +43,7 @@ export default function CoachScreen() {
   const {
     state,
     goal,
+    calorieTarget,
     todayIntake,
     todayWater,
     waterGoal,
@@ -66,7 +66,7 @@ export default function CoachScreen() {
       [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.kg ??
       state.profile.startKg;
     const g = goal();
-    const target = dailyTarget(weightKg, g);
+    const target = calorieTarget();
     const eaten = todayIntake();
     const waist = state.measurements?.waist?.at(-1)?.cm;
     return {
@@ -91,7 +91,7 @@ export default function CoachScreen() {
       goalKg: state.profile.goalKg,
       trainedToday: (state.training?.log?.[today()]?.length ?? 0) > 0,
     };
-  }, [state, goal, todayIntake, todayWater, waterGoal, todaySteps, stepGoal]);
+  }, [state, goal, calorieTarget, todayIntake, todayWater, waterGoal, todaySteps, stepGoal]);
 
   const openers = useMemo(() => suggestedQuestions(locale === "he" ? "he" : "en"), [locale]);
 

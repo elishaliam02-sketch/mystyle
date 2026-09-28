@@ -5,6 +5,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
+import { DayCalories } from "@/components/DayCalories";
+import { Pop } from "@/components/motion";
 import { Screen } from "@/components/Screen";
 import { FoodThumb } from "@/components/FoodThumb";
 import { TextField } from "@/components/TextField";
@@ -14,12 +16,12 @@ import {
 } from "@/kitchen/calc";
 import { adhocFood, type FoodTag } from "@/kitchen/data";
 import { foodFromFact, searchFoodFacts, type FactHit } from "@/kitchen/foodfacts";
-import { dailyTarget, searchFoods } from "@/kitchen";
+import { searchFoods } from "@/kitchen";
 import { recentMeals } from "@/kitchen/recent";
 import { mentionsAmount, parseEaten } from "@/coach/logfood";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
-import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
+import { ON_HERO, useTheme } from "@/theme";
 
 /**
  * The calorie calculator.
@@ -36,7 +38,7 @@ import { ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 export default function CalcScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
-  const { logMeal, state, goal: goalOf, todayIntake, todayKey } = useStore();
+  const { logMeal, state, todayKey } = useStore();
   const router = useRouter();
   const params = useLocalSearchParams<{ items?: string; q?: string }>();
 
@@ -105,20 +107,20 @@ export default function CalcScreen() {
   const sums = total(items);
   const split = macros(items);
 
-  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-  const target = dailyTarget(weightKg, goalOf());
-  const eaten = todayIntake();
 
   // The meals already in the diary, offered back for one-tap re-logging. Read
   // from the same stored intake the diary is drawn from, so it can never show a
   // meal that was not really eaten.
   const today = todayKey();
   const recent = useMemo(() => recentMeals(state.intake, today, 6), [state.intake, today]);
-  const leftAfter = target.kcal - eaten.kcal - sums.kcal;
+
+  // What was just added, for the confirmation under the day's total.
+  const [justAdded, setJustAdded] = useState<{ kcal: number; n: number } | null>(null);
 
   function save() {
     if (items.length === 0) return;
     logMeal(calcLabel(items, locale), sums.kcal, sums.protein);
+    setJustAdded((prev) => ({ kcal: sums.kcal, n: (prev?.n ?? 0) + 1 }));
     setItems([]);
     setSaved(true);
   }
@@ -150,35 +152,32 @@ export default function CalcScreen() {
           </Pressable>
         }
       >
-        {/* the running total, on the hero surface — it is the whole point of
-            the screen, and it moves as you tap */}
+        {/* the day's total leads: a meal added here visibly lands in it, the
+            number counting up and the bar growing; the plate being built shows
+            as a lighter stretch until it is added */}
         <HeroCard>
-          <Text style={[type.label, { color: ON_HERO_SOFT, textTransform: "uppercase" }]}>
-            {t.kitchen.calcTotal}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: 2 }}>
-            <Text style={[type.figure, { color: ON_HERO, fontSize: 46, lineHeight: 50 }]}>
-              {sums.kcal}
-            </Text>
-            <Text style={[type.small, { color: ON_HERO_SOFT, paddingBottom: 8 }]}>
-              {t.kitchen.kcal} · {sums.protein}
-              {t.kitchen.grams} {t.kitchen.protein}
-            </Text>
-          </View>
-          {split ? (
-            <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-              {fill(t.kitchen.calcMacros, { carbs: split.carbs, fat: split.fat })}
-              {split.partial ? ` (${t.kitchen.calcMacrosPartial})` : ""}
-            </Text>
+          <DayCalories onHero plate={sums.kcal} />
+          {justAdded ? (
+            <Pop trigger={justAdded.n}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  alignSelf: "flex-start",
+                  paddingVertical: 6,
+                  paddingHorizontal: space.md,
+                  borderRadius: radius.pill,
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={16} color={ON_HERO} />
+                <Text style={[type.smallStrong, { color: ON_HERO }]}>
+                  {fill(t.kitchen.calcAddedToDay, { kcal: justAdded.kcal })}
+                </Text>
+              </View>
+            </Pop>
           ) : null}
-          <Text style={[type.small, { color: ON_HERO_SOFT }]}>
-            {leftAfter >= 0
-              ? `${t.kitchen.remaining}: ${leftAfter} ${t.kitchen.kcal}`
-              : t.kitchen.over}
-          </Text>
-          <Text style={[type.small, { color: ON_HERO_SOFT, marginTop: 2 }]}>
-            {t.kitchen.calcEstimate}
-          </Text>
         </HeroCard>
 
         {recent.length > 0 ? (
@@ -420,6 +419,18 @@ export default function CalcScreen() {
         </Card>
 
         <Card label={t.kitchen.calcPlate}>
+          {items.length > 0 ? (
+            <Text style={[type.bodyStrong, { color: colors.ink }]}>
+              {sums.kcal} {t.kitchen.kcal} · {sums.protein}
+              {t.kitchen.grams} {t.kitchen.protein}
+              {split ? (
+                <Text style={[type.small, { color: colors.inkSoft }]}>
+                  {"  "}
+                  {fill(t.kitchen.calcMacros, { carbs: split.carbs, fat: split.fat })}
+                </Text>
+              ) : null}
+            </Text>
+          ) : null}
           {items.length === 0 ? (
             <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.calcEmpty}</Text>
           ) : (
@@ -540,7 +551,7 @@ export default function CalcScreen() {
 
           <Button
             icon="checkmark"
-            label={t.kitchen.calcSave}
+            label={items.length > 0 ? fill(t.kitchen.calcSaveKcal, { kcal: sums.kcal }) : t.kitchen.calcSave}
             onPress={save}
             disabled={items.length === 0}
             style={{ marginTop: space.md }}
@@ -550,8 +561,27 @@ export default function CalcScreen() {
               {t.kitchen.calcSaved}
             </Text>
           ) : null}
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.kitchen.calcEstimate}</Text>
         </Card>
+        {/* room for the add bar, so the last card is never under it */}
+        {items.length > 0 ? <View style={{ height: 76 }} /> : null}
       </Screen>
+
+      {/* Always in reach while there is something on the plate: the button used
+          to sit at the bottom of the plate card, and people added food, never
+          scrolled to it, and the day's total never moved. */}
+      {items.length > 0 ? (
+        <View
+          style={{
+            position: "absolute",
+            left: space.lg,
+            right: space.lg,
+            bottom: space.lg,
+          }}
+        >
+          <Button icon="add-circle" label={fill(t.kitchen.calcSaveKcal, { kcal: sums.kcal })} onPress={save} />
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

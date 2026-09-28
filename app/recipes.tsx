@@ -1,15 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useState } from "react";
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Card } from "@/components/Card";
 import { MealPhoto } from "@/components/MealPhoto";
 import { PillButton } from "@/components/PillButton";
-import { Screen } from "@/components/Screen";
+import { MAX_CONTENT, ScreenBand } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
-import { dietList, type MealSlot } from "@/kitchen";
+import { dietList, type Meal, type MealSlot } from "@/kitchen";
+import { BUNDLED_MEAL_PHOTOS } from "@/kitchen/mealPhotoAssets";
 import { bookSize, foodsOf, searchBook, type BookFilter } from "@/kitchen/book";
 import { RECIPES } from "@/kitchen/recipes";
 import { useStore } from "@/store";
@@ -69,9 +70,32 @@ export default function RecipeBookScreen() {
     if (pick) router.push({ pathname: "/recipe/[id]", params: { id: pick.id } });
   };
 
-  return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <Screen
+  const open = useCallback(
+    (id: string) => router.push({ pathname: "/recipe/[id]", params: { id } }),
+    [router],
+  );
+  const renderItem = useCallback(
+    ({ item }: { item: Meal }) => (
+      <RecipeRow
+        meal={item}
+        locale={locale === "he" ? "he" : "en"}
+        starred={favorites.includes(item.id)}
+        slotText={slotLabel[item.slot]}
+        onOpen={open}
+      />
+    ),
+    // slotLabel is rebuilt from t each render; t only changes with the locale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locale, favorites, open],
+  );
+
+  // The controls ride at the top of the list, so the whole screen scrolls as
+  // one — but the rows below them are virtualized: only what is on screen is
+  // drawn. 137 rows each decoding a full-size photo is what made the book slow
+  // to open and stutter when scrolled.
+  const header = (
+    <View>
+      <ScreenBand
         eyebrow={fill(t.recipes.count, { n: total })}
         title={t.recipes.heading}
         subtitle={t.recipes.body}
@@ -93,7 +117,8 @@ export default function RecipeBookScreen() {
             <Ionicons name="close" size={20} color={colors.bandInk} />
           </Pressable>
         }
-      >
+      />
+      <View style={[centered, { paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg, paddingBottom: space.sm }]}>
         <TextField value={query} onChangeText={setQuery} placeholder={t.recipes.search} />
 
         {/* which meal */}
@@ -129,59 +154,106 @@ export default function RecipeBookScreen() {
           <Card tone="orange">
             <Text style={[type.body, { color: colors.ink }]}>{t.recipes.none}</Text>
           </Card>
-        ) : (
-          <View style={{ gap: space.sm }}>
-            {rows.map((m) => {
-              const r = RECIPES[m.id]!;
-              const copy = locale === "he" ? m.he : m.en;
-              const starred = favorites.includes(m.id);
-              return (
-                <Pressable
-                  key={m.id}
-                  onPress={() => router.push({ pathname: "/recipe/[id]", params: { id: m.id } })}
-                  accessibilityRole="button"
-                  accessibilityLabel={copy.title}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: space.md,
-                    padding: space.sm,
-                    borderRadius: radius.lg,
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.rule,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <View style={{ width: 76, height: 76, borderRadius: radius.md, overflow: "hidden" }}>
-                    <MealPhoto meal={m} foods={foodsOf(m)} haveIds={new Set<string>()} width={76} height={76} />
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <Text style={[type.bodyStrong, { color: colors.ink, flexShrink: 1 }]} numberOfLines={2}>
-                        {copy.title}
-                      </Text>
-                      {starred ? <Ionicons name="star" size={14} color={colors.orangeInk} /> : null}
-                    </View>
-                    <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
-                      {slotLabel[m.slot]} · ⏱ {fill(t.recipes.minutes, { n: r.minutes })}
-                    </Text>
-                    <Text style={[type.small, { color: colors.inkSoft }]}>
-                      <Text style={{ color: metricInk(colors, "calories"), fontWeight: "700" }}>≈{m.kcal}</Text> {t.kitchen.kcal} ·{" "}
-                      <Text style={{ color: metricInk(colors, "protein"), fontWeight: "700" }}>{m.protein}</Text>
-                      {t.kitchen.grams} {t.kitchen.protein}
-                    </Text>
-                  </View>
-                  <Ionicons name={locale === "he" ? "chevron-back" : "chevron-forward"} size={18} color={colors.inkFaint} />
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-      </Screen>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.ground }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <FlatList
+        data={rows}
+        keyExtractor={(m) => m.id}
+        renderItem={renderItem}
+        ListHeaderComponent={header}
+        ListFooterComponent={<View style={{ height: space.xxl }} />}
+        ItemSeparatorComponent={Separator}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={40}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === "android"}
+        style={{ flex: 1 }}
+      />
     </KeyboardAvoidingView>
   );
 }
+
+const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
+
+function Separator() {
+  return <View style={{ height: 8 }} />;
+}
+
+const THUMB = 76;
+
+/** One recipe in the list. Memoized: a row only redraws when its own data changes. */
+const RecipeRow = memo(function RecipeRow({
+  meal: m,
+  locale,
+  starred,
+  slotText,
+  onOpen,
+}: {
+  meal: Meal;
+  locale: "he" | "en";
+  starred: boolean;
+  slotText: string;
+  onOpen: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const r = RECIPES[m.id]!;
+  const copy = locale === "he" ? m.he : m.en;
+  const photo = BUNDLED_MEAL_PHOTOS[m.id];
+  return (
+    <View style={[centered, { paddingHorizontal: space.lg }]}>
+      <Pressable
+        onPress={() => onOpen(m.id)}
+        accessibilityRole="button"
+        accessibilityLabel={copy.title}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.md,
+          padding: space.sm,
+          borderRadius: radius.lg,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.rule,
+          opacity: pressed ? 0.75 : 1,
+        })}
+      >
+        <View style={{ width: THUMB, height: THUMB, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surfaceAlt }}>
+          {photo ? (
+            // Decoded at thumbnail size on Android rather than at 640 × 480.
+            <Image source={photo.source} resizeMethod="resize" fadeDuration={120} style={{ width: THUMB, height: THUMB }} />
+          ) : (
+            <MealPhoto meal={m} foods={foodsOf(m)} haveIds={new Set<string>()} width={THUMB} height={THUMB} />
+          )}
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={[type.bodyStrong, { color: colors.ink, flexShrink: 1 }]} numberOfLines={2}>
+              {copy.title}
+            </Text>
+            {starred ? <Ionicons name="star" size={14} color={colors.orangeInk} /> : null}
+          </View>
+          <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={1}>
+            {slotText} · ⏱ {fill(t.recipes.minutes, { n: r.minutes })}
+          </Text>
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            <Text style={{ color: metricInk(colors, "calories"), fontWeight: "700" }}>≈{m.kcal}</Text> {t.kitchen.kcal} ·{" "}
+            <Text style={{ color: metricInk(colors, "protein"), fontWeight: "700" }}>{m.protein}</Text>
+            {t.kitchen.grams} {t.kitchen.protein}
+          </Text>
+        </View>
+        <Ionicons name={locale === "he" ? "chevron-back" : "chevron-forward"} size={18} color={colors.inkFaint} />
+      </Pressable>
+    </View>
+  );
+});
 
 function Filter({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const { colors, radius, type, space } = useTheme();

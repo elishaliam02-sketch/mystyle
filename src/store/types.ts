@@ -241,6 +241,8 @@ export type AppState = {
    * across opens and the Today hub can read a calorie target from it. Kept in
    * step with the canonical `goal`. */
   nutritionGoal?: Goal;
+  /** When the current goal was chosen — the adaptive target learns from there. */
+  goalSince?: string;
   /** Progress photos, newest last. Device-local — the file uris live on the
    * phone and are never uploaded. */
   photos?: ProgressPhoto[];
@@ -385,6 +387,7 @@ export function migrateState(raw: unknown): AppState {
     // kitchen or the plan was last set to, so an upgrade doesn't reset it.
     goal: s.goal ?? s.nutritionGoal ?? s.training?.goal,
     nutritionGoal: s.nutritionGoal ?? s.goal,
+    goalSince: typeof s.goalSince === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.goalSince) ? s.goalSince : undefined,
     photos: s.photos,
     dietFilter: s.dietFilter,
     favorites: s.favorites,

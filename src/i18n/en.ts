@@ -279,7 +279,28 @@ export const en: typeof he = {
     note: "Works the same on mobile data as on Wi-Fi — the app never asks which one you are using. It also can't connect you to a network itself, which is why the button opens your device's own network settings.",
   },
 
+  day: {
+    title: "Today's calories",
+    onTarget: "🎯 On target",
+    ofTarget: "of {target} kcal",
+    left: "{n} kcal left today",
+    over: "{n} kcal over the target",
+    plate: "+{plate} on the plate · {after} left after",
+    protein: "Protein {n}/{of} g",
+    add: "Add food",
+    learning: "The target adjusts itself every week from your weigh-ins. Weigh yourself 3 times a week — {days} more days and it starts fitting you.",
+    pace: "Last two weeks: {rate} kg a week (goal: {goal}).",
+    onTrack: "Right on pace — the target stays.",
+    lowered: "Lowered by {n} kcal a day to get on pace.",
+    raised: "Raised by {n} kcal a day to get on pace.",
+  },
+
   updates: {
+    caps: "On this phone",
+    capCamera: "camera",
+    capScan: "fast food recognition",
+    capSteps: "steps",
+    capsOld: "This install is old: scanning a meal needs the new install. Install the latest apex.apk once — everything updates by itself after that.",
     bannerTitle: "A new version is ready",
     bannerBody: "It installs by itself the next time you come back to the app. Or now — it takes a second and nothing is lost.",
     updatedTitle: "The app was updated ✓",
@@ -669,6 +690,8 @@ export const en: typeof he = {
     reasonGuess: "a guess from the words",
   },
   kitchen: {
+    calcSaveKcal: "Add to today · {kcal} kcal",
+    calcAddedToDay: "Added to today: {kcal} kcal",
     calcAddUnknown: "Not on the list? Add \"{q}\" as:",
     calcCatProtein: "Protein",
     calcCatCarb: "Carb",

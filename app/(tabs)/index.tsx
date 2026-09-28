@@ -14,6 +14,8 @@ import { ProGate, ProRemaining } from "@/components/ProGate";
 import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { DayCalories } from "@/components/DayCalories";
+import { Rise, useCountUp } from "@/components/motion";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useConnectivity } from "@/net";
@@ -22,7 +24,6 @@ import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
 import Svg, { Circle } from "react-native-svg";
 import { dayScore, scoreTier } from "@/insight/dayscore";
-import { dailyTarget } from "@/kitchen";
 import { fill, formatDate, useI18n } from "@/i18n";
 import { ON_HERO, ON_HERO_SOFT } from "@/theme";
 import { useStore } from "@/store";
@@ -224,14 +225,13 @@ function TodayHub() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, streak, todayIntake, todayWater, waterGoal, goal, todayKey } = useStore();
+  const { state, isDone, streak, todayIntake, todayWater, waterGoal, calorieTarget, todayKey } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
   const bestStreak = habits.reduce((m, h) => Math.max(m, streak(h.id)), 0);
 
-  const weightKg = state.weighIns[state.weighIns.length - 1]?.kg ?? state.profile.startKg;
-  const target = dailyTarget(weightKg, goal());
+  const target = calorieTarget();
   const eaten = todayIntake().kcal;
   const water = todayWater();
   const wGoal = waterGoal();
@@ -368,7 +368,10 @@ function ScoreRing({ score, onHero = false }: { score: number; onHero?: boolean 
   const stroke = 9;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
+  // Counts up when Today opens and whenever the score moves; the arc follows
+  // the counted number, so it sweeps round rather than appearing.
+  const shown = useCountUp(score, 900, true);
+  const dash = (Math.max(0, Math.min(100, shown)) / 100) * c;
   const track = onHero ? "rgba(255,255,255,0.22)" : colors.rule;
   // The day score counts what got finished, so the arc belongs to the count
   // family: neon lime, which is the one bright that holds up on the blue hero.
@@ -388,7 +391,7 @@ function ScoreRing({ score, onHero = false }: { score: number; onHero?: boolean 
           strokeDasharray={`${dash} ${c}`}
         />
       </Svg>
-      <Text style={[type.figure, { color: onHero ? ON_HERO : colors.ink, fontSize: 34 }]}>{score}</Text>
+      <Text style={[type.figure, { color: onHero ? ON_HERO : colors.ink, fontSize: 34 }]}>{shown}</Text>
     </View>
   );
 }
@@ -428,6 +431,9 @@ export default function TodayScreen() {
   if (habits.length === 0) {
     return (
       <Screen eyebrow={dateLabel} title={title}>
+        <Rise>
+          <DayCalories />
+        </Rise>
         <Card label={t.today.emptyTitle}>
           <Text style={[type.body, { color: colors.inkSoft }]}>{t.today.emptyBody}</Text>
           <Button
@@ -463,6 +469,10 @@ export default function TodayScreen() {
       <WhatsNew />
 
       <TodayHub />
+
+      <Rise delay={80}>
+        <DayCalories />
+      </Rise>
 
       {/* the core daily loop leads the screen: ticking a habit was the fourth
           block down, at or below the fold on a phone */}
