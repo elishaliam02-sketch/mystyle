@@ -60,6 +60,8 @@ appId: com.mystyle.app
 - scrollUntilVisible:
     element: "קלוריות היום"
     direction: UP
-    timeout: 20000
+    timeout: 120000
+    speed: 60
+    visibilityPercentage: 1
 - assertVisible: "נשארו .* קלוריות להיום"
 - takeScreenshot: device-test/05b-day-total
