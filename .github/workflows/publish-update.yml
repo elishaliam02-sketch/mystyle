@@ -124,3 +124,14 @@ jobs:
 
       - name: Put it online
         run: eas deploy --prod --export-dir dist --non-interactive
+
+      # What an iPhone asks for first: the page, a screen opened by its own
+      # address, the home-screen icon and the app manifest.
+      - name: Check the site answers
+        run: |
+          for path in / /kitchen /recipes /apple-touch-icon.png /manifest.json; do
+            code=$(curl -s -o /tmp/body -w '%{http_code}' "https://mystyle.expo.app$path")
+            echo "$code $path"
+            [ "$code" = "200" ] || exit 1
+          done
+          grep -q 'apple-mobile-web-app-capable' <(curl -s https://mystyle.expo.app/) || { echo "home-screen tags missing"; exit 1; }
