@@ -44,7 +44,9 @@ export function MealScanner() {
   const [mult, setMult] = useState(1);
   const router = useRouter();
 
-  const canPick = Platform.OS !== "web";
+  // The browser (an iPhone on the web version) picks or takes a photo through
+  // its own file picker and reads it with the JavaScript model.
+  const canPick = true;
   const canScan = allowance("mealPhoto").ok;
 
   async function scan(fromCamera: boolean) {
