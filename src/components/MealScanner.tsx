@@ -1,4 +1,5 @@
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,12 +9,16 @@ import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
 import { mealLabel, type MealAnalysis } from "@/ai/nutrition";
-import { fastRecognition, manipulator, recognizePhoto, type Recognition } from "@/ai/recognize";
+import { canReadPhotos, fastRecognition, recognizePhoto, type Recognition, type ScanStage } from "@/ai/recognize";
 import { FoodThumb } from "@/components/FoodThumb";
 import { gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+/** Where a photo reading got to while it runs; see readPhoto. */
+export const SCAN_STAGE_KEY = "mystyle.scan.stage";
+/** The last reading that stopped half-way, for the profile's version card. */
+export const SCAN_LAST_CRASH_KEY = "mystyle.scan.lastCrash";
 
 type Phase =
   | { kind: "idle" }
@@ -22,7 +27,7 @@ type Phase =
   /** Recognised on the phone: the dishes the photo most looks like. */
   | { kind: "guessed"; uri: string; guesses: Recognition[] }
   | { kind: "saved"; kcal: number; goal: number }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" };
+  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" | "crashed"; stage?: string };
 
 /**
  * Photograph the meal, get the calories.
@@ -49,20 +54,82 @@ export function MealScanner() {
   const canPick = true;
   const canScan = allowance("mealPhoto").ok;
 
+  // Where the reading of a photo got to, kept on the phone while it runs. If
+  // the app is closed mid-way (out of memory, or Android killing it while the
+  // camera was open), the next opening finds it, says so, and the profile can
+  // show which step it was — rather than the scanner silently doing nothing.
+  const mark = (stage: "picked" | ScanStage) =>
+    AsyncStorage.setItem(SCAN_STAGE_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
+  const unmark = () => AsyncStorage.removeItem(SCAN_STAGE_KEY).catch(() => {});
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SCAN_STAGE_KEY);
+        if (raw) {
+          await unmark();
+          const { stage } = JSON.parse(raw) as { stage: string };
+          await AsyncStorage.setItem(SCAN_LAST_CRASH_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
+          if (live) setPhase({ kind: "failed", reason: "crashed", stage });
+          return;
+        }
+        // Android may close the app while the camera is open; the photo it
+        // took is waiting here, and is read as if nothing had happened.
+        const picker = imagePicker();
+        const pending = picker && Platform.OS === "android" ? await picker.getPendingResultAsync() : null;
+        if (live && pending && "assets" in pending && !pending.canceled && pending.assets?.[0]) {
+          void readPhoto(pending.assets[0].uri);
+        }
+      } catch {
+        // Nothing to recover.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // Once, when the scanner first appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function readPhoto(uri: string) {
+    setPhase({ kind: "reading", uri });
+    await mark("picked");
+    // Let the "reading…" state paint before the model takes the thread.
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      // Recognised on the phone itself: no key, no server, no quota — the
+      // photo never leaves the device.
+      const guesses = await recognizePhoto(uri, locale === "he" ? "he" : "en", (stage) => void mark(stage));
+      await unmark();
+      if (guesses.length === 0) {
+        setPhase({ kind: "failed", reason: "unreadable" });
+        return;
+      }
+      noteUsed("mealPhoto");
+      setChosen(Math.max(0, guesses.findIndex((g) => g.food)));
+      setMult(1);
+      setPhase({ kind: "guessed", uri, guesses });
+    } catch {
+      await unmark();
+      setPhase({ kind: "failed", reason: "unreadable" });
+    }
+  }
+
   async function scan(fromCamera: boolean) {
     // Checked before the camera or the picker opens: nobody should frame a
     // plate, take the shot and only then be told it will not be read.
     if (!allowance("mealPhoto").ok) return;
     const ImagePicker = imagePicker();
-    if (!ImagePicker) {
+    // An install without the native resizer would have to decode the full
+    // photo in JavaScript — hundreds of megabytes, and the app closes. Such
+    // an install is told to update rather than being allowed to crash.
+    if (!ImagePicker || !canReadPhotos(Platform.OS)) {
       setPhase({ kind: "failed", reason: "oldApp" });
       return;
     }
     try {
-      // With the resizer the photo is shrunk natively before it is read; the
-      // full-size base64 is only asked for when it is missing (an older
-      // install), because decoding a 12 MP picture in JavaScript is slow.
-      const opts = { quality: 0.7, base64: !manipulator() } as const;
+      const opts = { quality: 0.8 } as const;
       let res;
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -77,22 +144,7 @@ export function MealScanner() {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
       }
       if (res.canceled || !res.assets[0]) return;
-      const asset = res.assets[0];
-      setPhase({ kind: "reading", uri: asset.uri });
-      // Let the "reading…" state paint before the model takes the thread.
-      await new Promise((r) => setTimeout(r, 50));
-
-      // Recognised on the phone itself: no key, no server, no quota — the
-      // photo never leaves the device.
-      const guesses = await recognizePhoto(asset.uri, asset.base64 ?? null, locale === "he" ? "he" : "en");
-      if (guesses.length === 0) {
-        setPhase({ kind: "failed", reason: "unreadable" });
-        return;
-      }
-      noteUsed("mealPhoto");
-      setChosen(Math.max(0, guesses.findIndex((g) => g.food)));
-      setMult(1);
-      setPhase({ kind: "guessed", uri: asset.uri, guesses });
+      await readPhoto(res.assets[0].uri);
     } catch {
       setPhase({ kind: "failed", reason: "unreadable" });
     }
@@ -183,7 +235,9 @@ export function MealScanner() {
                         ? t.scan.off
                         : phase.reason === "oldApp"
                           ? t.common.needsNewInstall
-                          : t.scan.unavailable}
+                          : phase.reason === "crashed"
+                            ? t.scan.crashed
+                            : t.scan.unavailable}
               </Text>
               {/* Reading a photograph can fail for half a dozen reasons we do
                   not control. Counting the meal by hand cannot, so every one of

@@ -97,14 +97,22 @@ async function modelFile(): Promise<string> {
   return uri;
 }
 
-async function classifyNative(uri: string, lib: Tflite, m: Manipulator): Promise<Guess[]> {
+/** Where a reading got to, recorded so a crash can be traced to its step. */
+export type ScanStage = "resize" | "model" | "run" | "js";
+type OnStage = (stage: ScanStage) => void;
+
+async function classifyNative(uri: string, lib: Tflite, m: Manipulator, onStage: OnStage): Promise<Guess[]> {
+  onStage("model");
   nativeModel ??= modelFile()
     .then((url) => lib.loadTensorflowModel({ url }, []))
     .catch((e: unknown) => {
       nativeModel = null;
       throw e;
     });
-  const [model, square] = await Promise.all([nativeModel, squareJpeg(uri, m)]);
+  const model = await nativeModel;
+  onStage("resize");
+  const square = await squareJpeg(uri, m);
+  onStage("run");
   const input = jpegToModelInput(square);
   const inType = model.inputs[0]?.dataType;
   const buffer =
@@ -172,21 +180,35 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
   return likely.slice(0, 5);
 }
 
+/**
+ * Whether a photo can be read on this install without risking the app. On a
+ * phone the photo has to be shrunk natively first: decoding a 12-megapixel
+ * picture in JavaScript takes hundreds of megabytes and closes the app on
+ * many phones, so an install without the resizer is told to update instead.
+ * The browser decodes and shrinks pictures itself.
+ */
+export function canReadPhotos(platform: string): boolean {
+  return platform === "web" || manipulator() !== null;
+}
+
 export async function recognizePhoto(
   uri: string,
-  fullBase64: string | null,
   locale: "he" | "en",
+  onStage: OnStage = () => {},
 ): Promise<Recognition[]> {
   const m = manipulator();
   const lib = tflite();
   let guesses: Guess[] | null = null;
   if (lib && m) {
     try {
-      guesses = await classifyNative(uri, lib, m);
+      guesses = await classifyNative(uri, lib, m, onStage);
     } catch {
       guesses = null;
     }
   }
-  guesses ??= await classifyJs(uri, fullBase64, m);
+  if (!guesses) {
+    onStage("js");
+    guesses = await classifyJs(uri, null, m);
+  }
   return toRecognitions(guesses, locale);
 }

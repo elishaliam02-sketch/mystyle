@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { HeroCard } from "@/components/HeroCard";
 import { DayCalories } from "@/components/DayCalories";
+import { MealScanner } from "@/components/MealScanner";
 import { Pop } from "@/components/motion";
 import { Screen } from "@/components/Screen";
 import { FoodThumb } from "@/components/FoodThumb";
@@ -179,6 +180,10 @@ export default function CalcScreen() {
             </Pop>
           ) : null}
         </HeroCard>
+
+        {/* the photo is the quickest way in: recognised, weighed, and logged
+            into the day shown above */}
+        <MealScanner />
 
         {recent.length > 0 ? (
           <Card label={t.kitchen.recentTitle}>

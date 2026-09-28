@@ -296,6 +296,7 @@ export const en: typeof he = {
   },
 
   updates: {
+    scanStopped: "Last photo reading stopped at: {stage}",
     caps: "On this phone",
     capCamera: "camera",
     capScan: "fast food recognition",
@@ -1268,6 +1269,7 @@ export const en: typeof he = {
   },
 
   scan: {
+    crashed: "The last photo reading stopped half-way and the app closed. Try again, or add it in the calculator.",
     searchIt: "Not in the library — tap to search",
     howMuch: "How much did you have?",
     addMore: "More on the plate? Add it in the calculator ›",

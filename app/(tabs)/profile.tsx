@@ -1,7 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { PAYMENTS_LIVE } from "@/billing/launch";
 import { imagePicker, sensors } from "@/native/optional";
 import { fastRecognition } from "@/ai/recognize";
+import { SCAN_LAST_CRASH_KEY } from "@/components/MealScanner";
 import { Chevron } from "@/components/Chevron";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -675,6 +677,17 @@ function UpdatesCard() {
   const { t, locale } = useI18n();
   const { colors, space, type } = useTheme();
   const update = useAppUpdate();
+  // Where the last photo reading stopped, if the app closed during one.
+  const [lastScanStop, setLastScanStop] = useState<string | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem(SCAN_LAST_CRASH_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const { stage, at } = JSON.parse(raw) as { stage: string; at: number };
+        setLastScanStop(`${stage} · ${new Date(at).toLocaleString()}`);
+      })
+      .catch(() => {});
+  }, []);
   const { version, channel, embedded } = update.running;
 
   const status =
@@ -722,6 +735,11 @@ function UpdatesCard() {
         <Text style={[type.small, { color: colors.inkSoft }]}>
           {t.updates.caps}: {t.updates.capCamera} {imagePicker() ? "✓" : "✗"} · {t.updates.capScan}{" "}
           {fastRecognition() ? "✓" : "✗"} · {t.updates.capSteps} {sensors() ? "✓" : "✗"}
+        </Text>
+      ) : null}
+      {lastScanStop ? (
+        <Text selectable style={[type.small, { color: colors.inkFaint }]}>
+          {fill(t.updates.scanStopped, { stage: lastScanStop })}
         </Text>
       ) : null}
       {Platform.OS !== "web" && (!imagePicker() || !fastRecognition()) ? (
