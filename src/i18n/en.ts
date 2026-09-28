@@ -1267,6 +1267,7 @@ export const en: typeof he = {
   },
 
   common: {
+    needsNewInstall: "The version installed on this phone does not support this yet. Installing the new version once turns it on — everything else updates by itself.",
     proLocked: "This opens with Pro",
     proSee: "First week free",
     proLeftOne: "One left today",

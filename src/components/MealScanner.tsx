@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
+import { imagePicker } from "@/native/optional";
 import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
@@ -22,7 +22,7 @@ type Phase =
   /** Recognised on the phone: the dishes the photo most looks like. */
   | { kind: "guessed"; uri: string; guesses: Recognition[] }
   | { kind: "saved"; kcal: number; goal: number }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" };
+  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" };
 
 /**
  * Photograph the meal, get the calories.
@@ -51,6 +51,11 @@ export function MealScanner() {
     // Checked before the camera or the picker opens: nobody should frame a
     // plate, take the shot and only then be told it will not be read.
     if (!allowance("mealPhoto").ok) return;
+    const ImagePicker = imagePicker();
+    if (!ImagePicker) {
+      setPhase({ kind: "failed", reason: "oldApp" });
+      return;
+    }
     try {
       // With the resizer the photo is shrunk natively before it is read; the
       // full-size base64 is only asked for when it is missing (an older
@@ -176,7 +181,9 @@ export function MealScanner() {
                       ? t.kitchen.cameraDenied
                       : phase.reason === "off"
                         ? t.scan.off
-                        : t.scan.unavailable}
+                        : phase.reason === "oldApp"
+                          ? t.common.needsNewInstall
+                          : t.scan.unavailable}
               </Text>
               {/* Reading a photograph can fail for half a dozen reasons we do
                   not control. Counting the meal by hand cannot, so every one of

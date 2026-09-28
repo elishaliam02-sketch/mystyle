@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
+import { imagePicker } from "@/native/optional";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
@@ -993,6 +993,11 @@ function PhotosCard() {
 
   const pick = async (fromCamera: boolean) => {
     setNote(null);
+    const ImagePicker = imagePicker();
+    if (!ImagePicker) {
+      setNote(t.common.needsNewInstall);
+      return;
+    }
     try {
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();

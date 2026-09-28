@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
-import { Pedometer } from "expo-sensors";
+import { sensors } from "@/native/optional";
 
 export type AutoStepsState = {
   /** Whether the phone can count steps for this person at all. */
@@ -64,6 +64,12 @@ export function useAutoSteps(opts: {
 
     (async () => {
       try {
+        // An install built before the step sensor was added has no module.
+        const Pedometer = sensors()?.Pedometer;
+        if (!Pedometer) {
+          if (!cancelled) setAvailable(false);
+          return;
+        }
         const ok = await Pedometer.isAvailableAsync();
         if (cancelled) return;
         setAvailable(ok);
