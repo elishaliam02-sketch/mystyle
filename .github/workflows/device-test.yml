@@ -41,12 +41,20 @@ jobs:
           id="$RUN_ID"
           # The newest build that produced an APK (the run as a whole can be
           # red because this very test failed on it).
-          if [ -z "$id" ]; then
-            for r in $(gh run list -R "$GITHUB_REPOSITORY" --workflow build-app.yml --status completed --limit 10 --json databaseId -q '.[].databaseId'); do
-              if [ -n "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$r/artifacts" -q '.artifacts[] | select(.name == "apex-apk" and (.expired | not)) | .id')" ]; then
+          # The lookup goes through the GitHub API, which now and then answers
+          # nothing; it is tried a few times before giving up.
+          for attempt in 1 2 3; do
+            [ -n "$id" ] && break
+            for r in $(gh run list -R "$GITHUB_REPOSITORY" --workflow build-app.yml --status completed --limit 10 --json databaseId -q '.[].databaseId' || true); do
+              if [ -n "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$r/artifacts" -q '.artifacts[] | select(.name == "apex-apk" and (.expired | not)) | .id' || true)" ]; then
                 id=$r; break
               fi
             done
+            [ -n "$id" ] || sleep 10
+          done
+          if [ -z "$id" ]; then
+            echo "::error::No APK build found to test"
+            exit 1
           fi
           echo "Testing the APK from run $id"
           echo "id=$id" >> "$GITHUB_OUTPUT"
@@ -100,6 +108,9 @@ jobs:
       - name: Commit the screenshots
         if: always() && github.ref_type == 'branch'
         run: |
+          # A run that never reached the emulator has nothing to show and must
+          # not wipe the last good screenshots.
+          if ! ls device-test/*.png > /dev/null 2>&1; then exit 0; fi
           (sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick) > /dev/null 2>&1 || true
           rm -rf docs/qa/device && mkdir -p docs/qa/device
           find device-test -name '*.png' -not -path '*/.maestro/*' | while read -r f; do
