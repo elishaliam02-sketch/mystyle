@@ -75,6 +75,8 @@ export function runningVersion(): {
   updateId: string | null;
   /** True when this is the bundle that shipped inside the store build. */
   embedded: boolean;
+  /** When the running update was published, when it is one. */
+  publishedAt: Date | null;
 } {
   return {
     // The store version comes from app.json, which is the same number on every
@@ -83,6 +85,7 @@ export function runningVersion(): {
     channel: Updates.channel ?? null,
     updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
     embedded: Updates.isEmbeddedLaunch,
+    publishedAt: Updates.isEmbeddedLaunch ? null : (Updates.createdAt ?? null),
   };
 }
 
@@ -90,19 +93,42 @@ export function runningVersion(): {
  * Checks for an update, downloads it if there is one, and reports where it
  * got to. Installing is `checkAndApply`'s decision, not this function's.
  */
-export async function fetchUpdate(): Promise<UpdateState> {
+export async function fetchUpdate(onDownloading?: () => void): Promise<UpdateState> {
   if (!updatesSupported) return "idle";
+  let check;
   try {
-    const check = await Updates.checkForUpdateAsync();
-    if (!check.isAvailable) return "current";
-    const fetched = await Updates.fetchUpdateAsync();
-    if (fetched.isNew) pendingId = fetched.manifest?.id ?? null;
-    return fetched.isNew ? "ready" : "current";
-  } catch {
-    // Offline, or the update server is having a bad day. Neither is the
-    // user's problem, and neither should reach their screen.
+    check = await Updates.checkForUpdateAsync();
+  } catch (e) {
+    // Offline, most likely. Kept (not shown as an alarm) so the profile can
+    // say what actually went wrong when someone asks.
+    lastError = { step: "check", message: errorText(e) };
     return "failed";
   }
+  if (!check.isAvailable) {
+    lastError = null;
+    return "current";
+  }
+  onDownloading?.();
+  try {
+    const fetched = await Updates.fetchUpdateAsync();
+    if (fetched.isNew) pendingId = fetched.manifest?.id ?? null;
+    lastError = null;
+    return fetched.isNew ? "ready" : "current";
+  } catch (e) {
+    lastError = { step: "download", message: errorText(e) };
+    return "failed";
+  }
+}
+
+function errorText(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  return m.length > 160 ? `${m.slice(0, 157)}…` : m;
+}
+
+/** What went wrong in the last check, for the profile's version card. */
+let lastError: { step: "check" | "download"; message: string } | null = null;
+export function lastUpdateError() {
+  return lastError;
 }
 
 /** Restarts into the downloaded update. */
@@ -161,7 +187,11 @@ async function applyIfIdle(): Promise<boolean> {
   return true;
 }
 
-type Trigger = "launch" | "resume" | "manual";
+type Trigger = "launch" | "resume" | "manual" | "retry";
+
+/** How long after a failed check it is tried again, once. */
+const RETRY_MS = 20 * 1000;
+let retryQueued = false;
 
 /** Asks for an update, downloads it, and installs it when that is safe. */
 export async function checkAndApply(trigger: Trigger): Promise<UpdateState> {
@@ -183,12 +213,24 @@ export async function checkAndApply(trigger: Trigger): Promise<UpdateState> {
   busy = true;
   lastCheck = started;
   setShared("checking");
-  const result = await fetchUpdate();
+  const result = await fetchUpdate(() => setShared("downloading"));
   busy = false;
   setShared(result);
+  // A check that failed on its own (a weak signal, a dropped download) is
+  // tried again shortly, once, rather than leaving the phone a version behind
+  // until the next time the app is opened.
+  if (result === "failed" && trigger !== "retry" && !retryQueued) {
+    retryQueued = true;
+    setTimeout(() => {
+      retryQueued = false;
+      void checkAndApply("retry");
+    }, RETRY_MS);
+  }
   // Downloaded quickly after the app was opened (or the person asked): the
   // restart is part of opening the app, not an interruption.
-  if (result === "ready" && (trigger === "manual" || Date.now() - started < APPLY_WINDOW_MS)) {
+  // A retry runs while the app is already in use, so it only downloads; the
+  // update installs the next time the app is opened.
+  if (result === "ready" && trigger !== "retry" && (trigger === "manual" || Date.now() - started < APPLY_WINDOW_MS)) {
     await applyIfIdle();
   }
   return result;
@@ -256,6 +298,7 @@ export function useAppUpdate() {
     ready: state === "ready",
     supported: updatesSupported,
     check: () => checkAndApply("manual"),
+    error: state === "failed" ? lastUpdateError() : null,
     apply: applyUpdate,
     running: runningVersion(),
   };

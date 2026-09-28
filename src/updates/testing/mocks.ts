@@ -7,6 +7,7 @@ type Ctl = {
   available: boolean;
   fetchMs: number;
   offline: boolean;
+  fetchFail: boolean;
   focused: boolean;
   emergency: boolean;
   manifestId: string;
@@ -33,8 +34,10 @@ export const Updates = {
     if (c().offline) throw new Error("offline");
     return { isAvailable: c().available };
   },
+  createdAt: null,
   async fetchUpdateAsync() {
     c().now += c().fetchMs;
+    if (c().fetchFail) throw new Error("Failed to download asset");
     return { isNew: true, manifest: { id: c().manifestId } };
   },
   async reloadAsync() {

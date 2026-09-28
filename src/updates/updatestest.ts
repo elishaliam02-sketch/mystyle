@@ -15,6 +15,7 @@ function fresh(over: Record<string, unknown> = {}) {
     available: true,
     fetchMs: 2_000,
     offline: false,
+    fetchFail: false,
     focused: false,
     emergency: false,
     manifestId: "u1",
@@ -29,6 +30,20 @@ function fresh(over: Record<string, unknown> = {}) {
   Date.now = () => ctl.now;
   return { ctl, mod: g.__loadUpdates() };
 }
+
+// Retries are scheduled with setTimeout; the test runs them by hand.
+const timers: (() => void)[] = [];
+(globalThis as unknown as { setTimeout: (fn: () => void) => number }).setTimeout = (fn) => {
+  timers.push(fn);
+  return 0;
+};
+const runTimers = async () => {
+  while (timers.length) {
+    timers.shift()!();
+    await new Promise<void>((r) => setImmediate(() => r()));
+    await new Promise<void>((r) => setImmediate(() => r()));
+  }
+};
 
 (async () => {
   {
@@ -62,6 +77,21 @@ function fresh(over: Record<string, unknown> = {}) {
     const { ctl, mod } = fresh({ offline: true });
     const s = await mod.checkAndApply("launch");
     check("offline is quiet: no error, no restart", s === "failed" && ctl.reloads === 0);
+    check("and says what failed, for the profile", mod.lastUpdateError()?.step === "check");
+    ctl.offline = false;
+    await runTimers();
+    check("a failed check is tried again by itself", ctl.checks === 2, `checks=${ctl.checks}`);
+    check("and the retry waits for the next opening rather than restarting mid-use", ctl.reloads === 0);
+    await mod.checkAndApply("resume");
+    check("which installs it", ctl.reloads === 1, `reloads=${ctl.reloads}`);
+    timers.length = 0;
+  }
+  {
+    const { ctl, mod } = fresh({ fetchFail: true });
+    await mod.checkAndApply("launch");
+    check("a failed download is reported as a download", mod.lastUpdateError()?.step === "download" && ctl.reloads === 0);
+    await runTimers();
+    check("and retried once, not forever", ctl.checks === 2, `checks=${ctl.checks}`);
   }
   {
     const { ctl, mod } = fresh({ available: false });

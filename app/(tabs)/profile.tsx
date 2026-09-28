@@ -670,7 +670,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
  * wait for the automatic check.
  */
 function UpdatesCard() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { colors, space, type } = useTheme();
   const update = useAppUpdate();
   const { version, channel, embedded } = update.running;
@@ -696,6 +696,18 @@ function UpdatesCard() {
       <Text style={[type.small, { color: colors.inkSoft }]}>
         {embedded ? t.updates.embedded : t.updates.fromUpdate}
       </Text>
+      {update.running.publishedAt ? (
+        <Text style={[type.small, { color: colors.inkSoft }]}>
+          {fill(t.updates.publishedAt, {
+            date: update.running.publishedAt.toLocaleString(locale === "he" ? "he-IL" : "en-GB", {
+              day: "numeric",
+              month: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          })}
+        </Text>
+      ) : null}
       {channel ? (
         <Text style={[type.small, { color: colors.inkFaint }]}>
           {fill(t.updates.channelLine, { channel })}
@@ -722,6 +734,11 @@ function UpdatesCard() {
               ]}
             >
               {status}
+            </Text>
+          ) : null}
+          {update.error ? (
+            <Text selectable style={[type.small, { color: colors.inkFaint }]}>
+              {update.error.step === "check" ? t.updates.errCheck : t.updates.errDownload}: {update.error.message}
             </Text>
           ) : null}
           <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
