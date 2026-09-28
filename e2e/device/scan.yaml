@@ -18,7 +18,10 @@ appId: com.mystyle.app
 - scrollUntilVisible:
     element: "מהגלריה"
     direction: DOWN
-    timeout: 30000
+    timeout: 120000
+    speed: 60
+    visibilityPercentage: 50
+    centerElement: true
 - takeScreenshot: device-test/02-kitchen-scanner
 - tapOn: "מהגלריה"
 - waitForAnimationToEnd:
