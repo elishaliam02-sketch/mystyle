@@ -115,9 +115,20 @@ export async function classifyJpeg(
   source: () => Promise<ModelSource>,
   top = 5,
 ): Promise<Guess[]> {
-  const { model, labels } = await ready(source);
   const decoded = jpeg.decode(base64Bytes(base64), { useTArray: true, maxMemoryUsageInMB: 1024 });
-  const input = toInput(decoded.data, decoded.width, decoded.height);
+  return classifyPixels(decoded.data, decoded.width, decoded.height, source, top);
+}
+
+/** The same, from RGBA pixels already in memory. */
+export async function classifyPixels(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  source: () => Promise<ModelSource>,
+  top = 5,
+): Promise<Guess[]> {
+  const { model, labels } = await ready(source);
+  const input = toInput(rgba, width, height);
   const scores = tf.tidy(() => {
     const x = tf.tensor4d(input, [1, SIDE, SIDE, 3]);
     const y = model.predict(x) as tf.Tensor;

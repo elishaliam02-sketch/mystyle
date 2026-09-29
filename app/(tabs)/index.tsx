@@ -225,7 +225,7 @@ function TodayHub() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, streak, todayIntake, todayWater, waterGoal, calorieTarget, todayKey } = useStore();
+  const { state, isDone, streak, todayIntake, todayWater, waterGoal, calorieTarget, todayKey, activeWorkout } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
@@ -236,6 +236,7 @@ function TodayHub() {
   const water = todayWater();
   const wGoal = waterGoal();
   const workoutDone = (state.training?.log[todayKey()]?.length ?? 0) > 0;
+  const training = activeWorkout() !== null;
 
   // One number that ties the day together — the hook that makes the Today
   // screen worth opening. It climbs as habits are ticked, the session is done,
@@ -277,8 +278,8 @@ function TodayHub() {
       onPress: () => router.push("/water"),
     },
     {
-      icon: workoutDone ? "checkmark-circle" : "barbell",
-      value: workoutDone ? t.today.hubDone : t.today.hubStart,
+      icon: training ? "stopwatch" : workoutDone ? "checkmark-circle" : "barbell",
+      value: training ? t.workout.live : workoutDone ? t.today.hubDone : t.today.hubStart,
       label: t.today.hubWorkout,
       onPress: () => router.push("/workout"),
     },

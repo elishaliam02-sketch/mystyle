@@ -1,6 +1,7 @@
 import { goalMlOf, waterMlLog } from "@/health/water";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
+import type { ActiveWorkout, WorkoutRecord } from "@/workout/session";
 
 /** The training plan config and log, device-local like the pantry. */
 export type Training = {
@@ -42,6 +43,10 @@ export type Training = {
   mode?: "auto" | "custom";
   /** The person's own manually-added moves. */
   custom: Exercise[];
+  /** The workout running right now, Hevy-style: which day and since when. */
+  active?: ActiveWorkout;
+  /** Finished workouts, newest last: duration, volume, sets, PRs, calories. */
+  history?: WorkoutRecord[];
 };
 
 /** A progress photo the person took, with the day's numbers frozen beside it. */

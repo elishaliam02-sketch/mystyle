@@ -9,22 +9,18 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-28",
+  id: "2026-09-29",
   he: [
-    "קלוריות היום בראש המסך — בהיום, במטבח ובמחשבון. כל מה שנרשם, מכל מקום, נכנס לאותה ספירה ורואים אותה עולה.",
-    "היעד היומי חכם: כל שבוע הוא מתעדכן לבד לפי השקילות שלך — גם בחיטוב וגם במסה. יורד לאט מדי? היעד יורד קצת. עולה מהר מדי? הוא מתכוונן.",
-    "המחשבון: מוסיפים אוכל, רואים מיד כמה יישאר, ולוחצים \"הוסף ליומן\" — הכפתור תמיד בהישג יד.",
-    "ספר המתכונים נפתח מיד והגלילה חלקה: 137 מתכונים עם הוראות הכנה, טיימר לכל שלב ותמונה לכל מנה.",
-    "צילום ארוחה: מזהה את המנה בטלפון, בוחרים כמה אכלת — והקלוריות נכנסות ליום.",
-    "האפליקציה מתעדכנת לבד — כשפותחים אותה או חוזרים אליה.",
+    "אימון כמו ב-Hevy: בוחרים איזה יום עושים, לוחצים \"התחל אימון\" — והשעון רץ. רואים סטים ונפח בזמן אמת, ובסוף מקבלים סיכום עם זמן, נפח, שיאים אישיים וקלוריות.",
+    "היסטוריית אימונים: כל אימון נשמר עם כמה זמן לקח וכמה הרמת.",
+    "הקלוריות דינמיות: אימון וצעדים מעל 5,000 מוסיפים ליעד של היום, והיעד השבועי ממשיך להתכוונן לפי השקילות — בחיטוב ובמסה.",
+    "צילום ארוחה עובד עכשיו גם בגרסאות קודמות של האפליקציה, בלי להתקין מחדש ובלי קריסה.",
   ],
   en: [
-    "Today's calories lead the screen — on Today, in the kitchen and in the calculator. Whatever is logged, wherever, lands in one total you see climb.",
-    "A smart daily target: every week it adjusts itself from your weigh-ins — on a cut and on a bulk. Losing too slowly? It comes down a little. Gaining too fast? It adjusts.",
-    "The calculator: add food, see at once what will be left, and tap \"Add to today\" — the button is always in reach.",
-    "The recipe book opens instantly and scrolls smoothly: 137 recipes with methods, a timer per step and a photo of every dish.",
-    "Meal photos: the phone recognises the dish, you pick how much — and the calories go into the day.",
-    "The app updates itself — when you open it or come back to it.",
+    "Workouts like Hevy: pick which day you're doing, tap \"Start workout\" — and the clock runs. See sets and volume live, and finish with a summary of time, volume, PRs and calories.",
+    "Workout history: every session is saved with how long it took and how much you lifted.",
+    "Dynamic calories: workouts and steps above 5,000 add to today's target, and the weekly target keeps adjusting to your weigh-ins — on a cut and on a bulk.",
+    "Meal photos now work on older versions of the app too — no reinstall, no crash.",
   ],
 };
 

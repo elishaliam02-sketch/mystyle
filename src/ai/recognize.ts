@@ -24,7 +24,14 @@ import type { Food } from "@/kitchen";
  * it is missing the full photo is decoded instead — slower, never a crash.
  */
 type Manipulator = typeof import("expo-image-manipulator");
+/** Test hook: behave like an install without the native resizer, so the
+ * device test can drive the path older installs take on a real phone. */
+let legacy = false;
+export function simulateLegacyInstall(on: boolean) {
+  legacy = on;
+}
 export function manipulator(): Manipulator | null {
+  if (legacy) return null;
   try {
     return require("expo-image-manipulator") as Manipulator;
   } catch {
@@ -35,6 +42,7 @@ export function manipulator(): Manipulator | null {
 /** The native TensorFlow Lite runtime, when this install has it. */
 type Tflite = typeof import("react-native-fast-tflite");
 function tflite(): Tflite | null {
+  if (legacy) return null;
   try {
     return require("react-native-fast-tflite") as Tflite;
   } catch {
@@ -98,7 +106,7 @@ async function modelFile(): Promise<string> {
 }
 
 /** Where a reading got to, recorded so a crash can be traced to its step. */
-export type ScanStage = "resize" | "model" | "run" | "js";
+export type ScanStage = "resize" | "model" | "run" | "js" | "small";
 type OnStage = (stage: ScanStage) => void;
 
 async function classifyNative(uri: string, lib: Tflite, m: Manipulator, onStage: OnStage): Promise<Guess[]> {
@@ -128,26 +136,37 @@ async function classifyNative(uri: string, lib: Tflite, m: Manipulator, onStage:
   return rank(scores, FOOD_LABELS, 8);
 }
 
-async function classifyJs(uri: string, fullBase64: string | null, m: Manipulator | null): Promise<Guess[]> {
-  let b64 = fullBase64;
-  if (m) b64 = await squareJpeg(uri, m).catch(() => fullBase64);
-  if (!b64) throw new Error("no image data");
+/** The JavaScript model's weights, loaded the first time a photo is read. */
+async function jsModel() {
+  data ??= require("./foodModelData") as typeof import("./foodModelData");
+  const bytes = base64Bytes(data.WEIGHTS_B64);
+  return {
+    modelJson: data.MODEL_JSON as never,
+    weights: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    labels: data.LABELS,
+  };
+}
+
+async function classifyJs(uri: string, m: Manipulator): Promise<Guess[]> {
+  const b64 = await squareJpeg(uri, m);
   // TensorFlow is loaded the first time a photo is read, never at app start:
   // nothing about it can slow or break opening the app.
   const { classifyJpeg } = require("./foodvision") as typeof import("./foodvision");
-  return classifyJpeg(
-    b64,
-    async () => {
-      data ??= require("./foodModelData") as typeof import("./foodModelData");
-      const bytes = base64Bytes(data.WEIGHTS_B64);
-      return {
-        modelJson: data.MODEL_JSON as never,
-        weights: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-        labels: data.LABELS,
-      };
-    },
-    8,
-  );
+  return classifyJpeg(b64, jsModel, 8);
+}
+
+/**
+ * An install without the native resizer: the photo arrives as the picker's
+ * JPEG and is read at one-eighth size straight from the file (see jpegdc), so
+ * a 12-megapixel picture costs under a megabyte instead of closing the app.
+ */
+async function classifySmall(photoBase64: string): Promise<Guess[]> {
+  // ~24 MB of JPEG is past any phone photo; refuse rather than risk memory.
+  if (photoBase64.length > 32 * 1024 * 1024) throw new Error("photo too large");
+  const { decodeJpegEighth } = require("./jpegdc") as typeof import("./jpegdc");
+  const small = decodeJpegEighth(base64Bytes(photoBase64));
+  const { classifyPixels } = require("./foodvision") as typeof import("./foodvision");
+  return classifyPixels(small.data, small.width, small.height, jsModel, 8);
 }
 
 /** The least chance an alternative needs to be offered at all. */
@@ -181,20 +200,19 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
 }
 
 /**
- * Whether a photo can be read on this install without risking the app. On a
- * phone the photo has to be shrunk natively first: decoding a 12-megapixel
- * picture in JavaScript takes hundreds of megabytes and closes the app on
- * many phones, so an install without the resizer is told to update instead.
- * The browser decodes and shrinks pictures itself.
+ * Whether the picker must hand the photo over as JPEG data: on a phone
+ * without the native resizer the photo is read from its bytes at 1/8 size
+ * (classifySmall). The browser and newer installs work from the file.
  */
-export function canReadPhotos(platform: string): boolean {
-  return platform === "web" || manipulator() !== null;
+export function needsPhotoData(platform: string): boolean {
+  return platform !== "web" && manipulator() === null;
 }
 
 export async function recognizePhoto(
   uri: string,
   locale: "he" | "en",
   onStage: OnStage = () => {},
+  photoBase64?: string | null,
 ): Promise<Recognition[]> {
   const m = manipulator();
   const lib = tflite();
@@ -206,9 +224,14 @@ export async function recognizePhoto(
       guesses = null;
     }
   }
-  if (!guesses) {
+  if (!guesses && m) {
     onStage("js");
-    guesses = await classifyJs(uri, null, m);
+    guesses = await classifyJs(uri, m);
+  }
+  if (!guesses) {
+    if (!photoBase64) throw new Error("no photo data");
+    onStage("small");
+    guesses = await classifySmall(photoBase64);
   }
   return toRecognitions(guesses, locale);
 }

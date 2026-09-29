@@ -325,6 +325,48 @@ await page.getByRole("button",{name:"סמן את כל האימון כבוצע"})
 { const s=await st(); const done=(s.training?.log?.[today]??[]);
   check("finishing a session ticks every exercise in it", done.length>=6, String(done.length)); }
 
+// 10a) WORKOUT — a live session, Hevy-style: pick a day, start, the clock runs,
+// finish saves a summary, and the burn raises today's calorie target.
+check("the day picker prompt is shown", await page.getByText("איזה אימון עושים היום? בחר יום").first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"התחל",exact:true}).first().click(); await settle();
+{ const s=await st(); const a=s.training?.active;
+  check("start stores which day and when", a && typeof a.startedAt==="number" && a.day>0, JSON.stringify(a)); }
+check("the live panel shows", await page.getByText("באימון",{exact:true}).first().isVisible().catch(()=>false));
+{ const clock=page.getByRole("timer").first();
+  const t1=await clock.innerText().catch(()=>""); await page.waitForTimeout(2200);
+  const t2=await clock.innerText().catch(()=>"");
+  check("the workout clock ticks", /\d+:\d\d/.test(t2) && t1!==t2, `${t1} → ${t2}`); }
+check("a finish bar floats in reach", (await page.getByRole("button",{name:"סיים אימון"}).count())>=2);
+await page.getByRole("button",{name:"סיים אימון"}).first().click(); await settle();
+{ const s=await st(); const h=s.training?.history??[];
+  check("finishing clears the running workout", !s.training?.active, JSON.stringify(s.training?.active));
+  check("and saves it to history with its duration", h.length===1 && h[0].durationSec>=2, JSON.stringify(h)); }
+check("a summary card congratulates", await page.getByText("כל הכבוד! האימון נשמר 🎉").first().isVisible().catch(()=>false));
+check("the history card lists it", await page.getByText("היסטוריית אימונים").first().isVisible().catch(()=>false));
+// The clock is derived from the stored start, so it survives the app being
+// closed and counts real time: open the app on a workout begun 50 minutes ago.
+{
+  const lctx = await browser.newContext({ viewport: { width: 412, height: 915 } });
+  await lctx.route("**://cdn.jsdelivr.net/**", r=>r.abort());
+  await lctx.addInitScript((seed)=>{try{
+    if (localStorage.getItem("mystyle.state.v1")) return;
+    const s=JSON.parse(seed); s.training.active={day:0,startedAt:Date.now()-50*60_000,date:s.__today};
+    localStorage.setItem("mystyle.state.v1",JSON.stringify(s)); localStorage.setItem("mystyle.locale","he");
+  }catch{}}, JSON.stringify({...seed, __today: today}));
+  const lp = await lctx.newPage();
+  await lp.goto(`http://localhost:${PORT}/workout`,{waitUntil:"load"}); await lp.waitForTimeout(1800);
+  const shown=(await lp.getByRole("timer").first().innerText().catch(()=>"")).replace(/[\u2066\u2069]/g,"").trim();
+  check("reopening the app, the clock shows the real elapsed time", /^50:\d\d$/.test(shown), shown);
+  await lp.getByRole("button",{name:"סיים אימון"}).first().click(); await lp.waitForTimeout(700);
+  const s=JSON.parse(await lp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  const h=s.training?.history??[];
+  check("a 50-minute workout is saved with its burn", h.length===1 && h[0].durationSec>=2990 && h[0].kcal>100, JSON.stringify(h));
+  await lp.goto(`http://localhost:${PORT}/`,{waitUntil:"load"}); await lp.waitForTimeout(1600);
+  check("today's calorie card adds the workout to the target",
+    await lp.getByText(/היום הרווחת \+\d+: אימון \d+/).first().isVisible().catch(()=>false));
+  await lctx.close();
+}
+
 // 10b) WORKOUT — a cardio plan tuned to the goal is shown, with demo links
 check("a cardio card appears",
   await page.getByText("אירובי לפי המטרה").first().isVisible().catch(()=>false));

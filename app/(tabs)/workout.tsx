@@ -29,6 +29,13 @@ import {
 import { applyDayEdits, buildPlan, HOLDS, nextDayIndex, repsFor, type DayType } from "@/workout/plan";
 import { LEVELS, type Level } from "@/workout/difficulty";
 import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
+import {
+  elapsedSec,
+  formatElapsed,
+  liveStats,
+  MAX_WORKOUT_SEC,
+  type WorkoutRecord,
+} from "@/workout/session";
 import { cardioPlan } from "@/workout/cardio";
 import { bestLift, lastLift, MAX_KG, MIN_KG } from "@/workout/lifts";
 import { ExercisePicker } from "@/components/ExercisePicker";
@@ -42,7 +49,8 @@ export default function WorkoutScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
   const { state, goal: goalOf, configureTraining, regeneratePlan, planSeed, isExerciseDone, addCustomExercise, completeSession,
-    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode, todayKey } = useStore();
+    addExerciseToday, todayExtras, addToDay, removeFromDay, setTrainingMode, todayKey,
+    activeWorkout, startWorkout, finishWorkout, discardWorkout, workoutHistory } = useStore();
 
   const training = state.training;
   // Default to the app-wide goal, so the plan starts on the goal the person
@@ -60,6 +68,9 @@ export default function WorkoutScreen() {
   const [level, setLevel] = useState<Level>(training?.level ?? "intermediate");
   // The day whose set tables are open; null = the next one to train.
   const [openDay, setOpenDay] = useState<number | null>(null);
+  // The summary of the workout just finished, shown until closed.
+  const [finished, setFinished] = useState<WorkoutRecord | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   // Show the setup form whenever there is no plan yet, or when the person
   // explicitly reopened it. Deriving from `training` rather than a snapshot
   // taken at mount means a plan loaded from storage after the first render
@@ -460,7 +471,30 @@ export default function WorkoutScreen() {
     training.log,
     todayKey(),
   );
-  const shownDay = openDay ?? todayDay;
+  // A running workout owns the screen: its day is the one open and the one
+  // today's library picks join.
+  const active = activeWorkout();
+  const trainDay = active && active.day < sessions.length ? active.day : todayDay;
+  const shownDay = openDay ?? trainDay;
+  const idsOf = (i: number) =>
+    [...(sessions[i]?.exercises ?? []), ...(i === trainDay ? extraExercises : [])].map((e) => e.id);
+  const setsDay = active ? state.training?.setLog?.[active.date] : undefined;
+  const live = active ? liveStats(setsDay, idsOf(active.day), plan.sets) : null;
+
+  function start(i: number) {
+    setFinished(null);
+    setConfirmDiscard(false);
+    setOpenDay(i);
+    startWorkout(i);
+  }
+
+  function finish() {
+    if (!active) return;
+    const record = finishWorkout(idsOf(active.day), sessions[active.day]?.type ?? "full");
+    setConfirmDiscard(false);
+    setOpenDay(null);
+    if (record) setFinished(record);
+  }
 
   // Lifetime and this-week training figures, straight from the log.
   const log = training.log;
@@ -560,8 +594,21 @@ export default function WorkoutScreen() {
         </HeroCard>
 
 
+        {finished ? (
+          <FinishedCard
+            record={finished}
+            bonus={Math.round(finished.kcal * 0.5 / 10) * 10}
+            dayLabel={dayLabel[finished.dayType as DayType] ?? ""}
+            onClose={() => setFinished(null)}
+          />
+        ) : null}
+
+        {!active && sessions.length > 1 ? (
+          <Text style={[type.smallStrong, { color: colors.inkSoft }]}>{t.workout.pickDay}</Text>
+        ) : null}
+
         {sessions.map((session, i) => {
-          const dayExercises = [...session.exercises, ...(i === todayDay ? extraExercises : [])];
+          const dayExercises = [...session.exercises, ...(i === trainDay ? extraExercises : [])];
           const done = dayExercises.filter((e) => isExerciseDone(e.id)).length;
           const total = dayExercises.length;
           // One day open at a time — the one to train next, unless the person
@@ -569,13 +616,12 @@ export default function WorkoutScreen() {
           // screen six thousand pixels long, and today's session was lost in it.
           if (i !== shownDay) {
             return (
+              <Card key={`${session.type}-${i}`} label={fill(t.workout.day, { n: i + 1 })}>
               <Pressable
-                key={`${session.type}-${i}`}
                 onPress={() => setOpenDay(i)}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: false }}
               >
-                <Card label={fill(t.workout.day, { n: i + 1 })}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={[type.title, { color: colors.ink }]}>{dayLabel[session.type]}</Text>
@@ -590,8 +636,17 @@ export default function WorkoutScreen() {
                       <Ionicons name="chevron-down" size={20} color={colors.inkFaint} />
                     </View>
                   </View>
-                </Card>
               </Pressable>
+                {total > 0 && active?.day !== i ? (
+                  <PillButton
+                    tone="soft"
+                    icon={active ? "swap-horizontal" : "play"}
+                    label={active ? t.workout.switchHere : t.workout.startShort}
+                    onPress={() => start(i)}
+                    style={{ marginTop: space.sm, alignSelf: "flex-start" }}
+                  />
+                ) : null}
+              </Card>
             );
           }
           return (
@@ -609,6 +664,30 @@ export default function WorkoutScreen() {
                   {fill(t.workout.doneCount, { done, total })}
                 </Text>
               </View>
+              {total > 0 && active?.day !== i ? (
+                <Button
+                  icon={active ? "swap-horizontal" : "play"}
+                  label={active ? t.workout.switchHere : t.workout.start}
+                  onPress={() => start(i)}
+                  style={{ marginBottom: space.md }}
+                />
+              ) : null}
+              {active?.day === i && live ? (
+                <LivePanel
+                  startedAt={active.startedAt}
+                  sets={live.sets}
+                  total={live.total}
+                  volume={live.volume}
+                  confirmDiscard={confirmDiscard}
+                  onFinish={finish}
+                  onDiscard={() => setConfirmDiscard(true)}
+                  onDiscardCancel={() => setConfirmDiscard(false)}
+                  onDiscardConfirm={() => {
+                    discardWorkout();
+                    setConfirmDiscard(false);
+                  }}
+                />
+              ) : null}
               {dayExercises.length === 0 ? (
                 <View style={{ gap: space.sm }}>
                   <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.dayEmpty}</Text>
@@ -669,7 +748,7 @@ export default function WorkoutScreen() {
                       {t.workout.dayDone}
                     </Text>
                   </View>
-                ) : (
+                ) : active?.day === i ? null : (
                   <Button
                     icon="checkmark"
                     label={t.workout.finishDay}
@@ -701,6 +780,8 @@ export default function WorkoutScreen() {
             </View>
           </Card>
         ) : null}
+
+        <HistoryCard records={workoutHistory().slice(0, 6)} dayLabel={dayLabel} />
 
         <FocusCard />
 
@@ -745,7 +826,15 @@ export default function WorkoutScreen() {
         <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
           {t.workout.videoNote}
         </Text>
+        {active ? <View style={{ height: 64 }} /> : null}
       </Screen>
+      {active ? (
+        <LiveBar
+          startedAt={active.startedAt}
+          dayName={dayLabel[sessions[active.day]?.type ?? "full"] ?? ""}
+          onFinish={finish}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -1535,6 +1624,226 @@ function AddExercise({
           {added} · {t.common.savedOk}
         </Text>
       ) : null}
+    </Card>
+  );
+}
+
+/** Re-renders every second while mounted; only the clock pays for it. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function WorkoutClock({ startedAt, style }: { startedAt: number; style?: object }) {
+  const now = useNow();
+  return (
+    <Text style={style} accessibilityRole="timer">
+      {"\u2066"}
+      {formatElapsed(elapsedSec(startedAt, now))}
+      {"\u2069"}
+    </Text>
+  );
+}
+
+/**
+ * The running workout, Hevy-style: a clock counting from the start, sets ticked
+ * out of the day's total, volume moved, and finish / discard.
+ */
+function LivePanel({
+  startedAt,
+  sets,
+  total,
+  volume,
+  confirmDiscard,
+  onFinish,
+  onDiscard,
+  onDiscardCancel,
+  onDiscardConfirm,
+}: {
+  startedAt: number;
+  sets: number;
+  total: number;
+  volume: number;
+  confirmDiscard: boolean;
+  onFinish: () => void;
+  onDiscard: () => void;
+  onDiscardCancel: () => void;
+  onDiscardConfirm: () => void;
+}) {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  const now = useNow();
+  const stale = elapsedSec(startedAt, now) >= MAX_WORKOUT_SEC;
+  return (
+    <View
+      style={{
+        gap: space.sm,
+        padding: space.md,
+        marginBottom: space.md,
+        borderRadius: radius.lg,
+        backgroundColor: colors.accentWash,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+        <Ionicons name="stopwatch" size={22} color={colors.accent} />
+        <Text style={[type.smallStrong, { color: colors.accent }]}>{t.workout.live}</Text>
+        <View style={{ flex: 1 }} />
+        <WorkoutClock
+          startedAt={startedAt}
+          style={[type.figure, { color: colors.accent, fontSize: 30, lineHeight: 34, fontVariant: ["tabular-nums"] }]}
+        />
+      </View>
+      <View style={{ flexDirection: "row", gap: space.md }}>
+        <Text style={[type.smallStrong, { color: colors.ink }]}>
+          {fill(t.workout.liveSets, { done: sets, total })}
+        </Text>
+        <Text style={[type.smallStrong, { color: colors.ink }]}>
+          {fill(t.workout.liveVolume, { kg: volume.toLocaleString() })}
+        </Text>
+      </View>
+      {stale ? <Text style={[type.small, { color: colors.orangeInk }]}>{t.workout.stale}</Text> : null}
+      {confirmDiscard ? (
+        <View style={{ gap: space.sm }}>
+          <Text style={[type.small, { color: colors.ink }]}>{t.workout.discardSure}</Text>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <PillButton tone="soft" label={t.workout.discardNo} onPress={onDiscardCancel} style={{ flex: 1 }} />
+            <PillButton tone="soft" icon="trash" label={t.workout.discardYes} onPress={onDiscardConfirm} style={{ flex: 1 }} />
+          </View>
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center" }}>
+          <Button icon="flag" label={t.workout.finish} onPress={onFinish} style={{ flex: 1 }} />
+          <PillButton tone="soft" label={t.workout.discard} onPress={onDiscard} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** Always in reach while a workout runs: the clock and the finish button. */
+function LiveBar({ startedAt, dayName, onFinish }: { startedAt: number; dayName: string; onFinish: () => void }) {
+  const { t } = useI18n();
+  const { colors, space, radius, type } = useTheme();
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: space.lg,
+        right: space.lg,
+        bottom: space.md,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.sm,
+        paddingVertical: space.sm,
+        paddingHorizontal: space.md,
+        borderRadius: radius.pill,
+        backgroundColor: colors.accent,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
+      }}
+    >
+      <Ionicons name="stopwatch" size={20} color="#FFFFFF" />
+      <WorkoutClock
+        startedAt={startedAt}
+        style={[type.title, { color: "#FFFFFF", fontVariant: ["tabular-nums"] }]}
+      />
+      <Text style={[type.small, { color: "#FFFFFF", flex: 1 }]} numberOfLines={1}>
+        {dayName}
+      </Text>
+      <Pressable
+        onPress={onFinish}
+        accessibilityRole="button"
+        style={({ pressed }) => ({
+          paddingVertical: 8,
+          paddingHorizontal: space.md,
+          borderRadius: radius.pill,
+          backgroundColor: pressed ? "rgba(255,255,255,0.85)" : "#FFFFFF",
+        })}
+      >
+        <Text style={[type.smallStrong, { color: colors.accent }]}>{t.workout.finish}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function FinishedCard({
+  record,
+  bonus,
+  dayLabel,
+  onClose,
+}: {
+  record: WorkoutRecord;
+  bonus: number;
+  dayLabel: string;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  return (
+    <Card>
+      <View style={{ gap: space.sm }}>
+        <Text style={[type.title, { color: colors.ink }]}>{t.workout.doneTitle}</Text>
+        {dayLabel ? <Text style={[type.small, { color: colors.inkSoft }]}>{dayLabel}</Text> : null}
+        <Text style={[type.figure, { color: metricInk(colors, "ticks"), fontSize: 22, lineHeight: 28 }]}>
+          {fill(t.workout.doneStats, {
+            time: `\u2066${formatElapsed(record.durationSec)}\u2069`,
+            sets: record.sets,
+            kg: record.volumeKg.toLocaleString(),
+          })}
+        </Text>
+        {record.prs > 0 ? (
+          <Text style={[type.smallStrong, { color: colors.limeInk }]}>{fill(t.workout.donePrs, { n: record.prs })}</Text>
+        ) : null}
+        {record.kcal > 0 ? (
+          <Text style={[type.small, { color: colors.ink }]}>
+            {fill(t.workout.doneKcal, { kcal: record.kcal, bonus })}
+          </Text>
+        ) : null}
+        <PillButton tone="soft" icon="close" label={t.workout.close} onPress={onClose} style={{ alignSelf: "flex-start" }} />
+      </View>
+    </Card>
+  );
+}
+
+function HistoryCard({ records, dayLabel }: { records: WorkoutRecord[]; dayLabel: Record<DayType, string> }) {
+  const { t, locale } = useI18n();
+  const { colors, space, type } = useTheme();
+  if (records.length === 0) return null;
+  const dateOf = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "numeric",
+    });
+  return (
+    <Card label={t.workout.history}>
+      <View style={{ gap: space.md }}>
+        {records.map((r) => (
+          <View key={r.id} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <Ionicons name="barbell" size={18} color={colors.accent} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.smallStrong, { color: colors.ink }]}>
+                {dateOf(r.date)} · {dayLabel[r.dayType as DayType] ?? ""}
+              </Text>
+              <Text style={[type.small, { color: colors.inkSoft }]}>
+                {fill(t.workout.historyRow, {
+                  time: `\u2066${formatElapsed(r.durationSec)}\u2069`,
+                  sets: r.sets,
+                  kg: r.volumeKg.toLocaleString(),
+                })}
+                {r.prs > 0 ? ` · 🏆 ${r.prs}` : ""}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
     </Card>
   );
 }

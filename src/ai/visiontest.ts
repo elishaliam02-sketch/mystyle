@@ -9,7 +9,10 @@
  * for a browser or for Node. This suite is what would have caught that.
  */
 import "./visionsetup";
-import { classifyJpeg } from "./foodvision";
+import { classifyJpeg, classifyPixels } from "./foodvision";
+import jpeg from "jpeg-js";
+import { decodeJpegEighth } from "./jpegdc";
+import SHAKSHUKA_PHOTO_B64 from "../../assets/meals/shakshuka.jpg";
 import * as data from "./foodModelData";
 import { base64Bytes, dequantize, SIDE, toRgbBytes } from "./foodvisionpure";
 import { jpegToModelInput, toRecognitions } from "./recognize";
@@ -43,6 +46,45 @@ const source = async () => {
   } catch (e) {
     check("the classifier runs under React Native's globals", false, String(e));
   }
+
+  // 1b. Installs without the native resizer: a phone-sized photo is read at
+  // 1/8 size straight from the JPEG, never decoded whole.
+  const SHAKSHUKA_PHOTO = base64Bytes(SHAKSHUKA_PHOTO_B64 as unknown as string);
+  try {
+    const src = jpeg.decode(SHAKSHUKA_PHOTO, { useTArray: true });
+    const W = 3200;
+    const H = 2400;
+    const big = new Uint8Array(W * H * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const sp = ((((y * src.height) / H) | 0) * src.width + (((x * src.width) / W) | 0)) * 4;
+        const o = (y * W + x) * 4;
+        big[o] = src.data[sp]!;
+        big[o + 1] = src.data[sp + 1]!;
+        big[o + 2] = src.data[sp + 2]!;
+        big[o + 3] = 255;
+      }
+    }
+    const photo = jpeg.encode({ data: big, width: W, height: H }, 50).data;
+    const t0 = Date.now();
+    const small = decodeJpegEighth(new Uint8Array(photo));
+    const ms = Date.now() - t0;
+    check("an 8-megapixel photo is read at 1/8 size", small.width === 400 && small.height === 300, `${small.width}x${small.height}`);
+    check("quickly", ms < 2000, `${ms}ms`);
+    const g = await classifyPixels(small.data, small.width, small.height, source, 3);
+    check("and still recognised as shakshouka", g[0]?.label === "Shakshouka", JSON.stringify(g));
+    const prog = decodeJpegEighth(SHAKSHUKA_PHOTO);
+    check("a progressive JPEG is read too", prog.width === 80 && prog.height === 60, `${prog.width}x${prog.height}`);
+  } catch (e) {
+    check("the small-photo path runs", false, String(e));
+  }
+  let threw = "";
+  try {
+    decodeJpegEighth(new Uint8Array([1, 2, 3]));
+  } catch (e) {
+    threw = String(e);
+  }
+  check("a file that is not a JPEG is refused, not crashed on", /not a jpeg/.test(threw), threw);
 
   // 2. What the native (TensorFlow Lite) engine is fed.
   const input = jpegToModelInput(SHAKSHUKA);

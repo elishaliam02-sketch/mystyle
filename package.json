@@ -80,6 +80,7 @@
     "test:cardio": "node scripts/run-cardio-tests.mjs",
     "test:backup": "node scripts/run-backup-tests.mjs",
     "test:sets": "node scripts/run-sets-tests.mjs",
+    "test:session": "node scripts/run-session-tests.mjs",
     "test:coach": "node scripts/run-coach-tests.mjs",
     "test:help": "node scripts/run-help-tests.mjs",
     "test:news": "node scripts/run-news-tests.mjs",

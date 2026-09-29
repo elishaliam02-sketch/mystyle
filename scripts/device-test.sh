@@ -70,6 +70,17 @@ ui "version and updates"
 echo "── expo-updates log"
 adb logcat -d | grep -E "dev\.expo\.updates" | grep -vE "embeddedAssetFileMap" | tail -40
 
+# Older installs have no native image resizer: the same scan, read the way
+# those phones read it — the JPEG at 1/8 size in JavaScript, no crash.
+adb shell am force-stop "$PKG"
+adb shell "sqlite3 $DB \"INSERT OR REPLACE INTO catalystLocalStorage (key, value) VALUES ('mystyle.debug.legacyScan', '1');\""
+adb shell chown -R "$OWNER" "/data/data/$PKG/databases"
+adb shell restorecon -R "/data/data/$PKG/databases"
+maestro test --debug-output "$OUT/maestro-legacy" e2e/device/scan-legacy.yaml || status=1
+adb exec-out screencap -p > "$OUT/legacy-end.png"
+ui "after the older-install scan"
+adb logcat -d | grep -E "ReactNativeJS|AndroidRuntime|FATAL|lowmemorykiller" | tail -20
+
 # Maestro saves takeScreenshot paths next to the flow files.
 find e2e/device "$OUT" "$HOME/.maestro" -name '[0-9][0-9]-*.png' -not -path "$OUT/[0-9][0-9]-*" -exec cp {} "$OUT/" \; 2>/dev/null || true
 ls "$OUT"

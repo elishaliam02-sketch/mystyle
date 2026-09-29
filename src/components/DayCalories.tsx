@@ -2,8 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { fill, useI18n } from "@/i18n";
-import type { AdaptiveTarget } from "@/kitchen/adaptive";
-import { useStore } from "@/store";
+import { useStore, type DayTarget } from "@/store";
 import { metricFill, metricInk, ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
 import { GrowBar, Pop, useCountUp } from "./motion";
 
@@ -87,6 +86,20 @@ export function DayCalories({
         />
       </View>
 
+      {target.activity.total > 0 ? (
+        <Text style={[type.smallStrong, { color: onHero ? ON_HERO : colors.limeInk }]}>
+          {fill(t.day.activity, {
+            n: target.activity.total,
+            parts: [
+              target.activity.workout > 0 ? fill(t.day.fromWorkout, { n: target.activity.workout }) : null,
+              target.activity.steps > 0 ? fill(t.day.fromSteps, { n: target.activity.steps }) : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          })}
+        </Text>
+      ) : null}
+
       <WeeklyNote target={target} onHero={onHero} />
     </View>
   );
@@ -118,7 +131,7 @@ export function DayCalories({
   );
 }
 
-function WeeklyNote({ target, onHero }: { target: AdaptiveTarget; onHero: boolean }) {
+function WeeklyNote({ target, onHero }: { target: DayTarget; onHero: boolean }) {
   const { t } = useI18n();
   const { colors, type } = useTheme();
   const color = onHero ? ON_HERO_SOFT : colors.inkFaint;

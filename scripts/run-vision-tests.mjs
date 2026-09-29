@@ -7,6 +7,6 @@ import path from "node:path";
 const out = path.resolve("node_modules/.cache/visiontest.mjs");
 await build({ entryPoints: ["src/ai/visiontest.ts"], bundle: true, format: "esm",
   platform: "browser", mainFields: ["react-native", "main"], outfile: out,
-  alias: { "@": path.resolve("src") }, loader: { ".b64": "text", ".tflite": "file" },
+  alias: { "@": path.resolve("src") }, loader: { ".b64": "text", ".tflite": "file", ".jpg": "base64" },
   external: ["react-native-fast-tflite", "expo-image-manipulator", "expo-asset"], logLevel: "warning" });
 await import(pathToFileURL(out).href);

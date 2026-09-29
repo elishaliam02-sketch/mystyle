@@ -35,6 +35,15 @@ import type { Difficulty } from "@/tasks/difficulty";
 import { isStorableCm, type Reading } from "@/body";
 import { isStorableKg, type Lift } from "@/workout/lifts";
 import { blankSets, previousSets, type SetEntry } from "@/workout/sets";
+import {
+  activityBonus,
+  MAX_HISTORY,
+  readActive,
+  readHistory,
+  summarize,
+  type ActiveWorkout,
+  type WorkoutRecord,
+} from "@/workout/session";
 import { demoLink, searchUrl } from "@/workout/video";
 import { entitlement as entitlementOf, trialEndsAt, TRIAL_DAYS, type Entitlement } from "@/billing/plans";
 import { check, type Feature, type Verdict } from "@/billing/gate";
@@ -48,6 +57,14 @@ import { cupMlOf, defaultGoalMl, goalMlOf, isStorableCupMl, isStorableGoalMl, MA
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import { adaptiveTarget, type AdaptiveTarget } from "@/kitchen/adaptive";
 import type { Goal } from "@/kitchen";
+
+/** The weekly adaptive target with today's activity added on top. */
+export type DayTarget = AdaptiveTarget & {
+  /** The weekly target before today's activity. */
+  weekly: number;
+  /** Calories earned today: from finished workouts and from steps. */
+  activity: { workout: number; steps: number; total: number };
+};
 import type { Exercise, Muscle } from "@/workout/exercises";
 import { buildPlan, freshSeed } from "@/workout/plan";
 
@@ -91,7 +108,9 @@ type Store = {
   /** The one goal the whole app follows (training, kitchen, cardio, targets). */
   goal: () => Goal;
   /** Today's calorie and protein target, learned week by week from the scale. */
-  calorieTarget: () => AdaptiveTarget;
+  /** Today's calorie target: the weekly adaptive one plus what today's
+   * workouts and steps earned. */
+  calorieTarget: () => DayTarget;
   /** Sets the unified goal — mirrors to the kitchen and re-rolls the plan. */
   setGoal: (goal: Goal) => void;
   /** Remembers the kitchen's nutrition goal across opens (alias of setGoal). */
@@ -173,6 +192,16 @@ type Store = {
   addCustomExercise: (ex: Omit<Exercise, "custom">) => void;
   /** Ticks every exercise of a session done in one go. */
   completeSession: (ids: string[]) => void;
+  /** The workout running now, if any. */
+  activeWorkout: () => ActiveWorkout | null;
+  /** Starts the clock on a plan day, or moves a running workout to that day. */
+  startWorkout: (day: number) => void;
+  /** Stops the clock and saves the summary; returns it for the finish screen. */
+  finishWorkout: (exerciseIds: string[], dayType: string) => WorkoutRecord | null;
+  /** Stops the clock without saving a summary (the sets stay logged). */
+  discardWorkout: () => void;
+  /** Finished workouts, newest first. */
+  workoutHistory: () => WorkoutRecord[];
   /** Today's sets for an exercise, seeded from the prescribed count. */
   setsFor: (exerciseId: string, prescribed: number) => SetEntry[];
   /** Writes one field of one set. */
@@ -564,17 +593,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.goal, state.nutritionGoal, state.training],
   );
 
-  const calorieTarget = useCallback(
-    () =>
-      adaptiveTarget({
-        weighIns: state.weighIns,
-        goal: goal(),
-        goalSince: state.goalSince ?? null,
-        fallbackKg: state.profile.startKg,
-        today: trustedToday(),
-      }),
-    [state.weighIns, state.goalSince, state.profile.startKg, goal, trustedToday],
-  );
+  const calorieTarget = useCallback((): DayTarget => {
+    const today = trustedToday();
+    const weekly = adaptiveTarget({
+      weighIns: state.weighIns,
+      goal: goal(),
+      goalSince: state.goalSince ?? null,
+      fallbackKg: state.profile.startKg,
+      today,
+    });
+    const kg = latestWeighIn(state)?.kg ?? state.profile.startKg ?? 70;
+    const workoutKcal = readHistory(state.training?.history)
+      .filter((r) => r.date === today)
+      .reduce((n, r) => n + r.kcal, 0);
+    const activity = activityBonus({ workoutKcal, steps: state.steps?.[today] ?? 0, kg });
+    return { ...weekly, weekly: weekly.kcal, kcal: weekly.kcal + activity.total, activity };
+  }, [state, goal, trustedToday]);
 
   // Kept for the kitchen's own goal chips; routes through the unified setter so
   // the plan and the rest of the app follow along.
@@ -910,6 +944,70 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
     });
   }, []);
+
+  // --- the live workout, Hevy-style ---------------------------------------
+  const activeWorkout = useCallback(
+    () => readActive(state.training?.active),
+    [state.training],
+  );
+
+  const startWorkout = useCallback((day: number) => {
+    setState((s) => {
+      if (!s.training) return s;
+      const { date, highWater } = trustedStamp(s);
+      const running = readActive(s.training.active);
+      // Switching day mid-workout keeps the clock: it is still one session.
+      const active: ActiveWorkout = running
+        ? { ...running, day }
+        : { day, startedAt: Date.now(), date };
+      return { ...s, clockHighWaterMs: highWater, training: { ...s.training, active } };
+    });
+  }, []);
+
+  const finishWorkout = useCallback(
+    (exerciseIds: string[], dayType: string): WorkoutRecord | null => {
+      const running = readActive(state.training?.active);
+      if (!state.training || !running) return null;
+      const record = summarize({
+        id: newId(),
+        active: running,
+        dayType,
+        exerciseIds,
+        setLog: state.training.setLog ?? {},
+        endedAt: Date.now(),
+        kg: latestWeighIn(state)?.kg ?? state.profile.startKg ?? 70,
+      });
+      setState((s) => {
+        if (!s.training) return s;
+        const { active: _drop, ...rest } = s.training;
+        const history = [...readHistory(s.training.history), record].slice(-MAX_HISTORY);
+        // A real session (10+ minutes) finished without ticking single sets
+        // still counts every exercise done, like "mark the whole session
+        // done"; a start-and-stop by mistake ticks nothing.
+        const doneBefore = s.training.log[running.date] ?? [];
+        const log =
+          record.sets === 0 && record.durationSec >= 600 && exerciseIds.length > 0
+            ? { ...s.training.log, [running.date]: [...new Set([...doneBefore, ...exerciseIds])] }
+            : s.training.log;
+        return { ...s, training: { ...rest, log, history } };
+      });
+      return record;
+    },
+    [state],
+  );
+
+  const discardWorkout = useCallback(() => {
+    setState((s) => {
+      if (!s.training?.active) return s;
+      const { active: _drop, ...rest } = s.training;
+      return { ...s, training: rest };
+    });
+  }, []);
+
+  const workoutHistory = useCallback(
+    () => readHistory(state.training?.history).slice().reverse(),
+    [state.training],
+  );
 
   // --- set-by-set logging -------------------------------------------------
   const setsFor = useCallback(
@@ -1364,6 +1462,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSteps,
       addSteps,
       todaySteps,
+      activeWorkout,
+      startWorkout,
+      finishWorkout,
+      discardWorkout,
+      workoutHistory,
       stepGoal,
       setStepGoal,
       demoFor,
@@ -1392,6 +1495,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
+     activeWorkout, startWorkout, finishWorkout, discardWorkout, workoutHistory,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
      focusOn, toggleFocus,
      todayChallenge, challengeLevel, setChallengeLevel, isChallengeDone, toggleChallenge,

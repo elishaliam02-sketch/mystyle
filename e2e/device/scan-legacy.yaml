@@ -1,0 +1,59 @@
+# The same photo scan, the way an install without the native image resizer
+# reads it (the app from before Sep 26): the picker hands over the JPEG and it
+# is read at 1/8 size in JavaScript. device-test.sh switches that path on.
+appId: com.mystyle.app
+---
+# A slow emulator can show "… isn't responding" over the app.
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "מטבח"
+    timeout: 90000
+- takeScreenshot: device-test/06-legacy-today
+- tapOn: "מטבח"
+- scrollUntilVisible:
+    element: "מהגלריה"
+    direction: DOWN
+    timeout: 120000
+    speed: 60
+    visibilityPercentage: 50
+    centerElement: true
+- takeScreenshot: device-test/07-legacy-scanner
+- tapOn: "מהגלריה"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: device-test/08-legacy-picker
+# Android's photo picker, or the older document picker on some phones.
+- runFlow:
+    when:
+      visible:
+        id: ".*icon_thumbnail"
+    commands:
+      - tapOn:
+          id: ".*icon_thumbnail"
+          index: 0
+- runFlow:
+    when:
+      visible: "shakshuka.*"
+    commands:
+      - tapOn: "shakshuka.*"
+- extendedWaitUntil:
+    visible: "נראה כמו…"
+    timeout: 420000
+- scrollUntilVisible:
+    element: "רשום ביומן"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- takeScreenshot: device-test/09-legacy-recognised
+- assertVisible: ".*שקשוקה.*"
+- tapOn: "רשום ביומן"
+- extendedWaitUntil:
+    visible: "נרשם · .*"
+    timeout: 10000
+- takeScreenshot: device-test/10-legacy-logged

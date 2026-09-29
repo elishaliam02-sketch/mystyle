@@ -9,7 +9,7 @@ import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
 import { mealLabel, type MealAnalysis } from "@/ai/nutrition";
-import { canReadPhotos, fastRecognition, recognizePhoto, type Recognition, type ScanStage } from "@/ai/recognize";
+import { fastRecognition, needsPhotoData, recognizePhoto, simulateLegacyInstall, type Recognition, type ScanStage } from "@/ai/recognize";
 import { FoodThumb } from "@/components/FoodThumb";
 import { gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
@@ -66,6 +66,8 @@ export function MealScanner() {
     let live = true;
     void (async () => {
       try {
+        // The device test's switch for driving the older-install path.
+        simulateLegacyInstall((await AsyncStorage.getItem("mystyle.debug.legacyScan")) === "1");
         const raw = await AsyncStorage.getItem(SCAN_STAGE_KEY);
         if (raw) {
           await unmark();
@@ -79,7 +81,7 @@ export function MealScanner() {
         const picker = imagePicker();
         const pending = picker && Platform.OS === "android" ? await picker.getPendingResultAsync() : null;
         if (live && pending && "assets" in pending && !pending.canceled && pending.assets?.[0]) {
-          void readPhoto(pending.assets[0].uri);
+          void readPhoto(pending.assets[0].uri, pending.assets[0].base64);
         }
       } catch {
         // Nothing to recover.
@@ -92,7 +94,7 @@ export function MealScanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function readPhoto(uri: string) {
+  async function readPhoto(uri: string, photoBase64?: string | null) {
     setPhase({ kind: "reading", uri });
     await mark("picked");
     // Let the "reading…" state paint before the model takes the thread.
@@ -100,7 +102,12 @@ export function MealScanner() {
     try {
       // Recognised on the phone itself: no key, no server, no quota — the
       // photo never leaves the device.
-      const guesses = await recognizePhoto(uri, locale === "he" ? "he" : "en", (stage) => void mark(stage));
+      const guesses = await recognizePhoto(
+        uri,
+        locale === "he" ? "he" : "en",
+        (stage) => void mark(stage),
+        photoBase64,
+      );
       await unmark();
       if (guesses.length === 0) {
         setPhase({ kind: "failed", reason: "unreadable" });
@@ -121,15 +128,17 @@ export function MealScanner() {
     // plate, take the shot and only then be told it will not be read.
     if (!allowance("mealPhoto").ok) return;
     const ImagePicker = imagePicker();
-    // An install without the native resizer would have to decode the full
-    // photo in JavaScript — hundreds of megabytes, and the app closes. Such
-    // an install is told to update rather than being allowed to crash.
-    if (!ImagePicker || !canReadPhotos(Platform.OS)) {
+    // Only an install from before the camera was added cannot take a photo.
+    if (!ImagePicker) {
       setPhase({ kind: "failed", reason: "oldApp" });
       return;
     }
     try {
-      const opts = { quality: 0.8 } as const;
+      // Without the native resizer the photo comes back as JPEG data, which
+      // is read at 1/8 size (see jpegdc); a lighter JPEG makes that quicker.
+      const opts = needsPhotoData(Platform.OS)
+        ? ({ quality: 0.5, base64: true } as const)
+        : ({ quality: 0.8 } as const);
       let res;
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -144,7 +153,7 @@ export function MealScanner() {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
       }
       if (res.canceled || !res.assets[0]) return;
-      await readPhoto(res.assets[0].uri);
+      await readPhoto(res.assets[0].uri, res.assets[0].base64);
     } catch {
       setPhase({ kind: "failed", reason: "unreadable" });
     }
