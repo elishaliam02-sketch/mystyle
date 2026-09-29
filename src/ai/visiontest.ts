@@ -11,7 +11,7 @@
 import "./visionsetup";
 import { classifyJpeg, classifyPixels } from "./foodvision";
 import jpeg from "jpeg-js";
-import { decodeJpegEighth } from "./jpegdc";
+import { decodeJpegEighth, FULL_DECODE_MAX_PIXELS, jpegSize } from "./jpegdc";
 import SHAKSHUKA_PHOTO_B64 from "../../assets/meals/shakshuka.jpg";
 import * as data from "./foodModelData";
 import { base64Bytes, dequantize, SIDE, toRgbBytes } from "./foodvisionpure";
@@ -73,6 +73,10 @@ const source = async () => {
     check("quickly", ms < 2000, `${ms}ms`);
     const g = await classifyPixels(small.data, small.width, small.height, source, 3);
     check("and still recognised as shakshouka", g[0]?.label === "Shakshouka", JSON.stringify(g));
+    const size = jpegSize(SHAKSHUKA_PHOTO);
+    check("a photo's size is read from its header", size?.width === 640 && size?.height === 480, JSON.stringify(size));
+    check("and one that small is decoded whole, not at 1/8", 640 * 480 <= FULL_DECODE_MAX_PIXELS && W * H > FULL_DECODE_MAX_PIXELS);
+    check("the big one's size is read too", jpegSize(new Uint8Array(photo))?.width === W);
     const prog = decodeJpegEighth(SHAKSHUKA_PHOTO);
     check("a progressive JPEG is read too", prog.width === 80 && prog.height === 60, `${prog.width}x${prog.height}`);
   } catch (e) {

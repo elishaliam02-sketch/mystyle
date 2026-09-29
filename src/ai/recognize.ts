@@ -163,9 +163,17 @@ async function classifyJs(uri: string, m: Manipulator): Promise<Guess[]> {
 async function classifySmall(photoBase64: string): Promise<Guess[]> {
   // ~24 MB of JPEG is past any phone photo; refuse rather than risk memory.
   if (photoBase64.length > 32 * 1024 * 1024) throw new Error("photo too large");
-  const { decodeJpegEighth } = require("./jpegdc") as typeof import("./jpegdc");
-  const small = decodeJpegEighth(base64Bytes(photoBase64));
+  const { decodeJpegEighth, jpegSize, FULL_DECODE_MAX_PIXELS } = require("./jpegdc") as typeof import("./jpegdc");
+  const bytes = base64Bytes(photoBase64);
+  const size = jpegSize(bytes);
   const { classifyPixels } = require("./foodvision") as typeof import("./foodvision");
+  // A small picture (a screenshot, a sent photo) has too few blocks for the
+  // 1/8 read — it is decoded whole, which at that size is safe.
+  if (size && size.width * size.height <= FULL_DECODE_MAX_PIXELS) {
+    const full = jpeg.decode(bytes, { useTArray: true, maxMemoryUsageInMB: 64 });
+    return classifyPixels(full.data, full.width, full.height, jsModel, 8);
+  }
+  const small = decodeJpegEighth(bytes);
   return classifyPixels(small.data, small.width, small.height, jsModel, 8);
 }
 

@@ -352,3 +352,28 @@ function decodeScan(
   }
   return pos;
 }
+
+/** A JPEG's pixel size from its frame header, without decoding anything. */
+export function jpegSize(bytes: Uint8Array): { width: number; height: number } | null {
+  let pos = 2;
+  while (pos + 9 < bytes.length) {
+    if (bytes[pos] !== 0xff) {
+      pos++;
+      continue;
+    }
+    const m = bytes[pos + 1]!;
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7) || m === 0xff) {
+      pos += m === 0xff ? 1 : 2;
+      continue;
+    }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      return { height: (bytes[pos + 5]! << 8) | bytes[pos + 6]!, width: (bytes[pos + 7]! << 8) | bytes[pos + 8]! };
+    }
+    pos += 2 + ((bytes[pos + 2]! << 8) | bytes[pos + 3]!);
+  }
+  return null;
+}
+
+/** Up to this many pixels a photo is decoded whole: small enough to be safe in
+ * memory (~12 MB), and at 1/8 it would be too few pixels to recognise. */
+export const FULL_DECODE_MAX_PIXELS = 3_000_000;
