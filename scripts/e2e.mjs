@@ -252,6 +252,9 @@ check("the previous weight is offered as the placeholder",
   (await kg1.getAttribute("placeholder"))==="70", await kg1.getAttribute("placeholder"));
 check("the previous reps are offered too",
   (await reps1.getAttribute("placeholder"))==="8", await reps1.getAttribute("placeholder"));
+check("the coach says what to lift today, from last time",
+  await page.getByText(/^🎯 היום: \u2066?70\u2069? ק״ג × 8 · חזרה אחת יותר/).first().isVisible().catch(()=>false));
+check("the workout screen has a coach for the week", await page.getByText("המאמן שלך").first().isVisible().catch(()=>false));
 await kg1.fill("72.5"); await page.waitForTimeout(250);
 await reps1.fill("8"); await settle();
 { const s=await st(); const sets=s.training?.setLog?.[today]?.["bench-press"]??[];

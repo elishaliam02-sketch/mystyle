@@ -28,7 +28,8 @@ import {
 } from "@/workout/exercises";
 import { applyDayEdits, buildPlan, HOLDS, nextDayIndex, repsFor, type DayType } from "@/workout/plan";
 import { LEVELS, type Level } from "@/workout/difficulty";
-import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS } from "@/workout/sets";
+import { clampKg, clampReps, progress, typedNumber, typedValue, MAX_SETS, type SetEntry } from "@/workout/sets";
+import { historyOf, nextTarget, weekReview, type Target } from "@/workout/coach";
 import {
   elapsedSec,
   formatElapsed,
@@ -593,6 +594,7 @@ export default function WorkoutScreen() {
           </View>
         </HeroCard>
 
+        <WeekCoach planned={plan.days} />
 
         {finished ? (
           <FinishedCard
@@ -1115,7 +1117,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   const hold = HOLDS.has(ex.id);
   const { t, locale } = useI18n();
   const { colors, space, radius, type, font } = useTheme();
-  const { setsFor, updateSet, addSet, removeSet, lastSession, demoFor } = useStore();
+  const { state, setsFor, updateSet, addSet, removeSet, lastSession, demoFor, todayKey } = useStore();
   const [open, setOpen] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
   const [videoNote, setVideoNote] = useState<string | null>(null);
@@ -1145,6 +1147,11 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
   const prev = lastSession(ex.id);
   const doneCount = rows.filter((r) => r.done).length;
   const prog = progress(rows, prev);
+  // What to lift today, from what was lifted before (workout/coach.ts).
+  const target: Target | null = hold
+    ? null
+    : nextTarget(historyOf(state.training?.setLog ?? {}, ex.id, todayKey()), reps.replace(/[\u2066\u2069]/g, ""), ex.compound);
+  const coachLine = target ? coachText(target, reps.replace(/[\u2066\u2069]/g, ""), t) : null;
 
   return (
     <View
@@ -1290,6 +1297,20 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
         </View>
       ) : null}
 
+      {/* the coach's number for today: what to lift, and why */}
+      {coachLine ? (
+        <View
+          style={{
+            paddingVertical: 6,
+            paddingHorizontal: space.sm,
+            borderRadius: radius.md,
+            backgroundColor: target?.kind === "addWeight" ? colors.limeWash : colors.accentWash,
+          }}
+        >
+          <Text style={[type.small, { color: colors.ink, fontWeight: "600" }]}>{coachLine}</Text>
+        </View>
+      ) : null}
+
       {/* set table */}
       <View style={{ gap: 4, marginTop: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -1330,7 +1351,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 // Last time's numbers when there are any; otherwise a dash for the
                 // load and the target for the reps. A grey "0" read as a value
                 // already entered, and as a zero-kilo set.
-                placeholder={p && p.kg > 0 ? String(p.kg) : "—"}
+                placeholder={target && target.kg > 0 ? String(target.kg) : p && p.kg > 0 ? String(p.kg) : "—"}
                 accessibilityLabel={`${name} ${t.workout.kgCol} ${i + 1}`}
                 ink={metricInk(colors, "load")}
               />
@@ -1338,14 +1359,21 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
                 value={row.reps}
                 decimals={false}
                 onCommit={(n) => updateSet(ex.id, i, { reps: clampReps(n) }, sets)}
-                placeholder={p && p.reps > 0 ? String(p.reps) : String(reps).match(/\d+/)?.[0] ?? "—"}
+                placeholder={target ? String(target.reps) : p && p.reps > 0 ? String(p.reps) : String(reps).match(/\d+/)?.[0] ?? "—"}
                 accessibilityLabel={`${name} ${t.workout.repsCol} ${i + 1}`}
                 ink={metricInk(colors, "reps")}
               />
 
               <Pressable
                 onPress={() => {
-                  updateSet(ex.id, i, { done: !row.done }, sets);
+                  // Ticking a set left empty takes the coach's numbers, the way
+                  // Hevy fills a set from its greyed-out values.
+                  const fillIn: Partial<SetEntry> = {};
+                  if (!row.done && target) {
+                    if (row.kg === 0 && target.kg > 0) fillIn.kg = target.kg;
+                    if (row.reps === 0) fillIn.reps = target.reps;
+                  }
+                  updateSet(ex.id, i, { ...fillIn, done: !row.done }, sets);
                   if (!row.done) startRest();
                 }}
                 accessibilityRole="checkbox"
@@ -1843,6 +1871,75 @@ function HistoryCard({ records, dayLabel }: { records: WorkoutRecord[]; dayLabel
             </View>
           </View>
         ))}
+      </View>
+    </Card>
+  );
+}
+
+/** The coach's line for an exercise, in words. */
+function coachText(target: Target, range: string, t: ReturnType<typeof useI18n>["t"]): string {
+  const last = target.last ? `\u2066${target.last.kg > 0 ? `${target.last.kg}×${target.last.reps}` : target.last.reps}\u2069` : "";
+  const kg = `\u2066${target.kg}\u2069`;
+  switch (target.kind) {
+    case "first":
+      return fill(t.workout.coachFirst, { range: `\u2066${range}\u2069` });
+    case "addWeight":
+      return target.kg > 0 ? fill(t.workout.coachAdd, { kg, reps: target.reps, last }) : fill(t.workout.coachAddBw, { reps: target.reps });
+    case "moreReps":
+      return target.kg > 0 ? fill(t.workout.coachMore, { kg, reps: target.reps, last }) : fill(t.workout.coachMoreBw, { reps: target.reps });
+    case "repeat":
+      return fill(t.workout.coachRepeat, { kg, reps: target.reps });
+    case "deload":
+      return fill(t.workout.coachDeload, { kg, reps: target.reps });
+  }
+}
+
+/** The week so far, said like a coach would: sessions, minutes, records. */
+function WeekCoach({ planned }: { planned: number }) {
+  const { t } = useI18n();
+  const { colors, space, type } = useTheme();
+  const { state, todayKey, workoutHistory } = useStore();
+  const w = weekReview(state.training?.log ?? {}, workoutHistory(), planned, todayKey());
+  const left = Math.max(0, w.planned - w.done);
+  const text =
+    w.mood === "start"
+      ? t.workout.weekStart
+      : w.mood === "comeback"
+        ? fill(t.workout.weekComeback, { n: w.sinceLast ?? 0 })
+        : w.mood === "crushing"
+          ? fill(t.workout.weekCrushing, { prs: w.prs, min: w.minutes })
+          : w.mood === "done"
+            ? fill(t.workout.weekDone, { done: w.done, planned: w.planned })
+            : w.mood === "onTrack"
+              ? fill(t.workout.weekOnTrack, { done: w.done, planned: w.planned, left })
+              : fill(t.workout.weekBehind, { done: w.done, planned: w.planned });
+  return (
+    <Card label={t.workout.coachTitle}>
+      <View style={{ gap: space.sm }}>
+        <Text style={[type.body, { color: colors.ink }]}>{text}</Text>
+        {w.mood !== "start" ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <View style={{ flex: 1, flexDirection: "row", gap: 4 }}>
+              {Array.from({ length: Math.max(1, w.planned) }, (_, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: i < w.done ? metricFill(colors, "sets") : colors.surfaceAlt,
+                  }}
+                />
+              ))}
+            </View>
+            <Text style={[type.smallStrong, { color: colors.inkSoft }]}>
+              {fill(t.workout.weekStats, { done: w.done, planned: w.planned, min: w.minutes, prs: w.prs })}
+            </Text>
+          </View>
+        ) : null}
+        {w.streakWeeks >= 2 ? (
+          <Text style={[type.smallStrong, { color: colors.orangeInk }]}>{fill(t.workout.weekStreak, { n: w.streakWeeks })}</Text>
+        ) : null}
       </View>
     </Card>
   );
