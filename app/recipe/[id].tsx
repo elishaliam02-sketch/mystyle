@@ -12,6 +12,7 @@ import { fill, useI18n } from "@/i18n";
 import { MEALS, gramsNutrition, mealAmount, scaledHousehold, type MealSlot } from "@/kitchen";
 import { dietWarnings, foodsOf, scaledGrams, shareText } from "@/kitchen/book";
 import { recipeOf, stepMinutes } from "@/kitchen/recipes";
+import { slotForRecipe } from "@/kitchen/menu";
 import { useStore } from "@/store";
 import { metricInk, useTheme } from "@/theme";
 
@@ -31,7 +32,8 @@ export default function RecipeScreen() {
   const { width: screenW } = useWindowDimensions();
   // The photo (or its ingredient tiles) is laid out at the width it will show.
   const photoW = Math.round(Math.min(screenW - 32, 640));
-  const { state, logMeal, toggleFavorite, isFavorite } = useStore();
+  const { state, logMeal, toggleFavorite, isFavorite, todayMenu, menuChoose } = useStore();
+  const [added, setAdded] = useState<string | null>(null);
 
   const meal = MEALS.find((m) => m.id === id) ?? null;
   const recipe = meal ? recipeOf(meal.id) : null;
@@ -170,6 +172,26 @@ export default function RecipeScreen() {
           <Ionicons name="share-social-outline" size={22} color={colors.inkSoft} />
         </Pressable>
       </View>
+
+      {/* put it on today's menu — in its own meal of the day, or the next one
+          still open if that one is already eaten */}
+      <Button
+        icon={added ? "checkmark-circle" : "calendar-outline"}
+        tone="quiet"
+        label={added ?? t.menu.addToday}
+        disabled={!!added}
+        onPress={() => {
+          const slot = slotForRecipe(meal, todayMenu());
+          menuChoose(slot, meal.id);
+          const slotName: Record<MealSlot, string> = {
+            breakfast: t.kitchen.slotBreakfast,
+            lunch: t.kitchen.slotLunch,
+            dinner: t.kitchen.slotDinner,
+            snack: t.kitchen.slotSnack,
+          };
+          setAdded(fill(t.menu.addedToday, { slot: slotName[slot] }));
+        }}
+      />
 
       {/* what you need, for however many are eating */}
       <Card label={t.kitchen.ingredients}>

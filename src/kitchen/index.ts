@@ -387,7 +387,7 @@ function isTreif(f: Food): boolean {
   const w = adhocWord(f);
   return w ? says(w, TREIF_WORDS) : DIET_CLASS.treif.has(f.id);
 }
-function isFlesh(f: Food): boolean {
+export function isFlesh(f: Food): boolean {
   const w = adhocWord(f);
   return w ? says(w, FLESH_WORDS) : DIET_CLASS.flesh.has(f.id);
 }
@@ -620,7 +620,7 @@ export type SuggestOptions = {
  * in the same relative order for every seed and the "rotation" rotates nothing.
  * The seed also goes first, so it is mixed through the whole hash.
  */
-function hash(s: string): number {
+export function seedHash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -646,7 +646,7 @@ function hash(s: string): number {
  * dishes at 0.94–1.00 fit and the next at 0.68, only the top three ever moved,
  * and they moved among themselves.
  */
-function fitTier(fit: number, best: number): number {
+export function fitTier(fit: number, best: number): number {
   if (best <= 0) return 0;
   const share = fit / best;
   if (share >= 0.8) return 2;
@@ -685,7 +685,7 @@ export function suggestMeals(pantryText: string, opts: SuggestOptions = {}): Kit
 
   const rightTime = (m: MealMatch) => (opts.slot && m.meal.slot === opts.slot ? 1 : 0);
   const seed = opts.seed ?? "";
-  const jitter = (m: MealMatch) => (seed ? hash(`${seed}|${m.meal.id}`) : 0);
+  const jitter = (m: MealMatch) => (seed ? seedHash(`${seed}|${m.meal.id}`) : 0);
   const bestFit = matches.reduce((n, m) => Math.max(n, m.fit), 0);
   const byGoalThenTime = (a: MealMatch, b: MealMatch) =>
     rightTime(b) - rightTime(a) ||
@@ -712,7 +712,7 @@ export function starterMeals(goal: Goal = "cut", seed = ""): Meal[] {
     .sort(
       (a, b) =>
         fitTier(goalFit(b, goal), best) - fitTier(goalFit(a, goal), best) ||
-        (seed ? hash(`${seed}|${a.id}`) - hash(`${seed}|${b.id}`) : 0) ||
+        (seed ? seedHash(`${seed}|${a.id}`) - seedHash(`${seed}|${b.id}`) : 0) ||
         goalFit(b, goal) - goalFit(a, goal),
     )
     .slice(0, 4);
@@ -769,7 +769,7 @@ const PLATE_SHAPE: Record<Goal, Record<FoodTag, number>> = {
 };
 
 /** Which kind of food this is, for plate-building. */
-function kindOf(food: Food): FoodTag {
+export function kindOf(food: Food): FoodTag {
   return food.tags[0] ?? "carb";
 }
 

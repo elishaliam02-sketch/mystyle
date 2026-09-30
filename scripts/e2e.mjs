@@ -197,7 +197,8 @@ check("search shows a result", await page.getByRole("button",{name:"אורז"}).
 await page.getByRole("button",{name:"אורז"}).first().click(); await settle();
 check("tapping a food asks how much", await page.getByText("כמה אכלת?").first().isVisible().catch(()=>false));
 { const before = await page.getByText(/\d+ גרם · \d+ קלוריות/).first().innerText().catch(()=>"");
-  await page.getByText(/×2/).first().click(); await settle();
+  // the portion chip, not the menu's "×2" portion further up the kitchen
+  await page.getByRole("button",{name:/×2/}).first().click(); await settle();
   const after = await page.getByText(/\d+ גרם · \d+ קלוריות/).first().innerText().catch(()=>"");
   check("two portions double the amount shown", before !== after && /150 גרם/.test(after), `${before} → ${after}`); }
 await page.getByText("רשום ביומן").first().click(); await settle();
@@ -1157,6 +1158,69 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   check("and its button opens that screen", /\/progress$/.test(hp.url()), hp.url());
   check("the guide raises no page errors", herr.length===0, herr.join(" | "));
   await hctx.close();
+}
+
+// TODAY'S MENU — a day of meals from the kitchen, sized to the target:
+// eat, swap, upgrade, and add a recipe from the book.
+{
+  const mctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await mctx.route(h, r=>r.abort());
+  await mctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({ ...seed, intake:{}, menu:{} }));
+  const mp = await mctx.newPage();
+  const merr=[]; mp.on("pageerror",e=>merr.push(String(e).slice(0,140)));
+  const mst = async ()=> JSON.parse(await mp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  await mp.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"}); await mp.waitForTimeout(2200);
+  check("the kitchen opens on today's menu", await mp.getByText("התפריט שלך להיום").first().isVisible().catch(()=>false));
+  check("it says it is built from what is at home", await mp.getByText("נבנה רק ממה שיש לך במטבח — בלי לקנות כלום.").first().isVisible().catch(()=>false));
+  check("four meals, each with an I-ate-this button", (await mp.getByRole("button",{name:/^אכלתי · /}).count())===4);
+  check("no shopping list anywhere in the kitchen", !(await mp.getByText("רשימת קניות").count()));
+  const sub = async ()=> (await mp.getByText(/מתוך [\d,]+ קלוריות · \d+ ג׳ חלבון/).first().innerText().catch(()=>""));
+  const total = (t)=> Number((/^([\d,]+)/.exec(t)?.[1] ?? "0").replace(/,/g,""));
+  const target = (t)=> Number((/מתוך ([\d,]+)/.exec(t)?.[1] ?? "0").replace(/,/g,""));
+  { const t=await sub(); check("the day's menu lands near the target", Math.abs(total(t)-target(t)) <= target(t)*0.15, t); }
+
+  // eat breakfast from the menu
+  await mp.getByRole("button",{name:"אכלתי · בוקר"}).first().click(); await mp.waitForTimeout(900);
+  { const s=await mst(); const d=Object.keys(s.intake??{})[0]; const items=s.intake?.[d]??[];
+    const choice=Object.values(s.menu??{})[0]?.breakfast;
+    check("eating a menu meal logs it to the diary", items.length===1 && items[0].kcal>0, JSON.stringify(items));
+    check("and the menu remembers which entry it was", choice?.loggedId===items[0]?.id, JSON.stringify(choice));
+    check("the breakfast row now reads eaten", await mp.getByText(/^נאכל ✓ · \d+ קל׳$/).first().isVisible().catch(()=>false)); }
+  check("the Today total counts it", await mp.getByText(/^נשארו [\d,]+ קלוריות להיום$/).first().isVisible().catch(()=>false));
+
+  // swap dinner for another recipe the kitchen can make
+  await mp.getByRole("button",{name:"החלף · ערב"}).first().click(); await mp.waitForTimeout(600);
+  check("swap lists other dishes from what is at home", await mp.getByText("מנות אחרות שאפשר להכין ממה שיש לך:").first().isVisible().catch(()=>false));
+  const altName = await mp.getByText("מנות אחרות שאפשר להכין ממה שיש לך:").locator("xpath=following-sibling::*[1]").getByRole("button").first().getAttribute("aria-label").catch(()=>null);
+  await mp.getByText("מנות אחרות שאפשר להכין ממה שיש לך:").locator("xpath=following-sibling::*[1]").getByRole("button").first().click(); await mp.waitForTimeout(800);
+  { const s=await mst(); const dinner=Object.values(s.menu??{})[0]?.dinner;
+    check("the swapped dish is saved for dinner", !!dinner?.mealId, JSON.stringify(dinner));
+    check("and shows on the menu", !!altName && await mp.getByText(altName).first().isVisible().catch(()=>false), String(altName)); }
+
+  // upgrade lunch with something from the kitchen
+  const lunchLine = async ()=> (await mp.getByRole("button",{name:"אכלתי · צהריים"}).first().locator("xpath=ancestor::*[3]").innerText().catch(()=>""));
+  await mp.getByRole("button",{name:"שדרג · צהריים"}).first().click(); await mp.waitForTimeout(600);
+  check("upgrade offers foods from the kitchen", await mp.getByText("שדרג עם מה שיש לך:").first().isVisible().catch(()=>false));
+  await mp.getByText("שדרג עם מה שיש לך:").locator("xpath=following-sibling::*[1]").getByRole("button").first().click(); await mp.waitForTimeout(800);
+  { const s=await mst(); const lunch=Object.values(s.menu??{})[0]?.lunch;
+    check("an upgrade is saved on the meal", (lunch?.extras??[]).length===1, JSON.stringify(lunch)); }
+  check("and shows on the meal line", /· \+ /.test(await lunchLine()), await lunchLine());
+
+  // a recipe from the book onto today's menu
+  await mp.goto(`http://localhost:${PORT}/recipe/salmon-quinoa`,{waitUntil:"load"}); await mp.waitForTimeout(1800);
+  const addBtn = mp.getByRole("button",{name:"הוסף לתפריט של היום"}).first();
+  check("a recipe page offers adding it to today's menu", await addBtn.isVisible().catch(()=>false));
+  await addBtn.click(); await mp.waitForTimeout(700);
+  check("it says which meal it went into", await mp.getByText(/^נוסף לתפריט — /).first().isVisible().catch(()=>false));
+  { const s=await mst(); const day=Object.values(s.menu??{})[0]??{};
+    check("the recipe is on today's menu", Object.values(day).some((c)=>c?.mealId==="salmon-quinoa"), JSON.stringify(day)); }
+
+  // the next meal on the Today screen
+  await mp.goto(`http://localhost:${PORT}/`,{waitUntil:"load"}); await mp.waitForTimeout(1800);
+  check("Today shows the next meal to eat", await mp.getByText("הארוחה הבאה").first().isVisible().catch(()=>false));
+  check("the menu raises no page errors", merr.length===0, merr.join(" | "));
+  await mctx.close();
 }
 
 check("the served page carries the Content-Security-Policy",

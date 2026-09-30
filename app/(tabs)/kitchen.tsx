@@ -11,6 +11,7 @@ import { EatScore } from "@/components/EatScore";
 import { FoodThumb } from "@/components/FoodThumb";
 import { MealPhoto } from "@/components/MealPhoto";
 import { MealScanner } from "@/components/MealScanner";
+import { TodayMenu } from "@/components/TodayMenu";
 import { DayCalories } from "@/components/DayCalories";
 import { Rise } from "@/components/motion";
 import { bookSize } from "@/kitchen/book";
@@ -430,6 +431,12 @@ export default function KitchenScreen() {
           <DayCalories />
         </Rise>
 
+        {/* the day planned: four meals from what is in the kitchen, sized to
+            today's target, each one swappable, upgradable and one tap to log */}
+        <Rise delay={80}>
+          <TodayMenu />
+        </Rise>
+
         {/* "Can I eat this?" sits at the top whatever else the screen is doing:
             it answers the question somebody opened the kitchen to ask, and it
             answers it about the food they were already thinking about rather
@@ -555,12 +562,8 @@ export default function KitchenScreen() {
               <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
             ))}
 
-            {almost.length > 0 ? <SectionLabel text={t.kitchen.almostTitle} /> : null}
-            {almost.map((m) => (
-              <MealCard key={m.meal.id} match={m} have={haveIds} foodsById={foodsById} units={units} onUnits={setUnits} goal={goal} goalKcal={goalKcal} />
-            ))}
-
-            {almost.length > 0 ? <ShoppingCard items={shoppingList(almost)} /> : null}
+            {/* No "almost" meals and no shopping list: the kitchen works with
+                what the person has, and never sends them out to buy things. */}
           </>
         )}
 

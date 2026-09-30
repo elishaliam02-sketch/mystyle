@@ -56,7 +56,9 @@ import {
 import { cupMlOf, defaultGoalMl, goalMlOf, isStorableCupMl, isStorableGoalMl, MAX_DAY_ML, waterMlLog } from "@/health/water";
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import { adaptiveTarget, type AdaptiveTarget } from "@/kitchen/adaptive";
-import type { Goal } from "@/kitchen";
+import { adhocFood, readPantryFull, type Goal } from "@/kitchen";
+import { planDay, type DayMenu, type SlotChoice } from "@/kitchen/menu";
+import type { MealSlot } from "@/kitchen/data";
 
 /** The weekly adaptive target with today's activity added on top. */
 export type DayTarget = AdaptiveTarget & {
@@ -122,7 +124,16 @@ type Store = {
   /** True when the meal is starred. */
   isFavorite: (mealId: string) => boolean;
   /** Logs a meal against today's food diary. */
-  logMeal: (label: string, kcal: number, protein: number) => void;
+  logMeal: (label: string, kcal: number, protein: number, id?: string) => void;
+  /** Today's menu: four meals from the kitchen, sized to today's target. */
+  todayMenu: () => DayMenu;
+  /** Puts a recipe on today's menu for a meal of the day (swap, or from the book). */
+  menuChoose: (slot: MealSlot, mealId: string) => void;
+  /** Adds or removes an upgrade (a food from the kitchen) on a meal. */
+  menuToggleExtra: (slot: MealSlot, foodId: string) => void;
+  /** Logs a menu meal to today's diary as it is planned (portion, upgrades),
+   * under the label the screen shows for it. */
+  menuEat: (slot: MealSlot, label: string) => void;
   /** Removes one logged item from today. */
   removeMeal: (id: string) => void;
   /** Foods the person said they want to eat, newest first. */
@@ -633,10 +644,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.favorites],
   );
 
-  const logMeal = useCallback((label: string, kcal: number, protein: number) => {
+  const logMeal = useCallback((label: string, kcal: number, protein: number, id?: string) => {
     setState((s) => {
       const { date, highWater } = trustedStamp(s);
-      const item: IntakeItem = { id: newId(), label, kcal, protein };
+      const item: IntakeItem = { id: id ?? newId(), label, kcal, protein };
       const day = s.intake?.[date] ?? [];
       return {
         ...s,
@@ -1200,6 +1211,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return `${salt}|${trustedToday()}|${state.mealShuffle ?? 0}`;
   }, [state.salt, state.mealShuffle, trustedToday]);
 
+  const todayMenu = useCallback((): DayMenu => {
+    const today = trustedToday();
+    const target = calorieTarget();
+    const full = readPantryFull(state.pantry ?? "");
+    const pantry = [...full.known, ...full.extras.map((w) => adhocFood(w))];
+    const hasList = full.known.length > 0;
+    return planDay({
+      target: { kcal: target.kcal, protein: target.protein },
+      goal: goal(),
+      have: hasList ? new Set(full.known.map((f) => f.id)) : null,
+      pantry,
+      diet: state.dietFilter ?? "all",
+      seed: mealSeed(),
+      choices: state.menu?.[today],
+      diary: (state.intake?.[today] ?? []).map((i) => ({ id: i.id, kcal: i.kcal, protein: i.protein })),
+    });
+  }, [state.pantry, state.dietFilter, state.menu, state.intake, calorieTarget, goal, mealSeed, trustedToday]);
+
+  /** Every menu write funnels through here, on today's date. */
+  const editMenu = useCallback((slot: MealSlot, edit: (c: SlotChoice) => SlotChoice) => {
+    setState((s) => {
+      const { date, highWater } = trustedStamp(s);
+      const day = s.menu?.[date] ?? {};
+      return {
+        ...s,
+        clockHighWaterMs: highWater,
+        menu: { ...s.menu, [date]: { ...day, [slot]: edit(day[slot] ?? {}) } },
+      };
+    });
+  }, []);
+
+  const menuChoose = useCallback(
+    (slot: MealSlot, mealId: string) => editMenu(slot, (c) => ({ ...c, mealId, extras: [] })),
+    [editMenu],
+  );
+
+  const menuToggleExtra = useCallback(
+    (slot: MealSlot, foodId: string) =>
+      editMenu(slot, (c) => {
+        const now = c.extras ?? [];
+        return { ...c, extras: now.includes(foodId) ? now.filter((x) => x !== foodId) : [...now, foodId].slice(0, 3) };
+      }),
+    [editMenu],
+  );
+
+  const menuEat = useCallback(
+    (slot: MealSlot, label: string) => {
+      const planned = todayMenu().slots.find((x) => x.slot === slot);
+      if (!planned || planned.eaten) return;
+      const id = newId();
+      logMeal(label, planned.kcal, planned.protein, id);
+      // The dish is pinned too, so the menu shows what was eaten even after
+      // the pantry or the rotation would have picked something else.
+      editMenu(slot, (c) => ({ ...c, mealId: c.mealId ?? planned.meal.id, loggedId: id }));
+    },
+    [todayMenu, logMeal, editMenu],
+  );
+
   const shuffleMeals = useCallback(() => {
     setState((s) => ({
       ...s,
@@ -1462,6 +1531,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSteps,
       addSteps,
       todaySteps,
+      todayMenu,
+      menuChoose,
+      menuToggleExtra,
+      menuEat,
       activeWorkout,
       startWorkout,
       finishWorkout,
@@ -1496,6 +1569,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
      activeWorkout, startWorkout, finishWorkout, discardWorkout, workoutHistory,
+     todayMenu, menuChoose, menuToggleExtra, menuEat,
      demoFor, mealSeed, shuffleMeals, setSteps, addSteps, todaySteps, stepGoal, setStepGoal,
      focusOn, toggleFocus,
      todayChallenge, challengeLevel, setChallengeLevel, isChallengeDone, toggleChallenge,

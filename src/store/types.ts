@@ -2,6 +2,7 @@ import { goalMlOf, waterMlLog } from "@/health/water";
 import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
 import type { ActiveWorkout, WorkoutRecord } from "@/workout/session";
+import type { DayChoices, SlotChoice } from "@/kitchen/menu";
 
 /** The training plan config and log, device-local like the pantry. */
 export type Training = {
@@ -255,6 +256,12 @@ export type AppState = {
   dietFilter?: string;
   /** Meal ids the person starred, so a dish they love is one tap away. */
   favorites?: string[];
+  /**
+   * Today's menu, as the person shaped it: date → meal of the day → the recipe
+   * they swapped in, the upgrades they added, the diary entry it was eaten as.
+   * Everything else about the menu is worked out fresh (kitchen/menu.ts).
+   */
+  menu?: Record<string, DayChoices>;
   /** Steps walked each day (YYYY-MM-DD → count). Device-local. */
   steps?: Record<string, number>;
   /** The daily step target, when the person set one of their own. */
@@ -396,6 +403,7 @@ export function migrateState(raw: unknown): AppState {
     photos: s.photos,
     dietFilter: s.dietFilter,
     favorites: s.favorites,
+    menu: readMenu(s.menu),
     videoIds: s.videoIds,
     subscription: s.subscription,
     usage: s.usage,
@@ -415,4 +423,32 @@ export function migrateState(raw: unknown): AppState {
     challengeLevel: s.challengeLevel,
     challengesDone: s.challengesDone,
   };
+}
+
+/** Stored menu choices, keeping only well-formed entries from the last week. */
+function readMenu(v: unknown): Record<string, DayChoices> | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const days = Object.keys(v as object)
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort()
+    .slice(-7);
+  const out: Record<string, DayChoices> = {};
+  const str = (x: unknown) => (typeof x === "string" && x.length < 80 ? x : undefined);
+  for (const d of days) {
+    const day = (v as Record<string, unknown>)[d];
+    if (!day || typeof day !== "object") continue;
+    const clean: DayChoices = {};
+    for (const slot of ["breakfast", "lunch", "dinner", "snack"] as const) {
+      const c = (day as Record<string, unknown>)[slot] as Record<string, unknown> | undefined;
+      if (!c || typeof c !== "object") continue;
+      const choice: SlotChoice = {
+        mealId: str(c.mealId),
+        loggedId: str(c.loggedId),
+        extras: Array.isArray(c.extras) ? c.extras.filter((x): x is string => typeof x === "string").slice(0, 5) : undefined,
+      };
+      clean[slot] = choice;
+    }
+    out[d] = clean;
+  }
+  return out;
 }

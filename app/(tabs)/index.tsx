@@ -15,6 +15,7 @@ import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { DayCalories } from "@/components/DayCalories";
+import { TodayMenu } from "@/components/TodayMenu";
 import { Rise, useCountUp } from "@/components/motion";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -435,6 +436,9 @@ export default function TodayScreen() {
         <Rise>
           <DayCalories />
         </Rise>
+        <Rise delay={80}>
+          <TodayMenu compact />
+        </Rise>
         <Card label={t.today.emptyTitle}>
           <Text style={[type.body, { color: colors.inkSoft }]}>{t.today.emptyBody}</Text>
           <Button
@@ -473,6 +477,11 @@ export default function TodayScreen() {
 
       <Rise delay={80}>
         <DayCalories />
+      </Rise>
+
+      {/* what to eat next, from today's menu — one tap logs it */}
+      <Rise delay={140}>
+        <TodayMenu compact />
       </Rise>
 
       {/* the core daily loop leads the screen: ticking a habit was the fourth
