@@ -9,18 +9,18 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-29",
+  id: "2026-09-30",
   he: [
-    "אימון כמו ב-Hevy: בוחרים איזה יום עושים, לוחצים \"התחל אימון\" — והשעון רץ. רואים סטים ונפח בזמן אמת, ובסוף מקבלים סיכום עם זמן, נפח, שיאים אישיים וקלוריות.",
-    "היסטוריית אימונים: כל אימון נשמר עם כמה זמן לקח וכמה הרמת.",
-    "הקלוריות דינמיות: אימון וצעדים מעל 5,000 מוסיפים ליעד של היום, והיעד השבועי ממשיך להתכוונן לפי השקילות — בחיטוב ובמסה.",
-    "צילום ארוחה עובד עכשיו גם בגרסאות קודמות של האפליקציה, בלי להתקין מחדש ובלי קריסה.",
+    "צילום אוכל לא קורס יותר: התמונה נקראת בגודל קטן בלי לטעון את כולה לזיכרון, ואם הטלפון סגר את האפליקציה בזמן שהמצלמה פתוחה — היא חוזרת ישר לזיהוי עם התמונה.",
+    "כל מנה שהצילום מזהה נספרת עכשיו — גם פאד תאי, חצ׳אפורי או פו — עם הערכה לפי סוג המנה.",
+    "התפריט שלך להיום: ארוחת בוקר, צהריים, ערב ונשנוש — רק ממה שיש לך בבית, בגודל שמתאים ליעד של היום. אפשר להחליף מנה, לשדרג אותה עם מה שיש, או להוסיף מתכון מהספר.",
+    "המאמן באימון: ליד כל תרגיל — כמה להרים היום ולמה (מוסיפים משקל, עוד חזרה, או מורידים כשנתקעים), וסיכום שבועי של האימונים.",
   ],
   en: [
-    "Workouts like Hevy: pick which day you're doing, tap \"Start workout\" — and the clock runs. See sets and volume live, and finish with a summary of time, volume, PRs and calories.",
-    "Workout history: every session is saved with how long it took and how much you lifted.",
-    "Dynamic calories: workouts and steps above 5,000 add to today's target, and the weekly target keeps adjusting to your weigh-ins — on a cut and on a bulk.",
-    "Meal photos now work on older versions of the app too — no reinstall, no crash.",
+    "Meal photos no longer crash the app: the picture is read small without loading all of it into memory, and if the phone closed the app while the camera was open, it comes straight back to the scanner with the photo.",
+    "Every dish the camera recognises can now be counted — pad thai, khachapuri or pho too — with an estimate by the kind of dish.",
+    "Your menu for today: breakfast, lunch, dinner and a snack — only from what you have at home, sized to today's target. Swap a meal, upgrade it with what you have, or add a recipe from the book.",
+    "The workout coach: beside every exercise, what to lift today and why (add weight, one more rep, or back off when stuck), plus a weekly summary.",
   ],
 };
 
