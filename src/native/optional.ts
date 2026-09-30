@@ -27,3 +27,14 @@ export function sensors(): SensorsModule | null {
     return null;
   }
 }
+
+type FileSystemModule = typeof import("expo-file-system/legacy");
+
+/** File access — shipped inside Expo itself, but looked up all the same. */
+export function fileSystem(): FileSystemModule | null {
+  try {
+    return require("expo-file-system/legacy") as FileSystemModule;
+  } catch {
+    return null;
+  }
+}

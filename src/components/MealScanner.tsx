@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
-import { imagePicker } from "@/native/optional";
+import { fileSystem, imagePicker } from "@/native/optional";
 import { PillButton } from "@/components/PillButton";
 import { Button } from "@/components/Button";
 import { ProGate, ProRemaining } from "@/components/ProGate";
@@ -52,6 +52,37 @@ function pendingPhoto() {
   return pendingOnce;
 }
 let pendingClaimed = false;
+
+/**
+ * The photo the camera saved when Android had already killed the app.
+ *
+ * The picker can hand a photo back after its screen was destroyed, but not
+ * after the whole app process was killed for memory — its bookkeeping is only
+ * saved on a normal close, so on a real phone short of memory the photo was
+ * simply lost (reproduced on the test emulator). The camera still writes the
+ * picture into the file the picker gave it, in the app's own cache
+ * ("ImagePicker/"), so the newest non-empty photo there, taken after the
+ * camera was opened, is the one.
+ */
+async function orphanCameraPhoto(sinceMs: number): Promise<{ uri: string; base64: string } | null> {
+  const fs = fileSystem();
+  if (!fs?.cacheDirectory || Platform.OS !== "android") return null;
+  const dir = `${fs.cacheDirectory}ImagePicker/`;
+  const names = await fs.readDirectoryAsync(dir).catch(() => [] as string[]);
+  let best: { uri: string; t: number; size: number } | null = null;
+  for (const name of names) {
+    if (!/\.jpe?g$/i.test(name)) continue;
+    const info = await fs.getInfoAsync(`${dir}${name}`).catch(() => null);
+    if (!info || !info.exists || info.isDirectory || !info.size) continue;
+    const t = (info.modificationTime ?? 0) * 1000;
+    if (t < sinceMs - 10_000) continue;
+    if (!best || t > best.t) best = { uri: `${dir}${name}`, t, size: info.size };
+  }
+  // A photo past 30 MB is not a phone camera's; leave it rather than risk memory.
+  if (!best || best.size > 30 * 1024 * 1024) return null;
+  const base64 = await fs.readAsStringAsync(best.uri, { encoding: fs.EncodingType.Base64 });
+  return { uri: best.uri, base64 };
+}
 
 type Phase =
   | { kind: "idle" }
@@ -106,7 +137,8 @@ export function MealScanner() {
         // The device test's switch for driving the older-install path.
         simulateLegacyInstall((await AsyncStorage.getItem("mystyle.debug.legacyScan")) === "1");
         const raw = await AsyncStorage.getItem(SCAN_STAGE_KEY);
-        const stage = raw ? ((JSON.parse(raw) as { stage?: string }).stage ?? "") : "";
+        const mark0 = raw ? (JSON.parse(raw) as { stage?: string; at?: number }) : null;
+        const stage = mark0?.stage ?? "";
         // Android may close the app while the camera is open; the photo it
         // took is waiting here, and is read as if nothing had happened.
         const pending = await pendingPhoto();
@@ -116,12 +148,20 @@ export function MealScanner() {
           return;
         }
         if (!raw || pendingClaimed) return;
-        await unmark();
         if (stage === "camera") {
+          // Killed with the camera open: the photo is still in the app's cache.
+          pendingClaimed = true;
+          const orphan = await orphanCameraPhoto(mark0?.at ?? 0).catch(() => null);
+          await unmark();
+          if (orphan) {
+            if (live) void readPhoto(orphan.uri, orphan.base64);
+            return;
+          }
           // Closed while the camera was open and the photo did not survive.
           if (live) setPhase({ kind: "failed", reason: "cameraLost" });
           return;
         }
+        await unmark();
         await AsyncStorage.setItem(SCAN_LAST_CRASH_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
         if (live) setPhase({ kind: "failed", reason: "crashed", stage });
       } catch {
