@@ -422,6 +422,9 @@ export function MealScanner() {
                           {t.kitchen.grams} {t.kitchen.protein} · {now.text} ({now.grams} {t.kitchen.gram})
                         </Text>
                       </View>
+                      {g.food?.src === "ai" ? (
+                        <Text style={[type.small, { color: colors.inkFaint }]}>{t.scan.estimated}</Text>
+                      ) : null}
                       <Button icon="add-circle" label={t.scan.save} onPress={() => logGuess(g)} />
                       <Pressable
                         onPress={() => {

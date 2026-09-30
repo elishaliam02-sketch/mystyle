@@ -1055,8 +1055,14 @@ const PORTIONS: Record<string, Portion> = {
   ...Object.fromEntries(EXTRA_FOODS.map((x) => [x.id, x.portion])),
 };
 
+/** Portions of foods made up at run time (a dish estimated from a photo). */
+const EXTRA_PORTIONS = new Map<string, Portion>();
+export function registerPortion(foodId: string, p: Portion): void {
+  EXTRA_PORTIONS.set(foodId, p);
+}
+
 export function portion(foodId: string): Portion {
-  return PORTIONS[foodId] ?? DEFAULT_PORTION;
+  return PORTIONS[foodId] ?? EXTRA_PORTIONS.get(foodId) ?? DEFAULT_PORTION;
 }
 
 /** How much of one ingredient a dish uses: its own amount if the recipe says

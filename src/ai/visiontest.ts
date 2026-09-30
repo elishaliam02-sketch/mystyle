@@ -17,6 +17,8 @@ import * as data from "./foodModelData";
 import { base64Bytes, dequantize, SIDE, toRgbBytes } from "./foodvisionpure";
 import { jpegToModelInput, toRecognitions } from "./recognize";
 import { FOOD_LABELS } from "./foodLabelNames";
+import { estimateFood, familyOf } from "./dishfamilies";
+import { gramsNutrition, portion } from "@/kitchen/data";
 import SHAKSHUKA from "./testdata/shakshuka192.b64";
 import OMELETTE from "./testdata/omelette192.b64";
 
@@ -114,6 +116,23 @@ const source = async () => {
   check("and it is named in Hebrew", seen[0]?.name === "שקשוקה", seen[0]?.name);
   const salad = toRecognitions([{ label: "Ceviche", score: 0.3 }, { label: "Fattoush", score: 0.22 }], "he");
   check("a dish the app can count comes before one it can only search", salad[0]?.food?.id === "israeliSalad", JSON.stringify(salad));
+
+  // Every named dish can now be counted: the ones outside the library get a
+  // dish-family estimate.
+  const padThai = toRecognitions([{ label: "Pad thai", score: 0.9 }, { label: "Rice", score: 0.05 }], "he");
+  check("a dish outside the library is estimated, not 'not in the database'", padThai[0]?.food?.src === "ai" && padThai[0]!.food!.he.startsWith("Pad thai"), JSON.stringify(padThai.map((r) => r.food?.he)));
+  check("a confident estimate stays ahead of a weak library match", padThai[0]?.label === "Pad thai");
+  const fam = (l: string) => familyOf(l);
+  check("families: soups, curries, pastries, desserts are told apart",
+    fam("Bún bò Huế") === "noodleSoup" && fam("Chicken tikka masala") === "curry" && fam("Khachapuri") === "savoryPastry" && fam("Tiramisu") === "cake" && fam("Gỏi cuốn") === "salad",
+    [fam("Bún bò Huế"), fam("Chicken tikka masala"), fam("Khachapuri"), fam("Tiramisu"), fam("Gỏi cuốn")].join());
+  const est = estimateFood("Pad thai");
+  const g = portion(est.id).g;
+  const n = gramsNutrition(est, g);
+  check("an estimate has a typical portion and plausible calories", g === 300 && n.kcal > 300 && n.kcal < 700, `${g} g → ${n.kcal} kcal`);
+  const allNamed = FOOD_LABELS.filter((l) => !/^\/[gm]\/|^__/.test(l));
+  const counted = toRecognitions(allNamed.map((label) => ({ label, score: 0.5 })), "he");
+  check("every named dish the model knows can be counted", allNamed.every((l) => (toRecognitions([{ label: l, score: 1 }], "he")[0]?.food ?? null) !== null), String(counted.length));
 
   const noisy = toRecognitions(
     [

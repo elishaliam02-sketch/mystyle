@@ -18,6 +18,7 @@
 import jpeg from "jpeg-js";
 import { base64Bytes, dequantize, rank, SIDE, toRgbBytes, type Guess } from "./foodvisionpure";
 import { labelToFood } from "./foodlabels";
+import { estimateFood } from "./dishfamilies";
 import { FOOD_LABELS } from "./foodLabelNames";
 import TFLITE from "../../assets/model/food/tflite.json";
 import type { Food } from "@/kitchen";
@@ -195,7 +196,10 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
   const out: Recognition[] = [];
   const byKey = new Map<string, Recognition>();
   for (const g of guesses) {
-    const food = labelToFood(g.label);
+    // A library food when the app has one; otherwise the dish's family
+    // estimate (dishfamilies.ts), so any dish the model names can be counted.
+    // Unnamed model entries ("/g/…") have nothing to estimate from.
+    const food = labelToFood(g.label) ?? (/^\/[gm]\/|^__/.test(g.label) ? null : estimateFood(g.label));
     const key = food ? food.id : g.label.toLowerCase();
     const seen = byKey.get(key);
     if (seen) {
@@ -211,7 +215,13 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
   const best = Math.max(0, ...out.map((r) => r.score));
   const likely = out.filter((r) => r.score >= MIN_ALTERNATIVE || r.score === best);
   // A dish the app can count comes before one it can only search for.
-  likely.sort((a, b) => (a.food ? 0 : 1) - (b.food ? 0 : 1) || b.score - a.score);
+  // What can be counted comes first. Among those, exact library figures win
+  // over a dish-family estimate unless the estimate is clearly the likelier
+  // dish (a library food needs at least 60% of the estimate's score): a 90%
+  // pad thai stays ahead of a 3% rice, a 22% fattoush goes ahead of a 30%
+  // ceviche.
+  const weight = (r: Recognition) => (!r.food ? -1 : r.food.src ? r.score : r.score / 0.6);
+  likely.sort((a, b) => weight(b) - weight(a));
   return likely.slice(0, 5);
 }
 
