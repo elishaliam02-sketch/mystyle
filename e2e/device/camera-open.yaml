@@ -1,0 +1,24 @@
+# Opens the camera from the kitchen's meal scanner. device-test.sh then kills
+# the app in the background, the way Android does when a heavy camera app
+# leaves the phone short of memory — the case that looked like a crash.
+appId: com.mystyle.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "מטבח"
+    timeout: 90000
+- tapOn: "מטבח"
+- scrollUntilVisible:
+    element: "צלם ארוחה"
+    direction: DOWN
+    timeout: 120000
+    speed: 60
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "צלם ארוחה"
+- extendedWaitUntil:
+    visible:
+      id: ".*shutter_button"
+    timeout: 60000
+- takeScreenshot: device-test/11-camera-open

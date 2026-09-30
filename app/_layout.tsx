@@ -21,6 +21,7 @@ import { currentAccount } from "@/cloud/client";
 import { I18nProvider } from "@/i18n";
 import { StoreProvider, useStore } from "@/store";
 import { UpdatedToast } from "@/components/UpdatedToast";
+import { cameraWasInterrupted } from "@/components/MealScanner";
 import { ThemeProvider, useTheme } from "@/theme";
 import { trustedNowMs } from "@/time/clock";
 
@@ -119,6 +120,31 @@ function OnboardingGate() {
   return null;
 }
 
+/**
+ * Android closes a background app when the phone runs short of memory, and the
+ * camera app is heavy — so taking a meal photo could bring the person back to
+ * a freshly started app on its first screen, the photo gone: to them, a crash.
+ * When that happened, open the calculator, whose scanner reads the photo the
+ * camera took as if nothing had happened.
+ */
+function CameraRecovery() {
+  const { ready, state } = useStore();
+  const router = useRouter();
+  useEffect(() => {
+    if (!ready || !state.profile.onboarded) return;
+    let alive = true;
+    void cameraWasInterrupted().then((was) => {
+      if (alive && was) router.push("/calc");
+    });
+    return () => {
+      alive = false;
+    };
+    // Once, when the app has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+  return null;
+}
+
 function Shell() {
   const { colors } = useTheme();
   const { ready } = useStore();
@@ -127,6 +153,7 @@ function Shell() {
     <View style={{ flex: 1, backgroundColor: colors.ground }}>
       <StatusBar style="light" />
       {ready ? <OnboardingGate /> : null}
+      {ready ? <CameraRecovery /> : null}
       {/* Until the saved state is read, the ground colour and nothing else:
           otherwise every launch flashed "no habits yet" and a nameless
           greeting before the real Today arrived. */}

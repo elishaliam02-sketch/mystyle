@@ -12,7 +12,10 @@ on:
       - e2e/device/**
       - scripts/device-test.sh
       - scripts/device-seed.mjs
+      - scripts/device-photo.mjs
       - .github/workflows/device-test.yml
+  # By hand, e.g. to re-test an over-the-air update against the latest APK.
+  workflow_dispatch:
   workflow_call:
     inputs:
       apk_run_id:
@@ -84,6 +87,14 @@ jobs:
           mv "$RUNNER_TEMP/maestro" "$HOME/.maestro"
           rm maestro.zip
           "$HOME/.maestro/bin/maestro" --version
+
+      # A camera-sized (12 MP) food photo for the gallery: a small test picture
+      # never showed what a real photo costs in memory.
+      - name: Make a camera-sized test photo
+        run: |
+          npm install --silent --no-save --no-package-lock --ignore-scripts --prefix "$RUNNER_TEMP/photo" jpeg-js@0.4.4
+          mkdir -p node_modules && ln -sfn "$RUNNER_TEMP/photo/node_modules/jpeg-js" node_modules/jpeg-js
+          node scripts/device-photo.mjs shakshuka.jpg
 
       - name: Let the emulator use hardware acceleration
         run: |

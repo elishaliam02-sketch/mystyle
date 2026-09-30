@@ -44,8 +44,12 @@ adb shell chown -R "$OWNER" "/data/data/$PKG/databases"
 adb shell restorecon -R "/data/data/$PKG/databases"
 echo "seeded: $(adb shell "sqlite3 $DB 'select key from catalystLocalStorage'" | tr '\r\n' '  ')"
 
-# A food photo in the gallery, as if the person had taken it.
-adb push assets/meals/shakshuka.jpg /sdcard/Pictures/shakshuka.jpg > /dev/null
+# A food photo in the gallery, as if the person had taken it — camera-sized
+# (12 MP), because a small picture never shows what a real photo costs.
+[ -f shakshuka.jpg ] || cp assets/meals/shakshuka.jpg shakshuka.jpg
+ls -la shakshuka.jpg
+adb push shakshuka.jpg /sdcard/Pictures/shakshuka.jpg > /dev/null
+adb shell pm grant "$PKG" android.permission.CAMERA > /dev/null 2>&1 || true
 adb shell content call --uri content://media --method scan_volume --arg external_primary > /dev/null 2>&1 || true
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/shakshuka.jpg > /dev/null 2>&1 || true
 sleep 3
@@ -80,6 +84,20 @@ maestro test --debug-output "$OUT/maestro-legacy" e2e/device/scan-legacy.yaml ||
 adb exec-out screencap -p > "$OUT/legacy-end.png"
 ui "after the older-install scan"
 adb logcat -d | grep -E "ReactNativeJS|AndroidRuntime|FATAL|lowmemorykiller" | tail -20
+
+# The camera, with Android closing the app behind it (low memory): the app
+# must come back to the scanner with the photo, not restart on Today.
+adb shell am force-stop "$PKG"
+adb shell "sqlite3 $DB \"DELETE FROM catalystLocalStorage WHERE key = 'mystyle.debug.legacyScan';\""
+maestro test --debug-output "$OUT/maestro-camera" e2e/device/camera-open.yaml || status=1
+echo "app before the kill: $(adb shell pidof "$PKG" | tr -d '\r')"
+adb shell am kill "$PKG"
+sleep 2
+if [ -n "$(adb shell pidof "$PKG" | tr -d '\r')" ]; then adb shell "kill -9 \$(pidof $PKG)"; sleep 2; fi
+echo "app after the kill: '$(adb shell pidof "$PKG" | tr -d '\r')' (empty = killed)"
+maestro test --debug-output "$OUT/maestro-camera2" e2e/device/camera-take.yaml || status=1
+adb exec-out screencap -p > "$OUT/camera-end.png"
+ui "after the camera was interrupted"
 
 # Maestro saves takeScreenshot paths next to the flow files.
 find e2e/device "$OUT" "$HOME/.maestro" -name '[0-9][0-9]-*.png' -not -path "$OUT/[0-9][0-9]-*" -exec cp {} "$OUT/" \; 2>/dev/null || true

@@ -20,6 +20,39 @@ export const SCAN_STAGE_KEY = "mystyle.scan.stage";
 /** The last reading that stopped half-way, for the profile's version card. */
 export const SCAN_LAST_CRASH_KEY = "mystyle.scan.lastCrash";
 
+/**
+ * Whether the app was closed while the camera was open. Android does this to
+ * a background app when the phone runs short of memory — the camera app is
+ * heavy — and the app then starts from scratch on its first screen, which to
+ * the person is the app crashing. The root layout asks this on launch and
+ * brings them back to the scanner, which picks up the photo the camera took.
+ */
+export async function cameraWasInterrupted(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(SCAN_STAGE_KEY);
+    return !!raw && (JSON.parse(raw) as { stage?: string }).stage === "camera";
+  } catch {
+    return false;
+  }
+}
+
+/** The photo the camera took before Android closed the app, read once for
+ * every scanner on screen (the kitchen and the calculator both have one). */
+let pendingOnce: Promise<{ uri: string; base64?: string | null } | null> | null = null;
+function pendingPhoto() {
+  pendingOnce ??= (async () => {
+    const picker = imagePicker();
+    if (!picker || Platform.OS !== "android") return null;
+    const pending = await picker.getPendingResultAsync();
+    if (pending && "assets" in pending && !pending.canceled && pending.assets?.[0]) {
+      return { uri: pending.assets[0].uri, base64: pending.assets[0].base64 };
+    }
+    return null;
+  })().catch(() => null);
+  return pendingOnce;
+}
+let pendingClaimed = false;
+
 type Phase =
   | { kind: "idle" }
   | { kind: "reading"; uri: string }
@@ -27,7 +60,11 @@ type Phase =
   /** Recognised on the phone: the dishes the photo most looks like. */
   | { kind: "guessed"; uri: string; guesses: Recognition[] }
   | { kind: "saved"; kcal: number; goal: number }
-  | { kind: "failed"; reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" | "crashed"; stage?: string };
+  | {
+      kind: "failed";
+      reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" | "crashed" | "cameraLost";
+      stage?: string;
+    };
 
 /**
  * Photograph the meal, get the calories.
@@ -58,7 +95,7 @@ export function MealScanner() {
   // the app is closed mid-way (out of memory, or Android killing it while the
   // camera was open), the next opening finds it, says so, and the profile can
   // show which step it was — rather than the scanner silently doing nothing.
-  const mark = (stage: "picked" | ScanStage) =>
+  const mark = (stage: "camera" | "picked" | ScanStage) =>
     AsyncStorage.setItem(SCAN_STAGE_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
   const unmark = () => AsyncStorage.removeItem(SCAN_STAGE_KEY).catch(() => {});
 
@@ -69,20 +106,24 @@ export function MealScanner() {
         // The device test's switch for driving the older-install path.
         simulateLegacyInstall((await AsyncStorage.getItem("mystyle.debug.legacyScan")) === "1");
         const raw = await AsyncStorage.getItem(SCAN_STAGE_KEY);
-        if (raw) {
-          await unmark();
-          const { stage } = JSON.parse(raw) as { stage: string };
-          await AsyncStorage.setItem(SCAN_LAST_CRASH_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
-          if (live) setPhase({ kind: "failed", reason: "crashed", stage });
-          return;
-        }
+        const stage = raw ? ((JSON.parse(raw) as { stage?: string }).stage ?? "") : "";
         // Android may close the app while the camera is open; the photo it
         // took is waiting here, and is read as if nothing had happened.
-        const picker = imagePicker();
-        const pending = picker && Platform.OS === "android" ? await picker.getPendingResultAsync() : null;
-        if (live && pending && "assets" in pending && !pending.canceled && pending.assets?.[0]) {
-          void readPhoto(pending.assets[0].uri, pending.assets[0].base64);
+        const pending = await pendingPhoto();
+        if (pending && !pendingClaimed) {
+          pendingClaimed = true;
+          if (live) void readPhoto(pending.uri, pending.base64);
+          return;
         }
+        if (!raw || pendingClaimed) return;
+        await unmark();
+        if (stage === "camera") {
+          // Closed while the camera was open and the photo did not survive.
+          if (live) setPhase({ kind: "failed", reason: "cameraLost" });
+          return;
+        }
+        await AsyncStorage.setItem(SCAN_LAST_CRASH_KEY, JSON.stringify({ stage, at: Date.now() })).catch(() => {});
+        if (live) setPhase({ kind: "failed", reason: "crashed", stage });
       } catch {
         // Nothing to recover.
       }
@@ -134,10 +175,13 @@ export function MealScanner() {
       return;
     }
     try {
-      // Without the native resizer the photo comes back as JPEG data, which
-      // is read at 1/8 size (see jpegdc); a lighter JPEG makes that quicker.
+      // On a phone the camera's file comes back untouched, as bytes: any
+      // quality below 1 makes the picker decode the whole photo into a bitmap
+      // to re-compress it (48 MB for 12 MP, far more on a 50 MP camera) —
+      // that, not the recognition, is what closed the app on real phones.
+      // The bytes are then read small (recognize.ts → photoPixels).
       const opts = needsPhotoData(Platform.OS)
-        ? ({ quality: 0.5, base64: true } as const)
+        ? ({ quality: 1, base64: true, exif: false } as const)
         : ({ quality: 0.8 } as const);
       let res;
       if (fromCamera) {
@@ -148,13 +192,18 @@ export function MealScanner() {
           setPhase({ kind: "failed", reason: "denied" });
           return;
         }
+        await mark("camera");
         res = await ImagePicker.launchCameraAsync(opts);
       } else {
         res = await ImagePicker.launchImageLibraryAsync({ ...opts, mediaTypes: ["images"] });
       }
-      if (res.canceled || !res.assets[0]) return;
+      if (res.canceled || !res.assets[0]) {
+        await unmark();
+        return;
+      }
       await readPhoto(res.assets[0].uri, res.assets[0].base64);
     } catch {
+      await unmark();
       setPhase({ kind: "failed", reason: "unreadable" });
     }
   }
@@ -244,6 +293,8 @@ export function MealScanner() {
                         ? t.scan.off
                         : phase.reason === "oldApp"
                           ? t.common.needsNewInstall
+                          : phase.reason === "cameraLost"
+                            ? t.scan.cameraLost
                           : phase.reason === "crashed"
                             ? t.scan.crashed
                             : t.scan.unavailable}

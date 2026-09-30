@@ -1,0 +1,28 @@
+# The app was killed while the camera was open. Take the photo and confirm it:
+# Android restarts the app, which must come back to the scanner and read the
+# photo — not open on the Today screen with the photo gone.
+appId: com.mystyle.app
+---
+- runFlow:
+    when:
+      visible: "NEXT"
+    commands:
+      - tapOn: "NEXT"
+- runFlow:
+    when:
+      visible: "No thanks"
+    commands:
+      - tapOn: "No thanks"
+- tapOn:
+    id: ".*shutter_button"
+- extendedWaitUntil:
+    visible:
+      id: ".*done_button"
+    timeout: 30000
+- tapOn:
+    id: ".*done_button"
+- extendedWaitUntil:
+    visible: "נראה כמו…"
+    timeout: 240000
+- takeScreenshot: device-test/12-camera-recovered
+- assertVisible: "רשום ביומן"
