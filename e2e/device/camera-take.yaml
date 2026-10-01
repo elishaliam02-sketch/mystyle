@@ -25,4 +25,8 @@ appId: com.mystyle.app
     visible: "נראה כמו…"
     timeout: 240000
 - takeScreenshot: device-test/12-camera-recovered
-- assertVisible: "רשום ביומן"
+- scrollUntilVisible:
+    element: "רשום ביומן"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true

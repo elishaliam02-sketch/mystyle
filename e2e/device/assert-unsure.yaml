@@ -1,0 +1,6 @@
+# Run right after scan-odd.yaml on the 48 MP landscape: the scanner says it is
+# not sure this is food, and the app is still there.
+appId: com.mystyle.app
+---
+- assertVisible: "לא בטוח שזו תמונה של אוכל.*"
+- assertVisible: "מטבח"

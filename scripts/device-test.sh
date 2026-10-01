@@ -96,6 +96,7 @@ if [ -f nonfood.jpg ]; then
   adb shell content call --uri content://media --method scan_volume --arg external_primary > /dev/null 2>&1 || true
   sleep 3
   maestro test -e SHOT=13-nonfood-48mp --debug-output "$OUT/maestro-nonfood" e2e/device/scan-odd.yaml || status=1
+  maestro test --debug-output "$OUT/maestro-unsure" e2e/device/assert-unsure.yaml || status=1
   ui "after the 48 MP non-food photo"
 fi
 adb exec-out screencap -p > screenshot.png

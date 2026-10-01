@@ -239,8 +239,6 @@ export default function KitchenScreen() {
       {/* today: targets, water and the food log */}
       <TodayCard goal={goal} />
 
-      {/* photograph the plate — the fastest way into the diary */}
-      <MealScanner />
 
       {/* The counting that always works, given its own way in rather than
           living only inside the scanner's failure states. */}
@@ -430,6 +428,10 @@ export default function KitchenScreen() {
         <Rise>
           <DayCalories />
         </Rise>
+
+        {/* photograph the plate — the fastest way into the diary, so it sits
+            right under the day's total rather than below the whole menu */}
+        <MealScanner />
 
         {/* the day planned: four meals from what is in the kitchen, sized to
             today's target, each one swappable, upgradable and one tap to log */}

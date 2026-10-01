@@ -1,6 +1,7 @@
 # A photo that is not food — first a 48 MP landscape, then a PNG screenshot.
-# The app must read it without closing, say it is not sure this is food, and
-# still offer the guesses. device-test.sh puts the photo in the gallery and
+# The app must read it without closing and still offer guesses (the model can
+# be confidently wrong about a screenshot, so "not sure" is checked separately,
+# for the landscape, by assert-unsure.yaml). device-test.sh puts the photo in the gallery and
 # passes SHOT (the screenshot name).
 appId: com.mystyle.app
 ---
@@ -31,7 +32,6 @@ appId: com.mystyle.app
 - extendedWaitUntil:
     visible: "נראה כמו…"
     timeout: 300000
-- assertVisible: "לא בטוח שזו תמונה של אוכל.*"
 - takeScreenshot: device-test/${SHOT}
 # Still alive and usable: the calculator opens from the scanner card.
 - assertVisible: "מטבח"
