@@ -144,6 +144,9 @@ export function labelToFood(label: string): Food | null {
   if (alias && byId.has(alias)) return byId.get(alias)!;
   const exact = TERMS.find((t) => t.term === l);
   if (exact) return exact.food;
+  // A savoury "cake" is not a cake: crab cakes, fish cakes, potato cakes are
+  // left to the dish-family estimate rather than counted as dessert.
+  if (/^(crab|fish|salmon|tuna|shrimp|prawn|potato|rice|corn|zucchini|vegetable|bean|lentil)\b.*\bcakes?$/.test(l)) return null;
   // Otherwise the dish's head noun — the end of an English dish name: "grilled
   // salmon" is salmon, "key lime pie" is a pie (not lime), "West Slavic
   // cereal soups" is a soup (not cornflakes). Longest names first, so "sweet

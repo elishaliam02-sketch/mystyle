@@ -95,6 +95,7 @@ jobs:
           npm install --silent --no-save --no-package-lock --ignore-scripts --prefix "$RUNNER_TEMP/photo" jpeg-js@0.4.4
           mkdir -p node_modules && ln -sfn "$RUNNER_TEMP/photo/node_modules/jpeg-js" node_modules/jpeg-js
           node scripts/device-photo.mjs shakshuka.jpg
+          node scripts/device-photo.mjs nonfood.jpg nonfood
 
       - name: Let the emulator use hardware acceleration
         run: |

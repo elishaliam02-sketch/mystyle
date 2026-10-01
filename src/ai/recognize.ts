@@ -215,12 +215,10 @@ export function toRecognitions(guesses: Guess[], locale: "he" | "en"): Recogniti
   const best = Math.max(0, ...out.map((r) => r.score));
   const likely = out.filter((r) => r.score >= MIN_ALTERNATIVE || r.score === best);
   // A dish the app can count comes before one it can only search for.
-  // What can be counted comes first. Among those, exact library figures win
-  // over a dish-family estimate unless the estimate is clearly the likelier
-  // dish (a library food needs at least 60% of the estimate's score): a 90%
-  // pad thai stays ahead of a 3% rice, a 22% fattoush goes ahead of a 30%
-  // ceviche.
-  const weight = (r: Recognition) => (!r.food ? -1 : r.food.src ? r.score : r.score / 0.6);
+  // What can be counted comes first, the likelier dish first. Exact library
+  // figures win over a dish-family estimate only in a near-tie (within 15%):
+  // a 9% "cake" does not go ahead of an 11% shashlik.
+  const weight = (r: Recognition) => (!r.food ? -1 : r.food.src ? r.score : r.score / 0.85);
   likely.sort((a, b) => weight(b) - weight(a));
   return likely.slice(0, 5);
 }

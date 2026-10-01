@@ -23,6 +23,10 @@ export type SmallImage = { width: number; height: number; data: Uint8Array };
 
 /** The largest photo this reads — beyond it the file is refused, not decoded. */
 export const MAX_JPEG_BYTES = 24 * 1024 * 1024;
+/** The most pixels a photo may have (a 200 MP phone camera fits). */
+export const MAX_PIXELS = 210_000_000;
+/** The most 8×8 blocks summed over all components (~3.3M × 2 bytes each). */
+export const MAX_BLOCKS = 10_000_000;
 
 function buildHuff(counts: Uint8Array, values: Uint8Array): Huff {
   const maxcode = new Int32Array(18).fill(-1);
@@ -135,7 +139,11 @@ export function decodeJpegEighth(bytes: Uint8Array): SmallImage {
         vmax = Math.max(...comps.map((c) => c.v));
         mcusX = Math.ceil(width / (8 * hmax));
         mcusY = Math.ceil(height / (8 * vmax));
-        if (!width || !height || mcusX * mcusY > 4_000_000) throw new Error("bad size");
+        // Bounded before anything is allocated: past ~200 MP (or a corrupt
+        // header claiming 65,535 × 65,535) the file is refused, so no photo
+        // can make this allocate more than a few tens of megabytes.
+        const blocks = comps.reduce((n, c) => n + mcusX * c.h * mcusY * c.v, 0);
+        if (!width || !height || width * height > MAX_PIXELS || blocks > MAX_BLOCKS) throw new Error("bad size");
         for (const c of comps) {
           c.bpl = mcusX * c.h;
           c.bpc = mcusY * c.v;

@@ -115,7 +115,12 @@ const source = async () => {
   check("look-alikes of one dish are merged into it", seen[0]?.food?.id === "shakshukaDish" && Math.abs(seen[0].score - 0.92) < 1e-6, JSON.stringify(seen));
   check("and it is named in Hebrew", seen[0]?.name === "שקשוקה", seen[0]?.name);
   const salad = toRecognitions([{ label: "Ceviche", score: 0.3 }, { label: "Fattoush", score: 0.22 }], "he");
-  check("a dish the app can count comes before one it can only search", salad[0]?.food?.id === "israeliSalad", JSON.stringify(salad));
+  check("both can be counted, the likelier dish first", salad.every((r) => !!r.food) && salad[0]?.label === "Ceviche", JSON.stringify(salad.map((r) => r.label)));
+  const tie = toRecognitions([{ label: "Ceviche", score: 0.25 }, { label: "Fattoush", score: 0.23 }], "he");
+  check("in a near-tie the exact library food leads", tie[0]?.food?.id === "israeliSalad", JSON.stringify(tie.map((r) => r.label)));
+  const unknown = toRecognitions([{ label: "/g/11b8_rxx4d", score: 0.4 }, { label: "Fattoush", score: 0.2 }], "he");
+  check("a dish the app can count comes before one it can only search", unknown[0]?.food?.id === "israeliSalad", JSON.stringify(unknown.map((r) => r.label)));
+  check("a crab cake is not counted as cake", toRecognitions([{ label: "Crab cake", score: 0.5 }], "he")[0]?.food?.src === "ai");
 
   // Every named dish can now be counted: the ones outside the library get a
   // dish-family estimate.

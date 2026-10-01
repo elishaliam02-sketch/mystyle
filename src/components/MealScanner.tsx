@@ -15,6 +15,7 @@ import { gramsNutrition, portion, scaledHousehold, type Food } from "@/kitchen";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { PlainFallback, recordError, SafeBoundary } from "./SafeBoundary";
 /** Where a photo reading got to while it runs; see readPhoto. */
 export const SCAN_STAGE_KEY = "mystyle.scan.stage";
 /** The last reading that stopped half-way, for the profile's version card. */
@@ -53,6 +54,29 @@ function pendingPhoto() {
 }
 let pendingClaimed = false;
 
+/** The largest photo file the phone reads; past this it says so instead. */
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+class PhotoTooBig extends Error {}
+
+/**
+ * A picked photo's bytes, as base64, read from the file the picker copied —
+ * after its size is known. Asking the picker for base64 instead made it read
+ * any file, however large, into memory before the app could look at its size.
+ * Null where files cannot be read this way (the browser).
+ */
+async function photoBytes(uri: string): Promise<string | null> {
+  const fs = fileSystem();
+  if (!fs || Platform.OS === "web") return null;
+  const info = await fs.getInfoAsync(uri);
+  if (!info.exists) return null;
+  if ((info.size ?? 0) > MAX_PHOTO_BYTES) throw new PhotoTooBig();
+  return fs.readAsStringAsync(uri, { encoding: fs.EncodingType.Base64 });
+}
+
+/** Below this, the model is guessing: a photo of something that is not food
+ * (a gym selfie scores 3–19%, a dish usually 30% or more). */
+const SURE_ENOUGH = 0.12;
+
 /**
  * The photo the camera saved when Android had already killed the app.
  *
@@ -89,11 +113,11 @@ type Phase =
   | { kind: "reading"; uri: string }
   | { kind: "read"; uri: string; analysis: MealAnalysis }
   /** Recognised on the phone: the dishes the photo most looks like. */
-  | { kind: "guessed"; uri: string; guesses: Recognition[] }
+  | { kind: "guessed"; uri: string; guesses: Recognition[]; unsure: boolean }
   | { kind: "saved"; kcal: number; goal: number }
   | {
       kind: "failed";
-      reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" | "crashed" | "cameraLost";
+      reason: "quota" | "unavailable" | "unreadable" | "denied" | "off" | "oldApp" | "crashed" | "cameraLost" | "tooBig";
       stage?: string;
     };
 
@@ -106,7 +130,25 @@ type Phase =
  * key is configured, or the free tier's daily quota is spent, the card says so
  * plainly and points at the search box — it never pretends to be broken.
  */
+/**
+ * The scanner, inside its own safety net: if anything about a photo makes it
+ * fail, the card says so and offers a retry — the rest of the app carries on.
+ */
 export function MealScanner() {
+  const { t } = useI18n();
+  return (
+    <SafeBoundary
+      where="scanner"
+      fallback={(retry) => (
+        <PlainFallback title={t.scan.failTitle} body={t.scan.failBody} action={t.scan.failRetry} onRetry={retry} />
+      )}
+    >
+      <MealScannerInner />
+    </SafeBoundary>
+  );
+}
+
+function MealScannerInner() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const { logMeal, todayIntake, calorieTarget, allowance, noteUsed } = useStore();
@@ -181,13 +223,14 @@ export function MealScanner() {
     // Let the "reading…" state paint before the model takes the thread.
     await new Promise((r) => setTimeout(r, 50));
     try {
+      const bytes = photoBase64 ?? (await photoBytes(uri));
       // Recognised on the phone itself: no key, no server, no quota — the
       // photo never leaves the device.
       const guesses = await recognizePhoto(
         uri,
         locale === "he" ? "he" : "en",
         (stage) => void mark(stage),
-        photoBase64,
+        bytes,
       );
       await unmark();
       if (guesses.length === 0) {
@@ -197,9 +240,15 @@ export function MealScanner() {
       noteUsed("mealPhoto");
       setChosen(Math.max(0, guesses.findIndex((g) => g.food)));
       setMult(1);
-      setPhase({ kind: "guessed", uri, guesses });
-    } catch {
+      const best = Math.max(0, ...guesses.map((g) => g.score));
+      setPhase({ kind: "guessed", uri, guesses, unsure: best < SURE_ENOUGH });
+    } catch (e) {
       await unmark();
+      if (e instanceof PhotoTooBig) {
+        setPhase({ kind: "failed", reason: "tooBig" });
+        return;
+      }
+      recordError("scan", e);
       setPhase({ kind: "failed", reason: "unreadable" });
     }
   }
@@ -221,7 +270,7 @@ export function MealScanner() {
       // that, not the recognition, is what closed the app on real phones.
       // The bytes are then read small (recognize.ts → photoPixels).
       const opts = needsPhotoData(Platform.OS)
-        ? ({ quality: 1, base64: true, exif: false } as const)
+        ? ({ quality: 1, base64: false, exif: false } as const)
         : ({ quality: 0.8 } as const);
       let res;
       if (fromCamera) {
@@ -335,6 +384,8 @@ export function MealScanner() {
                           ? t.common.needsNewInstall
                           : phase.reason === "cameraLost"
                             ? t.scan.cameraLost
+                          : phase.reason === "tooBig"
+                            ? t.scan.tooBig
                           : phase.reason === "crashed"
                             ? t.scan.crashed
                             : t.scan.unavailable}
@@ -365,6 +416,7 @@ export function MealScanner() {
       {phase.kind === "reading" ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, marginTop: space.md }}>
           <Image
+            resizeMethod="resize"
             source={{ uri: phase.uri }}
             style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
           />
@@ -376,6 +428,7 @@ export function MealScanner() {
         <View style={{ marginTop: space.md, gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
             <Image
+              resizeMethod="resize"
               source={{ uri: phase.uri }}
               style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
             />
@@ -384,6 +437,9 @@ export function MealScanner() {
               <Text style={[type.small, { color: colors.inkSoft }]}>{t.scan.pickOne}</Text>
             </View>
           </View>
+          {phase.unsure ? (
+            <Text style={[type.smallStrong, { color: colors.orangeInk }]}>{t.scan.notFood}</Text>
+          ) : null}
           {/* A classifier names what the plate most looks like; the person
               picks the right one and the calculator weighs it with real
               nutrition. The best guess is first and marked. */}
@@ -502,6 +558,7 @@ export function MealScanner() {
         <View style={{ marginTop: space.md, gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
             <Image
+              resizeMethod="resize"
               source={{ uri: phase.uri }}
               style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
             />

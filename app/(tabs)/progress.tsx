@@ -1098,6 +1098,7 @@ function PhotosCard() {
                 style={{ flex: 1 }}
               >
                 <Image
+                  resizeMethod="resize"
                   source={{ uri: p.uri }}
                   style={{ width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}
                   resizeMode="cover"
@@ -1166,6 +1167,7 @@ function PhotosCard() {
                   style={{ width: "31%" }}
                 >
                   <Image
+                    resizeMethod="resize"
                     source={{ uri: p.uri }}
                     style={{
                       width: "100%",
@@ -1212,7 +1214,9 @@ function PhotosCard() {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", padding: space.lg, gap: space.md }}>
           {open ? (
             <>
-              <Image source={{ uri: open.uri }} style={{ width: "100%", height: "60%", borderRadius: radius.md }} resizeMode="contain" />
+              <Image
+                resizeMethod="resize"
+                source={{ uri: open.uri }} style={{ width: "100%", height: "60%", borderRadius: radius.md }} resizeMode="contain" />
               <Text style={[type.title, { color: "#FFFFFF", textAlign: "center" }]}>{dateLabel(open.date)}</Text>
               <Text style={[type.body, { color: "rgba(255,255,255,0.8)", textAlign: "center" }]}>{weightLine(open)}</Text>
               <View style={{ flexDirection: "row", gap: space.sm }}>

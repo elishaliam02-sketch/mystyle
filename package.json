@@ -83,6 +83,8 @@
     "test:sets": "node scripts/run-sets-tests.mjs",
     "test:session": "node scripts/run-session-tests.mjs",
     "test:menu": "node scripts/run-menu-tests.mjs",
+    "test:photofuzz": "node scripts/run-photofuzz-tests.mjs",
+    "test:photoviews": "node scripts/run-photoviews-tests.mjs",
     "test:coachplan": "node scripts/run-coachplan-tests.mjs",
     "test:coach": "node scripts/run-coach-tests.mjs",
     "test:help": "node scripts/run-help-tests.mjs",

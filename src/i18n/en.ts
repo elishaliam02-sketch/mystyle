@@ -299,6 +299,7 @@ export const en: typeof he = {
   },
 
   updates: {
+    lastError: "Last error caught (the app stayed open): {error}",
     scanStopped: "Last photo reading stopped at: {stage}",
     caps: "On this phone",
     capCamera: "camera",
@@ -1345,6 +1346,11 @@ export const en: typeof he = {
   scan: {
     crashed: "The last photo reading stopped half-way and the app closed. Try again, or add it in the calculator.",
     estimated: "Estimated from the kind of dish — fine-tune it in the calculator.",
+    failTitle: "That photo could not be read",
+    failBody: "Something about this photo did not work — the app is fine. Try another photo, or add the dish in the calculator.",
+    failRetry: "Try again",
+    notFood: "Not sure this is a photo of food. If it is — pick from the list, or search for the dish.",
+    tooBig: "This photo is too large to read on the phone. Take it again at normal size, or add it in the calculator.",
     cameraLost: "The phone closed the app while the camera was open (it ran short of memory), and the photo was not kept. Take it again — or shoot with your normal camera and pick it \"From gallery\".",
     searchIt: "Not in the library — tap to search",
     howMuch: "How much did you have?",

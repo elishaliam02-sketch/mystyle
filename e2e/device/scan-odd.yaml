@@ -1,0 +1,37 @@
+# A photo that is not food — first a 48 MP landscape, then a PNG screenshot.
+# The app must read it without closing, say it is not sure this is food, and
+# still offer the guesses. device-test.sh puts the photo in the gallery and
+# passes SHOT (the screenshot name).
+appId: com.mystyle.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "מטבח"
+    timeout: 90000
+- tapOn: "מטבח"
+- scrollUntilVisible:
+    element: "מהגלריה"
+    direction: DOWN
+    timeout: 120000
+    speed: 60
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "מהגלריה"
+- waitForAnimationToEnd:
+    timeout: 5000
+- runFlow:
+    when:
+      visible:
+        id: ".*icon_thumbnail"
+    commands:
+      - tapOn:
+          id: ".*icon_thumbnail"
+          index: 0
+- extendedWaitUntil:
+    visible: "נראה כמו…"
+    timeout: 300000
+- assertVisible: "לא בטוח שזו תמונה של אוכל.*"
+- takeScreenshot: device-test/${SHOT}
+# Still alive and usable: the calculator opens from the scanner card.
+- assertVisible: "מטבח"

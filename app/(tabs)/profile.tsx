@@ -4,6 +4,7 @@ import { PAYMENTS_LIVE } from "@/billing/launch";
 import { imagePicker, sensors } from "@/native/optional";
 import { fastRecognition } from "@/ai/recognize";
 import { SCAN_LAST_CRASH_KEY } from "@/components/MealScanner";
+import { LAST_ERROR_KEY } from "@/components/SafeBoundary";
 import { Chevron } from "@/components/Chevron";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -679,12 +680,21 @@ function UpdatesCard() {
   const update = useAppUpdate();
   // Where the last photo reading stopped, if the app closed during one.
   const [lastScanStop, setLastScanStop] = useState<string | null>(null);
+  // The last error the app caught instead of closing — for a screenshot.
+  const [lastError, setLastError] = useState<string | null>(null);
   useEffect(() => {
     AsyncStorage.getItem(SCAN_LAST_CRASH_KEY)
       .then((raw) => {
         if (!raw) return;
         const { stage, at } = JSON.parse(raw) as { stage: string; at: number };
         setLastScanStop(`${stage} · ${new Date(at).toLocaleString()}`);
+      })
+      .catch(() => {});
+    AsyncStorage.getItem(LAST_ERROR_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const { where, message, at } = JSON.parse(raw) as { where: string; message: string; at: number };
+        setLastError(`${where} · ${new Date(at).toLocaleString()} · ${message}`);
       })
       .catch(() => {});
   }, []);
@@ -740,6 +750,11 @@ function UpdatesCard() {
       {lastScanStop ? (
         <Text selectable style={[type.small, { color: colors.inkFaint }]}>
           {fill(t.updates.scanStopped, { stage: lastScanStop })}
+        </Text>
+      ) : null}
+      {lastError ? (
+        <Text selectable style={[type.small, { color: colors.inkFaint }]}>
+          {fill(t.updates.lastError, { error: lastError })}
         </Text>
       ) : null}
       {Platform.OS !== "web" && (!imagePicker() || !fastRecognition()) ? (

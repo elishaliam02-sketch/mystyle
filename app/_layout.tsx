@@ -22,6 +22,28 @@ import { I18nProvider } from "@/i18n";
 import { StoreProvider, useStore } from "@/store";
 import { UpdatedToast } from "@/components/UpdatedToast";
 import { cameraWasInterrupted } from "@/components/MealScanner";
+import { installGlobalErrorHandler, PlainFallback, recordError } from "@/components/SafeBoundary";
+import type { ErrorBoundaryProps } from "expo-router";
+
+installGlobalErrorHandler();
+
+/**
+ * The last resort: a screen that fails to draw shows this instead of closing
+ * the app. expo-router puts it around every route under this layout.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => recordError("screen", error), [error]);
+  return (
+    <View style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#F7F4FF" }}>
+      <PlainFallback
+        title="משהו השתבש במסך הזה"
+        body="האפליקציה לא נסגרה והנתונים שלך שמורים. נסה שוב — ואם זה חוזר, צלם את כרטיס הגרסה בפרופיל ושלח לנו."
+        action="נסה שוב"
+        onRetry={() => void retry()}
+      />
+    </View>
+  );
+}
 import { ThemeProvider, useTheme } from "@/theme";
 import { trustedNowMs } from "@/time/clock";
 

@@ -85,6 +85,27 @@ adb exec-out screencap -p > "$OUT/legacy-end.png"
 ui "after the older-install scan"
 adb logcat -d | grep -E "ReactNativeJS|AndroidRuntime|FATAL|lowmemorykiller" | tail -20
 
+# Photos that are not food: a 48 MP landscape, then a PNG screenshot. Neither
+# may close the app; both must say "not sure this is food".
+adb shell am force-stop "$PKG"
+adb shell "sqlite3 $DB \"DELETE FROM catalystLocalStorage WHERE key = 'mystyle.debug.legacyScan';\""
+adb shell chown -R "$OWNER" "/data/data/$PKG/databases"
+adb shell restorecon -R "/data/data/$PKG/databases"
+if [ -f nonfood.jpg ]; then
+  adb push nonfood.jpg /sdcard/Pictures/zz-landscape.jpg > /dev/null
+  adb shell content call --uri content://media --method scan_volume --arg external_primary > /dev/null 2>&1 || true
+  sleep 3
+  maestro test -e SHOT=13-nonfood-48mp --debug-output "$OUT/maestro-nonfood" e2e/device/scan-odd.yaml || status=1
+  ui "after the 48 MP non-food photo"
+fi
+adb exec-out screencap -p > screenshot.png
+adb push screenshot.png /sdcard/Pictures/zz-screenshot.png > /dev/null
+adb shell content call --uri content://media --method scan_volume --arg external_primary > /dev/null 2>&1 || true
+sleep 3
+maestro test -e SHOT=14-png-screenshot --debug-output "$OUT/maestro-png" e2e/device/scan-odd.yaml || status=1
+ui "after the PNG screenshot"
+echo "app still running: $(adb shell pidof "$PKG" | tr -d '\r')"
+
 # The camera, with Android closing the app behind it (low memory): the app
 # must come back to the scanner with the photo, not restart on Today.
 adb shell am force-stop "$PKG"
