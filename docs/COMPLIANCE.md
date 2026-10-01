@@ -81,9 +81,8 @@ Migrations 002, 003, 006 and 007 are run by `deploy-server.yml`, last requested
 on 2026-09-24 (see `supabase/deploy-request.txt`). 004 is skipped on purpose:
 006 replaces its `delete_my_account` with the stricter recent-sign-in version.
 
-**TODO (human):** confirm the latest "Deploy server (Supabase)" run in GitHub
-Actions is green. If it is, deletion is live; if not, the delete button reports
-a failure rather than pretending.
+**Live:** the "Deploy server (Supabase)" run of 2026-09-24 (run #3) finished
+green, so in-app account deletion works against the real server.
 
 ## 3b. Right to a copy
 
@@ -207,6 +206,15 @@ spend money on marketing.
 **TODO (human):** turn on leaked-password protection and email confirmation in
 the Supabase Auth settings, and rotate the publishable key if it was ever
 committed anywhere public.
+
+**Google and Apple sign-in** are built and switched off (`src/cloud/oauth.ts`).
+They need provider keys first; see `supabase/SIGNIN-SETUP.md`.
+
+**Email confirmation:** do not turn it on until a custom SMTP sender is set up
+(Supabase → Authentication → Emails → SMTP; Resend or Brevo have free
+tiers). Supabase's built-in sender only delivers to the project's own team
+addresses, so with confirmation on, real people would never get their link.
+The app already handles the "check your email" state.
 
 ## 8. In-app updates
 

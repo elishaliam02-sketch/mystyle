@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, cloudConfigured } from "./config";
+import { hasPasswordIdentity } from "./oauthlink";
 import { secureStorage } from "./secureStorage";
 
 /**
@@ -81,6 +82,8 @@ export type AccountInfo = {
   confirmed: boolean;
   /** An address the person asked to change to, not yet confirmed. */
   pendingEmail: string | null;
+  /** Can prove itself with a password; false for a Google- or Apple-only account. */
+  hasPassword: boolean;
 };
 
 /** Who is signed in right now, or null when local-only. */
@@ -101,6 +104,7 @@ export async function currentAccount(): Promise<AccountInfo | null> {
       // so this reads true for everyone and nothing below changes.
       confirmed: !!u.email_confirmed_at,
       pendingEmail: pending,
+      hasPassword: hasPasswordIdentity(u.app_metadata),
     };
   } catch {
     return null;
@@ -305,14 +309,15 @@ export async function signInWithEmail(email: string, password: string): Promise<
  * behind, which is not deletion in any sense a person or a regulator would
  * accept.
  *
- * An email account must sign in again with its password first: the server
+ * An email account must sign in again with its password first (a Google or
+ * Apple one, with its provider — "reauth" asks for that): the server
  * refuses a deletion without a sign-in in the last ten minutes, so a phone
  * left unlocked or a lifted session token cannot erase anyone. An anonymous
  * account has no password to ask for.
  *
  * "none" means there is nothing to delete server-side (local-only install).
  */
-export type DeleteResult = "deleted" | "none" | "wrong-password" | "failed";
+export type DeleteResult = "deleted" | "none" | "wrong-password" | "reauth" | "failed";
 
 export async function deleteAccount(password?: string): Promise<DeleteResult> {
   const db = supabase();
@@ -322,7 +327,11 @@ export async function deleteAccount(password?: string): Promise<DeleteResult> {
     const user = data.session?.user;
     if (!user) return "none";
 
-    if (user.email && !user.is_anonymous) {
+    if (user.email && !user.is_anonymous && !hasPasswordIdentity(user.app_metadata)) {
+      // A Google- or Apple-only account has no password; a sign-in with its
+      // provider in the last few minutes is the proof instead.
+      if (!provedRecently(data.session?.access_token)) return "reauth";
+    } else if (user.email && !user.is_anonymous) {
       if (!password) return "wrong-password";
       const again = await db.auth.signInWithPassword({ email: user.email, password });
       if (again.error) {

@@ -98,6 +98,8 @@ function OnboardingGate() {
     // a screen that cannot use it, so this one route is always allowed
     // through — it neither reads nor writes anything but the password.
     if (section === "reset") return;
+    // Same for the return from Google or Apple: its code is single-use.
+    if (section === "auth-callback") return;
 
     // The subscribers-only gate. Dormant unless launched. Identity and payment
     // come before onboarding: there is no point setting up a first habit for

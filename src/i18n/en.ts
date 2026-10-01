@@ -242,6 +242,7 @@ export const en: typeof he = {
     deleteLocalOnly: "There is no cloud account — resetting clears what is stored on this device.",
     deletePassword: "Your password, to confirm",
     deleteWrongPassword: "That password is wrong. Nothing was deleted.",
+    deleteReauth: "To confirm, sign in again with your account, then tap delete again.",
     licensesTitle: "Open-source licences",
     licensesBody: "This app is built on these libraries. Thanks to the people who wrote them.",
     licensesCount: "{count} packages",
@@ -1122,6 +1123,11 @@ export const en: typeof he = {
   },
 
   account: {
+    continueGoogle: "Continue with Google",
+    continueApple: "Continue with Apple",
+    orDivider: "or",
+    oauthOpening: "Signing you in…",
+    oauthFailed: "Sign-in didn't finish. Try again.",
     title: "My account",
     why: "Sign up with an email to back everything up — so you never lose data if you delete the app or switch phones, and can sign in from any device.",
     tabSignUp: "Sign up",

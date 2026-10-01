@@ -247,6 +247,7 @@ export const he = {
     deleteLocalOnly: "אין חשבון בענן — האיפוס מוחק את מה שנשמר על המכשיר.",
     deletePassword: "הסיסמה שלך, לאישור",
     deleteWrongPassword: "הסיסמה לא נכונה. שום דבר לא נמחק.",
+    deleteReauth: "כדי לאשר את המחיקה, התחבר שוב עם החשבון שלך ואז לחץ שוב על מחיקה.",
     licensesTitle: "רישיונות קוד פתוח",
     licensesBody: "האפליקציה בנויה על הספריות האלה. תודה למי שכתב אותן.",
     licensesCount: "{count} חבילות",
@@ -1136,6 +1137,11 @@ export const he = {
   },
 
   account: {
+    continueGoogle: "המשך עם Google",
+    continueApple: "המשך עם Apple",
+    orDivider: "או",
+    oauthOpening: "מחבר אותך…",
+    oauthFailed: "ההתחברות לא הושלמה. נסה שוב.",
     title: "החשבון שלי",
     why: "התחבר עם מייל כדי לגבות את הכל בענן — כך לא תאבד נתונים אם תמחק את האפליקציה או תחליף טלפון, ותוכל להיכנס מכל מכשיר.",
     tabSignUp: "הרשמה",

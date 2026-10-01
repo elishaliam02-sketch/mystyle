@@ -50,6 +50,7 @@ import { canOpenNetworkSettings, openNetworkSettings } from "@/net";
 import { LEGAL } from "@/legal";
 import { buildExport, exportFilename, serializeExport } from "@/legal/export";
 import { deliverExport } from "@/legal/deliver";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { confirm } from "@/ui/confirm";
 
 const LOCALES: { id: Locale; label: string }[] = [
@@ -497,8 +498,10 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
   const choices = consent();
-  // An email account proves it is still its owner before it can be erased.
-  const needsPassword = !!cloud.account?.email && !cloud.account.anonymous;
+  // An email account proves it is still its owner before it can be erased; a
+  // Google- or Apple-only one does it by signing in with its provider again.
+  const needsPassword = !!cloud.account?.email && !cloud.account.anonymous && cloud.account.hasPassword;
+  const [reauth, setReauth] = useState(false);
 
   function confirmDelete() {
     confirm({
@@ -521,6 +524,12 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     const result = await deleteAccount(needsPassword ? password : undefined);
     if (result === "wrong-password") {
       setNote(t.legal.deleteWrongPassword);
+      setBusy(false);
+      return;
+    }
+    if (result === "reauth") {
+      setNote(t.legal.deleteReauth);
+      setReauth(true);
       setBusy(false);
       return;
     }
@@ -653,6 +662,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
           />
         </View>
       ) : null}
+      {reauth ? <OAuthButtons next="/profile" mode="signin" divider={false} /> : null}
       <Button
         icon="trash"
         label={t.legal.deleteCta}
@@ -1025,6 +1035,8 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
           </Text>
         </Pressable>
       ) : null}
+
+      <OAuthButtons next="/profile" />
     </Card>
   );
 }

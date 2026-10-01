@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { TextField } from "@/components/TextField";
 import {
   resendConfirmation,
@@ -179,6 +180,8 @@ export default function Auth() {
             </Text>
           </Pressable>
         ) : null}
+
+        <OAuthButtons next="/" />
       </Card>
     </Screen>
   );

@@ -88,6 +88,7 @@
     "test:coachplan": "node scripts/run-coachplan-tests.mjs",
     "test:coach": "node scripts/run-coach-tests.mjs",
     "test:help": "node scripts/run-help-tests.mjs",
+    "test:oauth": "node scripts/run-oauth-tests.mjs",
     "test:news": "node scripts/run-news-tests.mjs",
     "test:nutrition": "node scripts/run-nutrition-tests.mjs",
     "test:theme": "node scripts/run-theme-tests.mjs",
