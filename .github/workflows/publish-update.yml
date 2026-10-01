@@ -126,10 +126,11 @@ jobs:
         run: eas deploy --prod --export-dir dist --non-interactive
 
       # What an iPhone asks for first: the page, a screen opened by its own
-      # address, the home-screen icon and the app manifest.
+      # address, the home-screen icon and the app manifest. The two legal pages
+      # are the store listings' public privacy and terms links.
       - name: Check the site answers
         run: |
-          for path in / /kitchen /recipes /apple-touch-icon.png /manifest.json; do
+          for path in / /kitchen /recipes /legal/privacy /legal/terms /apple-touch-icon.png /manifest.json; do
             code=$(curl -s -o /tmp/body -w '%{http_code}' "https://mystyle.expo.app$path")
             echo "$code $path"
             [ "$code" = "200" ] || exit 1

@@ -34,10 +34,16 @@ matches where you are actually operating from.
 **TODO (human):** if you ever publish under a company rather than your own
 name, change `LEGAL.publisher` and re-issue with a bumped version.
 
-**TODO (human):** the App Store also wants a privacy policy at a public URL.
-The in-app copy satisfies the reviewer's "reachable in the app" test, but the
-listing itself needs a link — put the same text on any page you control and
-paste that URL into App Store Connect and the Play Console.
+**Public URLs (done):** the store listings want the policy at a public link,
+not only inside the app. The hosted web version serves the same screens, and the
+legal pages are exempt from the consent gate, so a stranger opening the link
+reads the document straight away:
+
+- Privacy policy: <https://mystyle.expo.app/legal/privacy>
+- Terms of use: <https://mystyle.expo.app/legal/terms>
+
+Paste these into App Store Connect and the Play Console. Every web deploy
+(`publish-update.yml`) checks that both still answer.
 
 ## 2. Consent, and what it actually gates
 
@@ -71,9 +77,13 @@ afterwards and only reports success when the server actually confirmed.
 sign-in in the last ten minutes for an email account; the profile screen asks
 for the password and signs in again just before calling it.
 
-**TODO (human):** run migrations 004, 006 and 007 in the Supabase SQL editor. Until
-you do, the delete button reports a failure rather than pretending — which is
-the right behaviour, but it means deletion is not live until the SQL is run.
+Migrations 002, 003, 006 and 007 are run by `deploy-server.yml`, last requested
+on 2026-09-24 (see `supabase/deploy-request.txt`). 004 is skipped on purpose:
+006 replaces its `delete_my_account` with the stricter recent-sign-in version.
+
+**TODO (human):** confirm the latest "Deploy server (Supabase)" run in GitHub
+Actions is green. If it is, deletion is live; if not, the delete button reports
+a failure rather than pretending.
 
 ## 3b. Right to a copy
 
