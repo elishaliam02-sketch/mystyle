@@ -7,8 +7,11 @@ import {
   MAX_SERVINGS,
   MIN_SERVINGS,
   OWN_PLATE,
+  missingFor,
   planDay,
   quarter,
+  rotationPool,
+  SMALL_POOL,
   slotForRecipe,
   SLOTS,
   upgradesFor,
@@ -124,6 +127,51 @@ check("the test list is read", pantry.length >= 12, pantry.map((f) => f.id).join
   check("no list: still a full day", d.slots.length === 4);
   const ups = upgradesFor(d.slots[1]!.meal, { ...base, have: null });
   check("no list: upgrades are marked as suggestions", ups.every((u) => !u.have));
+}
+{
+  // The rotation: the same dish must not come back before the others have had
+  // their turn. This is the bug a weaker "changes from day to day" test let
+  // through — a kitchen list made breakfast one of two dishes, forever.
+  const month = (input: MenuInput) => {
+    const per = new Map<string, string[]>();
+    for (let d = 0; d < 30; d++) {
+      const m = planDay({ ...input, rotation: { key: "salt|0", day: 20_000 + d } });
+      for (const x of m.slots) per.set(x.slot, [...(per.get(x.slot) ?? []), x.meal.id]);
+    }
+    return per;
+  };
+  const kitchen = month(base);
+  for (const slot of SLOTS) {
+    const ids = kitchen.get(slot) ?? [];
+    const pool = rotationPool(slot, { ...base, key: "salt|0" }).length;
+    check(`${slot}: a month from the test kitchen rotates through ${pool} dishes`, new Set(ids).size >= Math.min(pool, 4), `${new Set(ids).size} distinct: ${ids.slice(0, 8).join(",")}`);
+    // No dish two days running unless the pool is that small.
+    const back2back = ids.filter((id, i) => i > 0 && ids[i - 1] === id).length;
+    check(`${slot}: never the same dish two days running`, back2back === 0, ids.join(","));
+  }
+  const open = month({ ...base, have: null, pantry: [] });
+  check("no list: a month of breakfasts barely repeats", new Set(open.get("breakfast")).size >= 12, String(new Set(open.get("breakfast")).size));
+  check("no list: a month of dinners never repeats", new Set(open.get("dinner")).size === 30, String(new Set(open.get("dinner")).size));
+
+  // Five groceries: still a rotation, and every dish says what it needs.
+  const tiny = readPantry("ביצים, לחם, עגבנייה, גבינה לבנה, טונה");
+  const tinyInput = { ...base, have: new Set(tiny.map((f) => f.id)), pantry: tiny };
+  const small = month(tinyInput);
+  for (const slot of SLOTS) {
+    check(`small kitchen, ${slot}: at least 4 dishes in a month`, new Set(small.get(slot)).size >= 4, (small.get(slot) ?? []).slice(0, 10).join(","));
+  }
+  const days = Array.from({ length: 10 }, (_, d) => planDay({ ...tinyInput, rotation: { key: "salt|0", day: 20_000 + d } }));
+  check("a dish beyond the kitchen names what it needs, one or two things",
+    days.every((m) => m.slots.every((x) => x.fromKitchen || x.meal.id.startsWith("plate") || (x.missing.length >= 1 && x.missing.length <= 2))),
+    days.flatMap((m) => m.slots.filter((x) => !x.fromKitchen).map((x) => `${x.meal.id}:${x.missing.map((f) => f.id)}`)).slice(0, 6).join(" "));
+  check("a dish from the kitchen needs nothing", days.every((m) => m.slots.every((x) => !x.fromKitchen || x.missing.length === 0)));
+  check("a big kitchen never sends anyone shopping", Array.from({ length: 30 }, (_, d) => planDay({ ...base, rotation: { key: "k", day: d } })).every((m) => m.slots.every((x) => x.missing.length === 0 || rotationPool(x.slot, { ...base, key: "k" }).filter((p) => p.missing.length === 0).length < SMALL_POOL)));
+  check("the headline ingredient missing is not this dish", missingFor(MEALS.find((m) => m.uses[0] === "salmon")!, new Set(["lemon"])) === null);
+  check("the same person, the same day: the same menu", planDay({ ...base, rotation: { key: "a", day: 5 } }).slots.map((x) => x.meal.id).join() === planDay({ ...base, rotation: { key: "a", day: 5 } }).slots.map((x) => x.meal.id).join());
+  const people = new Set(["a", "b", "c", "d", "e"].map((k) => planDay({ ...base, have: null, pantry: [], rotation: { key: k, day: 5 } }).slots.map((x) => x.meal.id).join()));
+  check("different people get different menus on the same day", people.size >= 4, String(people.size));
+  const chosen = planDay({ ...tinyInput, rotation: { key: "salt|0", day: 3 }, choices: { lunch: { mealId: "tuna-bean-salad" } } });
+  check("a dish the person picked stays, whatever the rotation", chosen.slots.find((x) => x.slot === "lunch")!.meal.id === "tuna-bean-salad");
 }
 check("quarter rounds to quarters and clamps", quarter(1.1) === 1 && quarter(1.2) === 1.25 && quarter(9) === 2 && quarter(0.1) === 0.5 && quarter(NaN) === 0.5);
 check("every meal in the planner's pool has a recipe or is a plate", candidatesFor("lunch", { ...base, have: null }).length > 10);

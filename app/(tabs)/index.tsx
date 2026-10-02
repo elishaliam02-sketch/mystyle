@@ -15,6 +15,7 @@ import { Screen } from "@/components/Screen";
 import { TaskRow } from "@/components/TaskRow";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { DayCalories } from "@/components/DayCalories";
+import { NowCard } from "@/components/NowCard";
 import { TodayMenu } from "@/components/TodayMenu";
 import { Rise, useCountUp } from "@/components/motion";
 import { ChallengeCard } from "@/components/ChallengeCard";
@@ -433,6 +434,7 @@ export default function TodayScreen() {
   if (habits.length === 0) {
     return (
       <Screen eyebrow={dateLabel} title={title}>
+        <NowCard />
         <Rise>
           <DayCalories />
         </Rise>
@@ -471,9 +473,12 @@ export default function TodayScreen() {
 
       <UpdateBanner />
 
-      <WhatsNew />
-
       <TodayHub />
+
+      {/* what to do at this hour — the one block that changes through the day */}
+      <NowCard />
+
+      <WhatsNew />
 
       <Rise delay={80}>
         <DayCalories />

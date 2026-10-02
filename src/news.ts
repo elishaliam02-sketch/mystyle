@@ -9,18 +9,14 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-09-30",
+  id: "2026-10-02",
   he: [
-    "צילום אוכל לא קורס יותר: התמונה נקראת בגודל קטן בלי לטעון את כולה לזיכרון, ואם הטלפון סגר את האפליקציה בזמן שהמצלמה פתוחה — היא חוזרת ישר לזיהוי עם התמונה.",
-    "כל מנה שהצילום מזהה נספרת עכשיו — גם פאד תאי, חצ׳אפורי או פו — עם הערכה לפי סוג המנה.",
-    "התפריט שלך להיום: ארוחת בוקר, צהריים, ערב ונשנוש — רק ממה שיש לך בבית, בגודל שמתאים ליעד של היום. אפשר להחליף מנה, לשדרג אותה עם מה שיש, או להוסיף מתכון מהספר.",
-    "המאמן באימון: ליד כל תרגיל — כמה להרים היום ולמה (מוסיפים משקל, עוד חזרה, או מורידים כשנתקעים), וסיכום שבועי של האימונים.",
+    "התפריט היומי מתחלף באמת: כל ארוחה עוברת על כל המנות שמתאימות לך לפני שמנה חוזרת. גם עם מעט מצרכים — מנה שחסר לה מוצר אחד מסומנת, ובלחיצה הוא נכנס לרשימת המטבח.",
+    "חדש בדף היום — \"עכשיו\": מה הכי שווה לעשות בשעה הזו. כוס מים כשאתה מאחור, ההרגל של החלק הזה ביום, שקילה שבועית, אימון כשהשבוע צריך אותו וסיכום ערב — עם כפתור שעושה את זה במקום.",
   ],
   en: [
-    "Meal photos no longer crash the app: the picture is read small without loading all of it into memory, and if the phone closed the app while the camera was open, it comes straight back to the scanner with the photo.",
-    "Every dish the camera recognises can now be counted — pad thai, khachapuri or pho too — with an estimate by the kind of dish.",
-    "Your menu for today: breakfast, lunch, dinner and a snack — only from what you have at home, sized to today's target. Swap a meal, upgrade it with what you have, or add a recipe from the book.",
-    "The workout coach: beside every exercise, what to lift today and why (add weight, one more rep, or back off when stuck), plus a weekly summary.",
+    "The daily menu really changes now: each meal goes through every dish that suits you before one comes back. Even with a few groceries — a dish one thing short is marked, and one tap adds it to your kitchen list.",
+    "New on Today — \"Right now\": what's most worth doing at this hour. A cup of water when you're behind, this part of the day's habit, the weekly weigh-in, a workout when the week needs one and the evening recap — with a button that does it on the spot.",
   ],
 };
 

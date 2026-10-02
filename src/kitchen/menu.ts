@@ -12,7 +12,11 @@
  *   lunch, dinner and a snack, and as meals are eaten (from the menu or
  *   logged any other way) what is left is re-spread over the meals still to
  *   come — a big lunch makes a lighter dinner, a workout makes a bigger one;
- * - rotates by day and by person (the seed), so tomorrow is not today again;
+ * - rotates by day and by person: each meal of the day walks through every
+ *   dish that fits before any comes back (see `rotationPool`), so a week is
+ *   seven different breakfasts when the kitchen allows seven;
+ * - in a small kitchen, adds dishes that are one ingredient away, saying which
+ *   one — otherwise five groceries meant the same plate every day forever;
  * - lets them swap any meal for another recipe, add a recipe from the book,
  *   and "upgrade" a dish with something they already have — more protein when
  *   cutting, more energy when bulking, more volume when hungry.
@@ -92,8 +96,11 @@ export type MenuSlot = {
   /** Picked by the person rather than the planner. */
   chosen: boolean;
   /** Made entirely of things on their list (always true once they have one,
-   * except a recipe they chose themselves). */
+   * except a recipe they chose themselves or a dish one ingredient away). */
   fromKitchen: boolean;
+  /** What the dish needs beyond the kitchen list: empty, or the one ingredient
+   * a small kitchen is short of. */
+  missing: Food[];
 };
 
 export type DayMenu = {
@@ -121,6 +128,10 @@ export type MenuInput = {
   choices?: DayChoices;
   /** Today's diary: every entry id and its calories. */
   diary: { id: string; kcal: number; protein: number }[];
+  /** The person's rotation: a key their dishes are shuffled by (stable from
+   * day to day) and today's day number. With it each slot cycles through every
+   * fitting dish before repeating; without it the best fit wins. */
+  rotation?: { key: string; day: number };
 };
 
 const byId = new Map(FOODS.map((f) => [f.id, f]));
@@ -214,6 +225,80 @@ export function adaptations(meal: Meal, have: ReadonlySet<string> | null): { swa
   return { swaps, skipped };
 }
 
+/** What a dish needs that the kitchen cannot stand in for; null when it is
+ * the headline ingredient that is missing (then it is not this dish), unless
+ * `leadOk` — the last resort of a kitchen that can make nothing for a meal. */
+export function missingFor(meal: Meal, have: ReadonlySet<string> | null, leadOk = false): Food[] | null {
+  if (!have) return [];
+  const out: Food[] = [];
+  for (const [i, id] of meal.uses.entries()) {
+    if (stands(id, have, i === 0) !== null) continue;
+    if (i === 0 && !leadOk) return null;
+    const f = byId.get(id);
+    if (f) out.push(f);
+  }
+  return out;
+}
+
+/** Below this many dishes a kitchen can make for one meal, dishes an
+ * ingredient or two away join that meal's rotation, each saying what it needs. */
+export const SMALL_POOL = 5;
+
+/** Whether a dish is offered for a meal: its own, or a lunch-or-dinner dish at
+ * the other one. A breakfast is never someone's dinner. */
+function suits(m: Meal, slot: MealSlot): boolean {
+  return m.slot === slot || (slot !== "breakfast" && slot !== "snack" && m.slot !== "breakfast" && m.slot !== "snack");
+}
+
+/**
+ * Every dish in a meal's rotation, in the order this person meets them.
+ *
+ * The pool is what the kitchen can make, within the goal's acceptable tiers —
+ * not only the top one, which held two or three dishes and was why the same
+ * breakfast came back day after day. A small kitchen widens it step by step:
+ * dishes one ingredient short, then two, each carrying what it needs, until
+ * the meal has SMALL_POOL to rotate through. The order is a shuffle keyed to
+ * the person and stable across days, so walking it by day number serves every
+ * dish once before any repeats.
+ */
+export function rotationPool(
+  slot: MealSlot,
+  input: Pick<MenuInput, "goal" | "have" | "diet"> & { key: string },
+): { meal: Meal; missing: Food[] }[] {
+  const fits = MEALS.filter((m) => suits(m, slot) && dietOk(m, input.diet));
+  const short = new Map<string, Food[]>();
+  for (const m of fits) {
+    const miss = missingFor(m, input.have);
+    if (miss) short.set(m.id, miss);
+  }
+  const tiered = (allowed: number) => {
+    let pool = fits.filter((m) => (short.get(m.id)?.length ?? 99) <= allowed);
+    // Its own meal's dishes first; a lunch dish at dinner only to fill a gap.
+    const native = pool.filter((m) => m.slot === slot);
+    if (native.length >= 3) pool = native;
+    const best = pool.reduce((n, m) => Math.max(n, goalFit(m, input.goal)), 0);
+    const fitting = pool.filter((m) => fitTier(goalFit(m, input.goal), best) >= 1);
+    return fitting.length >= Math.min(SMALL_POOL, pool.length) ? fitting : pool;
+  };
+  let chosen = tiered(0);
+  for (let allowed = 1; input.have && allowed <= 2 && chosen.length < SMALL_POOL; allowed++) chosen = tiered(allowed);
+  // Nothing at all for this meal (a snack from eggs and bread): dishes whose
+  // one missing thing is their main ingredient, so the person sees what one
+  // purchase would open up instead of the same plate every day.
+  if (input.have && chosen.length < 2) {
+    for (const m of fits) {
+      if (short.has(m.id) || m.slot !== slot) continue;
+      const miss = missingFor(m, input.have, true);
+      if (miss && miss.length === 1) short.set(m.id, miss);
+    }
+    chosen = tiered(1);
+  }
+  const h = (id: string) => seedHash(`${input.key}|${slot}|${id}`);
+  return chosen
+    .map((meal) => ({ meal, missing: short.get(meal.id) ?? [] }))
+    .sort((a, b) => h(a.meal.id) - h(b.meal.id) || a.meal.id.localeCompare(b.meal.id));
+}
+
 /** Round to a quarter portion within the plate limits. */
 export function quarter(n: number): number {
   if (!Number.isFinite(n) || n <= 0) return MIN_SERVINGS;
@@ -302,18 +387,36 @@ const SWEET_WITH_FRUIT = new Set(["greekYogurt", "skyr", "kefir", "milk", "cotta
 
 /** The meal a slot resolves to: the person's choice, the planner's pick, or
  * the plate made of their own groceries. */
-function resolveMeal(slot: MealSlot, input: MenuInput, used: Set<string>): { meal: Meal; chosen: boolean } | null {
+function resolveMeal(slot: MealSlot, input: MenuInput, used: Set<string>): { meal: Meal; chosen: boolean; missing: Food[] } | null {
   const pick = input.choices?.[slot]?.mealId;
   if (pick && pick !== OWN_PLATE) {
     const m = mealById.get(pick);
-    if (m) return { meal: m, chosen: true };
+    if (m) return { meal: m, chosen: true, missing: [] };
   }
   if (pick !== OWN_PLATE) {
-    const best = candidatesFor(slot, input, used)[0];
-    if (best) return { meal: best, chosen: false };
+    if (input.rotation) {
+      const pool = rotationPool(slot, { ...input, key: input.rotation.key });
+      // A short rotation takes the plate made of the person's own groceries as
+      // one more turn, rather than as the answer to every day.
+      const withPlate = pool.length < SMALL_POOL && input.pantry.length >= 2;
+      const n = pool.length + (withPlate ? 1 : 0);
+      // Taken by another meal today: jump half a cycle rather than to the next
+      // one, which is tomorrow's dish and would then come two days running.
+      const half = Math.floor(n / 2);
+      const steps = [0, ...(half > 1 ? [half] : []), ...Array.from({ length: n }, (_, i) => i + 1)];
+      for (const i of steps) {
+        const at = (((input.rotation.day + i) % n) + n) % n;
+        if (at === pool.length) break;
+        const p = pool[at]!;
+        if (!used.has(p.meal.id)) return { meal: p.meal, chosen: false, missing: p.missing };
+      }
+    } else {
+      const best = candidatesFor(slot, input, used)[0];
+      if (best) return { meal: best, chosen: false, missing: [] };
+    }
   }
   const plate = plateForGoal(input.pantry, slot, input.goal, input.diet ?? "all");
-  return plate ? { meal: plate, chosen: pick === OWN_PLATE } : null;
+  return plate ? { meal: plate, chosen: pick === OWN_PLATE, missing: [] } : null;
 }
 
 export function planDay(input: MenuInput): DayMenu {
@@ -348,6 +451,7 @@ export function planDay(input: MenuInput): DayMenu {
       eaten: !!logged,
       chosen: r.chosen,
       fromKitchen: makeable(r.meal, input.have),
+      missing: r.missing,
       loggedKcal: logged?.kcal ?? 0,
       loggedProtein: logged?.protein ?? 0,
     });

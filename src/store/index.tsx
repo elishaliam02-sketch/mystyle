@@ -1224,10 +1224,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pantry,
       diet: state.dietFilter ?? "all",
       seed: mealSeed(),
+      rotation: { key: `${state.salt ?? ""}|${state.mealShuffle ?? 0}`, day: Math.floor(Date.parse(`${today}T12:00:00Z`) / 86_400_000) },
       choices: state.menu?.[today],
       diary: (state.intake?.[today] ?? []).map((i) => ({ id: i.id, kcal: i.kcal, protein: i.protein })),
     });
-  }, [state.pantry, state.dietFilter, state.menu, state.intake, calorieTarget, goal, mealSeed, trustedToday]);
+  }, [state.pantry, state.dietFilter, state.menu, state.intake, state.salt, state.mealShuffle, calorieTarget, goal, mealSeed, trustedToday]);
 
   /** Every menu write funnels through here, on today's date. */
   const editMenu = useCallback((slot: MealSlot, edit: (c: SlotChoice) => SlotChoice) => {

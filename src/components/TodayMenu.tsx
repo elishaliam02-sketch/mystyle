@@ -79,7 +79,9 @@ export function TodayMenu({ compact = false }: { compact?: boolean }) {
               protein: menu.proteinTotal,
             })}
           </Text>
-          <Text style={[type.small, { color: colors.inkSoft }]}>{hasList ? t.menu.fromKitchen : t.menu.noList}</Text>
+          <Text style={[type.small, { color: colors.inkSoft }]}>
+            {!hasList ? t.menu.noList : menu.slots.some((x) => x.missing.length && !x.eaten) ? t.menu.fromKitchenMost : t.menu.fromKitchen}
+          </Text>
         </View>
         <Pressable
           onPress={shuffleMeals}
@@ -116,7 +118,7 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, goal, menuChoose, menuToggleExtra, menuEat, todayMenu, todayIntake, calorieTarget } = useStore();
+  const { state, goal, menuChoose, menuToggleExtra, menuEat, todayMenu, todayIntake, calorieTarget, setPantry } = useStore();
   const [open, setOpen] = useState<null | "swap" | "upgrade">(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -146,6 +148,17 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
   ];
   const times = timesLabel(s.servings);
   const chosenExtras = new Set(s.extras.map((u) => u.food.id));
+
+  /** Puts what the dish is missing on the kitchen list, and keeps the dish on
+   * today's menu — otherwise the new list reshuffles the rotation under it. */
+  function addMissing() {
+    const current = (state.pantry ?? "").trim();
+    const names = s.missing.map(name).join(", ");
+    setPantry(current ? `${current.replace(/[,\s]+$/, "")}, ${names}` : names);
+    menuChoose(s.slot, s.meal.id);
+    setToast(fill(t.menu.addedToList, { list: names }));
+    setTimeout(() => setToast(null), 4000);
+  }
 
   function eat() {
     const extras = s.extras.map((u) => name(u.food)).join(", ");
@@ -215,6 +228,17 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
               {s.extras.length && !s.eaten ? ` · + ${s.extras.map((u) => name(u.food)).join(", ")}` : ""}
             </Text>
           </Pop>
+          {s.missing.length && !s.eaten ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Ionicons name="cart-outline" size={14} color={colors.orangeInk} />
+              <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>
+                {fill(t.menu.needs, { list: s.missing.map(name).join(", ") })}
+              </Text>
+              <Pressable onPress={addMissing} accessibilityRole="button" hitSlop={8}>
+                <Text style={[type.smallStrong, { color: colors.accent }]}>{t.menu.addToList}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {adaptParts.length && !s.eaten ? (
             <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={2}>
               {fill(t.menu.adapted, { list: adaptParts.join(" · ") })}

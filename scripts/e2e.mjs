@@ -193,8 +193,10 @@ await page.getByLabel("הסר מהיומן").first().click(); await settle();
 
 // 5b) KITCHEN — quick-log: search a food, say how much, and it is in the diary
 await page.getByPlaceholder(/מה אכלת/).first().fill("אורז"); await settle();
-check("search shows a result", await page.getByRole("button",{name:"אורז"}).first().isVisible().catch(()=>false));
-await page.getByRole("button",{name:"אורז"}).first().click(); await settle();
+// Exact: a menu dish with rice in its name is also a button, and the menu
+// rotates, so a substring match lands on whichever dish today happens to be.
+check("search shows a result", await page.getByRole("button",{name:"אורז",exact:true}).first().isVisible().catch(()=>false));
+await page.getByRole("button",{name:"אורז",exact:true}).first().click(); await settle();
 check("tapping a food asks how much", await page.getByText("כמה אכלת?").first().isVisible().catch(()=>false));
 { const before = await page.getByText(/\d+ גרם · \d+ קלוריות/).first().innerText().catch(()=>"");
   // the portion chip, not the menu's "×2" portion further up the kitchen
@@ -1175,7 +1177,9 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   const mst = async ()=> JSON.parse(await mp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
   await mp.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"}); await mp.waitForTimeout(2200);
   check("the kitchen opens on today's menu", await mp.getByText("התפריט שלך להיום").first().isVisible().catch(()=>false));
-  check("it says it is built from what is at home", await mp.getByText("נבנה רק ממה שיש לך במטבח — בלי לקנות כלום.").first().isVisible().catch(()=>false));
+  // From the kitchen — or mostly, when the rotation brought in a dish one
+  // thing short, which then says so on its own row.
+  check("it says it is built from what is at home", await mp.getByText(/^(נבנה רק ממה שיש לך במטבח — בלי לקנות כלום\.|רוב התפריט ממה שיש לך\.)/).first().isVisible().catch(()=>false));
   check("four meals, each with an I-ate-this button", (await mp.getByRole("button",{name:/^אכלתי · /}).count())===4);
   check("no shopping list anywhere in the kitchen", !(await mp.getByText("רשימת קניות").count()));
   const sub = async ()=> (await mp.getByText(/מתוך [\d,]+ קלוריות · \d+ ג׳ חלבון/).first().innerText().catch(()=>""));
@@ -1224,6 +1228,36 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   check("Today shows the next meal to eat", await mp.getByText("הארוחה הבאה").first().isVisible().catch(()=>false));
   check("the menu raises no page errors", merr.length===0, merr.join(" | "));
   await mctx.close();
+}
+
+// 23) RIGHT NOW — the Today card that follows the clock, and acts in one tap.
+{
+  const nctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await nctx.route(h, r=>r.abort());
+  const tiny = { ...seed, pantry:"ביצים, לחם, עגבנייה, גבינה לבנה, טונה", intake:{}, menu:{}, waterMl:{}, checkIns:[] };
+  await nctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(tiny));
+  // Mid-afternoon with no water drunk: behind the pace.
+  await nctx.clock.install({ time: new Date(`${today}T15:00:00`) });
+  const np = await nctx.newPage();
+  const nerr=[]; np.on("pageerror",e=>nerr.push(String(e).slice(0,140)));
+  const nst = async ()=> JSON.parse(await np.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  await np.goto(`http://localhost:${PORT}/`,{waitUntil:"load"}); await np.waitForTimeout(1800);
+  check("Today has a right-now card", await np.getByText("עכשיו",{exact:true}).first().isVisible().catch(()=>false));
+  check("at 3pm with nothing drunk it says water is behind", await np.getByText(/אתה מאחור במים — \d+ כוסות/).first().isVisible().catch(()=>false));
+  await np.getByRole("button",{name:/^\+ כוס/}).first().click(); await np.waitForTimeout(700);
+  { const s=await nst(); check("its + a cup logs a cup right there", (s.waterMl?.[today]??0)===250, String(s.waterMl?.[today])); }
+
+  // The menu from five groceries: dishes one thing short say what, and add it.
+  await np.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"}); await np.waitForTimeout(2200);
+  const need = np.getByText(/^חסר לך: /).first();
+  check("a small kitchen's menu names what a dish needs", await need.isVisible().catch(()=>false));
+  const needText = (await need.innerText().catch(()=>"")).replace(/^חסר לך: /,"");
+  await np.getByRole("button",{name:"הוסף למטבח"}).first().click(); await np.waitForTimeout(800);
+  { const s=await nst(); const first=needText.split(",")[0]?.trim();
+    check("add to my list puts it on the kitchen list", !!first && s.pantry.includes(first), `${first} / ${s.pantry}`);
+    check("and keeps that dish on today's menu", Object.values(Object.values(s.menu??{})[0]??{}).some((c)=>!!c?.mealId), JSON.stringify(s.menu)); }
+  check("the right-now card and menu raise no page errors", nerr.length===0, nerr.join(" | "));
+  await nctx.close();
 }
 
 check("the served page carries the Content-Security-Policy",
