@@ -360,7 +360,7 @@ export default function ProgressScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Screen title={t.progress.heading}>
+      <Screen title={t.progress.heading} columns>
         <Card label={t.progress.weighTitle}>
           <Text style={[type.small, { color: colors.inkSoft }]}>{t.progress.weighBody}</Text>
 

@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Children, isValidElement, type ReactNode } from "react";
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
 
@@ -13,6 +13,9 @@ type Props = {
   aside?: ReactNode;
   /** Rendered inside the band, under the title. */
   banner?: ReactNode;
+  /** A screen of independent cards: on a wide screen they flow into two
+   * columns instead of one narrow strip down the middle of a monitor. */
+  columns?: boolean;
   children: ReactNode;
 };
 
@@ -23,6 +26,10 @@ type Props = {
  */
 export const MAX_CONTENT = 620;
 
+/** From this width a `columns` screen lays its cards out in two columns. */
+export const WIDE = 1024;
+export const MAX_WIDE = 1240;
+
 /**
  * Every screen opens with a tinted band carrying the title. It gives the page
  * a top edge and a horizon line, which a flat list of cards never has.
@@ -31,11 +38,31 @@ export const MAX_CONTENT = 620;
  * are both held to one centred column, so the layout reads the same on a phone
  * and on a desktop browser.
  */
-export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Props) {
-  const { colors, space, radius, type } = useTheme();
-  const insets = useSafeAreaInsets();
+export function Screen({ eyebrow, title, subtitle, aside, banner, columns = false, children }: Props) {
+  const { colors, space } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = columns && width >= WIDE;
 
-  const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
+  const centered = { width: "100%" as const, maxWidth: wide ? MAX_WIDE : MAX_CONTENT, alignSelf: "center" as const };
+
+  // Two columns, filled in turn — the first card leads the first column (the
+  // right one, in Hebrew), the second leads the other, and so on, so what
+  // matters most still sits at the top on either side.
+  let body: ReactNode = children;
+  if (wide) {
+    const items = Children.toArray(children).filter(isValidElement);
+    const cols: ReactNode[][] = [[], []];
+    items.forEach((child, i) => cols[i % 2]!.push(child));
+    body = (
+      <View style={{ flexDirection: "row", gap: space.lg, alignItems: "flex-start" }}>
+        {cols.map((col, i) => (
+          <View key={i} style={{ flex: 1, minWidth: 0, gap: space.lg }}>
+            {col}
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -43,7 +70,7 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
       contentContainerStyle={{ paddingBottom: space.xxl }}
       keyboardShouldPersistTaps="handled"
     >
-      <ScreenBand eyebrow={eyebrow} title={title} subtitle={subtitle} aside={aside} banner={banner} />
+      <ScreenBand eyebrow={eyebrow} title={title} subtitle={subtitle} aside={aside} banner={banner} wide={wide} />
 
       <View
         style={[
@@ -51,7 +78,7 @@ export function Screen({ eyebrow, title, subtitle, aside, banner, children }: Pr
           { paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg },
         ]}
       >
-        {children}
+        {body}
       </View>
     </ScrollView>
   );
@@ -68,10 +95,11 @@ export function ScreenBand({
   subtitle,
   aside,
   banner,
-}: Pick<Props, "eyebrow" | "title" | "subtitle" | "aside" | "banner">) {
+  wide = false,
+}: Pick<Props, "eyebrow" | "title" | "subtitle" | "aside" | "banner"> & { wide?: boolean }) {
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
-  const centered = { width: "100%" as const, maxWidth: MAX_CONTENT, alignSelf: "center" as const };
+  const centered = { width: "100%" as const, maxWidth: wide ? MAX_WIDE : MAX_CONTENT, alignSelf: "center" as const };
   return (
     <LinearGradient
       colors={[colors.bandTop, colors.bandBottom]}

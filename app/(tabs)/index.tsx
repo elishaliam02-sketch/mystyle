@@ -461,6 +461,7 @@ export default function TodayScreen() {
 
   return (
     <Screen
+      columns
       eyebrow={dateLabel}
       title={title}
       subtitle={

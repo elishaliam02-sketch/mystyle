@@ -46,8 +46,10 @@ jobs:
 
       # Only what ships to phones (--omit=dev), and only high or critical: the
       # moderate findings are inside Expo's own toolchain and wait on an SDK bump.
+      # scripts/audit.mjs lists any advisory excused by id, with the reason it
+      # cannot reach a user and the date the excuse runs out.
       - name: Dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit.mjs
 
       # Every suite, discovered from the scripts directory rather than listed
       # here — a list in a YAML file is a list somebody forgets to edit, and

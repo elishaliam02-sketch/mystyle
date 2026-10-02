@@ -156,7 +156,7 @@ export default function ProfileScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Screen title={t.profile.heading}>
+      <Screen title={t.profile.heading} columns>
         <OfflineBanner state={cloud.net.state} onRetry={() => void cloud.net.recheck()} />
         <UpdateBanner />
         <View style={{ alignItems: "center", paddingVertical: space.md }}>
