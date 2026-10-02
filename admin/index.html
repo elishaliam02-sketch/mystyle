@@ -6,97 +6,176 @@
 <!-- Only the pinned supabase-js file and the one inline script below may run;
      the inline script is allowed by its hash, which scripts/run-csp-tests.mjs
      recomputes - edit the script and that test prints the new hash. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js 'sha256-vMvSsoPgZzZllpISSy27c6P2ptfhfpHdPaKrYV/Mqp8='; style-src 'unsafe-inline'; img-src data:; connect-src https://vesdfboxetdwymsulpsc.supabase.co; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js 'sha256-R6eBrWAs03Hys6xLnlcw1E/vGVz7igokL+5e5OTEpJw='; style-src 'unsafe-inline'; img-src data:; connect-src https://vesdfboxetdwymsulpsc.supabase.co; base-uri 'none'; form-action 'none'" />
 <meta name="referrer" content="no-referrer" />
 <title>APEX — ניהול</title>
 <!--
-  APEX owner console — the monitoring window.
+  APEX owner console.
 
   A single self-contained page. It signs in with an ADMIN account (an account
-  whose id is in the `admins` table), then calls the `admin` edge function,
-  which is the only thing that can read across users and which checks the admin
-  allowlist itself on every call. This page holds no secret: the key below is
-  the public publishable key the app already ships, and it grants nothing on its
-  own — every privileged read is gated server-side by the admin check.
+  whose id is in the `admins` table) and a second factor, then calls the
+  `admin` edge function, which is the only thing that can read across users and
+  which checks the allowlist and the second factor itself on every call. This
+  page holds no secret: the key below is the public publishable key the app
+  already ships, and it grants nothing on its own.
 
-  To use it: host this file (Netlify, Vercel, Cloudflare Pages, or locally with
-  `npx serve admin`) and add that address to the functions' ALLOWED_ORIGINS
-  secret; opened straight from disk it has no origin and the function will not
-  answer it. Sign in with the admin email + password, then the code from an
-  authenticator app — the first sign-in shows a QR code to enroll one. It
-  refreshes itself every 30 seconds.
+  Three views:
+    סקירה    growth, actives, retention, revenue, moods, trajectories, and the
+             people worth a look today
+    משתמשים  search, filter, sort and page through everyone; export to CSV;
+             open one person (activity, weight, moods, subscription, history)
+             and grant or take back free access
+    יומן     the audit trail
+
+  Everything on screen is built with DOM calls, never innerHTML: every value
+  comes from the server, and text set as text can never become markup.
+
+  To use it: host this file and add its address to the functions'
+  ALLOWED_ORIGINS secret (opened straight from disk it has no origin and the
+  function will not answer it).
 -->
 <style>
   :root {
     --bg: #0b0d12; --panel: #141821; --panel2: #1b212c; --line: #263041;
     --ink: #eef2f8; --soft: #9aa7bd; --faint: #6b7688;
     --violet: #9b6bff; --green: #46d19b; --blue: #4aa3ff; --amber: #f2b34a;
-    --red: #ff6b6b; --gray: #8b95a7;
+    --red: #ff6b6b; --gray: #8b95a7; --on-violet: #ffffff; --shadow: rgba(0,0,0,.45);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f5f9; --panel: #ffffff; --panel2: #f0f2f7; --line: #dde2ec;
+      --ink: #141821; --soft: #4d5a70; --faint: #6b7688;
+      --violet: #6d3bff; --green: #127a52; --blue: #1663b8; --amber: #8a5a00;
+      --red: #c02626; --gray: #5d6779; --shadow: rgba(20,24,33,.18);
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 -apple-system, "Segoe UI", Heebo, Arial, sans-serif; }
-  a { color: var(--violet); }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 15px/1.5 -apple-system, "Segoe UI", Heebo, Arial, sans-serif; }
+  button, input, select { font: inherit; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 16px 16px 72px; }
+  [hidden] { display: none !important; }
 
   /* login */
-  .login { max-width: 360px; margin: 12vh auto; background: var(--panel);
+  .login { max-width: 380px; margin: 12vh auto; background: var(--panel);
     border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
   .login h1 { margin: 0 0 4px; font-size: 22px; }
   .login p { margin: 0 0 18px; color: var(--soft); font-size: 14px; }
-  input { width: 100%; padding: 12px 14px; margin: 6px 0; background: var(--panel2);
+  input, select { width: 100%; padding: 11px 13px; margin: 6px 0; background: var(--panel2);
     border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 15px; }
-  button { cursor: pointer; border: 0; border-radius: 10px; padding: 12px 16px;
-    background: var(--violet); color: #fff; font-weight: 700; font-size: 15px; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--violet); outline-offset: 1px; }
+  button { cursor: pointer; border: 0; border-radius: 10px; padding: 10px 14px;
+    background: var(--violet); color: var(--on-violet); font-weight: 700; font-size: 14px; }
+  button:disabled { opacity: .5; cursor: default; }
   button.ghost { background: transparent; border: 1px solid var(--line); color: var(--soft); }
+  button.danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
+  button.link { background: none; padding: 0; color: var(--violet); font-weight: 700; }
   .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; }
   .full { width: 100%; margin-top: 8px; }
   .qr { display: block; width: 200px; height: 200px; margin: 0 auto 10px; background: #fff;
     border-radius: 10px; padding: 8px; }
   code { direction: ltr; unicode-bidi: embed; word-break: break-all; color: var(--ink); }
+  .ltr { direction: ltr; unicode-bidi: embed; }
 
-  /* dashboard */
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 18px; }
-  header h1 { font-size: 20px; margin: 0; }
-  header .who { color: var(--soft); font-size: 13px; }
-  header .spacer { flex: 1; }
+  /* top bar + tabs */
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top h1 { font-size: 20px; margin: 0; }
+  .who { color: var(--soft); font-size: 13px; }
+  .spacer { flex: 1; }
   .muted { color: var(--faint); font-size: 12px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--soft); font-size: 13px; cursor: pointer; }
+  .toggle input { width: auto; margin: 0; }
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+  .tabs button { background: none; color: var(--soft); border-radius: 0; padding: 10px 14px;
+    border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--violet); }
+  .banner { background: rgba(255,107,107,.12); border: 1px solid var(--red); color: var(--ink);
+    border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px; margin-bottom: 20px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-    padding: 16px; }
-  .card .n { font-size: 30px; font-weight: 800; }
-  .card .l { color: var(--soft); font-size: 13px; margin-top: 2px; }
+  /* overview */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .kpi .n { font-size: 28px; font-weight: 800; line-height: 1.15; }
+  .kpi .l { color: var(--soft); font-size: 13px; margin-top: 2px; }
+  .kpi .d { font-size: 12px; margin-top: 4px; color: var(--faint); }
+  .up { color: var(--green); } .down { color: var(--red); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; margin-bottom: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .panel h2 { font-size: 15px; margin: 0 0 10px; }
+  .panel h3, .drawer h3 { font-size: 13px; color: var(--soft); margin: 14px 0 8px; }
+  .chart { width: 100%; height: 150px; display: block; }
+  .chart-axis { display: flex; justify-content: space-between; gap: 8px; color: var(--faint); font-size: 11px; margin-top: 4px; }
+  .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--panel2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: var(--soft); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 5px; }
+  .rows { display: grid; gap: 6px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--panel2);
+    border-radius: 10px; font-size: 14px; min-width: 0; }
+  .row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  button.row { width: 100%; text-align: start; color: var(--ink); font-weight: 400; border: 1px solid transparent; }
+  button.row:hover { border-color: var(--violet); }
+  .mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mini th, .mini td { padding: 6px 4px; text-align: start; border-bottom: 1px solid var(--line); }
+  .mini th { color: var(--faint); font-weight: 600; }
+  .bar { height: 6px; border-radius: 3px; background: var(--violet); min-width: 2px; }
 
-  .section-title { font-size: 15px; color: var(--soft); margin: 22px 0 10px; font-weight: 700; }
+  /* users */
+  .toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .toolbar input, .toolbar select { margin: 0; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chips button { background: var(--panel2); color: var(--soft); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; font-weight: 600; }
+  .chips button[aria-pressed="true"] { background: var(--violet); color: var(--on-violet); border-color: var(--violet); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  table.users { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.users th, table.users td { text-align: start; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.users th { color: var(--faint); font-weight: 600; font-size: 12px; background: var(--panel); position: sticky; top: 0; }
+  table.users tbody tr { cursor: pointer; }
+  table.users tbody tr:hover td, table.users tbody tr:focus td { background: var(--panel2); }
+  table.users tr:last-child td { border-bottom: 0; }
+  td.email { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+  .pager { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 12px; color: var(--soft); font-size: 14px; }
 
-  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; }
-  th, td { text-align: right; padding: 11px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--faint); font-weight: 600; font-size: 12px; background: var(--panel); position: sticky; top: 0; }
-  tr:last-child td { border-bottom: 0; }
-  td.email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-
-  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .b-on-track { background: rgba(70,209,155,.16); color: var(--green); }
   .b-slow { background: rgba(74,163,255,.16); color: var(--blue); }
   .b-fast { background: rgba(242,179,74,.18); color: var(--amber); }
   .b-stalled { background: rgba(139,149,167,.18); color: var(--gray); }
   .b-off-track { background: rgba(255,107,107,.16); color: var(--red); }
   .b-no-data { background: rgba(139,149,167,.1); color: var(--faint); }
+  .sub-active { color: var(--green); } .sub-trialing { color: var(--blue); }
+  .sub-past_due, .sub-canceled, .sub-expired { color: var(--amber); } .sub-none { color: var(--faint); }
 
-  .sub-active { color: var(--green); }
-  .sub-trialing { color: var(--blue); }
-  .sub-past_due, .sub-canceled, .sub-expired { color: var(--amber); }
-  .sub-none { color: var(--faint); }
+  /* the drawer */
+  .scrim { position: fixed; inset: 0; background: var(--shadow); z-index: 10; }
+  .drawer { position: fixed; top: 0; bottom: 0; inset-inline-start: 0; width: min(520px, 100%);
+    background: var(--panel); border-inline-end: 1px solid var(--line); z-index: 11; overflow-y: auto;
+    padding: 18px; box-shadow: 0 0 40px var(--shadow); }
+  .drawer h2 { margin: 0; font-size: 18px; word-break: break-all; }
+  .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+  .fact { background: var(--panel2); border-radius: 10px; padding: 9px 11px; min-width: 0; }
+  .fact .l { color: var(--faint); font-size: 12px; } .fact .v { font-weight: 700; overflow-wrap: anywhere; }
+  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); gap: 3px; direction: ltr; justify-content: start; }
+  .heat span { width: 12px; border-radius: 2px; background: var(--panel2); border: 1px solid var(--line); }
+  .heat span.on { background: var(--green); border-color: var(--green); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .actions select { width: auto; margin: 0; }
 
-  .audit { display: grid; gap: 6px; }
-  .audit .row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 9px 12px; font-size: 13px; display: flex; gap: 10px; }
-  .audit .k { color: var(--violet); font-weight: 700; }
-  .audit .t { color: var(--faint); }
+  /* phones: the table becomes a list of cards */
+  @media (max-width: 760px) {
+    .wrap { padding: 12px 12px 64px; }
+    .toolbar { grid-template-columns: 1fr 1fr; }
+    .toolbar #q { grid-column: 1 / -1; }
+    .tablewrap { border: 0; background: none; overflow: visible; }
+    table.users, table.users tbody { display: block; }
+    table.users thead { display: none; }
+    table.users tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+    table.users td { display: block; border: 0; padding: 0; white-space: normal; }
+    table.users td::before { content: attr(data-label); display: block; color: var(--faint); font-size: 11px; }
+    table.users td.email { grid-column: 1 / -1; max-width: none; font-weight: 700; }
+    table.users td.email::before { content: none; }
+    .kpi .n { font-size: 24px; }
+  }
 </style>
 </head>
 <body>
@@ -107,7 +186,7 @@
     <p>התחבר עם חשבון האדמין.</p>
     <input id="email" type="email" placeholder="אימייל" autocomplete="username" />
     <input id="password" type="password" placeholder="סיסמה" autocomplete="current-password" />
-    <button id="signin" style="width:100%; margin-top:8px;">התחבר</button>
+    <button id="signin" class="full">התחבר</button>
     <div id="loginErr" class="err"></div>
   </div>
 
@@ -125,34 +204,98 @@
     <div id="mfaErr" class="err"></div>
   </div>
 
-  <!-- DASHBOARD -->
+  <!-- CONSOLE -->
   <div id="dash" hidden>
-    <header>
-      <h1>לוח בקרה</h1>
+    <div class="top">
+      <h1>APEX — לוח בקרה</h1>
       <span id="who" class="who"></span>
       <span class="spacer"></span>
-      <span id="refreshInfo" class="muted"></span>
+      <span id="refreshInfo" class="muted" aria-live="polite"></span>
+      <label class="toggle"><input id="auto" type="checkbox" checked /> רענון אוטומטי</label>
+      <button id="refresh" class="ghost">רענן</button>
       <button id="signout" class="ghost">התנתק</button>
-    </header>
-
-    <div id="cards" class="cards"></div>
-
-    <div class="section-title">משתמשים</div>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th>אימייל</th><th>נרשם</th><th>חובר לאחרונה</th>
-            <th>מנוי</th><th>מגמה</th><th>שקילה אחרונה</th><th>שינוי/שבוע</th>
-          </tr>
-        </thead>
-        <tbody id="usersBody"></tbody>
-      </table>
     </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabbtn-overview" data-tab="overview" aria-selected="true">סקירה</button>
+      <button role="tab" id="tabbtn-users" data-tab="users" aria-selected="false">משתמשים</button>
+      <button role="tab" id="tabbtn-audit" data-tab="audit" aria-selected="false">יומן פעילות</button>
+    </div>
+    <div id="banner" class="banner" role="alert" hidden></div>
 
-    <div class="section-title">יומן פעילות (audit)</div>
-    <div id="audit" class="audit"></div>
+    <section id="tab-overview" role="tabpanel">
+      <div id="kpis" class="kpis"></div>
+      <div class="grid2">
+        <div class="panel"><h2>הרשמות חדשות — 30 ימים</h2><div id="chSignups"></div></div>
+        <div class="panel"><h2>משתמשים פעילים בכל יום — 30 ימים</h2><div id="chActive"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h2>דורשים תשומת לב היום</h2><div id="attention" class="rows"></div></div>
+        <div class="panel">
+          <h2>האם האפליקציה עוזרת?</h2>
+          <div id="traj"></div>
+          <h3>מצב רוח בסיכומי הערב — 7 ימים</h3>
+          <div id="moods"></div>
+          <h3>מעורבות — 7 ימים</h3>
+          <div id="engagement" class="rows"></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h2>שימור</h2><div id="retention" class="rows"></div></div>
+        <div class="panel"><h2>קבוצות הרשמה לפי שבוע</h2><div id="cohorts"></div></div>
+      </div>
+      <div class="panel"><h2>מנויים</h2><div id="subs"></div></div>
+    </section>
+
+    <section id="tab-users" role="tabpanel" hidden>
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="חיפוש לפי אימייל או מזהה" autocomplete="off" />
+        <select id="sort" aria-label="מיון">
+          <option value="created">מיון: נרשמו לאחרונה</option>
+          <option value="lastActive">מיון: פעילות אחרונה</option>
+          <option value="email">מיון: אימייל</option>
+          <option value="status">מיון: מנוי</option>
+          <option value="trajectory">מיון: מגמה</option>
+          <option value="perWeek">מיון: ק״ג לשבוע</option>
+          <option value="completion7">מיון: ביצוע הרגלים</option>
+        </select>
+        <select id="dir" aria-label="כיוון">
+          <option value="desc">יורד</option>
+          <option value="asc">עולה</option>
+        </select>
+        <button id="export" class="ghost">ייצוא CSV</button>
+      </div>
+      <div id="filters" class="chips" role="group" aria-label="סינון"></div>
+      <div id="usersMeta" class="muted"></div>
+      <div class="tablewrap">
+        <table class="users">
+          <thead><tr>
+            <th>משתמש</th><th>נרשם</th><th>פעיל לאחרונה</th><th>ימים פעילים /30</th>
+            <th>מנוי</th><th>מגמה</th><th>ק״ג לשבוע</th><th>הרגלים 7 ימים</th><th>סיכומים 7 ימים</th>
+          </tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="prev" class="ghost">הקודם</button>
+        <span id="pageInfo"></span>
+        <button id="next" class="ghost">הבא</button>
+      </div>
+    </section>
+
+    <section id="tab-audit" role="tabpanel" hidden>
+      <div id="audit" class="rows"></div>
+    </section>
   </div>
+
+  <div id="scrim" class="scrim" hidden></div>
+  <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle" hidden>
+    <div class="top">
+      <h2 id="dTitle"></h2>
+      <span class="spacer"></span>
+      <button id="dClose" class="ghost" aria-label="סגור">סגור</button>
+    </div>
+    <div id="dBody"></div>
+  </aside>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js" integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz" crossorigin="anonymous"></script>
@@ -164,17 +307,47 @@
   });
 
   const $ = (id) => document.getElementById(id);
-  const TRAJ_HE = { "on-track": "במסלול", slow: "איטי", fast: "מהיר", stalled: "תקוע", "off-track": "סוטה", "no-data": "אין נתונים" };
-  const SUB_HE = { active: "פעיל", trialing: "ניסיון", past_due: "חוב", canceled: "בוטל", expired: "פג", none: "—" };
+  const TRAJ_HE = { "on-track": "במסלול", slow: "איטי", fast: "מהיר מדי", stalled: "תקוע", "off-track": "בכיוון ההפוך", "no-data": "אין מספיק נתונים" };
+  const TRAJ_COLOR = { "on-track": "var(--green)", slow: "var(--blue)", fast: "var(--amber)", stalled: "var(--gray)", "off-track": "var(--red)", "no-data": "var(--line)" };
+  const SUB_HE = { active: "משלם", trialing: "ניסיון", past_due: "חוב", canceled: "בוטל", expired: "פג", none: "חינם" };
+  const SUB_COLOR = { active: "var(--green)", trialing: "var(--blue)", past_due: "var(--amber)", canceled: "var(--red)", expired: "var(--gray)", none: "var(--line)" };
+  const MOOD_HE = { good: "טוב", ok: "בסדר", hard: "קשה" };
+  const MOOD_COLOR = { good: "var(--green)", ok: "var(--blue)", hard: "var(--red)" };
+  const FILTERS = [
+    ["all", "כולם"], ["attention", "דורשים תשומת לב"], ["active7", "פעילים השבוע"], ["inactive", "לא פעילים"],
+    ["paying", "משלמים"], ["trialing", "בניסיון"], ["free", "חינם"], ["accounts", "עם חשבון"], ["anonymous", "אנונימיים"],
+  ];
+  const AUDIT_HE = {
+    "admin.login": "כניסת אדמין", "admin.denied": "גישה נדחתה", "admin.view_user": "צפייה במשתמש",
+    "admin.comp_trial": "גישה חינם", "auth.signup": "הרשמה", "auth.signin": "התחברות", "auth.account_deleted": "מחיקת חשבון",
+    "billing.subscribed": "מנוי חדש", "billing.trial_started": "תחילת ניסיון", "billing.canceled": "ביטול מנוי",
+    "billing.payment_failed": "תשלום נכשל", "invoice.issued": "חשבונית",
+  };
 
+  // ------------------------------------------------------------ formatting
+  const nf = (n) => (n == null ? "—" : Number(n).toLocaleString("he-IL"));
+  const pct = (n) => (n == null ? "—" : `${Number(n).toLocaleString("he-IL", { maximumFractionDigits: 1 })}%`);
+  const ils = (minor) => (Number(minor || 0) / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+  const asDate = (iso) => new Date(String(iso).length === 10 ? iso + "T12:00:00" : iso);
   function fmtDate(iso) {
     if (!iso) return "—";
-    const d = new Date(iso);
-    if (isNaN(+d)) return "—";
-    return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    const d = asDate(iso);
+    return isNaN(+d) ? "—" : d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  }
+  function daysAgo(iso) {
+    if (!iso) return null;
+    const d = asDate(iso);
+    return isNaN(+d) ? null : Math.max(0, Math.floor((Date.now() - +d) / 86400000));
+  }
+  function fmtAgoDays(iso) {
+    const n = daysAgo(iso);
+    if (n == null) return "מעולם";
+    if (n === 0) return "היום";
+    if (n === 1) return "אתמול";
+    return `לפני ${n} ימים`;
   }
   function fmtAgo(iso) {
-    if (!iso) return "מעולם";
+    if (!iso) return "—";
     const d = new Date(iso);
     if (isNaN(+d)) return "—";
     const mins = Math.floor((Date.now() - +d) / 60000);
@@ -182,10 +355,73 @@
     if (mins < 60) return `לפני ${mins} דק׳`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `לפני ${hrs} ש׳`;
-    const days = Math.floor(hrs / 24);
-    return `לפני ${days} ימים`;
+    return `לפני ${Math.floor(hrs / 24)} ימים`;
+  }
+  const kgWeek = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v} ק״ג`);
+  const who = (u) => u.email || `אנונימי · ${String(u.id).slice(0, 8)}`;
+
+  // ------------------------------------------------------------ DOM helpers
+  // Built with DOM calls, never innerHTML: every value here comes from the
+  // server, and text set as text can never become markup.
+  function el(tag, attrs, ...children) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "class") node.className = v;
+      else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const c of children.flat()) if (c != null && c !== false) node.append(c instanceof Node ? c : String(c));
+    return node;
+  }
+  const SVG = "http://www.w3.org/2000/svg";
+  function svg(tag, attrs, ...children) {
+    const node = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, String(v));
+    for (const c of children) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    return node;
   }
 
+  /** Bars for a 30-day series; today on the left end in RTL reading order. */
+  function barChart(series, color, label) {
+    const W = 600, H = 150, top = 12;
+    const max = Math.max(1, ...series.map((p) => p.n));
+    const bw = W / Math.max(1, series.length);
+    const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img", "aria-label": label, preserveAspectRatio: "none" });
+    for (let i = 1; i <= 3; i++) {
+      const y = H - ((H - top) * i) / 3;
+      chart.append(svg("line", { x1: 0, x2: W, y1: y, y2: y, stroke: "var(--line)", "stroke-width": 1 }));
+    }
+    series.forEach((p, i) => {
+      const h = p.n ? Math.max(3, ((H - top) * p.n) / max) : 1;
+      const x = W - (i + 1) * bw;
+      chart.append(svg("rect", { x: x + 1, y: H - h, width: Math.max(1, bw - 2), height: h, rx: 2, fill: p.n ? color : "var(--line)" },
+        svg("title", {}, `${fmtDate(p.date)}: ${nf(p.n)}`)));
+    });
+    const total = series.reduce((n, p) => n + p.n, 0);
+    return el("div", null, chart, el("div", { class: "chart-axis" },
+      el("span", null, fmtDate(series[0] && series[0].date)),
+      el("span", null, `סה״כ ${nf(total)} · שיא ביום ${nf(max)}`),
+      el("span", null, fmtDate(series[series.length - 1] && series[series.length - 1].date))));
+  }
+
+  function stackBar(parts) {
+    const total = parts.reduce((n, p) => n + p.n, 0);
+    const bar = el("div", { class: "stack", role: "img", "aria-label": parts.map((p) => `${p.label}: ${p.n}`).join(", ") });
+    for (const p of parts) if (p.n > 0) bar.append(el("span", { style: `width:${(p.n / Math.max(1, total)) * 100}%;background:${p.color}`, title: `${p.label}: ${p.n}` }));
+    const legend = el("div", { class: "legend" }, parts.map((p) => el("span", null,
+      el("span", { class: "dot", style: `background:${p.color}` }), `${p.label} ${nf(p.n)}${total ? ` (${Math.round((p.n / total) * 100)}%)` : ""}`)));
+    return el("div", null, bar, legend);
+  }
+
+  function delta(now, before, unit) {
+    if (before == null || now == null) return null;
+    const d = now - before;
+    if (d === 0) return el("span", null, `ללא שינוי מ${unit}`);
+    return el("span", { class: d > 0 ? "up" : "down" }, `${d > 0 ? "▲" : "▼"} ${nf(Math.abs(d))} לעומת ${unit}`);
+  }
+
+  // ------------------------------------------------------------ server
   async function call(action, extra) {
     const { data, error } = await db.functions.invoke("admin", { body: { action, ...(extra || {}) } });
     if (error) {
@@ -209,76 +445,324 @@
     }
     return data;
   }
+  function showError(e) {
+    $("banner").textContent = "משהו לא נטען: " + (e && e.message ? e.message : "נסה שוב");
+    $("banner").hidden = false;
+  }
+  const clearError = () => { $("banner").hidden = true; };
 
-  async function refresh() {
+  // ------------------------------------------------------------ overview
+  const REASON = {
+    fast: (x) => `יורד מהר מדי (${kgWeek(x.detail)} בשבוע) — לוודא שזה בריא`,
+    "hard-week": (x) => `${nf(x.detail)} סיכומי ערב "קשה" השבוע`,
+    "trial-ending": (x) => (x.detail === 0 ? "תקופת הניסיון נגמרת היום" : `תקופת הניסיון נגמרת בעוד ${nf(x.detail)} ימים`),
+    slipping: (x) => `הפסיק להשתמש — ${x.detail == null ? "" : nf(x.detail) + " "}ימים בלי פעילות`,
+    "off-track": (x) => `המשקל זז בכיוון ההפוך ליעד (${kgWeek(x.detail)} בשבוע)`,
+  };
+
+  function renderOverview(d) {
+    const t = d.totals, a = d.active, s = d.subs, r = d.retention, e = d.engagement;
+    const kpis = [
+      { n: nf(t.users), l: "משתמשים", d: `${nf(t.accounts)} עם חשבון · ${nf(t.anonymous)} אנונימיים` },
+      { n: nf(t.new7), l: "חדשים השבוע", d: delta(t.new7, t.new7Prev, "שבוע קודם") },
+      { n: nf(a.wau), l: "פעילים השבוע", d: delta(a.wau, a.wauPrev, "שבוע קודם") },
+      { n: nf(a.dau), l: "פעילים היום", d: `${nf(a.mau)} פעילים ב־30 ימים` },
+      { n: pct(r.d7.rate), l: "חזרו אחרי שבוע", d: `${nf(r.d7.retained)} מתוך ${nf(r.d7.eligible)}` },
+      { n: ils(s.mrrMinor), l: "הכנסה חודשית חוזרת", d: `${nf(s.paying)} משלמים · ${nf(s.trialing)} בניסיון` },
+      { n: pct(e.completion7), l: "ביצוע הרגלים השבוע", d: `${nf(e.checkIns7)} סיכומי ערב` },
+      { n: nf(d.attention.length), l: "דורשים תשומת לב", d: d.attention.length ? "ברשימה למטה" : "אין כרגע" },
+    ];
+    $("kpis").replaceChildren(...kpis.map((k) => el("div", { class: "kpi" },
+      el("div", { class: "n" }, k.n), el("div", { class: "l" }, k.l), k.d ? el("div", { class: "d" }, k.d) : null)));
+
+    $("chSignups").replaceChildren(barChart(d.series.signups, "var(--violet)", "הרשמות ב־30 הימים האחרונים"));
+    $("chActive").replaceChildren(barChart(d.series.active, "var(--green)", "משתמשים פעילים ב־30 הימים האחרונים"));
+
+    // The most urgent few; the rest are one tap away as a filtered list.
+    const SHOWN = 8;
+    const more = d.attention.length - SHOWN;
+    $("attention").replaceChildren(...(d.attention.length
+      ? [...d.attention.slice(0, SHOWN).map((x) => el("button", { class: "row", onclick: () => openUser(x.id) },
+          el("span", { class: "grow" }, el("strong", null, who(x)), " — ", REASON[x.reason] ? REASON[x.reason](x) : x.reason))),
+        more > 0 ? el("button", { class: "ghost", id: "attentionAll", onclick: () => { uq.filter = "attention"; uq.page = 1; renderFilters(); showTab("users"); } },
+          `הצג את כל ${nf(d.attention.length)} ברשימת המשתמשים`) : null]
+      : [el("div", { class: "muted" }, "אף אחד לא דורש תשומת לב כרגע.")]));
+
+    $("traj").replaceChildren(stackBar(Object.keys(TRAJ_HE).map((k) => ({ label: TRAJ_HE[k], n: d.trajectory[k] || 0, color: TRAJ_COLOR[k] }))));
+    $("moods").replaceChildren(stackBar(["good", "ok", "hard"].map((k) => ({ label: MOOD_HE[k], n: e.moods7[k] || 0, color: MOOD_COLOR[k] }))));
+    const line = (label, value) => el("div", { class: "row" }, el("span", { class: "grow" }, label), el("strong", null, value));
+    $("engagement").replaceChildren(
+      line("נשקלו השבוע", nf(e.weighIns7)),
+      line("סיכומי ערב", nf(e.checkIns7)),
+      line("ממוצע ביצוע הרגלים", pct(e.completion7)));
+
+    $("retention").replaceChildren(...[["d1", "חזרו ביום שאחרי ההרשמה"], ["d7", "חזרו אחרי שבוע"], ["d30", "חזרו אחרי חודש"]].map(([k, label]) => {
+      const x = r[k];
+      return el("div", { class: "row" }, el("span", { class: "grow" }, label),
+        el("span", { class: "muted" }, `${nf(x.retained)}/${nf(x.eligible)}`), el("strong", null, pct(x.rate)));
+    }));
+
+    const maxC = Math.max(1, ...d.cohorts.map((c) => c.signups));
+    $("cohorts").replaceChildren(el("table", { class: "mini" },
+      el("thead", null, el("tr", null, el("th", null, "שבוע"), el("th", null, "נרשמו"), el("th", null, "פעילים עכשיו"), el("th", null, ""))),
+      el("tbody", null, d.cohorts.slice().reverse().map((c) => el("tr", null,
+        el("td", null, fmtDate(c.weekStart)), el("td", null, nf(c.signups)), el("td", null, `${nf(c.activeNow)} (${pct(c.rate)})`),
+        el("td", { style: "width:35%" }, el("div", { class: "bar", style: `width:${(c.signups / maxC) * 100}%` })))))));
+
+    const st = s.status || {};
+    $("subs").replaceChildren(
+      stackBar(Object.keys(SUB_HE).map((k) => ({ label: SUB_HE[k], n: st[k] || 0, color: SUB_COLOR[k] }))),
+      el("p", { class: "muted" }, `המרה מניסיון לתשלום: ${pct(s.conversion)} · הכנסה חודשית חוזרת ${ils(s.mrrMinor)} (מנוי שנתי נספר כ־1/12)`));
+  }
+
+  async function loadOverview() {
     try {
-      const [ov, us, au] = await Promise.all([call("overview"), call("users", { page: 1 }), call("audit", { limit: 60 })]);
-      renderCards(ov);
-      renderUsers(us.users || []);
-      renderAudit(au.events || []);
-      $("refreshInfo").textContent = "עודכן " + new Date().toLocaleTimeString("he-IL");
+      const d = await call("dashboard");
+      clearError();
+      renderOverview(d);
+      $("refreshInfo").textContent = "עודכן " + new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
     } catch (e) {
-      $("refreshInfo").textContent = "שגיאה בטעינה — " + (e && e.message ? e.message : "נסה שוב");
+      showError(e);
     }
   }
 
-  // Built with DOM calls, never innerHTML: every value here comes from the
-  // server, and text set as text can never become markup.
-  function el(tag, cls, ...children) {
-    const node = document.createElement(tag);
-    if (cls) node.className = cls;
-    for (const c of children) node.append(c instanceof Node ? c : String(c));
-    return node;
+  // ------------------------------------------------------------ users
+  const uq = { q: "", filter: "all", sort: "created", dir: "desc", page: 1 };
+  let lastUsers = null;
+  function renderFilters() {
+    $("filters").replaceChildren(...FILTERS.map(([id, label]) => el("button", {
+      "aria-pressed": uq.filter === id ? "true" : "false",
+      onclick: () => { uq.filter = id; uq.page = 1; renderFilters(); loadUsers(); },
+    }, label)));
   }
-
-  function renderCards(ov) {
-    const t = ov.trajectory || {};
-    const cards = [
-      { n: ov.totalUsers ?? 0, l: "משתמשים" },
-      { n: ov.paying ?? 0, l: "מנויים פעילים (כולל ניסיון)" },
-      { n: ov.progressing ?? 0, l: "בתהליך ירידה טוב" },
-      { n: (t["off-track"] ?? 0) + (t.stalled ?? 0), l: "תקועים / סוטים" },
-    ];
-    $("cards").replaceChildren(...cards.map((c) => el("div", "card", el("div", "n", c.n), el("div", "l", c.l))));
-  }
-
-  function renderUsers(users) {
-    if (!users.length) {
-      const empty = el("td", "muted", "אין עדיין משתמשים");
-      empty.colSpan = 7;
-      $("usersBody").replaceChildren(el("tr", null, empty));
+  function renderUsers(res) {
+    lastUsers = res;
+    $("usersMeta").textContent = `${nf(res.total)} משתמשים`;
+    $("pageInfo").textContent = `עמוד ${nf(res.page)} מתוך ${nf(res.pages)}`;
+    $("prev").disabled = res.page <= 1;
+    $("next").disabled = res.page >= res.pages;
+    if (!res.rows.length) {
+      $("usersBody").replaceChildren(el("tr", null, el("td", { colspan: 9, class: "muted" }, "אין משתמשים שמתאימים לחיפוש.")));
       return;
     }
-    $("usersBody").replaceChildren(...users.map((u) => {
-      const traj = u.trajectory || "no-data";
-      const sub = (u.subscription && u.subscription.status) || "none";
-      const perWeek = (u.perWeek == null) ? "—" : (u.perWeek > 0 ? "+" : "") + u.perWeek + " ק״ג";
-      const lastW = (u.lastWeighInDaysAgo == null) ? "—" : (u.lastWeighInDaysAgo === 0 ? "היום" : `לפני ${u.lastWeighInDaysAgo} ימים`);
-      return el("tr", null,
-        el("td", "email", u.email || "—"),
-        el("td", null, fmtDate(u.createdAt)),
-        el("td", null, fmtAgo(u.lastSignInAt)),
-        el("td", "sub-" + sub, SUB_HE[sub] || sub),
-        el("td", null, el("span", "badge b-" + traj, TRAJ_HE[traj] || traj)),
-        el("td", null, lastW),
-        el("td", null, perWeek));
-    }));
+    $("usersBody").replaceChildren(...res.rows.map((u) => el("tr", {
+      tabindex: 0, onclick: () => openUser(u.id), onkeydown: (ev) => { if (ev.key === "Enter") openUser(u.id); },
+    },
+      el("td", { class: "email", "data-label": "משתמש" }, who(u)),
+      el("td", { "data-label": "נרשם" }, fmtDate(u.createdAt)),
+      el("td", { "data-label": "פעיל לאחרונה" }, fmtAgoDays(u.lastActive)),
+      el("td", { "data-label": "ימים פעילים /30" }, nf(u.activeDays30)),
+      el("td", { "data-label": "מנוי", class: "sub-" + u.status }, u.planId === "comp" ? "חינם (הוענק)" : SUB_HE[u.status] || u.status),
+      el("td", { "data-label": "מגמה" }, el("span", { class: "badge b-" + u.trajectory }, TRAJ_HE[u.trajectory] || u.trajectory)),
+      el("td", { "data-label": "ק״ג לשבוע" }, el("span", { class: "ltr" }, kgWeek(u.perWeek))),
+      el("td", { "data-label": "הרגלים 7 ימים" }, u.completion7 == null ? "—" : pct(Math.round(u.completion7 * 100))),
+      el("td", { "data-label": "סיכומים 7 ימים" }, nf(u.checkIns7)))));
+  }
+  let usersSeq = 0;
+  async function loadUsers() {
+    const seq = ++usersSeq;
+    $("usersMeta").textContent = "טוען…";
+    try {
+      const res = await call("users", { ...uq, perPage: 50 });
+      if (seq !== usersSeq) return;
+      clearError();
+      renderUsers(res);
+    } catch (e) {
+      if (seq === usersSeq) { showError(e); $("usersMeta").textContent = ""; }
+    }
+  }
+  let qTimer = null;
+  $("q").addEventListener("input", () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { uq.q = $("q").value.trim(); uq.page = 1; loadUsers(); }, 300);
+  });
+  $("sort").addEventListener("change", () => { uq.sort = $("sort").value; uq.page = 1; loadUsers(); });
+  $("dir").addEventListener("change", () => { uq.dir = $("dir").value; uq.page = 1; loadUsers(); });
+  $("prev").addEventListener("click", () => { if (uq.page > 1) { uq.page--; loadUsers(); } });
+  $("next").addEventListener("click", () => { if (lastUsers && uq.page < lastUsers.pages) { uq.page++; loadUsers(); } });
+  $("export").addEventListener("click", async () => {
+    $("export").disabled = true;
+    try {
+      const res = await call("export", uq);
+      // A byte-order mark so a spreadsheet reads the Hebrew as UTF-8.
+      const blob = new Blob(["﻿" + res.csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = el("a", { href: url, download: res.filename || "users.csv" });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      showError(e);
+    } finally {
+      $("export").disabled = false;
+    }
+  });
+
+  // ------------------------------------------------------------ one person
+  let lastFocus = null;
+  function closeUser() {
+    $("drawer").hidden = true;
+    $("scrim").hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $("dClose").addEventListener("click", closeUser);
+  $("scrim").addEventListener("click", closeUser);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("drawer").hidden) closeUser(); });
+
+  function weightChart(points) {
+    if (points.length < 2) return el("div", { class: "muted" }, points.length ? `שקילה אחת: ${points[0].kg} ק״ג` : "אין שקילות");
+    const W = 460, H = 120, pad = 8;
+    const ks = points.map((p) => p.kg), lo = Math.min(...ks), hi = Math.max(...ks), span = Math.max(0.5, hi - lo);
+    const t0 = +asDate(points[0].date), t1 = +asDate(points[points.length - 1].date), tw = Math.max(1, t1 - t0);
+    const xy = points.map((p) => [pad + ((+asDate(p.date) - t0) / tw) * (W - pad * 2), pad + ((hi - p.kg) / span) * (H - pad * 2)]);
+    const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", style: "height:120px;direction:ltr", role: "img", "aria-label": "גרף משקל" },
+      svg("polyline", { points: xy.map((p) => p.join(",")).join(" "), fill: "none", stroke: "var(--violet)", "stroke-width": 2.5, "stroke-linejoin": "round" }));
+    xy.forEach(([x, y], i) => chart.append(svg("circle", { cx: x, cy: y, r: 3, fill: "var(--violet)" },
+      svg("title", {}, `${fmtDate(points[i].date)}: ${points[i].kg} ק״ג`))));
+    const first = points[0], last = points[points.length - 1];
+    return el("div", null, chart, el("div", { class: "chart-axis" },
+      el("span", null, `${fmtDate(last.date)} · ${last.kg} ק״ג`),
+      el("span", null, `${fmtDate(first.date)} · ${first.kg} ק״ג`)));
   }
 
-  function renderAudit(events) {
-    if (!events.length) { $("audit").replaceChildren(el("div", "muted", "אין עדיין רשומות")); return; }
-    $("audit").replaceChildren(...events.map((e) =>
-      el("div", "row", el("span", "k", e.kind || ""), el("span", "t", fmtAgo(e.at)))));
+  /** Twelve weeks of days, a square each, lit when the person used the app. */
+  function heatmap(dates) {
+    const on = new Set(dates);
+    const grid = el("div", { class: "heat", role: "img", "aria-label": `${on.size} ימים פעילים` });
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(end.getDate() - 83 - end.getDay());
+    for (let i = 0; i < 84 + end.getDay(); i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      grid.append(el("span", { class: on.has(key) ? "on" : null, title: fmtDate(key) }));
+    }
+    return grid;
   }
+
+  async function openUser(id) {
+    if ($("drawer").hidden) lastFocus = document.activeElement;
+    $("dTitle").textContent = "טוען…";
+    $("dBody").replaceChildren();
+    $("drawer").hidden = false;
+    $("scrim").hidden = false;
+    $("dClose").focus();
+    let u;
+    try {
+      u = await call("user", { id });
+    } catch (e) {
+      $("dTitle").textContent = "לא נטען";
+      $("dBody").replaceChildren(el("p", { class: "err" }, e && e.message ? e.message : "שגיאה"));
+      return;
+    }
+    const s = u.summary;
+    $("dTitle").textContent = who(s);
+    const fact = (l, v) => el("div", { class: "fact" }, el("div", { class: "l" }, l), el("div", { class: "v" }, v));
+    const moods = { good: 0, ok: 0, hard: 0 };
+    for (const m of u.moods) if (m.mood in moods && (daysAgo(m.date) ?? 99) < 30) moods[m.mood]++;
+
+    const comp = s.planId === "comp";
+    const days = el("select", { "aria-label": "מספר ימים" }, [7, 14, 30, 90, 365].map((n) => el("option", { value: n, selected: n === 30 }, `${n} ימים`)));
+    const msg = el("span", { class: "muted", "aria-live": "polite" });
+    const grant = el("button", { onclick: async () => {
+      const n = Number(days.value);
+      if (!confirm(`להעניק ל־${who(s)} גישה חינם ל־${n} ימים?`)) return;
+      grant.disabled = true;
+      try { await call("comp", { id: s.id, days: n }); await openUser(s.id); }
+      catch (e) { msg.textContent = e.code === "has-stripe" ? "יש לו מנוי פעיל ב־Stripe — לא נוגעים בו." : "נכשל: " + e.message; grant.disabled = false; }
+    } }, "תן גישה חינם");
+    const revoke = el("button", { class: "danger", onclick: async () => {
+      if (!confirm(`לבטל את הגישה החינמית של ${who(s)}?`)) return;
+      revoke.disabled = true;
+      try { await call("uncomp", { id: s.id }); await openUser(s.id); }
+      catch (e) { msg.textContent = "נכשל: " + e.message; revoke.disabled = false; }
+    } }, "בטל גישה חינם");
+    const plan = s.planId === "yearly" ? "שנתי" : s.planId === "monthly" ? "חודשי" : s.planId;
+
+    $("dBody").replaceChildren(
+      el("div", { class: "muted ltr" }, s.id),
+      el("div", { class: "facts" },
+        fact("נרשם", fmtDate(s.createdAt)),
+        fact("התחבר לאחרונה", fmtAgo(s.lastSignInAt)),
+        fact("פעיל לאחרונה", fmtAgoDays(s.lastActive)),
+        fact("ימים פעילים ב־30", nf(s.activeDays30)),
+        fact("מנוי", comp ? `חינם עד ${fmtDate(s.currentPeriodEnd)}` : `${SUB_HE[s.status] || s.status}${plan ? " · " + plan : ""}`),
+        fact("תקופת ניסיון", s.trialEndsAt ? `עד ${fmtDate(s.trialEndsAt)}` : "—"),
+        fact("מגמה", el("span", { class: "badge b-" + s.trajectory }, TRAJ_HE[s.trajectory] || s.trajectory)),
+        fact("קצב", el("span", { class: "ltr" }, kgWeek(s.perWeek))),
+        fact("משקל אחרון / יעד", `${s.lastKg ?? "—"} / ${s.goalKg ?? "—"} ק״ג`),
+        fact("שקילה אחרונה", s.daysSinceWeighIn == null ? "—" : s.daysSinceWeighIn === 0 ? "היום" : `לפני ${s.daysSinceWeighIn} ימים`),
+        fact("הרגלים", `${nf(u.habits.active)} פעילים${u.habits.archived ? ` · ${nf(u.habits.archived)} בארכיון` : ""}`),
+        fact("ביצוע הרגלים 7 ימים", s.completion7 == null ? "—" : pct(Math.round(s.completion7 * 100)))),
+      el("h3", null, "משקל"), weightChart(u.weighIns),
+      el("h3", null, "ימי פעילות — 12 שבועות"), heatmap(u.activity),
+      el("h3", null, "מצב רוח בסיכומים — 30 ימים"),
+      stackBar(["good", "ok", "hard"].map((k) => ({ label: MOOD_HE[k], n: moods[k], color: MOOD_COLOR[k] }))),
+      el("p", { class: "muted" }, "תוכן הסיכומים לא מוצג — רק מצב הרוח והתאריך."),
+      el("h3", null, "גישה"),
+      el("div", { class: "actions" }, comp ? revoke : [days, grant], msg),
+      el("h3", null, "היסטוריה"),
+      el("div", { class: "rows" }, u.events.length
+        ? u.events.map((ev) => el("div", { class: "row" },
+            el("span", { class: "grow" }, AUDIT_HE[ev.kind] || ev.kind,
+              ev.meta && ev.meta.days ? ` · ${ev.meta.days} ימים` : "", ev.meta && ev.meta.revoked ? " · בוטל" : ""),
+            el("span", { class: "muted" }, fmtAgo(ev.at))))
+        : el("div", { class: "muted" }, "אין אירועים")));
+  }
+
+  // ------------------------------------------------------------ audit
+  async function loadAudit() {
+    try {
+      const au = await call("audit", { limit: 100 });
+      clearError();
+      const events = au.events || [];
+      $("audit").replaceChildren(...(events.length
+        ? events.map((e) => el("div", { class: "row" },
+            el("strong", null, AUDIT_HE[e.kind] || e.kind),
+            el("span", { class: "grow muted" }, e.meta && e.meta.reason ? e.meta.reason : e.meta && e.meta.action ? e.meta.action : ""),
+            e.target_id ? el("button", { class: "link", onclick: () => openUser(e.target_id) }, "משתמש") : null,
+            el("span", { class: "muted" }, fmtAgo(e.at))))
+        : [el("div", { class: "muted" }, "אין עדיין רשומות")]));
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  // ------------------------------------------------------------ tabs + refresh
+  let tab = "overview";
+  const load = () => (tab === "users" ? loadUsers() : tab === "audit" ? loadAudit() : loadOverview());
+  function showTab(next) {
+    tab = ["overview", "users", "audit"].includes(next) ? next : "overview";
+    for (const name of ["overview", "users", "audit"]) {
+      $("tab-" + name).hidden = name !== tab;
+      $("tabbtn-" + name).setAttribute("aria-selected", name === tab ? "true" : "false");
+    }
+    if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
+    return load();
+  }
+  for (const b of document.querySelectorAll(".tabs button")) b.addEventListener("click", () => showTab(b.dataset.tab));
+  $("refresh").addEventListener("click", () => load());
 
   let timer = null;
+  function arm() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    // Only the overview refreshes itself: a list that reshuffles under the
+    // cursor while someone reads it is worse than a stale one.
+    if ($("auto").checked) timer = setInterval(() => { if (tab === "overview" && !document.hidden) loadOverview(); }, 60000);
+  }
+  $("auto").addEventListener("change", arm);
+
   async function showDash(session) {
     $("login").hidden = true;
+    $("mfa").hidden = true;
     $("dash").hidden = false;
     $("who").textContent = "מחובר כ־" + (session.user.email || "");
-    await refresh();
-    if (timer) clearInterval(timer);
-    timer = setInterval(refresh, 30000);
+    renderFilters();
+    arm();
+    await showTab((location.hash || "").slice(1));
   }
   function showLogin() {
     if (timer) clearInterval(timer);
@@ -291,7 +775,7 @@
   // only one who has passed a second factor this session.
   async function enter(session) {
     try {
-      await call("overview");
+      await call("audit", { limit: 1 });
     } catch (e) {
       if (e && e.code === "mfa-required") return startMfa();
       await db.auth.signOut();

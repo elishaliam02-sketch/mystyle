@@ -6,10 +6,22 @@
 // key, and only then does it read anything. A signed-in ordinary user who calls
 // it gets a flat 403 — being logged in is not being an admin.
 //
-// It is read-only for now: it answers three questions and changes nothing.
-//   POST { action: "overview" }            → the top-of-dashboard counts
-//   POST { action: "users", page? }        → a page of users with their state
-//   POST { action: "audit", limit? }       → the recent audit trail
+// What it answers (POST { action, ... }):
+//   "dashboard"                         → growth, actives, retention, revenue,
+//                                         moods, trajectories, who needs a look
+//   "users"  { q, filter, sort, dir, page, perPage } → a searchable page of people
+//   "user"   { id }                     → one person: account, subscription,
+//                                         weight series, activity days, moods
+//   "export" { q, filter, sort, dir }   → the matching people as CSV
+//   "comp"   { id, days }               → free access for N days (testers,
+//                                         goodwill); never over a Stripe plan
+//   "uncomp" { id }                     → takes free access back
+//   "audit"  { limit }                  → the recent audit trail
+//   "overview"                          → the old console's counts (kept so a
+//                                         cached copy of the old page still works)
+// The numbers themselves are computed in ../_shared/adminMetrics.ts, which the
+// app's unit tests run (src/admin/metricstest.ts). Recap notes are never read:
+// the owner sees moods and dates, not what anyone wrote.
 //
 // The rules it will not bend on:
 //  1. THE SERVICE-ROLE KEY NEVER LEAVES THIS PROCESS. It is read from the
@@ -26,6 +38,15 @@
 //      is the second gate, inside.)
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
+import {
+  activityRows,
+  dashboard,
+  queryUsers,
+  summarize,
+  usersCsv,
+  type Raw,
+  type Summary,
+} from "../_shared/adminMetrics.ts";
 
 const cors = {
   // supabase-js sends apikey and x-client-info (and a version header) on every
@@ -72,18 +93,17 @@ function fail(error: ErrorCode, status: number): Response {
  * other event. Best effort — a failed write never blocks the console. Kinds and
  * meta follow src/admin/audit.ts: a closed set, and never a secret. */
 const AUDIT_WINDOW_MS = 30 * 60_000;
-async function record(db: SupabaseClient, kind: "admin.login" | "admin.denied", actorId: string, meta: Record<string, string>) {
+type AdminKind = "admin.login" | "admin.denied" | "admin.view_user" | "admin.comp_trial";
+async function record(db: SupabaseClient, kind: AdminKind, actorId: string, meta: Record<string, string | number | boolean>, targetId?: string, always = false) {
   try {
-    const since = new Date(Date.now() - AUDIT_WINDOW_MS).toISOString();
-    const { data: recent } = await db
-      .from("audit_log")
-      .select("id")
-      .eq("kind", kind)
-      .eq("actor_id", actorId)
-      .gte("at", since)
-      .limit(1);
-    if (recent && recent.length) return;
-    await db.from("audit_log").insert({ kind, actor_id: actorId, meta });
+    if (!always) {
+      const since = new Date(Date.now() - AUDIT_WINDOW_MS).toISOString();
+      let q = db.from("audit_log").select("id").eq("kind", kind).eq("actor_id", actorId).gte("at", since);
+      if (targetId) q = q.eq("target_id", targetId);
+      const { data: recent } = await q.limit(1);
+      if (recent && recent.length) return;
+    }
+    await db.from("audit_log").insert({ kind, actor_id: actorId, target_id: targetId ?? null, meta });
   } catch {
     console.error("admin: audit write failed");
   }
@@ -108,47 +128,6 @@ function admin(): SupabaseClient {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } },
   );
-}
-
-// ------------------------------------------------------------------ trajectory
-// A compact mirror of src/admin/trajectory.ts — the tested spec lives there;
-// this is the same rule, run server-side over the weigh-ins the client synced.
-
-const DAY = 86_400_000;
-type Point = { date: string; kg: number };
-type Traj = "no-data" | "on-track" | "slow" | "stalled" | "fast" | "off-track";
-
-function readTrajectory(points: Point[], goalKg: number | null, nowMs: number): {
-  trajectory: Traj;
-  perWeek: number | null;
-  daysSinceWeighIn: number | null;
-  points: number;
-} {
-  const clean = points
-    .filter((p) => p && typeof p.date === "string" && Number.isFinite(p.kg))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const last = clean[clean.length - 1];
-  const daysSinceWeighIn = last ? Math.max(0, Math.floor((nowMs - Date.parse(last.date)) / DAY)) : null;
-  const base = { trajectory: "no-data" as Traj, perWeek: null as number | null, daysSinceWeighIn, points: clean.length };
-  if (clean.length < 2) return base;
-
-  const first = clean[0];
-  const days = (Date.parse(last.date) - Date.parse(first.date)) / DAY;
-  if (!(days >= 7)) return base;
-
-  const perWeek = Math.round(((last.kg - first.kg) / days) * 7 * 100) / 100;
-  const toGo = goalKg !== null ? goalKg - last.kg : -1;
-  const towardIsNegative = toGo < 0;
-  const magnitude = Math.abs(perWeek);
-  const toward = perWeek === 0 ? false : perWeek < 0 === towardIsNegative;
-
-  let trajectory: Traj;
-  if (magnitude < 0.1) trajectory = "stalled";
-  else if (!toward) trajectory = "off-track";
-  else if (magnitude < 0.2) trajectory = "slow";
-  else if (magnitude > 1.5) trajectory = "fast";
-  else trajectory = "on-track";
-  return { trajectory, perWeek, daysSinceWeighIn, points: clean.length };
 }
 
 // ------------------------------------------------------------------- the entry
@@ -198,7 +177,7 @@ async function handle(req: Request): Promise<Response> {
     return fail("mfa-required", 403);
   }
 
-  let body: { action?: unknown; page?: unknown; limit?: unknown };
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
@@ -209,16 +188,27 @@ async function handle(req: Request): Promise<Response> {
 
   try {
     switch (body.action) {
+      case "dashboard":
+        return json(await buildDashboard(db));
       case "overview":
         return await overview(db);
       case "users":
-        return await listUsers(db, Number(body.page) || 1);
+        return await listUsers(db, body);
+      case "export":
+        return await exportUsers(db, body);
+      case "user":
+        return await userDetail(db, user.id, String(body.id ?? ""));
+      case "comp":
+        return await comp(db, user.id, String(body.id ?? ""), Number(body.days));
+      case "uncomp":
+        return await uncomp(db, user.id, String(body.id ?? ""));
       case "audit":
         return await listAudit(db, Math.min(200, Number(body.limit) || 100));
       default:
         return fail("unknown-action", 400);
     }
-  } catch {
+  } catch (e) {
+    console.error("admin: action failed:", body.action, e instanceof Error ? e.message : "unknown");
     return fail("server", 500);
   }
 }
@@ -241,110 +231,153 @@ async function selectAll<T>(build: () => { range: (from: number, to: number) => 
   }
 }
 
-type SubRow = { user_id: string; status: string; plan_id: string | null; current_period_end: string | null; trial_ends_at: string | null };
-type WeighRow = { user_id: string; date: string; kg: number };
-type ProfileRow = { id: string; goal_kg: number | null };
+/** Habit ticks this far back are enough for every number on the console
+ * (actives, retention to day 30, the 7-day completion rate). */
+const ACTIVITY_DAYS = 120;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The counts at the top of the dashboard: how many people, how many paying,
- * and how the cohort is doing on the one thing the app is for. */
-async function overview(db: SupabaseClient): Promise<Response> {
-  const nowMs = Date.now();
-
-  // Every auth user (paged through, so a growing base still reports whole).
-  const users: { id: string }[] = [];
+/** Everything the console's numbers are made of, read once per call. Never a
+ * recap note, a password, a token or a key. */
+async function loadRaw(db: SupabaseClient): Promise<Raw> {
+  const users: Raw["users"] = [];
   for (let page = 1; page <= 100; page++) {
     const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) return fail("server", 500);
-    users.push(...data.users.map((u) => ({ id: u.id })));
+    if (error) throw new Error("users read failed");
+    for (const u of data.users) {
+      users.push({
+        id: u.id,
+        email: u.email ?? null,
+        createdAt: u.created_at ?? new Date(0).toISOString(),
+        lastSignInAt: (u as { last_sign_in_at?: string | null }).last_sign_in_at ?? null,
+        anonymous: !!(u as { is_anonymous?: boolean }).is_anonymous || !u.email,
+      });
+    }
     if (data.users.length < 1000) break;
   }
-  const ids = users.map((u) => u.id);
-
-  const [subs, weighs, profiles] = await Promise.all([
-    selectAll<SubRow>(() => db.from("subscriptions").select("user_id,status,current_period_end,trial_ends_at").order("user_id")),
-    selectAll<WeighRow>(() => db.from("weigh_ins").select("user_id,date,kg").order("user_id").order("date")),
-    selectAll<ProfileRow>(() => db.from("profiles").select("id,goal_kg").order("id")),
+  const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const [subs, weighs, moods, habits, done, profiles, backups] = await Promise.all([
+    selectAll<{ user_id: string; status: string; plan_id: string | null; current_period_end: string | null; trial_ends_at: string | null; stripe_subscription_id: string | null }>(
+      () => db.from("subscriptions").select("user_id,status,plan_id,current_period_end,trial_ends_at,stripe_subscription_id").order("user_id")),
+    selectAll<{ user_id: string; date: string; kg: number }>(() => db.from("weigh_ins").select("user_id,date,kg").order("user_id").order("date")),
+    selectAll<{ user_id: string; date: string; mood: string }>(() => db.from("check_ins").select("user_id,date,mood").order("user_id").order("date")),
+    selectAll<{ user_id: string; archived: boolean }>(() => db.from("habits").select("user_id,archived,id").order("user_id").order("id")),
+    selectAll<{ user_id: string; date: string; done: boolean }>(() =>
+      db.from("completions").select("user_id,date,done,habit_id").gte("date", since).order("user_id").order("date").order("habit_id")),
+    selectAll<{ id: string; goal_kg: number | null }>(() => db.from("profiles").select("id,goal_kg").order("id")),
+    selectAll<{ user_id: string; updated_at: string }>(() => db.from("backups").select("user_id,updated_at").order("user_id")),
   ]);
+  return {
+    users,
+    subs: subs.map((r) => ({ userId: r.user_id, status: r.status, planId: r.plan_id, currentPeriodEnd: r.current_period_end, trialEndsAt: r.trial_ends_at, stripe: !!r.stripe_subscription_id })),
+    weighIns: weighs.map((r) => ({ userId: r.user_id, date: r.date, kg: Number(r.kg) })),
+    checkIns: moods.map((r) => ({ userId: r.user_id, date: r.date, mood: r.mood })),
+    habits: habits.map((r) => ({ userId: r.user_id, archived: !!r.archived })),
+    completions: done.map((r) => ({ userId: r.user_id, date: r.date, done: !!r.done })),
+    profiles: profiles.map((r) => ({ id: r.id, goalKg: r.goal_kg === null ? null : Number(r.goal_kg) })),
+    backups: backups.map((r) => ({ userId: r.user_id, date: String(r.updated_at).slice(0, 10) })),
+  };
+}
 
-  const subByUser = new Map<string, SubRow>();
-  for (const s of (subs ?? []) as SubRow[]) subByUser.set(s.user_id, s);
-  const goalByUser = new Map<string, number | null>();
-  for (const p of (profiles ?? []) as ProfileRow[]) goalByUser.set(p.id, p.goal_kg);
-  const weighsByUser = new Map<string, Point[]>();
-  for (const w of (weighs ?? []) as WeighRow[]) {
-    const arr = weighsByUser.get(w.user_id) ?? [];
-    arr.push({ date: w.date, kg: Number(w.kg) });
-    weighsByUser.set(w.user_id, arr);
-  }
+async function buildDashboard(db: SupabaseClient) {
+  const raw = await loadRaw(db);
+  const now = Date.now();
+  return dashboard(summarize(raw, now), activityRows(raw), raw.checkIns, now);
+}
 
-  const subStatus: Record<string, number> = { none: 0, trialing: 0, active: 0, past_due: 0, canceled: 0, expired: 0 };
-  const traj: Record<Traj, number> = { "no-data": 0, "on-track": 0, slow: 0, stalled: 0, fast: 0, "off-track": 0 };
-  let paying = 0;
-  let progressing = 0;
-
-  for (const id of ids) {
-    const s = subByUser.get(id);
-    const status = s?.status ?? "none";
-    subStatus[status] = (subStatus[status] ?? 0) + 1;
-    if (status === "active" || status === "trialing") paying += 1;
-
-    const t = readTrajectory(weighsByUser.get(id) ?? [], goalByUser.get(id) ?? null, nowMs).trajectory;
-    traj[t] += 1;
-    if (t === "on-track" || t === "slow" || t === "fast") progressing += 1;
-  }
-
+/** The old console's counts, from the same numbers. */
+async function overview(db: SupabaseClient): Promise<Response> {
+  const d = await buildDashboard(db);
   return json({
-    totalUsers: ids.length,
-    paying,
-    progressing,
-    subStatus,
-    trajectory: traj,
-    generatedAt: new Date(nowMs).toISOString(),
+    totalUsers: d.totals.users,
+    paying: d.subs.paying + d.subs.trialing,
+    progressing: d.trajectory["on-track"] + d.trajectory.slow + d.trajectory.fast,
+    subStatus: d.subs.status,
+    trajectory: d.trajectory,
+    generatedAt: d.generatedAt,
   });
 }
 
-/** A page of users, each with the facts the console shows in a row. */
-async function listUsers(db: SupabaseClient, page: number): Promise<Response> {
-  const perPage = 50;
-  const nowMs = Date.now();
-  const { data, error } = await db.auth.admin.listUsers({ page, perPage });
-  if (error) return fail("server", 500);
+function queryOf(body: Record<string, unknown>) {
+  return {
+    q: typeof body.q === "string" ? body.q.slice(0, 120) : "",
+    filter: typeof body.filter === "string" ? body.filter : "all",
+    sort: typeof body.sort === "string" ? body.sort : "created",
+    dir: body.dir === "asc" ? ("asc" as const) : ("desc" as const),
+    page: Number(body.page) || 1,
+    perPage: Number(body.perPage) || 50,
+  };
+}
 
-  const ids = data.users.map((u) => u.id);
-  const [subs, weighs, profiles] = await Promise.all([
-    selectAll<SubRow>(() => db.from("subscriptions").select("user_id,status,plan_id,current_period_end,trial_ends_at").in("user_id", ids).order("user_id")),
-    selectAll<WeighRow>(() => db.from("weigh_ins").select("user_id,date,kg").in("user_id", ids).order("user_id").order("date")),
-    selectAll<ProfileRow>(() => db.from("profiles").select("id,goal_kg").in("id", ids).order("id")),
-  ]);
+async function people(db: SupabaseClient): Promise<{ all: Summary[]; attention: Set<string>; raw: Raw }> {
+  const raw = await loadRaw(db);
+  const now = Date.now();
+  const all = summarize(raw, now);
+  const d = dashboard(all, activityRows(raw), raw.checkIns, now);
+  return { all, attention: new Set(d.attention.map((a) => a.id)), raw };
+}
 
-  const subByUser = new Map<string, SubRow>();
-  for (const s of (subs ?? []) as SubRow[]) subByUser.set(s.user_id, s);
-  const goalByUser = new Map<string, number | null>();
-  for (const p of (profiles ?? []) as ProfileRow[]) goalByUser.set(p.id, p.goal_kg);
-  const weighsByUser = new Map<string, Point[]>();
-  for (const w of (weighs ?? []) as WeighRow[]) {
-    const arr = weighsByUser.get(w.user_id) ?? [];
-    arr.push({ date: w.date, kg: Number(w.kg) });
-    weighsByUser.set(w.user_id, arr);
-  }
+async function listUsers(db: SupabaseClient, body: Record<string, unknown>): Promise<Response> {
+  const { all, attention } = await people(db);
+  return json(queryUsers(all, queryOf(body), Date.now(), attention));
+}
 
-  const rows = data.users.map((u) => {
-    const s = subByUser.get(u.id) ?? null;
-    const t = readTrajectory(weighsByUser.get(u.id) ?? [], goalByUser.get(u.id) ?? null, nowMs);
-    return {
-      id: u.id,
-      email: u.email ?? null,
-      createdAt: u.created_at ?? null,
-      lastSignInAt: (u as { last_sign_in_at?: string | null }).last_sign_in_at ?? null,
-      subscription: s ? { status: s.status, planId: s.plan_id, currentPeriodEnd: s.current_period_end, trialEndsAt: s.trial_ends_at } : { status: "none" },
-      weighIns: t.points,
-      lastWeighInDaysAgo: t.daysSinceWeighIn,
-      perWeek: t.perWeek,
-      trajectory: t.trajectory,
-    };
+async function exportUsers(db: SupabaseClient, body: Record<string, unknown>): Promise<Response> {
+  const { all, attention } = await people(db);
+  const q = queryUsers(all, { ...queryOf(body), page: 1, perPage: 200 }, Date.now(), attention);
+  // Every matching row, not one page.
+  const rows = queryUsers(all, { ...queryOf(body), page: 1, perPage: Math.max(200, q.total) }, Date.now(), attention).rows;
+  return json({ filename: `apex-users-${new Date().toISOString().slice(0, 10)}.csv`, csv: usersCsv(rows), count: rows.length });
+}
+
+/** One person, for the console's detail panel. Moods and dates only — the
+ * text of a recap stays the person's own. */
+async function userDetail(db: SupabaseClient, adminId: string, id: string): Promise<Response> {
+  if (!UUID.test(id)) return fail("bad-json", 400);
+  const { all, raw } = await people(db);
+  const summary = all.find((u) => u.id === id);
+  if (!summary) return fail("unknown-action", 404);
+  await record(db, "admin.view_user", adminId, {}, id);
+  const mine = <T extends { userId: string }>(rows: T[]) => rows.filter((r) => r.userId === id);
+  const { data: events } = await db
+    .from("audit_log")
+    .select("at,kind,meta")
+    .eq("target_id", id)
+    .order("at", { ascending: false })
+    .limit(20);
+  return json({
+    summary,
+    weighIns: mine(raw.weighIns).map((r) => ({ date: r.date, kg: r.kg })),
+    activity: [...new Set(activityRows(raw).filter((r) => r.userId === id).map((r) => r.date))].sort(),
+    moods: mine(raw.checkIns).map((r) => ({ date: r.date, mood: r.mood })).slice(-60),
+    habits: { active: summary.habits, archived: mine(raw.habits).filter((h) => h.archived).length },
+    events: events ?? [],
   });
+}
 
-  return json({ page, perPage, count: rows.length, users: rows });
+/** Free access for a number of days: a tester, a refund turned goodwill, a
+ * friend. Refused over a live Stripe subscription — two sources of truth for
+ * one person's access is how someone ends up charged and locked out at once. */
+async function comp(db: SupabaseClient, adminId: string, id: string, days: number): Promise<Response> {
+  if (!UUID.test(id) || !Number.isInteger(days) || days < 1 || days > 365) return fail("bad-json", 400);
+  const { data: existing } = await db.from("subscriptions").select("status,stripe_subscription_id").eq("user_id", id).maybeSingle();
+  if (existing?.stripe_subscription_id && (existing.status === "active" || existing.status === "trialing")) {
+    return json({ error: "has-stripe" }, 409);
+  }
+  const until = new Date(Date.now() + days * 86_400_000).toISOString();
+  const { error } = await db.from("subscriptions").upsert({ user_id: id, status: "active", plan_id: "comp", current_period_end: until, trial_ends_at: null, updated_at: new Date().toISOString() });
+  if (error) return fail("server", 500);
+  await record(db, "admin.comp_trial", adminId, { days }, id, true);
+  return json({ ok: true, until });
+}
+
+async function uncomp(db: SupabaseClient, adminId: string, id: string): Promise<Response> {
+  if (!UUID.test(id)) return fail("bad-json", 400);
+  const { data: existing } = await db.from("subscriptions").select("plan_id").eq("user_id", id).maybeSingle();
+  if (existing?.plan_id !== "comp") return json({ error: "not-comp" }, 409);
+  const { error } = await db.from("subscriptions").update({ status: "none", plan_id: null, current_period_end: null, updated_at: new Date().toISOString() }).eq("user_id", id);
+  if (error) return fail("server", 500);
+  await record(db, "admin.comp_trial", adminId, { revoked: true }, id, true);
+  return json({ ok: true });
 }
 
 /** The recent audit trail, newest first. */

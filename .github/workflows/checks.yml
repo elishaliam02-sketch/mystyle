@@ -76,6 +76,11 @@ jobs:
       - name: End-to-end
         run: node scripts/e2e.mjs
 
+      # The owner console, in the same browser: every view at a desktop and a
+      # phone width, against a fake Supabase answering from the real metrics.
+      - name: Admin console
+        run: node scripts/admin-e2e.mjs
+
   # Static security analysis, in parallel with the job above. Same script as
   # `npm run sast` locally; the rules are pinned inside it.
   sast:
