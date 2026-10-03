@@ -9,6 +9,7 @@ import {
   backupBundle,
   backupSignature,
   decideBackup,
+  combineBoth,
   isEmptyBackup,
 } from "./backup";
 import { pullBackup, pushBackup } from "./backupPort";
@@ -199,9 +200,15 @@ async function runBackup(userId: string, merged: AppState): Promise<AppState> {
       };
     }
     if (decision.action === "upload") {
-      const at = await pushBackup(userId, decision.bundle, decision.at);
+      // The server changed since this device last looked, too: another device
+      // wrote to it. Fold its days in before uploading, or this upload would
+      // overwrite them.
+      const both = !!remote && (!merged.backupSeenAt || remote.at > merged.backupSeenAt);
+      const next = both ? combineBoth(merged, remote!.bundle) : merged;
+      const bundle = both ? backupBundle(next) : decision.bundle;
+      const at = await pushBackup(userId, bundle, decision.at);
       if (!at) return merged; // server refused; try again next round
-      return { ...merged, backupSig: sig, backupAt: at, backupSeenAt: at };
+      return { ...next, backupSig: backupSignature(bundle), backupAt: at, backupSeenAt: at };
     }
     // nothing to do — just remember the signature so we don't re-detect a change
     return { ...merged, backupSig: sig };

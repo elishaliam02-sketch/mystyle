@@ -4,7 +4,7 @@
  * are the ones where data could be lost: a reinstall, a second device, two
  * devices edited apart.
  */
-import { applyBackup, backupBundle, backupSignature, decideBackup, isEmptyBackup } from "./backup";
+import { applyBackup, backupBundle, backupSignature, combineBoth, decideBackup, isEmptyBackup } from "./backup";
 import { EMPTY_STATE, type AppState } from "@/store/types";
 
 const results: [string, boolean, string?][] = [];
@@ -171,6 +171,74 @@ const state = (over: Partial<AppState> = {}): AppState => ({ ...EMPTY_STATE, ...
   const proto = JSON.parse('{"__proto__": {"polluted": true}, "salt": "s1"}');
   const p2 = applyBackup(local, proto);
   check("__proto__ in a blob is ignored", !("polluted" in ({} as object)) && p2.salt === "s1");
+}
+
+// --- two devices: restoring keeps what only this one has
+{
+  const item = (id: string) => ({ id, label: id, kcal: 100, protein: 5 });
+  const rec = (id: string, at: number) => ({ id, date: "2026-03-0" + id.slice(-1), day: 0, dayType: "push", startedAt: at,
+    durationSec: 1800, volumeKg: 1000, sets: 9, exercises: 3, prs: 0, kcal: 150 });
+  const local = state({
+    intake: { "2026-03-02": [item("phone-lunch")], "2026-03-01": [item("phone-old")] },
+    waterMl: { "2026-03-02": 1500 },
+    steps: { "2026-03-02": 7000 },
+    measurements: { waist: [{ date: "2026-03-02", cm: 88 }] },
+    training: {
+      goal: "cut", days: 3, log: { "2026-03-02": ["squat"] }, custom: [{ id: "own-a" } as never],
+      history: [rec("w2", 2)] as never, weights: { squat: [{ date: "2026-03-02", kg: 80 }] },
+      active: { startedAt: 99, day: 1 } as never,
+    },
+  });
+  const remote = backupBundle(state({
+    intake: { "2026-03-01": [item("web-breakfast")] },
+    waterMl: { "2026-03-01": 2000 },
+    steps: { "2026-03-01": 9000 },
+    measurements: { waist: [{ date: "2026-03-01", cm: 89 }], arm: [{ date: "2026-03-01", cm: 35 }] },
+    training: {
+      goal: "bulk", days: 4, log: { "2026-03-01": ["bench-press"] }, custom: [{ id: "own-b" } as never],
+      history: [rec("w1", 1)] as never, weights: { squat: [{ date: "2026-03-01", kg: 75 }] },
+    },
+  }));
+  const out = applyBackup(local, remote);
+  check("a day only this device logged survives a restore", out.intake?.["2026-03-02"]?.[0]?.id === "phone-lunch");
+  check("a day both have takes the backup's version", out.intake?.["2026-03-01"]?.[0]?.id === "web-breakfast");
+  check("water from both devices is kept", out.waterMl?.["2026-03-01"] === 2000 && out.waterMl?.["2026-03-02"] === 1500);
+  check("steps from both devices are kept", out.steps?.["2026-03-01"] === 9000 && out.steps?.["2026-03-02"] === 7000);
+  check("measurements merge by date and part",
+    out.measurements?.waist?.length === 2 && out.measurements?.waist?.[0]?.date === "2026-03-01" && out.measurements?.arm?.length === 1);
+  check("the plan's settings come from the backup", out.training?.goal === "bulk" && out.training?.days === 4);
+  check("workout days from both are kept", !!out.training?.log["2026-03-01"] && !!out.training?.log["2026-03-02"]);
+  check("sessions from both are kept, oldest first",
+    out.training?.history?.map((r) => r.id).join() === "w1,w2", out.training?.history?.map((r) => r.id).join());
+  check("lifted weights from both are kept", out.training?.weights?.squat?.length === 2);
+  check("own exercises from both are kept", out.training?.custom.length === 2);
+  check("a workout running on this phone is not ended by a restore", (out.training?.active as { startedAt?: number })?.startedAt === 99);
+  const again = applyBackup(out, remote);
+  check("restoring the same backup twice changes nothing more", JSON.stringify(again) === JSON.stringify(out));
+}
+
+// --- both devices changed: the newer one uploads with the other's days folded in
+{
+  const item = (id: string) => ({ id, label: id, kcal: 100, protein: 5 });
+  const here = state({
+    intake: { "2026-03-02": [item("here-today")], "2026-03-01": [item("here-edit")] },
+    training: { goal: "cut", days: 3, log: {}, custom: [], active: { startedAt: 5 } as never },
+    stepGoal: 10000,
+  });
+  const there = backupBundle(state({
+    intake: { "2026-03-01": [item("there-old")], "2026-02-28": [item("there-only")] },
+    training: { goal: "bulk", days: 5, log: { "2026-02-28": ["row"] }, custom: [], active: { startedAt: 1 } as never },
+    stepGoal: 6000,
+  }));
+  const out = combineBoth(here, there);
+  check("this device's version of a shared day wins", out.intake?.["2026-03-01"]?.[0]?.id === "here-edit");
+  check("this device's own day is kept", out.intake?.["2026-03-02"]?.[0]?.id === "here-today");
+  check("the other device's day is added, not overwritten", out.intake?.["2026-02-28"]?.[0]?.id === "there-only");
+  check("this device's settings win", out.stepGoal === 10000 && out.training?.goal === "cut" && out.training?.days === 3);
+  check("the other device's workout days are added", !!out.training?.log["2026-02-28"]);
+  check("the running workout is this device's", (out.training?.active as { startedAt?: number })?.startedAt === 5);
+  const idle = combineBoth(state({ training: { goal: "cut", days: 3, log: {}, custom: [] } }), there);
+  check("another device's running workout does not appear here", idle.training?.active === undefined);
 }
 
 const failed = results.filter(([, ok]) => !ok);

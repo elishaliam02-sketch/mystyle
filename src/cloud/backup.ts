@@ -15,6 +15,7 @@
  * the transport lives in backupPort.ts.
  */
 import { isBirthYear, isHeightCm } from "@/health";
+import { MAX_HISTORY } from "@/workout/session";
 import type { AppState } from "@/store/types";
 
 /** The state keys backed up as a blob — the ones the granular sync omits. */
@@ -182,6 +183,16 @@ export function applyBackup(state: AppState, bundle: BackupBundle): AppState {
     const value = (bundle as Record<string, unknown>)[key];
     if (SHAPE[key](value)) (next as Record<string, unknown>)[key] = value;
   }
+  // The logs kept day by day are merged rather than swapped: the backup's
+  // version of a day wins, but a day only this device has is kept. Swapping
+  // them whole meant that with two devices, the one that restored lost every
+  // meal, glass and workout logged on it since the other one uploaded.
+  next.intake = withLocalDays(next.intake, state.intake);
+  next.waterMl = withLocalDays(next.waterMl, state.waterMl);
+  next.water = withLocalDays(next.water, state.water);
+  next.steps = withLocalDays(next.steps, state.steps);
+  next.measurements = mergeMeasurements(next.measurements, state.measurements);
+  next.training = mergeTraining(next.training, state.training);
   // The device-only profile facts fill gaps and never overwrite: what this
   // phone already knows was typed on it.
   const raw = (bundle as { profileExtras?: unknown }).profileExtras;
@@ -194,4 +205,95 @@ export function applyBackup(state: AppState, bundle: BackupBundle): AppState {
     next.profile = p;
   }
   return next;
+}
+
+function withLocalDays<T>(
+  restored: Record<string, T> | undefined,
+  local: Record<string, T> | undefined,
+): Record<string, T> | undefined {
+  if (!restored || restored === local || !isRecord(restored)) return restored ?? local;
+  if (!local || !isRecord(local)) return restored;
+  const out: Record<string, T> = { ...restored };
+  for (const [day, value] of Object.entries(local)) {
+    if (!Object.hasOwn(out, day)) out[day] = value;
+  }
+  return out;
+}
+
+type Readings = { date: string; cm?: number; kg?: number }[];
+
+/** Two series of dated readings as one: the backup's reading for a date wins. */
+function mergeReadings<R extends { date: string }>(restored: R[], local: R[]): R[] {
+  const dates = new Set(restored.map((r) => r.date));
+  return [...restored, ...local.filter((r) => !dates.has(r.date))].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function mergeMeasurements(
+  restored: AppState["measurements"],
+  local: AppState["measurements"],
+): AppState["measurements"] {
+  if (!restored || restored === local || !isRecord(restored)) return restored ?? local;
+  if (!local || !isRecord(local)) return restored;
+  const out: Record<string, Readings> = { ...(restored as Record<string, Readings>) };
+  for (const [part, series] of Object.entries(local)) {
+    const theirs = out[part];
+    out[part] = Array.isArray(theirs) && Array.isArray(series) ? mergeReadings(theirs, series) : theirs ?? series;
+  }
+  return out as AppState["measurements"];
+}
+
+/** Two lists of things with ids as one; the backup's copy of an id wins. */
+function unionById<T extends { id: string }>(restored: T[] | undefined, local: T[] | undefined): T[] | undefined {
+  if (!Array.isArray(restored)) return local;
+  if (!Array.isArray(local)) return restored;
+  const ids = new Set(restored.map((x) => x.id));
+  return [...restored, ...local.filter((x) => x && !ids.has(x.id))];
+}
+
+/**
+ * The training record from a backup, with this device's own days and sessions
+ * kept. Settings (goal, days, the plan) come from the backup; the logs merge;
+ * and a workout running on this phone right now is never ended by a restore.
+ */
+function mergeTraining(restored: AppState["training"], local: AppState["training"]): AppState["training"] {
+  if (!restored || restored === local || !isRecord(restored)) return restored ?? local;
+  if (!local || !isRecord(local)) return restored;
+  const weights: Record<string, { date: string; kg: number }[]> = { ...(restored.weights ?? {}) };
+  for (const [id, series] of Object.entries(local.weights ?? {})) {
+    const theirs = weights[id];
+    weights[id] = Array.isArray(theirs) && Array.isArray(series) ? mergeReadings(theirs, series) : theirs ?? series;
+  }
+  const history = unionById(restored.history, local.history)
+    ?.slice()
+    .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
+    .slice(-MAX_HISTORY);
+  return {
+    ...restored,
+    log: withLocalDays(restored.log, local.log) ?? {},
+    setLog: withLocalDays(restored.setLog, local.setLog),
+    extra: withLocalDays(restored.extra, local.extra),
+    weights,
+    custom: unionById(restored.custom, local.custom) ?? [],
+    history,
+    active: local.active ?? restored.active,
+  };
+}
+
+/**
+ * Both devices changed since they last agreed, and this one is newer: its
+ * settings and its version of any shared day win, and the other device's days
+ * are added rather than overwritten. Whether a workout is running is this
+ * device's call — it is the one in the person's hand.
+ */
+export function combineBoth(state: AppState, remote: BackupBundle): AppState {
+  if (!isRecord(remote)) return state;
+  const theirs: AppState = { ...state };
+  for (const key of BACKUP_KEYS) {
+    if (!Object.hasOwn(remote, key)) continue;
+    const value = (remote as Record<string, unknown>)[key];
+    if (SHAPE[key](value)) (theirs as Record<string, unknown>)[key] = value;
+  }
+  const out = applyBackup(theirs, backupBundle(state));
+  if (out.training) out.training = { ...out.training, active: state.training?.active };
+  return out;
 }
