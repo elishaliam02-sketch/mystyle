@@ -59,10 +59,26 @@ for (const t of HELP_TOPICS) {
   check(`topic "${t.id}" is found by its Hebrew title`, hit, top(t.he.title));
 }
 
+// Questions the guide used to send to the wrong place, or nowhere.
+for (const [q, id] of [
+  ["איך מוחקים ארוחה שרשמתי", "meal-delete"],
+  ["איך מחליפים מנה בתפריט", "menu"],
+  ["איך מוסיפים מוצר למטבח", "pantry"],
+  ["איך מוחקים את החשבון", "delete"],
+  ["איך רואים את ההתקדמות", "progress"],
+  ["האפליקציה לא עובדת", "trouble"],
+  ["איך מתקינים באייפון", "install"],
+  ["איפה ספר המתכונים", "recipes"],
+  ["איך מוחקים הרגל", "habit-edit"],
+  ["איך מוסיפים הרגל", "habit-add"],
+] as const) {
+  check(`"${q}" → ${id}`, top(q) === id, top(q));
+}
+
 check("ids are unique", new Set(HELP_TOPICS.map((t) => t.id)).size === HELP_TOPICS.length);
 check("every starter exists", HELP_STARTERS.every((id) => !!topicById(id)));
 check("every answer has both languages", HELP_TOPICS.every((t) => t.he.answer && t.en.answer && t.he.title && t.en.title));
-const ROUTES = new Set(["/", "/water", "/kitchen", "/calc", "/progress", "/workout", "/library", "/habit/new", "/checkin", "/profile", "/paywall", "/achievements", "/rewards", "/coach"]);
+const ROUTES = new Set(["/", "/water", "/kitchen", "/calc", "/progress", "/workout", "/library", "/habit/new", "/checkin", "/profile", "/paywall", "/achievements", "/rewards", "/coach", "/recipes"]);
 check("every route is a real screen", HELP_TOPICS.every((t) => !t.route || ROUTES.has(t.route)),
   HELP_TOPICS.filter((t) => t.route && !ROUTES.has(t.route)).map((t) => t.id).join(","));
 

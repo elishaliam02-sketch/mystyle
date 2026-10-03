@@ -265,7 +265,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "habit-add",
     route: "/habit/new",
-    keys: ["הרגל", "משימה", "להוסיף הרגל", "הרגל חדש", "מוסיפ", "הוספת", "habit", "habits", "task", "new habit"],
+    keys: ["הרגל", "משימה", "להוסיף הרגל", "מוסיפים הרגל", "הרגל חדש", "הוספת הרגל", "habit", "habits", "task", "new habit", "add a habit"],
     he: {
       title: "הוספת הרגל",
       answer: "במסך \"היום\" לוחצים \"הוסף\" (או בכפתור למטה), כותבים הרגל אחד קטן ובוחרים מתי ביום. מסמנים אותו כל יום כשעשית.",
@@ -278,7 +278,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "habit-edit",
     route: "/",
-    keys: ["הרגל", "למחוק הרגל", "להסיר הרגל", "לשנות הרגל", "לערוך הרגל", "מוחק", "מחיקת", "עריכה", "הסרה", "להסיר", "לערוך", "delete habit", "remove habit", "edit habit"],
+    keys: ["הרגל", "למחוק הרגל", "מוחקים הרגל", "להסיר הרגל", "לשנות הרגל", "לערוך הרגל", "עריכת הרגל", "מחיקת הרגל", "עריכה או הסרה של הרגל", "delete habit", "remove habit", "edit habit"],
     he: {
       title: "עריכה או הסרה של הרגל",
       answer: "במסך \"היום\" לוחצים על ההרגל עצמו — נפתח מסך שבו משנים את השם או השעה, או לוחצים \"הסר הרגל\". ההיסטוריה נשמרת.",
@@ -357,7 +357,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "delete",
     route: "/profile",
-    keys: ["למחוק", "מחיקה", "למחוק חשבון", "להתחיל מחדש", "איפוס", "delete", "delete account", "reset", "start over"],
+    keys: ["למחוק חשבון", "מוחקים את החשבון", "מחיקת חשבון", "למחוק את החשבון", "מחיקת הנתונים", "למחוק הכל", "מחיקה והתחלה מחדש", "להתחיל מחדש", "איפוס", "delete account", "delete my account", "delete all", "reset", "start over"],
     he: {
       title: "מחיקה והתחלה מחדש",
       answer: "בלשונית \"פרופיל\", למטה, \"מחיקת כל הנתונים\" מוחקת הכול מהטלפון, ומהענן אם יש חשבון. אין דרך לשחזר — כדאי לייצא לפני.",
@@ -424,6 +424,95 @@ export const HELP_TOPICS: HelpTopic[] = [
     en: {
       title: "App updates",
       answer: "Updates arrive by themselves. To pick one up, fully close the app and reopen it (sometimes twice). A banner shows when one is ready.",
+    },
+  },
+  {
+    id: "meal-delete",
+    route: "/kitchen",
+    keys: ["למחוק ארוחה", "מוחקים ארוחה", "מחיקת ארוחה", "להסיר מהיומן", "מוחקים מהיומן", "לבטל ארוחה", "ארוחה שרשמתי", "טעיתי ברישום", "רשמתי בטעות", "delete a meal", "delete meal", "remove meal", "undo meal", "logged by mistake"],
+    he: {
+      title: "מחיקת ארוחה מהיומן",
+      answer: "בלשונית \"מטבח\", בכרטיס \"נרשם היום\", לוחצים על ה־✕ שליד הארוחה. הסכום היומי והתפריט מתעדכנים מיד. ארוחה שסומנה \"אכלתי\" בתפריט חוזרת להיות פתוחה.",
+    },
+    en: {
+      title: "Removing a meal from the diary",
+      answer: "On the Kitchen tab, in \"Logged today\", tap the ✕ beside the meal. The day's total and the menu update at once; a menu meal you ticked goes back to open.",
+    },
+  },
+  {
+    id: "menu",
+    route: "/kitchen",
+    keys: ["תפריט", "התפריט", "תפריט יומי", "להחליף מנה", "מחליפים מנה", "מנה אחרת", "לשדרג מנה", "שדרוג", "תפריט אחר", "מה לאכול היום", "menu", "daily menu", "swap a meal", "swap meal", "another dish", "upgrade a meal"],
+    he: {
+      title: "התפריט היומי",
+      answer: "במטבח, \"התפריט שלך להיום\" בונה ארוחת בוקר, צהריים, ערב ונשנוש ממה שיש לך, בגודל שמתאים ליעד. \"החלף\" מציע מנות אחרות, \"שדרג\" מוסיף משהו מהמטבח, \"אכלתי\" רושם ביומן, ו\"תפריט אחר\" מגריל יום חדש. מנה שחסר לה מוצר מסומנת, ו\"הוסף למטבח\" מכניס אותו לרשימה.",
+    },
+    en: {
+      title: "The daily menu",
+      answer: "In the Kitchen, \"Your menu for today\" builds breakfast, lunch, dinner and a snack from what you have, sized to your target. \"Swap\" offers other dishes, \"Upgrade\" adds something from your kitchen, \"I ate this\" logs it, and \"Another menu\" rolls a new day. A dish missing an item is marked, and \"Add to kitchen\" puts it on your list.",
+    },
+  },
+  {
+    id: "pantry",
+    route: "/kitchen",
+    keys: ["רשימת מטבח", "מה יש לי", "מה יש במקרר", "מקרר", "מצרכים", "מוצרים", "מוסיפים מוצר", "להוסיף מוצר", "מוצר למטבח", "מה יש לך במטבח", "pantry", "fridge", "groceries", "kitchen list", "add an item"],
+    he: {
+      title: "מה יש לך במטבח",
+      answer: "במטבח, בכרטיס \"מה יש לך\", לוחצים \"שנה את הרשימה\" וכותבים מה יש בבית, מופרד בפסיקים (\"ביצים, טונה, אורז\"). התפריט והמנות המוצעות נבנים מהרשימה הזו.",
+    },
+    en: {
+      title: "What's in your kitchen",
+      answer: "In the Kitchen, on \"What you have\", tap \"Change the list\" and type what's at home, separated by commas (\"eggs, tuna, rice\"). The menu and suggested dishes are built from it.",
+    },
+  },
+  {
+    id: "progress",
+    route: "/progress",
+    keys: ["התקדמות", "ההתקדמות", "גרף", "גרפים", "מגמה", "כמה ירדתי", "progress", "chart", "graph", "trend", "how much have i lost"],
+    he: {
+      title: "ההתקדמות שלך",
+      answer: "בלשונית \"התקדמות\": המשקל והממוצע השבועי, הגרף, כמה זמן נשאר ליעד, מידות, תמונות התקדמות ו\"איפה אפשר להשתפר\" — שבוע אחורה, לפי מה שאתה הגדרת.",
+    },
+    en: {
+      title: "Your progress",
+      answer: "On the Progress tab: your weight and weekly average, the chart, time left to the goal, measurements, progress photos and \"Where to improve\" — the last week, against what you set out to do.",
+    },
+  },
+  {
+    id: "recipes",
+    route: "/recipes",
+    keys: ["מתכון", "מתכונים", "ספר המתכונים", "ספר מתכונים", "recipe", "recipes", "cookbook", "recipe book"],
+    he: {
+      title: "ספר המתכונים",
+      answer: "במטבח, \"ספר המתכונים\" — מתכונים עם הוראות הכנה, זמן והחלפות. אפשר לסנן לפי ארוחה, זמן הכנה וחלבון, ו\"הוסף לתפריט של היום\" שם מתכון בתפריט.",
+    },
+    en: {
+      title: "The recipe book",
+      answer: "In the Kitchen, \"Recipe book\" — recipes with steps, times and swaps. Filter by meal, prep time and protein; \"Add to today's menu\" puts one on today's menu.",
+    },
+  },
+  {
+    id: "install",
+    keys: ["להתקין", "התקנה", "מתקינים", "באייפון", "אייפון", "מסך הבית", "אנדרואיד", "install", "iphone", "home screen", "add to home", "android"],
+    he: {
+      title: "להתקין את האפליקציה",
+      answer: "באייפון: פותחים את mystyle.expo.app בספארי, לוחצים על כפתור השיתוף ואז \"הוסף למסך הבית\". באנדרואיד: בכרום, בתפריט ⋮ בוחרים \"התקן אפליקציה\". מאותו רגע היא נפתחת כמו כל אפליקציה ומתעדכנת לבד.",
+    },
+    en: {
+      title: "Installing the app",
+      answer: "On iPhone: open mystyle.expo.app in Safari, tap Share, then \"Add to Home Screen\". On Android: in Chrome's ⋮ menu choose \"Install app\". From then on it opens like any app and updates itself.",
+    },
+  },
+  {
+    id: "trouble",
+    keys: ["לא עובד", "לא עובדת", "נתקע", "תקוע", "באג", "שגיאה", "קורס", "נסגר", "לא נפתח", "not working", "broken", "bug", "error", "crash", "crashes", "stuck", "won't open"],
+    he: {
+      title: "משהו לא עובד",
+      answer: "קודם כל: לסגור את האפליקציה לגמרי ולפתוח שוב — זה גם מוריד עדכון אם יש. מה שנשמר בטלפון לא נמחק. אם זה ממשיך, כתוב לנו מה קרה ומאיזה מסך (הכתובת בפרופיל ← מדיניות פרטיות), ובפרופיל למטה מופיעה גרסת האפליקציה ושגיאה אחרונה — צילום מסך שלה עוזר לנו למצוא את זה מהר.",
+    },
+    en: {
+      title: "Something isn't working",
+      answer: "First, fully close the app and reopen it — that also picks up an update if there is one. Nothing saved on the phone is lost. If it keeps happening, write to us what happened and on which screen (the address is in Profile → Privacy policy); the bottom of Profile shows the app version and the last error — a screenshot of it helps us find it fast.",
     },
   },
   {
