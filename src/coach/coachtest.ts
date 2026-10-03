@@ -202,12 +202,28 @@ check("six openers are offered in each language",
     && coachReply("אני רוצה לרדת 10 קילו בחודש", ctx, "he").text.includes("חצי עד קילו"));
   check("skipping food is answered with 'eat now'", topic("לא אכלתי כל היום") === "crash");
   check("a teenager gets a safe yes", topic("אני בן 15 אפשר להתאמן") === "youth");
-  check("knee pain is a pain answer", topic("כואב לי הברך") === "soreness");
+  // A joint is not muscle soreness: knee pain gets the stop-and-see-someone answer.
+  check("knee pain is an injury answer", topic("כואב לי הברך") === "injury");
   check("a bad night is a sleep answer", topic("לא ישנתי טוב") === "sleep");
   check("thanks is answered", topic("תודה") === "thanks");
   check("feeling fat gets support, not a diet", topic("אני מרגיש שמן") === "bodyImage");
   check("'how many calories in a banana' looks the food up", topic("כמה קלוריות יש בבננה") === "canEat");
 }
+
+// Safety: a medical condition always gets the referral, never numbers.
+for (const q of ["אני בהריון מה מותר לאכול", "יש לי סוכרת כמה קלוריות", "אני על תרופות לחץ דם", "עברתי ניתוח לפני חודש", "I'm pregnant, how many calories?", "I have diabetes"]) {
+  check(`medical: "${q}" is referred to a professional`, classify(q) === "medical", classify(q));
+}
+for (const q of ["כאב לי הברך באימון", "הגב כואב לי בדדליפט", "יש לי כאב חד בכתף", "my knee hurts when I squat"]) {
+  check(`injury: "${q}"`, classify(q) === "injury", classify(q));
+}
+check("ordinary soreness stays soreness", classify("שרירים כואבים אחרי אימון") === "soreness" || classify("שרירים כואבים אחרי אימון") === "plan", classify("שרירים כואבים אחרי אימון"));
+for (const q of ["אכלתי יותר מדי היום", "נשברתי עם פיצה", "I ate too much today"]) check(`overate: "${q}"`, classify(q) === "overate", classify(q));
+for (const q of ["בא לי מתוק", "בא לי שוקולד"]) check(`a craving is hunger: "${q}"`, classify(q) === "hunger", classify(q));
+check("too tired to train is motivation", classify("אין לי כוח להתאמן היום") === "motivation", classify("אין לי כוח להתאמן היום"));
+check("medical answer carries no calorie number", !/\d{3,}/.test(coachReply("אני בהריון", { goal: "cut", kcalTarget: 1700, kcalEaten: 500 }, "he").text));
+const over = coachReply("אכלתי יותר מדי", { goal: "cut", kcalTarget: 1700, kcalEaten: 2300 }, "he").text;
+check("overeating names the gap and says not to skip meals", over.includes("600") && over.includes("לא לדלג"), over.slice(0, 80));
 
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);

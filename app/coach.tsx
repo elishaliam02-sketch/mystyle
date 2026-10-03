@@ -29,6 +29,8 @@ import { useTheme } from "@/theme";
 
 type Turn = { id: string; from: "you" | "coach"; text: string; route?: string };
 
+const SAFETY_TOPICS: ReadonlySet<string> = new Set(["medical", "injury", "crash", "youth", "bodyImage"]);
+
 /**
  * The coach: a chat that answers from this person's own numbers.
  *
@@ -180,6 +182,11 @@ export default function CoachScreen() {
     ]);
     setDraft("");
     requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true }));
+
+    // Safety answers are fixed, in code, not only in the model's prompt: a
+    // medical condition, an injury, a crash diet, a teenager or a hard word
+    // about their body is never sent on to be rephrased.
+    if (SAFETY_TOPICS.has(local.topic)) return;
 
     setThinking(true);
     const answer = await askServer({

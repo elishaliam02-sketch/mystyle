@@ -64,6 +64,9 @@ export type CoachTopic =
   | "youth"
   | "crash"
   | "bodyImage"
+  | "medical"
+  | "injury"
+  | "overate"
   | "unknown";
 
 export type CoachReply = { topic: CoachTopic; text: string };
@@ -98,15 +101,26 @@ function fold(s: string): string {
  * about calories in general, and "מה לאכול בערב" wants dishes, not a number.
  */
 const INTENTS: [Exclude<CoachTopic, "unknown">, RegExp][] = [
-  // Safety first: an extreme target or skipping food is answered as such
-  // before anything else reads it as a weight or calorie question.
+  // Safety first. A medical condition is never coached around: pregnancy,
+  // diabetes, medication or surgery gets the same referral every time, as the
+  // product plan requires, before any numbers are offered.
+  ["medical", /(הריון|בהריון|בהיריון|היריון|מניקה|הנקה|סוכרת|סכרת|אינסולין|תרופה|תרופות|כדורי(ם)? (ל|נגד)|ניתוח|לחץ דם|כולסטרול|בלוטת (ה)?תריס|כליות|מחלת לב|בעיות לב|הפרעת אכילה|אנורקסיה|בולימיה|pregnan|breastfeed|diabet|insulin|medication|surgery|blood pressure|cholesterol|thyroid|kidney|heart (condition|disease)|eating disorder|anorexi|bulimi)/],
+  // Pain that is not ordinary soreness: a joint, a sharp pain, an injury.
+  ["injury", /((כאב|כואב|כואבת|כאבה|כאבו)( לי)? (ה)?(ברך|ברכיים|גב|כתף|כתפיים|מרפק|שורש כף|קרסול|צוואר|ירך)|(ה)?(ברך|גב|כתף|מרפק|קרסול) (כואב|כואבת|כואבים)|כאב חד|נפצעתי|פציעה|נקע|נתפס לי|נתפסה לי|(knee|back|shoulder|elbow|wrist|ankle|neck) (hurts|pain)|sharp pain|injur|sprain)/],
+  // Eating past the target is answered without punishment, and before the
+  // calorie vote reads it as "how many calories".
+  ["overate", /(אכלתי (יותר מדי|יותר מידי|הרבה מדי|הרבה|מלא|המון|כמו חזיר)|התפרעתי|נשברתי|התפרקתי|חרגתי|עברתי את היעד|זללתי|overate|ate too much|binged?|blew my diet|went over)/],
+  // An extreme target or skipping food is answered as such before anything
+  // else reads it as a weight or calorie question.
   ["crash", /((לרדת|להוריד) ?\d+ ?(קילו|ק"ג|ק״ג|kg).{0,8}(בחודש|בשבוע|בשבועיים|בעשרה ימים)|לא אכלתי כל היום|לא לאכול בכלל|לדלג על ארוח|להפסיק לאכול|lose \d+ ?(kg|kilos?|pounds|lbs) in (a|one|two) (week|month)|skip(ping)? (meals|breakfast|dinner)|stop eating)/],
   ["youth", /((אני )?(בן|בת) 1[0-7]\b|בגיל 1[0-7]\b|i'?m 1[0-7]\b|i am 1[0-7]\b)/],
   ["bodyImage", /(מרגיש שמן|מרגישה שמנה|שונא את הגוף|שונאת את הגוף|מכוער|מכוערת|i feel fat|hate my body)/],
   ["thanks", /^(תודה|תודה רבה|תנקס|אחלה תודה|thanks|thank you|thx|ty)[\s!?.🙏❤️]*$/],
   ["canEat", /(מותר לי|אפשר לאכול|אפשר לי|זה בסדר לאכול|כדאי לי לאכול|כמה (קלוריות|חלבון) (יש )?ב|can i (eat|have)|is .+ (ok|okay|bad|healthy)|how many calories (are )?in)/],
   ["mealIdea", /(מה (כדאי )?(לאכול|להכין|אוכל)|רעיון ל(ארוחה|אוכל)|מה לבשל|ארוחת (ערב|בוקר|צהריים) (מה|רעיון)|what (should|can) i (eat|cook|make)|meal idea|dinner idea)/],
-  ["hunger", /(רעב|רעבה|חשק|נשנוש|לנשנש|hungry|craving|snack)/],
+  ["hunger", /(רעב|רעבה|חשק|נשנוש|לנשנש|מתוק|מתוקים|שוקולד|עוגה|גלידה|hungry|craving|snack|sweet tooth|something sweet|chocolate)/],
+  // Too tired to train is a motivation question, not a question about the plan.
+  ["motivation", /((אין לי|אין) (כוח|חשק|אנרגיה)|לא בא לי|עייף מדי|עייפה מדי|no energy|too tired|don'?t feel like).{0,20}(להתאמן|לאימון|אימון|להתאמן היום|train|workout|gym)/],
   ["belly", /(בטן|כרס|שומן מקומי|קוביות|six ?pack|belly|abs\b|love handles)/],
   ["timeline", /(כמה זמן|מתי אגיע|עד היעד|תוך כמה|how long|when will i)/],
   ["greeting", /^(שלום|היי|הי|אהלן|מה קורה|מה נשמע|בוקר טוב|ערב טוב|hello|hi|hey|yo)[\s!?.]*$/],
@@ -420,6 +434,49 @@ export function coachReply(question: string, ctx: CoachContext, locale: Locale):
       say(
         `מה שלא עושים: דיאטות קיצוניות, דילוג על ארוחות או תוספים בלי רופא. הגוף עוד גדל — הוא צריך אוכל מלא, חלבון ושינה. כדאי לספר להורה, ואם יש בעיה רפואית — לשאול רופא.`,
         `What not to do: extreme diets, skipped meals or supplements without a doctor. Your body is still growing — it needs full meals, protein and sleep. Tell a parent, and ask a doctor if you have a medical condition.`,
+      );
+      break;
+    }
+    case "medical": {
+      say(
+        `על זה אני לא נותן עצות — הריון, סוכרת, תרופות או ניתוח משנים את מה שנכון לאכול ואיך להתאמן, וזה צריך לבוא מרופא או מדיאטנית שמכירים אותך.`,
+        `That's not something I advise on — pregnancy, diabetes, medication or surgery change what's right to eat and how to train, and that has to come from a doctor or dietitian who knows you.`,
+      );
+      say(
+        `מה שהאפליקציה כן יכולה: לעזור לך לעקוב אחרי מה שהם ממליצים — יומן אוכל, מים, צעדים ושקילה. אם הם נתנו לך יעד קלוריות, אפשר לכוון אליו את הסיכום היומי.`,
+        `What the app can do is help you follow what they recommend — a food diary, water, steps and weigh-ins. If they gave you a calorie target, the day's total can follow it.`,
+      );
+      break;
+    }
+    case "injury": {
+      say(
+        `כאב במפרק, כאב חד, או כאב שמחמיר תוך כדי תרגיל — זה לא כאב שרירים רגיל. תעצור את התרגיל הזה, אל תעבוד דרך הכאב.`,
+        `Pain in a joint, a sharp pain, or pain that gets worse during a movement is not ordinary soreness. Stop that exercise — don't work through it.`,
+      );
+      say(
+        `בינתיים אפשר להמשיך עם מה שלא כואב: באימון, החלף את התרגיל במאגר בתרגיל לאותו שריר שלא מפעיל את המקום. אם הכאב לא עובר תוך כמה ימים, או שיש נפיחות — לאיש מקצוע: רופא או פיזיותרפיסט.`,
+        `Meanwhile, keep doing what doesn't hurt: in your workout, swap the exercise from the library for one that trains the same muscle without loading that spot. If it doesn't settle within a few days, or there's swelling — see a professional: a doctor or physiotherapist.`,
+      );
+      break;
+    }
+    case "overate": {
+      const target = n(ctx.kcalTarget);
+      const eaten = n(ctx.kcalEaten);
+      if (target !== null && eaten !== null && eaten > target) {
+        say(
+          `היום יצאת ${eaten - target} קלוריות מעל היעד. בשבוע של כ־${target * 7} קלוריות זה הפרש קטן — הוא לא מוחק שום התקדמות.`,
+          `Today came out ${eaten - target} kcal over target. Against a week of about ${target * 7} kcal that's a small gap — it erases no progress.`,
+        );
+      } else {
+        say(`יום אחד של אכילה גדולה לא מוחק שבוע טוב.`, `One big day of eating doesn't erase a good week.`);
+      }
+      say(
+        `מה לא לעשות: לא לדלג על ארוחות מחר ולא "לפצות" בצום — זה מה שמוביל לעוד יום כזה. מה כן: לחזור מחר בבוקר לתפריט הרגיל, ארוחה עם חלבון, הרבה מים, והליכה קצרה אם בא לך.`,
+        `What not to do: don't skip meals tomorrow or "make up" for it by fasting — that's what leads to another day like this. What to do: back to the usual menu tomorrow morning, a meal with protein, plenty of water, and a short walk if you feel like it.`,
+      );
+      say(
+        `והמשקל מחר בבוקר יהיה גבוה — זה מים ומלח, לא שומן. תסתכל על הממוצע השבועי.`,
+        `And tomorrow's weigh-in will be high — that's water and salt, not fat. Look at the weekly average.`,
       );
       break;
     }
