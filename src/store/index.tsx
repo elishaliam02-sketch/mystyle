@@ -69,6 +69,7 @@ export type DayTarget = AdaptiveTarget & {
 };
 import type { Exercise, Muscle } from "@/workout/exercises";
 import { buildPlan, freshSeed } from "@/workout/plan";
+import { dueOn, normalizeDays, streakOf } from "@/habits/schedule";
 
 /**
  * "Today" that a rewound phone clock cannot fake, together with the advanced
@@ -88,9 +89,9 @@ type Store = {
   state: AppState;
   ready: boolean;
   saveProfile: (patch: Partial<Profile>) => void;
-  addHabit: (title: string, slot?: Habit["slot"]) => string | null;
+  addHabit: (title: string, slot?: Habit["slot"], days?: number[]) => string | null;
   archiveHabit: (id: string) => void;
-  updateHabit: (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => void;
+  updateHabit: (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor" | "days">>) => void;
   /** Consecutive days completed, counting back from today (or yesterday). */
   streak: (habitId: string) => number;
   toggleCompletion: (habitId: string) => void;
@@ -373,7 +374,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const addHabit = useCallback((title: string, slot?: Habit["slot"]) => {
+  const addHabit = useCallback((title: string, slot?: Habit["slot"], days?: number[]) => {
     // The field is multiline, so Enter on a keyboard can put a line break in
     // the middle of a title that is shown on one line everywhere else.
     const clean = cleanTitle(title);
@@ -387,6 +388,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id,
           title: clean,
           slot,
+          days: normalizeDays(days),
           createdAt: today(),
           archived: false,
           updatedAt: now(),
@@ -406,7 +408,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateHabit = useCallback(
-    (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor">>) => {
+    (id: string, patch: Partial<Pick<Habit, "title" | "slot" | "anchor" | "days">>) => {
       setState((s) => ({
         ...s,
         habits: s.habits.map((h) =>
@@ -417,6 +419,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 // An edit that empties the title keeps the old one rather than
                 // leaving a habit with nothing to call it.
                 ...(patch.title !== undefined ? { title: cleanTitle(patch.title) || h.title } : {}),
+                ...("days" in patch ? { days: normalizeDays(patch.days) } : {}),
                 updatedAt: now(),
               }
             : h,
@@ -550,17 +553,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .filter((c) => c.habitId === habitId && c.done)
           .map((c) => c.date),
       );
-      // Today not being ticked yet shouldn't read as a broken streak at 09:00,
-      // so an unticked today is skipped rather than counted as a miss.
-      let offset = done.has(trustedDaysAgo(0)) ? 0 : 1;
-      let count = 0;
-      while (done.has(trustedDaysAgo(offset))) {
-        count += 1;
-        offset += 1;
-      }
-      return count;
+      // Rest days neither break nor add to it, and an unticked today is still
+      // open rather than a miss (src/habits/schedule.ts).
+      const habit = state.habits.find((h) => h.id === habitId) ?? { createdAt: "0000-00-00" };
+      return streakOf(habit, done, trustedDaysAgo(0));
     },
-    [state.completions, trustedDaysAgo],
+    [state.completions, state.habits, trustedDaysAgo],
   );
 
   const weeklyConsistency = useCallback(() => {
@@ -574,7 +572,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let done = 0;
     for (const habit of active) {
       for (const date of window) {
-        if (date < habit.createdAt) continue;
+        // Only the days it was owed: a habit's rest day, or a day before it
+        // existed, is not a day missed.
+        if (!dueOn(habit, date)) continue;
         possible += 1;
         if (state.completions.some((c) => c.habitId === habit.id && c.date === date && c.done)) {
           done += 1;

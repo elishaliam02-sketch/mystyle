@@ -7,6 +7,7 @@ import { fill, useI18n } from "@/i18n";
 import { nextSteps, type NextStep } from "@/insight/nextstep";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { dueOn } from "@/habits/schedule";
 
 const DAY = 86_400_000;
 const dayNum = (iso: string) => Math.floor(Date.parse(`${iso}T12:00:00Z`) / DAY);
@@ -52,7 +53,11 @@ export function NowCard() {
 
   const steps = nextSteps({
     hour,
-    habits: state.habits.filter((h) => !h.archived).map((h) => ({ id: h.id, title: h.title, slot: h.slot, done: isDone(h.id) })),
+    // Only the habits today asks for — "time for the gym" on a rest day is
+    // the nudge that teaches people to stop reading the card.
+    habits: state.habits
+      .filter((h) => !h.archived && dueOn(h, today))
+      .map((h) => ({ id: h.id, title: h.title, slot: h.slot, done: isDone(h.id) })),
     water: { ml: todayWater(), goalMl: waterGoal(), cupMl: cupMl() },
     meals: { count: intake.items.length, kcal: intake.kcal, targetKcal: calorieTarget().kcal },
     daysSinceWeighIn: lastWeigh ? Math.max(0, dayNum(today) - dayNum(lastWeigh)) : null,

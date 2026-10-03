@@ -226,6 +226,26 @@ const habit = (id: string, slot?: "morning" | "noon" | "evening") => ({
   check("the month rolls over", datedReminders(base, copy, new Date(2026, 9, 31, 22, 0))[0]!.id === "recap@2026-11-01");
 }
 
+// --- a habit's rest days are not reminded about
+{
+  const now = new Date(2026, 9, 3, 10, 0); // Saturday
+  const s: AppState = {
+    ...base,
+    habits: [
+      { ...habit("gym", "evening"), days: [1, 3, 5] },
+      habit("read", "evening"),
+      { ...habit("yoga", "morning"), days: [0] },
+    ],
+  };
+  const all = datedReminders(s, copy, now);
+  const on = (id: string) => all.find((r) => r.id === id);
+  check("on a gym day the evening names both", on("habits-19@2026-10-05")?.body === "gym · read", on("habits-19@2026-10-05")?.body);
+  check("on a rest day only the daily one", on("habits-19@2026-10-06")?.body === "read" && on("habits-19@2026-10-06")?.title === "one thing",
+    on("habits-19@2026-10-06")?.body);
+  check("a group resting that day sends nothing", !on("habits-8@2026-10-05"));
+  check("and reminds on its day", !!on("habits-8@2026-10-04"));
+}
+
 // --- writing the schedule to the phone touches only the difference
 {
   const now = new Date(2026, 9, 3, 10, 0);

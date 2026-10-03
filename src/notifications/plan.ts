@@ -15,6 +15,7 @@
 import type { AppState } from "@/store/types";
 import { defaultGoalMl, goalMlOf, waterMlLog } from "@/health/water";
 import { DEFAULT_STEP_GOAL } from "@/health/steps";
+import { dueOn } from "@/habits/schedule";
 
 export type Reminder = {
   /** Stable id, so a schedule can be compared in a test. */
@@ -216,17 +217,28 @@ export function localKey(d: Date): string {
 }
 
 /**
- * Today's version of a reminder, or null when there is nothing left to remind
- * about. A "drink water" after the bottle is already full, or "how was your
+ * A reminder as it stands on one date, or null when there is nothing to remind
+ * about — a habit group whose habits all rest that day, or today, a thing
+ * already done. A "drink water" after the bottle is already full, or "how was your
  * day" after the recap is written, teaches people that the notification is
  * not worth reading — and then the one that mattered is swiped away unread.
  */
-function forToday(state: AppState, r: Reminder, date: string, copy: ReminderCopy): { title: string; body: string } | null {
+function forDay(
+  state: AppState,
+  r: Reminder,
+  date: string,
+  isToday: boolean,
+  copy: ReminderCopy,
+): { title: string; body: string } | null {
   if (r.habitIds) {
-    const done = new Set(
-      state.completions.filter((c) => c.date === date && c.done).map((c) => c.habitId),
+    // The group as it stands on that date: only the habits due that day
+    // (a rest day is not reminded about), and today, only those not yet done.
+    const done = isToday
+      ? new Set(state.completions.filter((c) => c.date === date && c.done).map((c) => c.habitId))
+      : new Set<string>();
+    const left = state.habits.filter(
+      (h) => r.habitIds!.includes(h.id) && !h.archived && dueOn(h, date) && !done.has(h.id),
     );
-    const left = state.habits.filter((h) => r.habitIds!.includes(h.id) && !h.archived && !done.has(h.id));
     if (left.length === 0) return null;
     return {
       title: slotTitle(copy, left.length),
@@ -234,6 +246,7 @@ function forToday(state: AppState, r: Reminder, date: string, copy: ReminderCopy
     };
   }
   const keep = { title: r.title, body: r.body };
+  if (!isToday) return keep;
   if (r.id === "food") return (state.intake?.[date]?.length ?? 0) > 0 ? null : keep;
   if (r.id === "water") {
     const drunk = waterMlLog(state)[date] ?? 0;
@@ -281,7 +294,7 @@ export function datedReminders(state: AppState, copy: ReminderCopy, now: Date): 
       if (r.weekday !== undefined && r.weekday !== weekday) continue;
       const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), r.hour, r.minute);
       if (at.getTime() <= now.getTime()) continue;
-      const text = d === 0 ? forToday(state, r, date, copy) : { title: r.title, body: r.body };
+      const text = forDay(state, r, date, d === 0, copy);
       if (!text) continue;
       out.push({ id: `${r.id}@${date}`, at, ...text });
     }

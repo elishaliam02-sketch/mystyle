@@ -9,6 +9,7 @@
 
 import type { AppState } from "@/store/types";
 import { earnings, levelAt } from "@/rewards";
+import { longestStreakOf } from "@/habits/schedule";
 
 /** An Ionicons glyph name — the screen renders it. */
 export type Achievement = {
@@ -21,30 +22,6 @@ export type Achievement = {
   /** Bronze / silver / gold — colours a tier without needing separate ids. */
   tier: "bronze" | "silver" | "gold";
 };
-
-const DAY_MS = 86_400_000;
-
-function parseDate(d: string): number {
-  const [y, m, day] = d.split("-").map(Number);
-  return Date.UTC(y, (m || 1) - 1, day || 1);
-}
-
-/** The longest run of consecutive calendar days in a set of YYYY-MM-DD dates. */
-function longestRun(dates: string[]): number {
-  const days = [...new Set(dates)].map(parseDate).sort((a, b) => a - b);
-  if (days.length === 0) return 0;
-  let best = 1;
-  let run = 1;
-  for (let i = 1; i < days.length; i++) {
-    if (days[i] - days[i - 1] === DAY_MS) {
-      run += 1;
-      best = Math.max(best, run);
-    } else if (days[i] !== days[i - 1]) {
-      run = 1;
-    }
-  }
-  return best;
-}
 
 const tierFor = (target: number): Achievement["tier"] =>
   target >= 100 ? "gold" : target >= 25 ? "silver" : "bronze";
@@ -74,8 +51,14 @@ export function computeAchievements(state: AppState): Achievement[] {
   for (const c of doneCompletions) {
     byHabit.set(c.habitId, [...(byHabit.get(c.habitId) ?? []), c.date]);
   }
+  // Over each habit's own days: a Monday/Wednesday/Friday habit kept for a
+  // month is a twelve-day run, not twelve runs of one.
   let longestStreak = 0;
-  for (const dates of byHabit.values()) longestStreak = Math.max(longestStreak, longestRun(dates));
+  for (const [id, dates] of byHabit) {
+    const habit = state.habits.find((h) => h.id === id) ?? { createdAt: "9999-12-31" };
+    const last = [...dates].sort().at(-1)!;
+    longestStreak = Math.max(longestStreak, longestStreakOf(habit, new Set(dates), last));
+  }
 
   // Training: distinct days trained, and total exercises ticked.
   const log = state.training?.log ?? {};

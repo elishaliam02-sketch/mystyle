@@ -1,4 +1,5 @@
 import { computeAchievements, unlockedCount, type Achievement } from "./index";
+import { addDays } from "@/habits/schedule";
 import { EMPTY_STATE, type AppState } from "@/store/types";
 
 const results: [string, boolean, string?][] = [];
@@ -111,6 +112,19 @@ const comp = (habitId: string, date: string, done = true) => ({
   check("losing 4 kg unlocks weight-down-3", get(a, "weight-down-3").unlocked,
     String(get(a, "weight-down-3").progress));
   check("two weigh-ins do not yet unlock weigh-in-4", !get(a, "weigh-in-4").unlocked);
+}
+
+// --- a streak over a habit's own days
+{
+  const mwf: string[] = [];
+  // From Monday 7 September 2026: Mon, Wed, Fri for four weeks.
+  for (let w = 0; w < 4; w++) for (const d of [0, 2, 4]) mwf.push(addDays("2026-09-07", w * 7 + d));
+  const habits = [{ id: "gym", title: "gym", days: [1, 3, 5], createdAt: "2026-09-01", archived: false }];
+  const a = computeAchievements(stateWith({ habits, completions: mwf.map((d) => comp("gym", d)) }));
+  check("four weeks of Mon/Wed/Fri is a twelve-day streak", get(a, "streak-7").unlocked && get(a, "streak-30").progress === 12,
+    String(get(a, "streak-30").progress));
+  const daily = computeAchievements(stateWith({ habits: [{ ...habits[0]!, days: undefined }], completions: mwf.map((d) => comp("gym", d)) }));
+  check("the same ticks on a daily habit are runs of one", get(daily, "streak-30").progress === 1, String(get(daily, "streak-30").progress));
 }
 
 const failed = results.filter(([, ok]) => !ok);

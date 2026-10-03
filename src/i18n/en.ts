@@ -136,6 +136,7 @@ export const en: typeof he = {
     mealIdea: "{slot} idea: {idea}",
     doneCount: "{done} of {total} today",
     allDone: "All done today. Nice.",
+    restDay: "A rest day from every habit today — enjoy it.",
 
     hubTitle: "Your day at a glance",
     hubStreak: "{days}-day streak 🔥",
@@ -195,6 +196,11 @@ export const en: typeof he = {
   },
 
   habit: {
+    daysTitle: "Which days?",
+    daysEvery: "Every day. Take rest days off — they won't break the streak.",
+    daysSome: "{n} days a week. Rest days don't break the streak.",
+    daysReset: "Every day",
+    restToday: "not today",
     newTitle: "New habit",
     duplicate: "You already have a habit with this name — reword it, or find it on the home screen.",
     newBody: "In your own words. The smaller and more concrete, the better the odds.",

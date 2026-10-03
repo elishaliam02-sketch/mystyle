@@ -18,12 +18,13 @@
  * Pure: dates and ticks in, one suggestion (or none) out; the words live in
  * src/i18n. Tested in adjusttest.ts.
  */
+import { addDays, dueOn } from "@/habits/schedule";
 
 export type Slot = "morning" | "noon" | "evening";
 
 export type AdjustInput = {
   today: string;
-  habits: { id: string; title: string; slot?: Slot; anchor?: string; createdAt: string; updatedAt?: string }[];
+  habits: { id: string; title: string; slot?: Slot; anchor?: string; days?: number[]; createdAt: string; updatedAt?: string }[];
   /** Dates each habit was ticked done. */
   doneDates: Record<string, readonly string[]>;
   moods: { date: string; mood: "good" | "ok" | "hard" }[];
@@ -73,16 +74,20 @@ export function suggestAdjustment(input: AdjustInput): LocalAdjustment | null {
   const hard = input.moods.filter((m) => m.mood === "hard" && inWeek(m.date)).length;
   const bar = hard >= 2 ? 4 / 7 : 3 / 7;
 
+  // The week's days each habit was owed — its rest days are not misses.
+  const week = Array.from({ length: 7 }, (_, i) => addDays(input.today, -i));
   const reading = input.habits.map((h) => {
     const age = today - dayNum(h.createdAt) + 1;
-    const days = Math.min(7, age);
-    const done = new Set((input.doneDates[h.id] ?? []).filter(inWeek)).size;
-    return { h, days, done, rate: days > 0 ? done / days : 1 };
+    const owed = week.filter((d) => dueOn(h, d));
+    const days = owed.length;
+    const done = new Set((input.doneDates[h.id] ?? []).filter((d) => owed.includes(d))).size;
+    // Enough to judge: four days old, and owed at least twice this week.
+    return { h, days, done, rate: days > 0 ? done / days : 1, judged: age >= 4 && days >= 2 };
   });
 
   // Where in the day this person's habits do get done.
   const slotRate = (slot: Slot) => {
-    const there = reading.filter((r) => r.h.slot === slot && r.days >= 4);
+    const there = reading.filter((r) => r.h.slot === slot && r.judged);
     const days = there.reduce((n, r) => n + r.days, 0);
     return days ? there.reduce((n, r) => n + r.done, 0) / days : null;
   };
@@ -92,7 +97,7 @@ export function suggestAdjustment(input: AdjustInput): LocalAdjustment | null {
   const settling = (h: AdjustInput["habits"][number]) =>
     !!h.updatedAt && h.updatedAt.slice(0, 10) > h.createdAt.slice(0, 10) && today - dayNum(h.updatedAt) < 7;
   const struggling = reading
-    .filter((r) => r.days >= 4 && r.rate <= bar && !settling(r.h))
+    .filter((r) => r.judged && r.rate <= bar && !settling(r.h))
     .sort((a, b) => a.rate - b.rate || a.h.createdAt.localeCompare(b.h.createdAt));
 
   for (const r of struggling) {

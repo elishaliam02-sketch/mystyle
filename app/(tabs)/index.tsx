@@ -34,6 +34,7 @@ import { scanTask } from "@/tasks/difficulty";
 import { detectCategory, getSupport } from "@/support";
 import { confirm } from "@/ui/confirm";
 import { metricFill, metricInk, useTheme } from "@/theme";
+import { dueOn } from "@/habits/schedule";
 
 /**
  * The home screen's nudge. Claude writes it from the user's actual habits and
@@ -230,7 +231,9 @@ function TodayHub() {
   const { state, isDone, streak, todayIntake, todayWater, waterGoal, calorieTarget, todayKey, activeWorkout } = useStore();
 
   const habits = state.habits.filter((h) => !h.archived);
-  const doneCount = habits.filter((h) => isDone(h.id)).length;
+  // Only what today asks for: a rest day's habit is not a tick still owed.
+  const dueToday = habits.filter((h) => dueOn(h, todayKey()));
+  const doneCount = dueToday.filter((h) => isDone(h.id)).length;
   const bestStreak = habits.reduce((m, h) => Math.max(m, streak(h.id)), 0);
 
   const target = calorieTarget();
@@ -245,7 +248,7 @@ function TodayHub() {
   // water is drunk and food is logged near target.
   const score = dayScore({
     habitsDone: doneCount,
-    habitsTotal: habits.length,
+    habitsTotal: dueToday.length,
     workoutDone,
     hasPlan: !!state.training,
     waterCups: water,
@@ -405,7 +408,7 @@ export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, isDone, toggleCompletion, readyForAnotherHabit, allowance, consent } = useStore();
+  const { state, isDone, toggleCompletion, readyForAnotherHabit, allowance, consent, todayKey } = useStore();
   // Reachability only, not a second sync loop — the store's sync lives in one
   // place and calling useCloud here would start a rival copy of it.
   const net = useConnectivity(consent().cloud);
@@ -414,12 +417,21 @@ export default function TodayScreen() {
   // list reads like the day instead of like the order things were added.
   // Stable: habits in the same part of the day keep their own order, and a
   // tick never moves a row out from under the thumb.
+  // What today asks for comes first; a habit resting today goes to the end,
+  // still there to tick as a bonus, marked so it does not read as owed.
+  const day = todayKey();
   const habits = state.habits
     .filter((h) => !h.archived)
-    .map((h, i) => ({ h, i }))
-    .sort((a, b) => SLOT_RANK[a.h.slot ?? "any"] - SLOT_RANK[b.h.slot ?? "any"] || a.i - b.i)
+    .map((h, i) => ({ h, i, rest: !dueOn(h, day) }))
+    .sort(
+      (a, b) =>
+        Number(a.rest) - Number(b.rest) ||
+        SLOT_RANK[a.h.slot ?? "any"] - SLOT_RANK[b.h.slot ?? "any"] ||
+        a.i - b.i,
+    )
     .map(({ h }) => h);
-  const doneCount = habits.filter((h) => isDone(h.id)).length;
+  const dueToday = habits.filter((h) => dueOn(h, day));
+  const doneCount = dueToday.filter((h) => isDone(h.id)).length;
 
   // A daily app should say which day it is; without it every screen looks the
   // same and yesterday's board is indistinguishable from today's.
@@ -475,9 +487,11 @@ export default function TodayScreen() {
       eyebrow={dateLabel}
       title={title}
       subtitle={
-        doneCount === habits.length
-          ? t.today.allDone
-          : fill(t.today.doneCount, { done: doneCount, total: habits.length })
+        dueToday.length === 0
+          ? t.today.restDay
+          : doneCount === dueToday.length
+            ? t.today.allDone
+            : fill(t.today.doneCount, { done: doneCount, total: dueToday.length })
       }
     >
       <OfflineBanner state={net.state} onRetry={() => void net.recheck()} />
@@ -508,7 +522,13 @@ export default function TodayScreen() {
             <TaskRow
               key={habit.id}
               first={index === 0}
-              label={habit.slot && t.slots[habit.slot] ? `${habit.title} · ${t.slots[habit.slot]}` : habit.title}
+              label={[
+                habit.title,
+                habit.slot && t.slots[habit.slot] ? t.slots[habit.slot] : null,
+                dueOn(habit, day) ? null : t.habit.restToday,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
               hint={habit.anchor}
               done={isDone(habit.id)}
               scan={scanTask(habit.title)}

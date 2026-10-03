@@ -6,6 +6,8 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { TaskScanPanel } from "@/components/TaskScan";
 import { Chip } from "@/components/Chip";
+import { DaysPicker } from "@/components/DaysPicker";
+import { dueOn } from "@/habits/schedule";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
@@ -25,7 +27,8 @@ const SMALLER_JOIN = " — ";
 /** Fourteen dots: filled where the habit happened, hollow where it didn't. */
 function DayGrid({ habitId }: { habitId: string }) {
   const { colors, space } = useTheme();
-  const { isDone, dayKeyAgo } = useStore();
+  const { state, isDone, dayKeyAgo } = useStore();
+  const habit = state.habits.find((h) => h.id === habitId);
   // The same clock the ticks were written with, or a phone once set ahead
   // shows a streak above an empty grid.
   const days = Array.from({ length: 14 }, (_, i) => dayKeyAgo(13 - i));
@@ -36,6 +39,8 @@ function DayGrid({ habitId }: { habitId: string }) {
     <View style={{ flexDirection: "row", gap: 4, marginTop: space.sm }}>
       {days.map((date) => {
         const done = isDone(habitId, date);
+        // A rest day is not a hollow square — that read as a day missed.
+        const rest = !done && !!habit && !dueOn(habit, date);
         return (
           <View
             key={date}
@@ -45,10 +50,14 @@ function DayGrid({ habitId }: { habitId: string }) {
               aspectRatio: 1,
               borderRadius: 5,
               backgroundColor: done ? colors.accent : "transparent",
-              borderWidth: done ? 0 : 1,
+              borderWidth: done || rest ? 0 : 1,
               borderColor: colors.rule,
+              alignItems: "center",
+              justifyContent: "center",
             }}
-          />
+          >
+            {rest ? <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.ruleStrong }} /> : null}
+          </View>
         );
       })}
     </View>
@@ -263,6 +272,8 @@ export default function HabitDetail() {
               />
             ))}
           </View>
+          <Text style={[type.label, { color: colors.inkFaint, marginTop: space.md }]}>{t.habit.daysTitle}</Text>
+          <DaysPicker value={habit.days} onChange={(days) => updateHabit(habit.id, { days })} />
         </Card>
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>

@@ -15,6 +15,7 @@
 import type { AppState } from "@/store/types";
 import { scanTask, type Difficulty, type Scan } from "@/tasks/difficulty";
 import { challengeFor } from "@/challenge";
+import { dueOn } from "@/habits/schedule";
 
 export type Reward = {
   /** Everything earned, ever. */
@@ -200,7 +201,12 @@ export function todayOnOffer(state: AppState, today: string): { earned: number; 
   );
   let earned = 0;
   let available = 0;
+  const habits = new Map(state.habits.map((h) => [h.id, h]));
   for (const task of scoredTasks(state)) {
+    // Today's board is what today asks for; a habit resting today is on offer
+    // only once it has been done anyway, as the bonus it is.
+    const habit = habits.get(task.id);
+    if (habit && !dueOn(habit, today) && !done.has(task.id)) continue;
     available += task.scan.points;
     if (done.has(task.id)) earned += task.scan.points;
   }

@@ -2,6 +2,7 @@ import type { CheckIn, Completion, Habit, Profile, WeighIn } from "@/store/types
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./client";
 import type { Changes, CloudPort, Rows } from "./sync";
+import { normalizeDays } from "@/habits/schedule";
 
 /**
  * The real transport: the merge logic in sync.ts is written against CloudPort
@@ -17,6 +18,9 @@ type HabitRow = {
   title: string;
   slot: string | null;
   anchor: string | null;
+  /** Weekdays due, 0 = Sunday; null = every day (migration 008). Absent on a
+   * row read from a server that predates the column. */
+  days?: number[] | null;
   created_at: string;
   archived: boolean;
   updated_at: string | null;
@@ -39,6 +43,7 @@ function toHabit(row: HabitRow): Habit {
     title: row.title,
     slot: (row.slot as Habit["slot"]) ?? undefined,
     anchor: row.anchor ?? undefined,
+    days: normalizeDays(row.days),
     createdAt: row.created_at,
     archived: row.archived,
     updatedAt: row.updated_at ?? undefined,
@@ -122,6 +127,7 @@ function fromHabit(habit: Habit, userId: string): HabitRow & { user_id: string }
     title: clip(habit.title, LIMITS.title) ?? "",
     slot: clip(habit.slot, LIMITS.slot),
     anchor: clip(habit.anchor, LIMITS.anchor),
+    days: normalizeDays(habit.days) ?? null,
     created_at: habit.createdAt,
     archived: habit.archived,
     updated_at: habit.updatedAt ?? new Date().toISOString(),

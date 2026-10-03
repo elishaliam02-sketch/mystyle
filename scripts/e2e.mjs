@@ -1349,6 +1349,22 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
       s.completions.some(c=>c.habitId==="h1"&&c.date===today&&c.done===true)); }
   check("and the button says it is done", await hp.getByRole("button",{name:/נעשה היום/}).first().isVisible().catch(()=>false));
 
+  // a habit with rest days: today taken off, it waits at the end marked "not today"
+  {
+    const wd = new Date().getDay();
+    const names = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+    await hgo("/habit/new");
+    await hp.locator("textarea:visible").first().fill("ריצה קלה");
+    await hp.getByRole("checkbox",{name:names[wd],exact:true}).first().click(); await hp.waitForTimeout(300);
+    check("taking a day off says how many days are left",
+      (await hp.locator("body").innerText()).includes("6 ימים בשבוע"));
+    await hp.getByRole("button",{name:"הוסף"}).last().click(); await hp.waitForTimeout(900);
+    const s=await hst(); const h=s.habits.find(x=>x.title==="ריצה קלה");
+    check("a habit is saved with its days", Array.isArray(h?.days) && h.days.length===6 && !h.days.includes(wd), JSON.stringify(h?.days));
+    await hgo("/");
+    check("on its rest day it is marked \"not today\"", (await hp.locator("body").innerText()).includes("ריצה קלה · לא היום"));
+  }
+
   // changing the plan keeps every workout already done
   await hgo("/workout");
   await hp.getByRole("button",{name:"שנה תוכנית"}).first().click(); await hp.waitForTimeout(600);

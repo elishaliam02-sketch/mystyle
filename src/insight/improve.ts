@@ -22,6 +22,7 @@
 
 import { goalMlOf, waterMlLog } from "@/health/water";
 import type { AppState } from "@/store/types";
+import { dueCount, dueOn } from "@/habits/schedule";
 
 export type ImproveArea = "habits" | "workout" | "water" | "steps" | "food" | "weighIn" | "recap";
 
@@ -106,15 +107,16 @@ export function improvements(state: AppState, today: string): Improvement {
   // Habits: ticks against what was on the board each day.
   const habits = state.habits.filter((h) => !h.archived);
   if (habits.length > 0) {
-    const created = habits.map((h) => parseDate(h.createdAt));
-    // Only count days a habit actually existed — a board created on Thursday
-    // is not "four days missed".
-    const liveDays = days.filter((d) => created.some((c) => c <= parseDate(d)));
-    const possible = liveDays.reduce(
-      (n, d) => n + habits.filter((h) => parseDate(h.createdAt) <= parseDate(d)).length,
-      0,
-    );
-    const done = state.completions.filter((c) => c.done && inWindow.has(c.date)).length;
+    // Only the days each habit was owed — a board created on Thursday is not
+    // "four days missed", and a habit's rest day is not a miss either.
+    const liveDays = days.filter((d) => dueCount(habits, d) > 0);
+    const possible = liveDays.reduce((n, d) => n + dueCount(habits, d), 0);
+    // A tick on a rest day is a bonus, not a share of what was owed.
+    const owedOn = new Map(habits.map((h) => [h.id, h]));
+    const done = state.completions.filter((c) => {
+      const h = owedOn.get(c.habitId);
+      return c.done && inWindow.has(c.date) && !!h && dueOn(h, c.date);
+    }).length;
     add("habits", done, possible, liveDays.length, 3);
   }
 

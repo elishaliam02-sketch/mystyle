@@ -3,6 +3,7 @@ import type { Goal } from "@/kitchen";
 import type { Exercise } from "@/workout/exercises";
 import type { ActiveWorkout, WorkoutRecord } from "@/workout/session";
 import type { DayChoices, SlotChoice } from "@/kitchen/menu";
+import { normalizeDays } from "@/habits/schedule";
 
 /** The training plan config and log, device-local like the pantry. */
 export type Training = {
@@ -88,6 +89,9 @@ export type Habit = {
   slot?: "morning" | "noon" | "evening";
   /** The existing routine this habit hangs off — "after I brush my teeth". */
   anchor?: string;
+  /** The weekdays it is due, 0 = Sunday … 6 = Saturday. Undefined = every
+   * day. See src/habits/schedule.ts for what a streak means with rest days. */
+  days?: number[];
   createdAt: string;
   archived: boolean;
   /** When this habit was last edited on any device, ISO 8601. */
@@ -367,7 +371,7 @@ export function migrateState(raw: unknown): AppState {
       ...(s.profile ?? {}),
       updatedAt: s.profile?.updatedAt ?? EPOCH,
     },
-    habits: (s.habits ?? []).map((h) => ({ ...h, updatedAt: h.updatedAt ?? EPOCH })),
+    habits: (s.habits ?? []).map((h) => ({ ...h, days: normalizeDays(h.days), updatedAt: h.updatedAt ?? EPOCH })),
     completions: (s.completions ?? []).map((c) => {
       const row = c as Partial<Completion>;
       return {

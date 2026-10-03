@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
+import { DaysPicker } from "@/components/DaysPicker";
 import { ProGate } from "@/components/ProGate";
 import { SupportPreview } from "@/components/SupportPreview";
 import { TaskScanPanel } from "@/components/TaskScan";
@@ -35,6 +36,7 @@ export default function NewHabit() {
 
   const [title, setTitle] = useState("");
   const [slot, setSlot] = useState<Habit["slot"]>();
+  const [days, setDays] = useState<number[] | undefined>();
 
   // The same starters onboarding offers, minus the ones already on the list —
   // an empty box is the hardest place to start from.
@@ -48,7 +50,7 @@ export default function NewHabit() {
   const canSave = allowance("habits").ok;
 
   function save() {
-    const id = addHabit(title, slot);
+    const id = addHabit(title, slot, days);
     // Swap this modal for the habit's tips page in one navigation; back from
     // there returns to Today, not to this form.
     if (id) {
@@ -135,6 +137,11 @@ export default function NewHabit() {
               />
             ))}
           </View>
+        </View>
+
+        <View style={{ gap: space.sm }}>
+          <Text style={[type.label, { color: colors.inkFaint }]}>{t.habit.daysTitle}</Text>
+          <DaysPicker value={days} onChange={setDays} />
         </View>
 
         <View style={{ flex: 1 }} />

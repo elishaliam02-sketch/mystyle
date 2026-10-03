@@ -47,6 +47,19 @@ check("a habit changed this week is given the week", suggestAdjustment({ ...base
 check("one changed long ago can be looked at again", suggestAdjustment({ ...base, habits: [{ ...base.habits[0]!, updatedAt: `${ago(9)}T20:00:00Z` }, base.habits[1]!] })?.kind === "smaller");
 check("an updatedAt from the day it was made does not count as a change", suggestAdjustment({ ...base, habits: [{ ...base.habits[0]!, updatedAt: `${ago(20)}T09:00:00Z` }, base.habits[1]!] })?.kind === "smaller");
 
+// --- a habit with rest days is judged on the days it was owed
+{
+  // 2026-10-03 is a Saturday: this week's Mon/Wed/Fri are 28/9, 30/9, 2/10.
+  const gym = { id: "gym", title: "חדר כושר", slot: "evening" as const, days: [1, 3, 5], createdAt: ago(20) };
+  const water = base.habits[1]!;
+  const kept = suggestAdjustment({ ...base, habits: [gym, water], doneDates: { gym: ["2026-09-28", "2026-09-30", "2026-10-02"], water: base.doneDates.water! } });
+  check("three of three gym days is not \"struggling\" (it used to read 3/7)", kept === null, JSON.stringify(kept));
+  const missed = suggestAdjustment({ ...base, habits: [gym, water], doneDates: { gym: [], water: base.doneDates.water! } });
+  check("none of its days is", missed?.habitId === "gym", JSON.stringify(missed));
+  const once = suggestAdjustment({ ...base, habits: [{ ...gym, days: [6] }, water], doneDates: { gym: [], water: base.doneDates.water! } });
+  check("a once-a-week habit is not judged on one day", once === null, JSON.stringify(once));
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

@@ -24,6 +24,7 @@ import {
 } from "@/health/composition";
 import { useAutoSteps } from "@/health/pedometer";
 import { fitsBudget, shrinkPhoto } from "@/health/webPhoto";
+import { dueCount, dueOn } from "@/habits/schedule";
 import { comparePhotos, photoDue, photoWeeks, photoWeight } from "@/health/journey";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
@@ -65,7 +66,7 @@ function Heatmap() {
   const todayKey = days[days.length - 1];
   const share = (d: string) => {
     const done = counts.get(d) ?? 0;
-    const owed = active.filter((h) => h.createdAt <= d).length;
+    const owed = dueCount(active, d);
     return done === 0 ? 0 : Math.min(1, done / Math.max(1, owed));
   };
 
@@ -304,7 +305,8 @@ export default function ProgressScreen() {
   const activeHabits = state.habits.filter((h) => !h.archived);
   const window7 = Array.from({ length: 7 }, (_, i) => daysAgo(i));
   const perHabit = activeHabits.map((h) => {
-    const eligible = window7.filter((d) => d >= h.createdAt);
+    // The days it was owed — a rest day is not a day missed.
+    const eligible = window7.filter((d) => dueOn(h, d));
     return {
       title: h.title,
       doneDays: eligible.filter((d) => isDone(h.id, d)).length,
