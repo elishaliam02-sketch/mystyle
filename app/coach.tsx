@@ -1,3 +1,4 @@
+import { isolateRanges } from "@/i18n/bidi";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
@@ -284,7 +285,7 @@ export default function CoachScreen() {
                   { color: mine ? colors.onAccent : colors.ink },
                 ]}
               >
-                {turn.text}
+                {isolateRanges(turn.text)}
               </Text>
               {turn.route ? (
                 <Pressable

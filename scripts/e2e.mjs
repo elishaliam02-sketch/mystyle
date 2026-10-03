@@ -233,7 +233,8 @@ await page.getByPlaceholder(/ס.מ/).first().press("Enter"); await settle();
 // 7b) PROGRESS — a body-fat estimate appears once sex + waist are known
 await page.getByRole("button",{name:"גבר",exact:true}).first().click(); await settle();
 check("a body-fat estimate is shown from waist, height and sex",
-  await page.getByText(/יעד ל.* [0-9]+.[0-9]+%/).first().isVisible().catch(()=>false));
+  // The range sits inside direction marks (src/i18n/bidi.ts) so it reads 15–20, not 20–15.
+  await page.getByText(/יעד ל.* \u2066?[0-9]+.[0-9]+\u2069?%/).first().isVisible().catch(()=>false));
 
 // 8) PROGRESS — an absurd value is refused
 await page.getByPlaceholder(/ס.\u05de/).first().fill("9999"); await page.waitForTimeout(200);

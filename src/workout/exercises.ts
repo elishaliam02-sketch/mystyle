@@ -1,3 +1,4 @@
+import { isolateDeep } from "@/i18n/bidi";
 /**
  * The exercise library — bundled on the device, so the training feature works
  * offline and costs nothing. Each exercise carries how to do it in both
@@ -35,7 +36,7 @@ const E = (
   compound: boolean, howHe: string[], howEn: string[], yt: string,
 ): Exercise => ({ id, he, en, muscle, equipment, compound, howHe, howEn, yt });
 
-export const EXERCISES: Exercise[] = [
+export const EXERCISES: Exercise[] = isolateDeep([
   // -- chest
   E("bench-press", "לחיצת חזה במוט", "Barbell bench press", "chest", "barbell", true,
     ["שכב על הספסל, אחיזה מעט רחבה מהכתפיים", "הורד את המוט לחזה ודחוף בשליטה כלפי מעלה", "שמור כתפיים צמודות לספסל והמותניים על הספסל"],
@@ -831,7 +832,7 @@ export const EXERCISES: Exercise[] = [
     ["חצי סקוואט, חבל בכל יד", "הכה גלים מהירים לזמן קצוב"],
     ["Half squat, a rope in each hand", "Drive fast waves for a set time"],
     "battle ropes form"),
-];
+]);
 
 /** Everyday muscle groups that a plan cycles through. */
 export const MUSCLES: Muscle[] = [

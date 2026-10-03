@@ -14,13 +14,16 @@ import { I18nManager, Platform } from "react-native";
 import { notify } from "@/ui/confirm";
 import { en } from "./en";
 import { he } from "./he";
+import { isolateDeep } from "./bidi";
 
 export { formatDate } from "./date";
 
 export type Locale = "he" | "en";
 export type Dict = typeof he;
 
-const DICTS: Record<Locale, Dict> = { he, en };
+// Hebrew strings with a number range ("2–3 פעמים") are isolated once, here,
+// so every screen reads them in order (see ./bidi).
+const DICTS: Record<Locale, Dict> = { he: isolateDeep(he), en };
 const STORAGE_KEY = "mystyle.locale";
 
 function deviceLocale(): Locale {
@@ -32,6 +35,7 @@ function deviceLocale(): Locale {
  *   fill(t.today.doneCount, { done: 2, total: 3 })
  */
 export { fill } from "./fill";
+export { isolateRanges } from "./bidi";
 
 type I18nValue = {
   t: Dict;

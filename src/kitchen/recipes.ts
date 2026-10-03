@@ -1,3 +1,4 @@
+import { isolateDeep } from "@/i18n/bidi";
 /**
  * The recipe book: how to make every dish in the kitchen, step by step.
  *
@@ -41,7 +42,7 @@ const R = (
   tip: tip ? { he: tip[0], en: tip[1] } : undefined,
 });
 
-export const RECIPES: Record<string, Recipe> = {
+export const RECIPES: Record<string, Recipe> = isolateDeep({
   // ─── breakfast ───
   "omelette-salad": R(10, 1, ["quick", "budget"],
     [
@@ -2277,7 +2278,7 @@ export const RECIPES: Record<string, Recipe> = {
       ["עם יוגורט: כף יוגורט קר מעל.", "With yogurt: a spoon of cold yogurt on top."],
       ["במיקרו: 4 דקות מכוסה.", "Microwave: 4 minutes, covered."],
     ]),
-};
+});
 
 /** The recipe for a library meal, or null for a plate built from the fridge. */
 export function recipeOf(mealId: string): Recipe | null {
@@ -2285,7 +2286,10 @@ export function recipeOf(mealId: string): Recipe | null {
 }
 
 /** Minutes in a step's text ("אופים 20 דקות", "bake 20 minutes"), for a step timer. */
-export function stepMinutes(step: string): number | null {
+export function stepMinutes(text: string): number | null {
+  // Ranges in Hebrew steps carry direction marks (see @/i18n/bidi); they are
+  // not part of the number.
+  const step = text.replace(/[\u2066-\u2069]/g, "");
   const m = /(\d+)(?:\s*[–-]\s*(\d+))?\s*(?:דקות|דקה|minutes?|min)\b/i.exec(step) ?? /(\d+)(?:\s*[–-]\s*(\d+))?\s*דקות/.exec(step);
   if (!m) return null;
   const n = Number(m[2] ?? m[1]);

@@ -1,3 +1,4 @@
+import { isolateRanges } from "@/i18n/bidi";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
@@ -155,7 +156,7 @@ export default function HelpScreen() {
               {turn.from === "guide" && turn.title ? (
                 <Text style={[type.bodyStrong, { color: colors.ink }]}>{turn.title}</Text>
               ) : null}
-              <Text style={[type.body, { color: mine ? colors.onAccent : colors.ink }]}>{turn.text}</Text>
+              <Text style={[type.body, { color: mine ? colors.onAccent : colors.ink }]}>{isolateRanges(turn.text)}</Text>
               {turn.from === "guide" && turn.route ? (
                 <Pressable
                   onPress={() => router.push(turn.route as Href)}

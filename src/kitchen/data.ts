@@ -19,6 +19,7 @@
  * generated image.
  */
 
+import { isolateDeep } from "@/i18n/bidi";
 import { NUTRITION as BASE_NUTRITION, type Per100, type Per100Row } from "./nutrition";
 import { BASE_FOOD_PHOTO, EXTRA_FOODS } from "./foods2";
 
@@ -335,7 +336,7 @@ const M = (
   photo: string,
 ): Meal => ({ id, he, en, uses, slot, notes, kcal: 0, protein: 0, photo });
 
-export const MEALS: Meal[] = [
+export const MEALS: Meal[] = isolateDeep([
   M("omelette-salad",
     { title: "חביתה עם סלט", how: "מטגנים 2 ביצים במעט שמן זית, לצד עגבנייה ומלפפון קצוצים." },
     { title: "Omelette with salad", how: "Two eggs in a little olive oil, with chopped tomato and cucumber." },
@@ -904,7 +905,7 @@ export const MEALS: Meal[] = [
     { title: "תפוח אפוי בקינמון", how: "תפוח חצוי, קינמון, אגוזי מלך ומעט דבש — 25 דקות בתנור." },
     { title: "Baked cinnamon apple", how: "A halved apple, cinnamon, walnuts and a little honey — 25 minutes in the oven." },
     ["apple", "cinnamon", "walnuts", "honey"], "snack", ["light", "balanced"], "baked apple cinnamon walnuts"),
-];
+]);
 
 /**
  * A sensible single portion of a food, for people who want to measure: the

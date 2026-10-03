@@ -23,9 +23,11 @@ import { StoreProvider, useStore } from "@/store";
 import { UpdatedToast } from "@/components/UpdatedToast";
 import { cameraWasInterrupted } from "@/components/MealScanner";
 import { installGlobalErrorHandler, PlainFallback, recordError } from "@/components/SafeBoundary";
+import { installTapTargets } from "@/ui/tapTargets";
 import type { ErrorBoundaryProps } from "expo-router";
 
 installGlobalErrorHandler();
+installTapTargets();
 
 /**
  * The last resort: a screen that fails to draw shows this instead of closing

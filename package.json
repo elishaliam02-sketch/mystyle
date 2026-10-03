@@ -73,6 +73,7 @@
     "test:workout": "node scripts/run-workout-tests.mjs",
     "test:adminmetrics": "node scripts/run-adminmetrics-tests.mjs",
     "test:achievements": "node scripts/run-achievements-tests.mjs",
+    "test:bidi": "node scripts/run-bidi-tests.mjs",
     "test:body": "node scripts/run-body-tests.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "test:projection": "node scripts/run-projection-tests.mjs",

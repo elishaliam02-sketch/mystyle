@@ -15,6 +15,7 @@ import { Card } from "@/components/Card";
 import { FocusCard } from "@/components/FocusCard";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
+import { isolateRanges } from "@/i18n/bidi";
 import { fill, useI18n } from "@/i18n";
 import type { Goal } from "@/kitchen";
 import { useStore } from "@/store";
@@ -972,7 +973,7 @@ function CardioCard({ goal, seed, level, equipment }: { goal: Goal; seed: string
             />
             <View style={{ flex: 1 }}>
               <Text style={[type.bodyStrong, { color: colors.ink }]} numberOfLines={1}>
-                {locale === "he" ? s.he : s.en}
+                {locale === "he" ? isolateRanges(s.he) : s.en}
               </Text>
               <Text style={[type.small, { color: colors.inkFaint }]}>
                 {s.style === "interval" ? t.workout.cardioInterval : t.workout.cardioSteady} ·{" "}
@@ -1185,7 +1186,7 @@ function ExerciseRow({ ex, sets, reps, muscleLabel, onRemove }: RowProps) {
             {name}
           </Text>
           <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={2}>
-            {muscleLabel[ex.muscle]} · {t.workout.target} {reps} · {doneCount}/{rows.length}
+            {muscleLabel[ex.muscle]} · {t.workout.target} {"\u2066"}{reps}{"\u2069"} · {doneCount}/{rows.length}
           </Text>
           {/* said in words: a bare chevron did not tell anyone the row
               holds photos of the movement and how to do it */}

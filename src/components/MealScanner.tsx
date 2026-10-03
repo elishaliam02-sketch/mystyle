@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Card } from "@/components/Card";
@@ -158,6 +158,7 @@ function MealScannerInner() {
   const [chosen, setChosen] = useState(0);
   const [mult, setMult] = useState(1);
   const router = useRouter();
+  const onCalc = usePathname() === "/calc";
 
   // The browser (an iPhone on the web version) picks or takes a photo through
   // its own file picker and reads it with the JavaScript model.
@@ -354,15 +355,18 @@ function MealScannerInner() {
               <View style={{ marginTop: space.sm }}>
                 <ProRemaining feature="mealPhoto" />
               </View>
-              <Pressable
-                onPress={() => router.push("/calc")}
-                accessibilityRole="button"
-                style={{ marginTop: space.sm }}
-              >
-                <Text style={[type.smallStrong, { color: colors.accent }]}>
-                  {t.kitchen.calcOpen} · {t.kitchen.calcHint}
-                </Text>
-              </Pressable>
+              {/* On the calculator itself, a link to the calculator goes nowhere. */}
+              {onCalc ? null : (
+                <Pressable
+                  onPress={() => router.push("/calc")}
+                  accessibilityRole="button"
+                  style={{ marginTop: space.sm }}
+                >
+                  <Text style={[type.smallStrong, { color: colors.accent }]}>
+                    {t.kitchen.calcOpen} · {t.kitchen.calcHint}
+                  </Text>
+                </Pressable>
+              )}
             </>
           ) : (
             <View style={{ marginTop: space.md }}>

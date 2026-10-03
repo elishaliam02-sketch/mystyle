@@ -96,7 +96,7 @@ export default function LicensesScreen() {
         <Card key={license} label={`${license} · ${packages.length}`}>
           <View style={{ gap: 2 }}>
             {packages.map((name) => (
-              <Text key={name} style={[type.small, { color: colors.inkSoft }]}>
+              <Text key={name} style={[type.small, { color: colors.inkSoft, writingDirection: "ltr", textAlign: "left" }]}>
                 {name}
               </Text>
             ))}
