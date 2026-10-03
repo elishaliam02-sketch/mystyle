@@ -92,6 +92,20 @@ jobs:
       # --no-verify-jwt: each function verifies its caller itself (getUser with
       # the service key), and Stripe's webhook is not a signed-in user.
       # --use-api bundles on Supabase's side, so no Docker is needed.
+      # Read-only: is the reminder sender scheduled, and how did its last runs
+      # go? (pg_cron calls the push function every minute.)
+      - name: Check the reminder sender
+        if: ${{ inputs.what != 'functions' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          q="select j.jobname, j.schedule, j.active, (select count(*) from cron.job_run_details d where d.jobid = j.jobid and d.status = 'succeeded' and d.start_time > now() - interval '1 hour') as ok_last_hour, (select count(*) from cron.job_run_details d where d.jobid = j.jobid and d.status <> 'succeeded' and d.start_time > now() - interval '1 hour') as failed_last_hour, (select count(*) from net._http_response r where r.created > now() - interval '1 hour' and r.status_code = 200) as http_200_last_hour from cron.job j where j.jobname = 'push-send'"
+          node -e 'process.stdout.write(JSON.stringify({ query: process.argv[1] }))' "$q" > body.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @body.json
+          echo
+          rm -f body.json
+
       # The web app's reminders are signed with a VAPID key pair. It is made
       # here once, the first time the push function is deployed, and kept as a
       # function secret; it is never printed, and later runs leave it alone —

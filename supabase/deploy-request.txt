@@ -6,3 +6,4 @@
 2026-10-03 redeploy with the renewed access token: admin console actions, and CORS that lets https://mystyle.expo.app reach admin, ai and billing
 2026-10-03 migration 008: habits.days — the weekdays a habit is due (null = every day)
 2026-10-03 migration 009 + push function: reminders for the web app by Web Push (VAPID key made once)
+2026-10-03 check that the reminder sender runs (read-only)
