@@ -69,7 +69,7 @@ export type DayTarget = AdaptiveTarget & {
 };
 import type { Exercise, Muscle } from "@/workout/exercises";
 import { buildPlan, freshSeed } from "@/workout/plan";
-import { dueOn, normalizeDays, streakOf } from "@/habits/schedule";
+import { addDays, dueOn, normalizeDays, streakOf } from "@/habits/schedule";
 
 /**
  * "Today" that a rewound phone clock cannot fake, together with the advanced
@@ -137,6 +137,13 @@ type Store = {
   menuEat: (slot: MealSlot, label: string) => void;
   /** Removes one logged item from today. */
   removeMeal: (id: string) => void;
+  /** What was logged on a date (YYYY-MM-DD). */
+  intakeOn: (date: string) => { items: IntakeItem[]; kcal: number; protein: number };
+  /** Logs to a date in the last week — a forgotten dinner, written the next
+   * morning. Today goes through the same guarded clock as logMeal. */
+  logMealOn: (date: string, label: string, kcal: number, protein: number, id?: string) => void;
+  /** Removes one logged item from a date in the last week. */
+  removeMealOn: (date: string, id: string) => void;
   /** Foods the person said they want to eat, newest first. */
   wishes: () => Wish[];
   /** Remembers something they want to eat. Returns false if it was already there. */
@@ -690,6 +697,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const date = toLocalDate(trustedNowMs(Date.now(), s.clockHighWaterMs ?? 0));
       const day = (s.intake?.[date] ?? []).filter((i) => i.id !== id);
       return { ...s, intake: { ...s.intake, [date]: day } };
+    });
+  }, []);
+
+  const intakeOn = useCallback(
+    (date: string) => {
+      const items = state.intake?.[date] ?? [];
+      return {
+        items,
+        kcal: items.reduce((n, i) => n + i.kcal, 0),
+        protein: items.reduce((n, i) => n + i.protein, 0),
+      };
+    },
+    [state.intake],
+  );
+
+  // A past day can be filled in, but only the last week of it: the diary is
+  // for remembering yesterday's dinner, not for rewriting a month.
+  const editableDay = (s: AppState, date: string) => {
+    const today = toLocalDate(trustedNowMs(Date.now(), s.clockHighWaterMs ?? 0));
+    const oldest = addDays(today, -6);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= oldest && date <= today;
+  };
+
+  const logMealOn = useCallback((date: string, label: string, kcal: number, protein: number, id?: string) => {
+    setState((s) => {
+      if (!editableDay(s, date)) return s;
+      const item: IntakeItem = { id: id ?? newId(), label, kcal, protein };
+      return { ...s, intake: { ...s.intake, [date]: [...(s.intake?.[date] ?? []), item] } };
+    });
+  }, []);
+
+  const removeMealOn = useCallback((date: string, id: string) => {
+    setState((s) => {
+      if (!editableDay(s, date)) return s;
+      return { ...s, intake: { ...s.intake, [date]: (s.intake?.[date] ?? []).filter((i) => i.id !== id) } };
     });
   }, []);
 
@@ -1518,6 +1560,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isFavorite,
       logMeal,
       removeMeal,
+      intakeOn,
+      logMealOn,
+      removeMealOn,
       wishes,
       addWish,
       removeWish,
@@ -1596,7 +1641,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [
       trustedDaysAgo,state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, editWeighIn, removeWeighIn, addCheckIn, weeklyConsistency,
-     readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, wishes, addWish, removeWish, todayIntake,
+     readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, intakeOn, logMealOn, removeMealOn, wishes, addWish, removeWish, todayIntake,
      addWater, todayWater, waterGoal, waterLog, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,

@@ -220,6 +220,23 @@ await page.getByPlaceholder(/מה אכלת/).first().fill(""); await settle();
 for (let i=0;i<3;i++){ const b=page.getByLabel("הסר מהיומן").first();
   if (await b.count()===0) break; await b.click(); await page.waitForTimeout(500); }
 
+// 5c) KITCHEN — yesterday's forgotten dinner: step back a day and log into it
+await page.getByRole("button",{name:"יום קודם"}).first().click(); await settle();
+check("the diary steps back to yesterday", await page.getByText("נרשם · אתמול").first().isVisible().catch(()=>false));
+check("and the quick log says where it will write", await page.getByText("נרשם ליום: אתמול").first().isVisible().catch(()=>false));
+await page.getByPlaceholder(/מה אכלת/).first().fill("אורז"); await settle();
+await page.getByRole("button",{name:"אורז",exact:true}).first().click(); await settle();
+await page.getByText("רשום ביומן").first().click(); await settle();
+{ const s=await st();
+  check("it lands on yesterday, not today", (s.intake?.[dayAgo(1)]??[]).some(i=>i.label.startsWith("אורז")) && (s.intake?.[today]??[]).length===0,
+    JSON.stringify({y:s.intake?.[dayAgo(1)], t:s.intake?.[today]})); }
+await page.getByLabel("הסר מהיומן").first().click(); await settle();
+{ const s=await st(); check("and comes off yesterday too", (s.intake?.[dayAgo(1)]??[]).length===0); }
+check("a week back is as far as it goes", await (async()=>{
+  for (let i=0;i<8;i++) { const b=page.getByRole("button",{name:"יום קודם"}).first(); if (await b.isDisabled()) return i===5; await b.click(); await page.waitForTimeout(250); }
+  return false; })());
+for (let i=0;i<7;i++){ const b=page.getByRole("button",{name:"יום הבא"}).first(); if (await b.isDisabled()) break; await b.click(); await page.waitForTimeout(200); }
+
 // 6) KITCHEN — star a meal
 await page.getByLabel("סמן מנה אהובה").first().click(); await settle();
 { const s=await st(); check("starring a meal stores a favourite", (s.favorites??[]).length===1, JSON.stringify(s.favorites)); }

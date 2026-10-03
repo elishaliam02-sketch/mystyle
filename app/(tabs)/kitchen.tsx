@@ -18,7 +18,7 @@ import { bookSize } from "@/kitchen/book";
 import { recipeOf } from "@/kitchen/recipes";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
-import { fill, useI18n } from "@/i18n";
+import { fill, formatShortDate, useI18n } from "@/i18n";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import {
@@ -65,8 +65,11 @@ export default function KitchenScreen() {
   const { t, locale } = useI18n();
   const router = useRouter();
   const { colors, space, radius, type } = useTheme();
-  const { state, setPantry, goal: goalOf, calorieTarget, setGoal, setDietFilter, mealSeed, shuffleMeals } = useStore();
+  const { state, setPantry, goal: goalOf, calorieTarget, setGoal, setDietFilter, mealSeed, shuffleMeals, dayKeyAgo } = useStore();
   const favorites = state.favorites ?? [];
+  // The diary's day: today, or up to six days back to fill in what was missed.
+  const [back, setBack] = useState(0);
+  const diaryDay = dayKeyAgo(back);
 
   // The store hydrates from disk a tick after this screen first renders, so
   // neither of these may be seeded from state: doing so snapshotted an empty
@@ -237,7 +240,7 @@ export default function KitchenScreen() {
   const dailyBlock = (
     <>
       {/* today: targets, water and the food log */}
-      <TodayCard goal={goal} />
+      <TodayCard goal={goal} day={diaryDay} back={back} onBack={setBack} />
 
 
       {/* The counting that always works, given its own way in rather than
@@ -267,7 +270,7 @@ export default function KitchenScreen() {
       </Pressable>
 
       {/* log anything you ate, not just the curated dishes */}
-      <QuickLog goalKcal={goalKcal} units={units} />
+      <QuickLog goalKcal={goalKcal} units={units} day={diaryDay} back={back} />
     </>
   );
 
@@ -633,11 +636,16 @@ function HeroBar({ pct }: { pct: number }) {
   );
 }
 
-function TodayCard(_: { goal: Goal }) {
-  const { t } = useI18n();
+/** "today", "yesterday", or the date — how the diary names the day it shows. */
+function dayName(t: ReturnType<typeof useI18n>["t"], day: string, back: number): string {
+  return back === 0 ? t.kitchen.dayToday : back === 1 ? t.kitchen.dayYesterday : formatShortDate(day, t);
+}
+
+function TodayCard({ day, back, onBack }: { goal: Goal; day: string; back: number; onBack: (n: number) => void }) {
+  const { t, isRTL } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { todayIntake, removeMeal, logMeal } = useStore();
-  const eaten = todayIntake();
+  const { intakeOn, removeMealOn, logMealOn } = useStore();
+  const eaten = intakeOn(day);
   // The last item taken off, for a few seconds: the × sits a thumb's width
   // from the row, and one stray tap used to delete a meal for good.
   const [removed, setRemoved] = useState<{ id: string; label: string; kcal: number; protein: number } | null>(null);
@@ -646,14 +654,52 @@ function TodayCard(_: { goal: Goal }) {
     const id = setTimeout(() => setRemoved(null), 7000);
     return () => clearTimeout(id);
   }, [removed]);
+  // An undo offered on one day must not land on another.
+  useEffect(() => setRemoved(null), [day]);
+
+  const MAX_BACK = 6;
+  const step = (label: string, icon: "chevron-back" | "chevron-forward", enabled: boolean, go: () => void) => (
+    <Pressable
+      onPress={go}
+      disabled={!enabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !enabled }}
+      hitSlop={6}
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: radius.pill,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.surfaceAlt,
+        opacity: enabled ? 1 : 0.35,
+      }}
+    >
+      <Ionicons name={icon} size={18} color={colors.ink} />
+    </Pressable>
+  );
 
   return (
     <>
-    <Card label={t.kitchen.loggedTitle}>
-      {/* logged today */}
+    <Card label={back === 0 ? t.kitchen.loggedTitle : fill(t.kitchen.loggedOn, { day: dayName(t, day, back) })}>
+      {/* which day: back a day sits at the start of the line, toward where
+          the reader came from, in either direction of reading */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.sm }}>
+        {step(t.kitchen.dayPrev, isRTL ? "chevron-forward" : "chevron-back", back < MAX_BACK, () => onBack(back + 1))}
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={[type.bodyStrong, { color: colors.ink }]}>{dayName(t, day, back)}</Text>
+          <Text style={[type.small, { color: colors.inkFaint }]}>
+            {fill(t.kitchen.dayTotal, { kcal: eaten.kcal.toLocaleString(), protein: eaten.protein })}
+          </Text>
+        </View>
+        {step(t.kitchen.dayNext, isRTL ? "chevron-back" : "chevron-forward", back > 0, () => onBack(back - 1))}
+      </View>
       <View style={{ gap: 6 }}>
         {eaten.items.length === 0 ? (
-          <Text style={[type.small, { color: colors.inkFaint }]}>{t.kitchen.logEmpty}</Text>
+          <Text style={[type.small, { color: colors.inkFaint }]}>
+            {back === 0 ? t.kitchen.logEmpty : t.kitchen.logEmptyPast}
+          </Text>
         ) : (
           eaten.items.map((it) => (
             <View
@@ -670,7 +716,7 @@ function TodayCard(_: { goal: Goal }) {
               <Pressable
                 onPress={() => {
                   setRemoved({ id: it.id, label: it.label, kcal: it.kcal, protein: it.protein });
-                  removeMeal(it.id);
+                  removeMealOn(day, it.id);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.kitchen.a11yRemoveItem} ${it.label}`}
@@ -699,7 +745,7 @@ function TodayCard(_: { goal: Goal }) {
             </Text>
             <Pressable
               onPress={() => {
-                logMeal(removed.label, removed.kcal, removed.protein, removed.id);
+                logMealOn(day, removed.label, removed.kcal, removed.protein, removed.id);
                 setRemoved(null);
               }}
               accessibilityRole="button"
@@ -770,11 +816,11 @@ function ShoppingCard({ items }: { items: ShoppingItem[] }) {
  * a half, two portions, or any weight — with the calories worked out live, and
  * the diary line says how much ("חזה עוף · 225 ג'").
  */
-function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
+function QuickLog({ goalKcal, units, day, back }: { goalKcal: number; units: Units; day: string; back: number }) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const { colors, space, radius, type, font } = useTheme();
-  const { logMeal, todayIntake } = useStore();
+  const { logMealOn, intakeOn } = useStore();
   const [q, setQ] = useState("");
   // Tapping a hit clears the box, which takes the whole list off screen, and
   // the diary it wrote to is further up the page — so the answer to the tap
@@ -785,7 +831,7 @@ function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
   const [typedGrams, setTypedGrams] = useState("");
 
   const hits = useMemo(() => searchFoods(q, 8), [q]);
-  const eaten = todayIntake();
+  const eaten = intakeOn(day);
   const nameOf = (f: Food) => (locale === "he" ? f.he : f.en);
   const amountText = (f: Food) => {
     const p = portion(f.id);
@@ -808,7 +854,7 @@ function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
   function commit() {
     if (!picked || grams <= 0) return;
     const label = `${nameOf(picked)} · ${grams} ${t.kitchen.gram}`;
-    logMeal(label, n.kcal, n.protein);
+    logMealOn(day, label, n.kcal, n.protein);
     setLogged(label);
     setPicked(null);
     setQ("");
@@ -819,6 +865,13 @@ function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
   return (
     <Card label={t.kitchen.quickTitle}>
       <Text style={[type.small, { color: colors.inkSoft }]}>{t.kitchen.quickHint}</Text>
+      {/* Filling in a past day is deliberate, so it says so: a lunch logged
+          into yesterday by mistake would quietly vanish from today. */}
+      {back > 0 ? (
+        <Text style={[type.smallStrong, { color: colors.orangeInk, marginTop: 4 }]}>
+          {fill(t.kitchen.logInto, { day: dayName(t, day, back) })}
+        </Text>
+      ) : null}
       <View style={{ marginTop: space.sm }}>
         <TextField
           value={q}
@@ -833,7 +886,10 @@ function QuickLog({ goalKcal, units }: { goalKcal: number; units: Units }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
           <Text style={[type.smallStrong, { color: colors.accent, flex: 1 }]}>
-            {logged} · {fill(t.kitchen.loggedToast, { kcal: eaten.kcal, goal: goalKcal })}
+            {logged} ·{" "}
+            {back === 0
+              ? fill(t.kitchen.loggedToast, { kcal: eaten.kcal, goal: goalKcal })
+              : fill(t.kitchen.loggedPast, { day: dayName(t, day, back), kcal: eaten.kcal })}
           </Text>
         </View>
       ) : null}
