@@ -326,20 +326,43 @@ export type Goal = "cut" | "maintain" | "bulk" | "recomp";
 
 export type DailyTarget = { kcal: number; protein: number };
 
+/** What the body formula needs; any of it may be missing. */
+export type BodyFacts = { heightCm?: number; sex?: "male" | "female"; age?: number };
+
+/** Everyday life without training: workouts and steps are added on top of
+ * the day separately (activityBonus), so they are not counted twice here. */
+const DAILY_LIFE = 1.35;
+
 /**
- * A day's calorie and protein target from the person's weight and goal. A rough
- * coach's rule, not a clinical figure: maintenance is about 30 kcal per kilo,
- * a cut trims it, a bulk adds to it; protein is set per kilo, higher when the
- * aim is to hold muscle while losing fat. With no weight yet, a sane default
- * keeps the ring meaningful rather than blank.
+ * A day's calorie and protein target.
+ *
+ * With height and sex known it is the Mifflin–St Jeor estimate of what this
+ * body burns at rest, times everyday life; otherwise the coach's rule of about
+ * 30 kcal a kilo. The rule alone gave an 85 kg woman of 168 cm about 360 kcal
+ * a day more than her body uses, so a cut lost nothing for the two weeks it
+ * takes the adaptive target to notice. A cut takes a fifth off (300–500
+ * kcal), a bulk adds 300. Protein is set per kilo of a healthy weight for the
+ * height — 2 g a kilo of a 120 kg frame was 240 g, which nobody eats — and is
+ * higher when holding muscle while losing fat. The adaptive target then
+ * corrects all of this, week by week, from the scale.
  */
-export function dailyTarget(weightKg: number | undefined, goal: Goal): DailyTarget {
+export function dailyTarget(weightKg: number | undefined, goal: Goal, body: BodyFacts = {}): DailyTarget {
   const w = weightKg && weightKg > 0 ? weightKg : 70;
-  const maintenance = Math.round(w * 30);
-  const kcal =
-    goal === "cut" ? maintenance - 400 : goal === "bulk" ? maintenance + 350 : maintenance;
+  const h = body.heightCm && body.heightCm >= 120 && body.heightCm <= 230 ? body.heightCm : undefined;
+  let maintenance: number;
+  if (h && body.sex) {
+    const age = body.age && body.age >= 14 && body.age <= 100 ? body.age : 35;
+    const bmr = 10 * w + 6.25 * h - 5 * age + (body.sex === "male" ? 5 : -161);
+    maintenance = Math.round((bmr * DAILY_LIFE) / 10) * 10;
+  } else {
+    maintenance = Math.round(w * 30);
+  }
+  const deficit = Math.min(500, Math.max(300, Math.round((maintenance * 0.2) / 50) * 50));
+  const kcal = goal === "cut" ? maintenance - deficit : goal === "bulk" ? maintenance + 300 : maintenance;
+  const floor = body.sex === "male" ? 1500 : 1200;
+  const reference = h ? Math.min(w, 25 * (h / 100) ** 2) : w;
   const proteinPerKg = goal === "cut" || goal === "recomp" ? 2.0 : 1.8;
-  return { kcal: Math.max(1200, kcal), protein: Math.round(w * proteinPerKg) };
+  return { kcal: Math.max(floor, kcal), protein: Math.round(reference * proteinPerKg) };
 }
 
 /** Dietary filters the kitchen can apply to what it suggests. */

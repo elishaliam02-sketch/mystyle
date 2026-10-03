@@ -14,6 +14,7 @@
  * never silently invents a state that was never on any device. Pure and tested;
  * the transport lives in backupPort.ts.
  */
+import { isBirthYear, isHeightCm } from "@/health";
 import type { AppState } from "@/store/types";
 
 /** The state keys backed up as a blob — the ones the granular sync omits. */
@@ -39,7 +40,11 @@ export const BACKUP_KEYS = [
 ] as const;
 
 export type BackupKey = (typeof BACKUP_KEYS)[number];
-export type BackupBundle = Partial<Pick<AppState, BackupKey>>;
+/** The profile's device-only facts. The profile itself syncs as a row that
+ * holds only the name and weights, so without these a restored phone lost the
+ * height (which guards the goal weight), the sex and the age. */
+export type ProfileExtras = { heightCm?: number; sex?: "male" | "female"; birthYear?: number };
+export type BackupBundle = Partial<Pick<AppState, BackupKey>> & { profileExtras?: ProfileExtras };
 
 /** The bundle to upload: exactly the backed-up keys that are set. */
 export function backupBundle(state: AppState): BackupBundle {
@@ -47,6 +52,14 @@ export function backupBundle(state: AppState): BackupBundle {
   for (const key of BACKUP_KEYS) {
     const v = state[key];
     if (v !== undefined) (out as Record<string, unknown>)[key] = v;
+  }
+  const { heightCm, sex, birthYear } = state.profile;
+  if (heightCm !== undefined || sex !== undefined || birthYear !== undefined) {
+    out.profileExtras = {
+      ...(heightCm !== undefined ? { heightCm } : {}),
+      ...(sex !== undefined ? { sex } : {}),
+      ...(birthYear !== undefined ? { birthYear } : {}),
+    };
   }
   return out;
 }
@@ -168,6 +181,17 @@ export function applyBackup(state: AppState, bundle: BackupBundle): AppState {
     if (!Object.hasOwn(bundle, key)) continue;
     const value = (bundle as Record<string, unknown>)[key];
     if (SHAPE[key](value)) (next as Record<string, unknown>)[key] = value;
+  }
+  // The device-only profile facts fill gaps and never overwrite: what this
+  // phone already knows was typed on it.
+  const raw = (bundle as { profileExtras?: unknown }).profileExtras;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const extras = raw as Record<string, unknown>;
+    const p = { ...next.profile };
+    if (p.heightCm === undefined && typeof extras.heightCm === "number" && isHeightCm(extras.heightCm)) p.heightCm = extras.heightCm;
+    if (p.sex === undefined && (extras.sex === "male" || extras.sex === "female")) p.sex = extras.sex;
+    if (p.birthYear === undefined && typeof extras.birthYear === "number" && isBirthYear(extras.birthYear)) p.birthYear = extras.birthYear;
+    next.profile = p;
   }
   return next;
 }

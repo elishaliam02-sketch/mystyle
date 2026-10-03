@@ -47,7 +47,7 @@ import {
 import { demoLink, searchUrl } from "@/workout/video";
 import { entitlement as entitlementOf, trialEndsAt, TRIAL_DAYS, type Entitlement } from "@/billing/plans";
 import { check, type Feature, type Verdict } from "@/billing/gate";
-import { isHeightCm, isStorableGoal } from "@/health";
+import { isBirthYear, isHeightCm, isStorableGoal } from "@/health";
 import {
   clampSteps,
   DEFAULT_STEP_GOAL,
@@ -342,6 +342,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (next.heightCm !== undefined && !isHeightCm(next.heightCm)) {
         next.heightCm = s.profile.heightCm;
       }
+      if (next.birthYear !== undefined && !isBirthYear(next.birthYear)) {
+        next.birthYear = s.profile.birthYear;
+      }
       if (next.goalKg !== undefined) {
         const currentKg = latestWeighIn(s)?.kg ?? s.profile.startKg;
         if (!isStorableGoal(next.goalKg, currentKg, next.heightCm)) {
@@ -612,6 +615,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       goalSince: state.goalSince ?? null,
       fallbackKg: state.profile.startKg,
       today,
+      body: {
+        heightCm: state.profile.heightCm,
+        sex: state.profile.sex,
+        age: state.profile.birthYear ? Number(today.slice(0, 4)) - state.profile.birthYear : undefined,
+      },
     });
     const kg = latestWeighIn(state)?.kg ?? state.profile.startKg ?? 70;
     const workoutKcal = readHistory(state.training?.history)

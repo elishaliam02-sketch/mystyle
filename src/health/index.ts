@@ -39,6 +39,16 @@ export function isHeightCm(cm: number): boolean {
   return Number.isFinite(cm) && cm >= MIN_HEIGHT_CM && cm <= MAX_HEIGHT_CM;
 }
 
+/** The youngest and oldest ages the app plans for (the terms set 16 as the
+ * minimum; a little room either side for a typo being fixed). */
+export const MIN_AGE = 14;
+export const MAX_AGE = 100;
+
+/** A believable year of birth for someone using the app this year. */
+export function isBirthYear(year: number, nowYear: number = new Date().getFullYear()): boolean {
+  return Number.isInteger(year) && year >= nowYear - MAX_AGE && year <= nowYear - MIN_AGE;
+}
+
 /** Body mass index, or null when the height is unknown or unusable. */
 export function bmi(kg: number, heightCm?: number): number | null {
   if (!heightCm || !isHeightCm(heightCm) || !Number.isFinite(kg) || kg <= 0) return null;

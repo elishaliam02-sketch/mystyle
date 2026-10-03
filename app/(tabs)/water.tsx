@@ -81,7 +81,7 @@ export default function WaterScreen() {
     <Screen title={t.water.heading} subtitle={t.water.body}>
       <HeroCard>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-          <WaterBottle fill={pct} met={cups >= goal} width={92} height={186} onHero />
+          <WaterBottle fill={pct} met={drunk >= goal} width={92} height={186} onHero />
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={[type.figure, { color: ON_HERO, fontSize: 44 }]}>
               {litres(drunk)}

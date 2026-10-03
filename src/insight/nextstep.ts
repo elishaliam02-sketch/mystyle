@@ -22,6 +22,7 @@ export type NextKind =
   | "workout"
   | "recap"
   | "eatMore"
+  | "bodyFacts"
   | "allDone";
 
 export type NextStep = {
@@ -55,6 +56,9 @@ export type NextInput = {
     perWeek: number;
   };
   recapDoneToday: boolean;
+  /** Height, sex and age are all known (the calorie target is calculated,
+   * not guessed). Missing: a quiet nudge to fill them in. */
+  bodyKnown?: boolean;
 };
 
 /** The waking day the water pace is spread over. */
@@ -125,6 +129,9 @@ export function nextSteps(input: NextInput, limit = 3): NextStep[] {
 
   // The evening recap, once the day is mostly done.
   if (hour >= 20 && !input.recapDoneToday) out.push({ kind: "recap", priority: hour >= 21 ? 85 : 62 });
+
+  // The least urgent thing on the card, so it never pushes a real task off it.
+  if (input.bodyKnown === false) out.push({ kind: "bodyFacts", priority: 20 });
 
   if (out.length === 0) return [{ kind: "allDone", priority: 0 }];
   return out.sort((a, b) => b.priority - a.priority).slice(0, limit);

@@ -45,6 +45,8 @@ export default function Onboarding() {
   const [currentKg, setCurrentKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [goalKg, setGoalKg] = useState("");
+  const [sex, setSex] = useState<"male" | "female" | undefined>(state.profile.sex);
+  const [age, setAge] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [habit, setHabit] = useState("");
   // Null is a real answer here — "no daily challenge" — so it is not the same
@@ -94,10 +96,15 @@ export default function Onboarding() {
     // already has a challenge on it — arriving to an empty card and being told
     // to come back tomorrow is a poor first minute.
     if (level) setChallengeLevel(level);
+    const years = num(age);
     saveProfile({
       name: name.trim(),
       goalKg: num(goalKg),
       heightCm: heightOf(heightCm),
+      ...(sex ? { sex } : {}),
+      // Stored as a year so it stays right next birthday; saveProfile refuses
+      // a year that makes no sense.
+      ...(years !== undefined && Number.isFinite(years) ? { birthYear: new Date().getFullYear() - Math.round(years) } : {}),
       onboarded: true,
     });
     const kg = num(currentKg);
@@ -190,6 +197,43 @@ export default function Onboarding() {
               placeholder={t.profile.heightPlaceholder}
               keyboardType="numeric"
             />
+            <View style={{ gap: space.xs }}>
+              <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>
+                {t.onboarding.sexTitle}
+              </Text>
+              <View style={{ flexDirection: "row", gap: space.xs }}>
+                {(
+                  [
+                    ["female", t.progress.sexFemale],
+                    ["male", t.progress.sexMale],
+                  ] as const
+                ).map(([id, label]) => (
+                  <SelectTile
+                    key={id}
+                    selected={sex === id}
+                    onPress={() => setSex(id)}
+                    style={{
+                      flex: 1,
+                      borderRadius: radius.md,
+                      paddingVertical: 12,
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: sex === id ? colors.accent : colors.rule,
+                    }}
+                  >
+                    <Text style={[type.smallStrong, { color: sex === id ? colors.onAccent : colors.ink }]}>{label}</Text>
+                  </SelectTile>
+                ))}
+              </View>
+            </View>
+            <TextField
+              value={age}
+              onChangeText={setAge}
+              label={t.onboarding.age}
+              placeholder="0"
+              keyboardType="numeric"
+            />
+            <Text style={[type.small, { color: colors.inkFaint, marginTop: -space.sm }]}>{t.onboarding.ageHint}</Text>
             <TextField
               value={goalKg}
               onChangeText={(v) => {

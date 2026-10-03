@@ -40,6 +40,9 @@ import {
   isHeightCm,
   MAX_HEIGHT_CM,
   MIN_HEIGHT_CM,
+  isBirthYear,
+  MIN_AGE,
+  MAX_AGE,
 } from "@/health";
 import { useI18n, type Locale, fill } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
@@ -61,7 +64,7 @@ const LOCALES: { id: Locale; label: string }[] = [
 export default function ProfileScreen() {
   const { t, locale, setLocale } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, saveProfile, reset } = useStore();
+  const { state, saveProfile, reset, setSex } = useStore();
   const reminders = useReminders();
   const cloud = useCloud();
   const router = useRouter();
@@ -72,6 +75,8 @@ export default function ProfileScreen() {
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [height, setHeight] = useState("");
+  const [age, setAge] = useState("");
+  const thisYear = new Date().getFullYear();
   const [note, setNote] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   // Set once someone asks for a goal below the healthy floor, and left set:
@@ -81,12 +86,14 @@ export default function ProfileScreen() {
   const dirty =
     name.trim() !== (state.profile.name ?? "").trim() ||
     goal.trim() !== (state.profile.goalKg ? String(state.profile.goalKg) : "") ||
-    height.trim() !== (state.profile.heightCm ? String(state.profile.heightCm) : "");
+    height.trim() !== (state.profile.heightCm ? String(state.profile.heightCm) : "") ||
+    age.trim() !== (state.profile.birthYear ? String(thisYear - state.profile.birthYear) : "");
   useEffect(() => {
     if (state.profile.name) setName(state.profile.name);
     if (state.profile.goalKg) setGoal(String(state.profile.goalKg));
     if (state.profile.heightCm) setHeight(String(state.profile.heightCm));
-  }, [state.profile.name, state.profile.goalKg, state.profile.heightCm]);
+    if (state.profile.birthYear) setAge(String(thisYear - state.profile.birthYear));
+  }, [state.profile.name, state.profile.goalKg, state.profile.heightCm, state.profile.birthYear, thisYear]);
 
   // The weight the goal is judged against: the last time they stepped on a
   // scale, or the figure they started with.
@@ -101,6 +108,11 @@ export default function ProfileScreen() {
     const cm = height.trim() ? Number(height.replace(",", ".")) : undefined;
     if (cm !== undefined && !isHeightCm(cm)) {
       setNote(fill(t.profile.heightRange, { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM }));
+      return;
+    }
+    const years = age.trim() ? Math.round(Number(age.replace(",", "."))) : undefined;
+    if (years !== undefined && !isBirthYear(thisYear - years)) {
+      setNote(fill(t.profile.ageRange, { min: MIN_AGE, max: MAX_AGE }));
       return;
     }
     const kg = goal.trim() ? Number(goal.replace(",", ".")) : undefined;
@@ -128,7 +140,7 @@ export default function ProfileScreen() {
         return;
       }
     }
-    saveProfile({ name: name.trim(), goalKg: kg, heightCm: cm });
+    saveProfile({ name: name.trim(), goalKg: kg, heightCm: cm, ...(years !== undefined ? { birthYear: thisYear - years } : {}) });
     setNote(t.profile.savedNote);
   }
 
@@ -178,6 +190,29 @@ export default function ProfileScreen() {
               placeholder={t.profile.heightPlaceholder}
               keyboardType="numeric"
             />
+            <View style={{ flexDirection: "row", gap: space.sm, alignItems: "flex-end" }}>
+              <View style={{ flex: 1 }}>
+                <TextField
+                  value={age}
+                  onChangeText={(v) => { setAge(v); if (note) setNote(null); }}
+                  label={t.profile.ageTitle}
+                  placeholder="0"
+                  keyboardType="numeric"
+                />
+              </View>
+              {(["female", "male"] as const).map((id) => (
+                <SelectTile
+                  key={id}
+                  selected={state.profile.sex === id}
+                  onPress={() => setSex(id)}
+                  style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 2 }}
+                >
+                  <Text style={[type.smallStrong, { color: state.profile.sex === id ? colors.onAccent : colors.ink }]}>
+                    {id === "female" ? t.progress.sexFemale : t.progress.sexMale}
+                  </Text>
+                </SelectTile>
+              ))}
+            </View>
             <TextField
               value={goal}
               onChangeText={(v) => { setGoal(v); if (note) setNote(null); }}

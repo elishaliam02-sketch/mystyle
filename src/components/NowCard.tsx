@@ -64,6 +64,7 @@ export function NowCard() {
       perWeek: state.training?.days ?? 0,
     },
     recapDoneToday: state.checkIns.some((c) => c.date === today),
+    bodyKnown: !!(state.profile.heightCm && state.profile.sex && state.profile.birthYear),
   });
 
   type View_ = { icon: keyof typeof Ionicons.glyphMap; text: string; cta?: string; act?: () => void; go?: string };
@@ -83,6 +84,8 @@ export function NowCard() {
         return { icon: "scale-outline", text: s.amount == null ? t.now.weighFirst : fill(t.now.weighIn, { days: s.amount }), cta: t.now.weighCta, go: "/progress" };
       case "workout":
         return { icon: "barbell", text: s.amount === 1 ? t.now.workoutOne : fill(t.now.workout, { n: s.amount ?? 1 }), cta: t.now.workoutCta, go: "/workout" };
+      case "bodyFacts":
+        return { icon: "person-circle-outline", text: t.now.bodyFacts, cta: t.now.bodyFactsCta, go: "/profile" };
       case "recap":
         return { icon: "chatbubble-ellipses-outline", text: t.now.recap, cta: t.now.recapCta, go: "/checkin" };
       default:

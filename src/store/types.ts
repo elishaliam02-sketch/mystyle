@@ -132,6 +132,9 @@ export type Profile = {
   /** Sex, for the body-fat estimate (the RFM formula needs it). Optional — the
    * progress corner asks for it only when the person wants a body-fat reading. */
   sex?: "male" | "female";
+  /** Year of birth, for the calorie estimate (age moves the resting burn).
+   * A year rather than an age so it stays right without being asked again. */
+  birthYear?: number;
   onboarded: boolean;
   /** Whether daily reminders are scheduled on this device. */
   reminders?: boolean;

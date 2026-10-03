@@ -17,7 +17,7 @@
  * goal change starts the learning over: last month's cut says nothing about
  * this month's bulk.
  */
-import { dailyTarget, type DailyTarget, type Goal } from "./index";
+import { dailyTarget, type BodyFacts, type DailyTarget, type Goal } from "./index";
 
 export type WeighInLike = { date: string; kg: number };
 
@@ -86,11 +86,13 @@ export function adaptiveTarget(opts: {
   fallbackKg?: number;
   /** Today, YYYY-MM-DD. */
   today: string;
+  /** Height, sex and age, for the starting estimate. */
+  body?: BodyFacts;
 }): AdaptiveTarget {
   const { goal, goalSince, today } = opts;
   const all = [...opts.weighIns].filter((w) => w.kg > 0).sort((a, b) => a.date.localeCompare(b.date));
   const latestKg = all.at(-1)?.kg ?? opts.fallbackKg;
-  const base = dailyTarget(latestKg, goal);
+  const base = dailyTarget(latestKg, goal, opts.body);
   const pts = all
     .filter((w) => !goalSince || w.date >= goalSince)
     .map((w) => ({ t: dayNum(w.date), kg: w.kg }));

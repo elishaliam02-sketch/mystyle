@@ -63,6 +63,10 @@ check("the same moment, the same answer", JSON.stringify(nextSteps(base)) === JS
 const hours = new Set([7, 10, 13, 16, 19, 22].map((h) => kinds({ hour: h, habits: base.habits }).join()));
 check("the card changes through the day", hours.size >= 4, [...hours].join(" / "));
 
+check("missing body facts: a quiet nudge", kinds({ ...quiet, bodyKnown: false }).includes("bodyFacts"));
+check("and it never leads over a real task", nextSteps({ ...base, bodyKnown: false })[0]!.kind !== "bodyFacts");
+check("known: no nudge", !kinds({ ...quiet, bodyKnown: true }).includes("bodyFacts"));
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

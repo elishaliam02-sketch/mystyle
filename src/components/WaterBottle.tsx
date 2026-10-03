@@ -42,7 +42,9 @@ export function WaterBottle({ fill, met, width = 74, height = 150, onHero = fals
   const cavity = bottom - top;
   const waterHeight = level.interpolate({ inputRange: [0, 1], outputRange: [0, cavity] });
   const waterY = level.interpolate({ inputRange: [0, 1], outputRange: [bottom, top] });
-  const waterColor = onHero ? ON_HERO : met ? colors.accentDeep : colors.accent;
+  // On the hero the water is white until the goal is met, then lime — the one
+  // bright that reads on the band, the same as a full day-score ring.
+  const waterColor = onHero ? (met ? colors.lime : ON_HERO) : met ? colors.accentDeep : colors.accent;
   const glassColor = onHero ? "rgba(255,255,255,0.55)" : colors.ruleStrong;
   const topO = onHero ? "0.85" : "0.95";
   const botO = onHero ? "0.45" : "0.65";

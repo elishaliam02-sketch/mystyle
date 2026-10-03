@@ -115,6 +115,20 @@ const state = (over: Partial<AppState> = {}): AppState => ({ ...EMPTY_STATE, ...
   check("restoring sets the backed-up field", after.stepGoal === 9000);
 }
 
+// --- the device-only profile facts travel with the backup
+{
+  const phone = state({ profile: { name: "A", onboarded: true, heightCm: 168, sex: "female", birthYear: 1990 } });
+  const blob = backupBundle(phone);
+  check("height, sex and birth year are in the backup", blob.profileExtras?.heightCm === 168 && blob.profileExtras?.sex === "female" && blob.profileExtras?.birthYear === 1990);
+  const fresh = applyBackup(state({ profile: { name: "A", onboarded: true } }), blob);
+  check("a new phone gets them back", fresh.profile.heightCm === 168 && fresh.profile.sex === "female" && fresh.profile.birthYear === 1990);
+  const typed = applyBackup(state({ profile: { name: "A", onboarded: true, heightCm: 170 } }), blob);
+  check("what this phone already has is not overwritten", typed.profile.heightCm === 170 && typed.profile.sex === "female");
+  const junk = applyBackup(state({ profile: { name: "A", onboarded: true } }), { profileExtras: { heightCm: 9999, sex: "x", birthYear: 1066 } } as never);
+  check("nonsense in a backup is refused", junk.profile.heightCm === undefined && junk.profile.sex === undefined && junk.profile.birthYear === undefined);
+  check("no facts, no extras", backupBundle(state()).profileExtras === undefined);
+}
+
 // --- signature detects change
 {
   check("the same bundle has the same signature",

@@ -371,6 +371,19 @@ const ids = (list: { id: string }[]) => list.map((f) => f.id).sort();
   check("a cut sets higher protein per kilo than a bulk", cut.protein > bulk.protein);
   check("no weight still yields a usable target", dailyTarget(undefined, "maintain").kcal >= 1200);
   check("targets never drop below a floor", dailyTarget(30, "cut").kcal >= 1200);
+
+  // With the body known: Mifflin–St Jeor instead of 30 kcal a kilo.
+  const woman = dailyTarget(85, "cut", { heightCm: 168, sex: "female", age: 34 });
+  check("an 85 kg, 168 cm woman cutting: about 1,700, not 2,100", woman.kcal >= 1600 && woman.kcal <= 1800, String(woman.kcal));
+  const man = dailyTarget(80, "maintain", { heightCm: 180, sex: "male", age: 35 });
+  check("an average man still lands near 2,400 to maintain", man.kcal >= 2250 && man.kcal <= 2450, String(man.kcal));
+  check("age lowers the burn", dailyTarget(70, "maintain", { heightCm: 170, sex: "female", age: 60 }).kcal < dailyTarget(70, "maintain", { heightCm: 170, sex: "female", age: 25 }).kcal);
+  check("without sex the rule of thumb stays", dailyTarget(80, "cut", { heightCm: 180 }).kcal === dailyTarget(80, "cut").kcal);
+  check("a cut takes 300-500 off", (() => { const m = dailyTarget(80, "maintain", { heightCm: 180, sex: "male", age: 35 }).kcal; const c = dailyTarget(80, "cut", { heightCm: 180, sex: "male", age: 35 }).kcal; return m - c >= 300 && m - c <= 500; })());
+  check("a man's floor is 1,500", dailyTarget(45, "cut", { heightCm: 150, sex: "male", age: 80 }).kcal >= 1500);
+  const big = dailyTarget(120, "cut", { heightCm: 175, sex: "male", age: 40 });
+  check("protein follows a healthy weight for the height, not 240 g", big.protein <= 160 && big.protein >= 140, String(big.protein));
+  check("a silly age is ignored", dailyTarget(70, "maintain", { heightCm: 170, sex: "female", age: 400 }).kcal === dailyTarget(70, "maintain", { heightCm: 170, sex: "female", age: 35 }).kcal);
 }
 
 // --- dietary filters (kosher / vegetarian)
