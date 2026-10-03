@@ -1261,6 +1261,30 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await nctx.close();
 }
 
+// 24) THE EVENING RECAP CHANGES TOMORROW — with the AI off, on the device.
+{
+  const rctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await rctx.route(h, r=>r.abort());
+  const walk = { id:"w1", title:"הליכה 30 דקות", slot:"evening", createdAt:dayAgo(20), archived:false, updatedAt:new Date(Date.parse(dayAgo(20))).toISOString() };
+  const rseed = { ...seed, habits:[walk], completions:[{ habitId:"w1", date:dayAgo(2), done:true, updatedAt:now.toISOString() }], checkIns:[] };
+  await rctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(rseed));
+  const rp = await rctx.newPage();
+  const rerr=[]; rp.on("pageerror",e=>rerr.push(String(e).slice(0,140)));
+  const rst = async ()=> JSON.parse(await rp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  await rp.goto(`http://localhost:${PORT}/checkin`,{waitUntil:"load"}); await rp.waitForTimeout(1600);
+  await rp.getByRole("button",{name:"קשה"}).first().click(); await rp.waitForTimeout(300);
+  await rp.getByRole("button",{name:/שמור/}).first().click(); await rp.waitForTimeout(900);
+  check("a skipped habit gets a suggestion for tomorrow, AI off", await rp.getByText("הצעה למחר").first().isVisible().catch(()=>false));
+  check("it is the smaller version, in numbers", await rp.getByText(/להקטין את ״הליכה 30 דקות״ ל: הליכה 15 דקות/).first().isVisible().catch(()=>false));
+  check("and says why, from the week", await rp.getByText(/מתוך 7 הימים האחרונים/).first().isVisible().catch(()=>false));
+  await rp.getByRole("button",{name:"החל את זה"}).first().click(); await rp.waitForTimeout(700);
+  { const s=await rst(); check("accepting changes the habit itself", s.habits[0]?.title==="הליכה 15 דקות", s.habits[0]?.title); }
+  await rp.reload({waitUntil:"load"}); await rp.waitForTimeout(1500);
+  check("it does not suggest halving it again the same week", !(await rp.getByText("הצעה למחר").count()));
+  check("the recap raises no page errors", rerr.length===0, rerr.join(" | "));
+  await rctx.close();
+}
+
 check("the served page carries the Content-Security-Policy",
   /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
 check("the Content-Security-Policy refused nothing the app did", cspViolations.length===0, cspViolations[0]);

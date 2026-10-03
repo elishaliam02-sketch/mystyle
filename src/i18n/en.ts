@@ -460,6 +460,10 @@ export const en: typeof he = {
     kindReschedule: "Move “{habit}” to {value}",
     kindAnchor: "Hang “{habit}” on: {value}",
     nothingToChange: "Nothing to change tonight. Keep going.",
+    reasonMissed: "You ticked it {done} of the last {days} days. A small version that happens every day beats a big one that doesn't.",
+    reasonHard: "You had a few hard days this week, and “{habit}” got squeezed out. Ease off until it sticks — then grow it.",
+    reasonAnchor: "A habit hung on something that already happens every day doesn't need remembering. You ticked it {done} of {days} days.",
+    reasonSlot: "In the {slot} you tick {rate}% of your habits — that's where your energy is. “{habit}” got done {done} of {days} days where it is now.",
   },
 
   improve: {

@@ -71,6 +71,7 @@
     "test:score": "node scripts/run-score-tests.mjs",
     "test:clock": "node scripts/run-clock-tests.mjs",
     "test:workout": "node scripts/run-workout-tests.mjs",
+    "test:adjust": "node scripts/run-adjust-tests.mjs",
     "test:adminmetrics": "node scripts/run-adminmetrics-tests.mjs",
     "test:achievements": "node scripts/run-achievements-tests.mjs",
     "test:bidi": "node scripts/run-bidi-tests.mjs",

@@ -4,6 +4,8 @@ import { askRecapReply, type Adjustment } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
 import { recapReply } from "@/insight";
+import { suggestAdjustment } from "@/insight/adjust";
+import { detectCategory, getSupport } from "@/support";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
@@ -130,7 +132,36 @@ export default function CheckinScreen() {
     setApplied(true);
   }
 
-  const suggestion = reply && reply.adjustment.kind !== "none" ? describe(reply.adjustment) : null;
+  // The change for tomorrow: the model's, when it is on and has one; otherwise
+  // the device's own reading of the week (src/insight/adjust.ts), so the
+  // recap changes tomorrow for everyone, not only those who opted into AI.
+  const local = existing
+    ? suggestAdjustment({
+        today: dayNow,
+        habits,
+        doneDates: Object.fromEntries(
+          habits.map((h) => [h.id, state.completions.filter((c) => c.habitId === h.id && c.done).map((c) => c.date)]),
+        ),
+        moods: state.checkIns,
+        anchorsFor: (title) => getSupport(detectCategory(title), locale).anchors,
+      })
+    : null;
+  const localReason = local
+    ? local.kind === "reschedule" && local.slot
+      ? fill(t.recap.reasonSlot, { slot: t.slots[local.slot], rate: local.slotRate ?? 0, habit: local.habitTitle, done: local.done, days: local.days })
+      : local.why === "hard"
+        ? fill(t.recap.reasonHard, { habit: local.habitTitle })
+        : local.kind === "anchor"
+          ? fill(t.recap.reasonAnchor, { done: local.done, days: local.days })
+          : fill(t.recap.reasonMissed, { done: local.done, days: local.days })
+    : "";
+  const adjustment: Adjustment | null =
+    reply && reply.adjustment.kind !== "none"
+      ? reply.adjustment
+      : local
+        ? { kind: local.kind, habitTitle: local.habitTitle, newTitle: local.newTitle, slot: local.slot, anchor: local.anchor, reason: localReason }
+        : null;
+  const suggestion = adjustment ? describe(adjustment) : null;
 
   // The evening reply the device writes itself, from mood and the day's ticks.
   // It shows the moment a recap is saved, with no server in the loop; Claude's
@@ -247,16 +278,16 @@ export default function CheckinScreen() {
               </View>
             </Card>
 
-            {reply && suggestion && !applied && !dismissed ? (
+            {adjustment && suggestion && !applied && !dismissed ? (
               <Card label={t.recap.adjustTitle} tone="accent">
                 <Text style={[type.bodyStrong, { color: colors.ink }]}>{suggestion}</Text>
-                {reply.adjustment.reason ? (
+                {adjustment.reason ? (
                   <Text style={[type.small, { color: colors.inkSoft }]}>
-                    {reply.adjustment.reason}
+                    {adjustment.reason}
                   </Text>
                 ) : null}
                 <View style={{ gap: space.sm, marginTop: space.md }}>
-                  <Button icon="sparkles" label={t.recap.accept} onPress={() => apply(reply.adjustment)} />
+                  <Button icon="sparkles" label={t.recap.accept} onPress={() => apply(adjustment)} />
                   <Button
                     label={t.recap.dismiss}
                     tone="quiet"
