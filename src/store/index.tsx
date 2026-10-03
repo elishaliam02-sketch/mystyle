@@ -57,7 +57,7 @@ import { cupMlOf, defaultGoalMl, goalMlOf, isStorableCupMl, isStorableGoalMl, MA
 import { advanceHighWater, toLocalDate, trustedNowMs } from "@/time/clock";
 import { adaptiveTarget, type AdaptiveTarget } from "@/kitchen/adaptive";
 import { adhocFood, readPantryFull, type Goal } from "@/kitchen";
-import { planDay, type DayMenu, type SlotChoice } from "@/kitchen/menu";
+import { passedSlots, planDay, type DayMenu, type SlotChoice } from "@/kitchen/menu";
 import type { MealSlot } from "@/kitchen/data";
 
 /** The weekly adaptive target with today's activity added on top. */
@@ -1234,6 +1234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       seed: mealSeed(),
       rotation: { key: `${state.salt ?? ""}|${state.mealShuffle ?? 0}`, day: Math.floor(Date.parse(`${today}T12:00:00Z`) / 86_400_000) },
       choices: state.menu?.[today],
+      passed: passedSlots(new Date().getHours()),
       diary: (state.intake?.[today] ?? []).map((i) => ({ id: i.id, kcal: i.kcal, protein: i.protein })),
     });
   }, [state.pantry, state.dietFilter, state.menu, state.intake, state.salt, state.mealShuffle, calorieTarget, goal, mealSeed, trustedToday]);

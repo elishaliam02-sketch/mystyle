@@ -8,6 +8,7 @@ import {
   MIN_SERVINGS,
   OWN_PLATE,
   missingFor,
+  passedSlots,
   planDay,
   quarter,
   rotationPool,
@@ -172,6 +173,22 @@ check("the test list is read", pantry.length >= 12, pantry.map((f) => f.id).join
   check("different people get different menus on the same day", people.size >= 4, String(people.size));
   const chosen = planDay({ ...tinyInput, rotation: { key: "salt|0", day: 3 }, choices: { lunch: { mealId: "tuna-bean-salad" } } });
   check("a dish the person picked stays, whatever the rotation", chosen.slots.find((x) => x.slot === "lunch")!.meal.id === "tuna-bean-salad");
+}
+{
+  // A meal whose time has passed, with nothing logged, gives its share to
+  // the meals still ahead — lunch and dinner were undersized at 1pm.
+  const morning = planDay(base);
+  const afternoon = planDay({ ...base, passed: passedSlots(13) });
+  const br = afternoon.slots.find((x) => x.slot === "breakfast")!;
+  check("breakfast at 1pm is marked missed", br.missed && !br.eaten);
+  check("and is out of the day's sum", afternoon.plannedKcal === afternoon.slots.filter((x) => !x.missed && !x.eaten).reduce((n, x) => n + x.kcal, 0));
+  const lunch = (m: typeof morning) => m.slots.find((x) => x.slot === "lunch")!.kcal;
+  check("so lunch grows to cover it", lunch(afternoon) > lunch(morning), `${lunch(morning)} -> ${lunch(afternoon)}`);
+  check("the day still lands near the target", Math.abs(afternoon.totalKcal - 2000) <= 300, String(afternoon.totalKcal));
+  const ate = planDay({ ...base, passed: passedSlots(13), choices: { breakfast: { mealId: br.meal.id, loggedId: "b1" } }, diary: [{ id: "b1", kcal: 400, protein: 20 }] });
+  check("a breakfast that was logged is eaten, not missed", ate.slots.find((x) => x.slot === "breakfast")!.eaten && !ate.slots.find((x) => x.slot === "breakfast")!.missed);
+  check("the clock: nothing passed in the morning", passedSlots(9).length === 0);
+  check("the snack is never passed", !passedSlots(23).includes("snack") && passedSlots(23).length === 3);
 }
 check("quarter rounds to quarters and clamps", quarter(1.1) === 1 && quarter(1.2) === 1.25 && quarter(9) === 2 && quarter(0.1) === 0.5 && quarter(NaN) === 0.5);
 check("every meal in the planner's pool has a recipe or is a plate", candidatesFor("lunch", { ...base, have: null }).length > 10);

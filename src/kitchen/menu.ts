@@ -93,6 +93,9 @@ export type MenuSlot = {
   protein: number;
   /** Logged to today's diary. */
   eaten: boolean;
+  /** Its time has passed and nothing was logged for it: left out of the
+   * day's sums, so what it would have had goes to the meals still ahead. */
+  missed: boolean;
   /** Picked by the person rather than the planner. */
   chosen: boolean;
   /** Made entirely of things on their list (always true once they have one,
@@ -132,6 +135,8 @@ export type MenuInput = {
    * day to day) and today's day number. With it each slot cycles through every
    * fitting dish before repeating; without it the best fit wins. */
   rotation?: { key: string; day: number };
+  /** Meals whose time is over (see `passedSlots`). */
+  passed?: readonly MealSlot[];
 };
 
 const byId = new Map(FOODS.map((f) => [f.id, f]));
@@ -449,6 +454,7 @@ export function planDay(input: MenuInput): DayMenu {
       meal: r.meal,
       extras,
       eaten: !!logged,
+      missed: !logged && (input.passed ?? []).includes(slot),
       chosen: r.chosen,
       fromKitchen: makeable(r.meal, input.have),
       missing: r.missing,
@@ -460,11 +466,15 @@ export function planDay(input: MenuInput): DayMenu {
   // What is left of the day, spread over the meals still to come by their
   // usual share — so the menu always adds up to the target.
   const left = Math.max(0, input.target.kcal - eatenKcal);
-  const open = drafts.filter((d) => !d.eaten);
+  const open = drafts.filter((d) => !d.eaten && !d.missed);
   const shareSum = open.reduce((n, d) => n + SLOT_SHARE[d.slot], 0) || 1;
   const slots: MenuSlot[] = drafts.map((d) => {
     if (d.eaten) {
       return { ...stripLogged(d), servings: 1, kcal: d.loggedKcal, protein: d.loggedProtein };
+    }
+    if (d.missed) {
+      // Still shown at a normal portion, in case it was eaten and not logged.
+      return { ...stripLogged(d), servings: 1, kcal: d.meal.kcal, protein: d.meal.protein };
     }
     const extrasKcal = d.extras.reduce((n, u) => n + u.kcal, 0);
     const extrasProtein = d.extras.reduce((n, u) => n + u.protein, 0);
@@ -477,8 +487,8 @@ export function planDay(input: MenuInput): DayMenu {
       protein: Math.round(d.meal.protein * servings + extrasProtein),
     };
   });
-  const plannedKcal = slots.filter((s) => !s.eaten).reduce((n, s) => n + s.kcal, 0);
-  const plannedProtein = slots.filter((s) => !s.eaten).reduce((n, s) => n + s.protein, 0);
+  const plannedKcal = slots.filter((s) => !s.eaten && !s.missed).reduce((n, s) => n + s.kcal, 0);
+  const plannedProtein = slots.filter((s) => !s.eaten && !s.missed).reduce((n, s) => n + s.protein, 0);
   return {
     slots,
     target: input.target.kcal,
@@ -510,6 +520,16 @@ export function slotForRecipe(meal: Meal, menu: DayMenu): MealSlot {
   const own = menu.slots.find((s) => s.slot === meal.slot);
   if (!own || !own.eaten) return meal.slot;
   return menu.slots.find((s) => !s.eaten)?.slot ?? meal.slot;
+}
+
+/** Meals whose time is over by this hour: breakfast after noon, lunch after
+ * five, dinner after ten. The snack never is. */
+export function passedSlots(hour: number): MealSlot[] {
+  const out: MealSlot[] = [];
+  if (hour >= 12) out.push("breakfast");
+  if (hour >= 17) out.push("lunch");
+  if (hour >= 22) out.push("dinner");
+  return out;
 }
 
 /** The meal of the day happening now, by the clock. */

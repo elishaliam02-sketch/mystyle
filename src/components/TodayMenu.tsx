@@ -34,7 +34,8 @@ export function TodayMenu({ compact = false }: { compact?: boolean }) {
     const order: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
     const from = order.indexOf(now);
     const next =
-      menu.slots.find((s) => !s.eaten && order.indexOf(s.slot) >= from) ?? menu.slots.find((s) => !s.eaten);
+      menu.slots.find((s) => !s.eaten && !s.missed && order.indexOf(s.slot) >= from) ??
+      menu.slots.find((s) => !s.eaten && !s.missed);
     if (!next) return null;
     return (
       <View
@@ -195,7 +196,7 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
         padding: space.sm,
         borderRadius: radius.lg,
         backgroundColor: s.slot === now && !s.eaten ? colors.accentWash : "transparent",
-        opacity: s.eaten ? 0.72 : 1,
+        opacity: s.eaten ? 0.72 : s.missed ? 0.6 : 1,
       }}
     >
       <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
@@ -224,11 +225,13 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
             <Text style={[type.small, { color: s.eaten ? colors.limeInk : colors.inkSoft, fontWeight: s.eaten ? "700" : "400" }]}>
               {s.eaten
                 ? fill(t.menu.eaten, { kcal: s.kcal })
-                : fill(t.menu.line, { kcal: s.kcal, protein: s.protein })}
-              {s.extras.length && !s.eaten ? ` · + ${s.extras.map((u) => name(u.food)).join(", ")}` : ""}
+                : s.missed
+                  ? t.menu.missed
+                  : fill(t.menu.line, { kcal: s.kcal, protein: s.protein })}
+              {s.extras.length && !s.eaten && !s.missed ? ` · + ${s.extras.map((u) => name(u.food)).join(", ")}` : ""}
             </Text>
           </Pop>
-          {s.missing.length && !s.eaten ? (
+          {s.missing.length && !s.eaten && !s.missed ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Ionicons name="cart-outline" size={14} color={colors.orangeInk} />
               <Text style={[type.small, { color: colors.orangeInk, fontWeight: "700" }]}>
@@ -239,7 +242,7 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
               </Pressable>
             </View>
           ) : null}
-          {adaptParts.length && !s.eaten ? (
+          {adaptParts.length && !s.eaten && !s.missed ? (
             <Text style={[type.small, { color: colors.inkFaint }]} numberOfLines={2}>
               {fill(t.menu.adapted, { list: adaptParts.join(" · ") })}
             </Text>
@@ -266,8 +269,8 @@ function MenuRow({ s, now, hasList }: { s: MenuSlot; now: MealSlot; hasList: boo
             <Ionicons name="checkmark" size={15} color={colors.onAccent} />
             <Text style={[type.smallStrong, { color: colors.onAccent }]}>{t.menu.ate}</Text>
           </Pressable>
-          {chip("swap-horizontal", t.menu.swap, () => setOpen(open === "swap" ? null : "swap"), open === "swap")}
-          {chip("sparkles", t.menu.upgrade, () => setOpen(open === "upgrade" ? null : "upgrade"), open === "upgrade")}
+          {s.missed ? null : chip("swap-horizontal", t.menu.swap, () => setOpen(open === "swap" ? null : "swap"), open === "swap")}
+          {s.missed ? null : chip("sparkles", t.menu.upgrade, () => setOpen(open === "upgrade" ? null : "upgrade"), open === "upgrade")}
           {!isPlate
             ? chip("book-outline", t.menu.recipe, () => router.push({ pathname: "/recipe/[id]", params: { id: s.meal.id } }))
             : null}

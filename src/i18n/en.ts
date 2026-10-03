@@ -1316,6 +1316,7 @@ export const en: typeof he = {
     fromKitchen: "Built only from what's in your kitchen — nothing to buy.",
     fromKitchenMost: "Mostly from what you have. A dish missing something is marked — one tap adds it to your list.",
     needs: "You need: {list}",
+    missed: "Its time has passed — ate it? Tick it; if not, it's already spread over the other meals.",
     addToList: "Add to kitchen",
     addedToList: "Added to your kitchen list: {list}",
     noList: "Write what you have at home in the kitchen tab — and the menu is built from that alone.",
