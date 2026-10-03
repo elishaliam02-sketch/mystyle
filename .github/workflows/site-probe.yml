@@ -38,3 +38,11 @@ jobs:
               -H "Origin: https://mystyle.expo.app" -H "Access-Control-Request-Method: POST" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
             echo "$fn: ${o:-no Access-Control-Allow-Origin for https://mystyle.expo.app}"
           done
+
+      # The web push function: does it answer, and has it a key to sign with?
+      # (The public key is public — it is what every browser is handed.)
+      - name: Web push is configured
+        run: |
+          r=$(curl -s -X POST "https://vesdfboxetdwymsulpsc.supabase.co/functions/v1/push" \
+            -H "Origin: https://mystyle.expo.app" -H "Content-Type: application/json" -d '{"action":"key"}')
+          echo "$r" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j.publicKey?("public key, "+Buffer.from(j.publicKey.replace(/-/g,"+").replace(/_/g,"/"),"base64").length+" bytes"):("no key: "+s.slice(0,120)))}catch{console.log("not JSON: "+s.slice(0,120))}})'
