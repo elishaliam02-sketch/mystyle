@@ -119,8 +119,9 @@ jobs:
             echo "VAPID key already set"
           else
             JWK=$(node -e 'const c=require("crypto").webcrypto;(async()=>{const k=await c.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign"]);const j=await c.subtle.exportKey("jwk",k.privateKey);process.stdout.write(JSON.stringify({kty:j.kty,crv:j.crv,x:j.x,y:j.y,d:j.d}))})()')
-            echo "::add-mask::$JWK"
-            npx --yes "$SUPABASE_CLI" secrets set "VAPID_PRIVATE_JWK=$JWK" --project-ref "$PROJECT_REF" > /dev/null
+            # Never echoed — not even masked, which a later step could undo —
+            # and the CLI's own output is dropped, errors included.
+            npx --yes "$SUPABASE_CLI" secrets set "VAPID_PRIVATE_JWK=$JWK" --project-ref "$PROJECT_REF" > /dev/null 2>&1
             echo "VAPID key created"
           fi
 
