@@ -138,7 +138,7 @@ jobs:
       # are the store listings' public privacy and terms links.
       - name: Check the site answers
         run: |
-          for path in / /kitchen /recipes /legal/privacy /legal/terms /admin.html /apple-touch-icon.png /manifest.json; do
+          for path in / /kitchen /recipes /legal/privacy /legal/terms /admin.html /apple-touch-icon.png /manifest.json /sw.js; do
             code=$(curl -s -o /tmp/body -w '%{http_code}' "https://mystyle.expo.app$path")
             echo "$code $path"
             [ "$code" = "200" ] || exit 1

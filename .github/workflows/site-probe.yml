@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: What the site serves
         run: |
-          for path in /admin.html /admin /admin/ /admin/index.html /console.html /legal/privacy; do
+          for path in /admin.html /legal/privacy /sw.js /manifest.json; do
             curl -s -o body -D head "https://mystyle.expo.app$path" || true
             code=$(head -1 head | tr -d '\r')
             type=$(grep -i '^content-type' head | tr -d '\r')
