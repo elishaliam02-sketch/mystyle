@@ -3,3 +3,4 @@
 2026-09-24 run migrations 006+007 and deploy ai, billing, admin (first deploy with the access token)
 2026-09-24 rerun: add migrations 002 and 003 (backups table was missing)
 2026-10-02 deploy the admin function: dashboard, user search/detail/export, comp access (shared metrics module)
+2026-10-03 redeploy with the renewed access token: admin console actions, and CORS that lets https://mystyle.expo.app reach admin, ai and billing
