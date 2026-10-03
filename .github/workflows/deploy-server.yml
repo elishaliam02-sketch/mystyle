@@ -72,7 +72,8 @@ jobs:
           # and running 004 after it would put the weaker one back. 005 (admin)
           # was run by hand and its policies are not guarded against a re-run.
           for f in supabase/migration-002-sync.sql supabase/migration-003-backup.sql \
-                   supabase/migration-006-security.sql supabase/migration-007-limits.sql; do
+                   supabase/migration-006-security.sql supabase/migration-007-limits.sql \
+                   supabase/migration-008-habit-days.sql; do
             echo "== $f"
             node -e 'process.stdout.write(JSON.stringify({ query: require("fs").readFileSync(process.argv[1], "utf8") }))' "$f" > body.json
             code=$(curl -sS -o out.json -w "%{http_code}" -X POST \

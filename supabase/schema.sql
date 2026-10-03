@@ -25,6 +25,8 @@ create table if not exists public.habits (
   title       text        not null,
   slot        text,
   anchor      text,
+  -- Weekdays the habit is due, 0 = Sunday … 6 = Saturday; null = every day.
+  days        smallint[],
   created_at  date        not null,
   archived    boolean     not null default false,
   -- When the device wrote this row. Used to settle a clash between two
