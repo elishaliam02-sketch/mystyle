@@ -25,6 +25,7 @@ on:
       - package-lock.json
       - metro.config.js
       - public/**
+      - admin/**
   workflow_dispatch:
 
 # One publish at a time, in push order: two at once could land out of order
@@ -122,6 +123,13 @@ jobs:
       - name: Build the website
         run: npx expo export -p web --output-dir dist
 
+      # The owner console rides along at /admin.html. It holds no secret and the
+      # admin function checks the allowlist and a second factor on every call;
+      # being on the app's origin means the functions' ALLOWED_ORIGINS already
+      # lets it in.
+      - name: Add the owner console
+        run: cp admin/index.html dist/admin.html
+
       - name: Put it online
         run: eas deploy --prod --export-dir dist --non-interactive
 
@@ -130,9 +138,21 @@ jobs:
       # are the store listings' public privacy and terms links.
       - name: Check the site answers
         run: |
-          for path in / /kitchen /recipes /legal/privacy /legal/terms /apple-touch-icon.png /manifest.json; do
+          for path in / /kitchen /recipes /legal/privacy /legal/terms /admin.html /apple-touch-icon.png /manifest.json; do
             code=$(curl -s -o /tmp/body -w '%{http_code}' "https://mystyle.expo.app$path")
             echo "$code $path"
             [ "$code" = "200" ] || exit 1
           done
           grep -q 'apple-mobile-web-app-capable' <(curl -s https://mystyle.expo.app/) || { echo "home-screen tags missing"; exit 1; }
+          grep -q 'APEX — ניהול' <(curl -s https://mystyle.expo.app/admin.html) || { echo "the owner console is not the console"; exit 1; }
+
+      # Informational: whether the functions answer the site's origin (their
+      # ALLOWED_ORIGINS secret). Printed, never fatal.
+      - name: Can the site reach the functions
+        continue-on-error: true
+        run: |
+          for fn in admin ai; do
+            o=$(curl -s -o /dev/null -D - -X OPTIONS "https://vesdfboxetdwymsulpsc.supabase.co/functions/v1/$fn" \
+              -H "Origin: https://mystyle.expo.app" -H "Access-Control-Request-Method: POST" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
+            echo "$fn: ${o:-no Access-Control-Allow-Origin for https://mystyle.expo.app}"
+          done

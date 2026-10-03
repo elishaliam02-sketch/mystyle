@@ -6,7 +6,7 @@
 <!-- Only the pinned supabase-js file and the one inline script below may run;
      the inline script is allowed by its hash, which scripts/run-csp-tests.mjs
      recomputes - edit the script and that test prints the new hash. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js 'sha256-R6eBrWAs03Hys6xLnlcw1E/vGVz7igokL+5e5OTEpJw='; style-src 'unsafe-inline'; img-src data:; connect-src https://vesdfboxetdwymsulpsc.supabase.co; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js 'sha256-V7FC3+olAGeb57WmYBIYnXTVKqDNykqhw7MGkzPNp+E='; style-src 'unsafe-inline'; img-src data:; connect-src https://vesdfboxetdwymsulpsc.supabase.co; base-uri 'none'; form-action 'none'" />
 <meta name="referrer" content="no-referrer" />
 <title>APEX — ניהול</title>
 <!--
@@ -221,6 +221,7 @@
       <button role="tab" id="tabbtn-audit" data-tab="audit" aria-selected="false">יומן פעילות</button>
     </div>
     <div id="banner" class="banner" role="alert" hidden></div>
+    <div id="legacyNote" class="muted" style="margin:-6px 0 12px" hidden>השרת עדיין בגרסה הקודמת: פעילות יומית, ביצוע הרגלים ומצבי רוח יופיעו כשיתעדכן. מוצג כאן כל מה שאפשר לחשב בינתיים.</div>
 
     <section id="tab-overview" role="tabpanel">
       <div id="kpis" class="kpis"></div>
@@ -302,8 +303,10 @@
 <script>
   const SUPABASE_URL = "https://vesdfboxetdwymsulpsc.supabase.co";
   const SUPABASE_KEY = "sb_publishable_QJJEFeAVnwdJDwdVpOHjFA_un6l0Of_";
+  // Its own storage key: served beside the app (mystyle.expo.app/admin.html),
+  // the default key would share the app's session in the same browser.
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: "apex-admin-auth" },
   });
 
   const $ = (id) => document.getElementById(id);
@@ -445,6 +448,180 @@
     }
     return data;
   }
+
+  // ------------------------------------------------------------ older server
+  // Until the admin function is redeployed, the server answers only the old
+  // three questions ("overview", a page of "users", "audit"). Rather than show
+  // an error, the console works from those: the numbers that need activity
+  // data say so, and the rest is computed here from the user rows.
+  let legacy = false;
+  let legacyCache = null;
+  const NEW_ACTIONS = ["dashboard", "users", "user", "export", "comp", "uncomp"];
+  async function api(action, extra) {
+    if (!legacy) {
+      try {
+        const res = await call(action, extra);
+        if (action === "users" && res && !Array.isArray(res.rows) && Array.isArray(res.users)) legacy = true;
+        else return res;
+      } catch (e) {
+        if (e && e.code === "unknown-action" && NEW_ACTIONS.includes(action)) legacy = true;
+        else throw e;
+      }
+      $("legacyNote").hidden = !legacy;
+    }
+    return legacyAnswer(action, extra || {});
+  }
+
+  async function legacyRows() {
+    if (legacyCache && Date.now() - legacyCache.at < 60000) return legacyCache.rows;
+    const rows = [];
+    for (let page = 1; page <= 200; page++) {
+      const res = await call("users", { page });
+      const list = (res && res.users) || [];
+      for (const u of list) {
+        const sub = u.subscription || { status: "none" };
+        rows.push({
+          id: u.id, email: u.email || null, anonymous: !u.email, createdAt: u.createdAt, lastSignInAt: u.lastSignInAt,
+          lastActive: u.lastSignInAt ? String(u.lastSignInAt).slice(0, 10) : null, activeDays30: null,
+          status: sub.status || "none", planId: sub.planId || null, trialEndsAt: sub.trialEndsAt || null,
+          currentPeriodEnd: sub.currentPeriodEnd || null, stripe: false,
+          trajectory: u.trajectory || "no-data", perWeek: u.perWeek == null ? null : u.perWeek,
+          lastKg: null, goalKg: null, daysSinceWeighIn: u.lastWeighInDaysAgo == null ? null : u.lastWeighInDaysAgo,
+          weighIns: u.weighIns || 0, habits: null, completion7: null, checkIns7: null, hard7: 0,
+        });
+      }
+      if (list.length < 50) break;
+    }
+    legacyCache = { at: Date.now(), rows };
+    return rows;
+  }
+
+  const DAYMS = 86400000;
+  const dayN = (iso) => Math.floor(+asDate(String(iso).slice(0, 10)) / DAYMS);
+  const PLAN_MINOR = { monthly: 2990, yearly: Math.round(24900 / 12) };
+
+  function legacyDashboard(rows) {
+    const today = dayN(new Date().toISOString());
+    const age = (iso) => today - dayN(iso);
+    const seen = (u, from, to) => u.lastSignInAt != null && age(u.lastSignInAt) >= from && age(u.lastSignInAt) <= to;
+    const series = (f) => Array.from({ length: 30 }, (_, i) => {
+      const d = today - (29 - i);
+      return { date: new Date(d * DAYMS).toISOString().slice(0, 10), n: f(d) };
+    });
+    const status = {};
+    let mrr = 0;
+    for (const u of rows) {
+      status[u.status] = (status[u.status] || 0) + 1;
+      if (u.status === "active" && u.planId) mrr += PLAN_MINOR[u.planId] || 0;
+    }
+    const traj = { "on-track": 0, slow: 0, fast: 0, stalled: 0, "off-track": 0, "no-data": 0 };
+    for (const u of rows) traj[u.trajectory] = (traj[u.trajectory] || 0) + 1;
+    const keep = (n) => {
+      const eligible = rows.filter((u) => age(u.createdAt) >= n);
+      const kept = eligible.filter((u) => u.lastSignInAt && dayN(u.lastSignInAt) >= dayN(u.createdAt) + n);
+      return { eligible: eligible.length, retained: kept.length, rate: eligible.length ? Math.round((kept.length / eligible.length) * 1000) / 10 : null };
+    };
+    const attention = [];
+    for (const u of rows) {
+      if (u.trajectory === "fast") attention.push({ id: u.id, email: u.email, reason: "fast", detail: u.perWeek });
+      if (u.status === "trialing" && u.trialEndsAt) {
+        const left = dayN(u.trialEndsAt) - today;
+        if (left >= 0 && left <= 3) attention.push({ id: u.id, email: u.email, reason: "trial-ending", detail: left });
+      }
+      if (u.trajectory === "off-track") attention.push({ id: u.id, email: u.email, reason: "off-track", detail: u.perWeek });
+    }
+    const rank = { fast: 0, "trial-ending": 2, "off-track": 4 };
+    attention.sort((a, b) => rank[a.reason] - rank[b.reason]);
+    const cohorts = Array.from({ length: 8 }, (_, i) => {
+      const end = today - i * 7, start = end - 6;
+      const members = rows.filter((u) => dayN(u.createdAt) >= start && dayN(u.createdAt) <= end);
+      const activeNow = members.filter((u) => seen(u, 0, 6)).length;
+      return { weekStart: new Date(start * DAYMS).toISOString().slice(0, 10), signups: members.length, activeNow, rate: members.length ? Math.round((activeNow / members.length) * 1000) / 10 : null };
+    }).reverse();
+    const counted = (status.active || 0) + (status.canceled || 0) + (status.expired || 0) + (status.trialing || 0);
+    return {
+      legacy: true,
+      totals: {
+        users: rows.length, accounts: rows.filter((u) => !u.anonymous).length, anonymous: rows.filter((u) => u.anonymous).length,
+        new7: rows.filter((u) => age(u.createdAt) < 7).length, new7Prev: rows.filter((u) => age(u.createdAt) >= 7 && age(u.createdAt) < 14).length,
+        new30: rows.filter((u) => age(u.createdAt) < 30).length,
+      },
+      active: {
+        dau: rows.filter((u) => seen(u, 0, 0)).length, wau: rows.filter((u) => seen(u, 0, 6)).length,
+        wauPrev: null, mau: rows.filter((u) => seen(u, 0, 29)).length,
+      },
+      series: {
+        signups: series((d) => rows.filter((u) => dayN(u.createdAt) === d).length),
+        active: series((d) => rows.filter((u) => u.lastSignInAt && dayN(u.lastSignInAt) === d).length),
+      },
+      retention: { d1: keep(1), d7: keep(7), d30: keep(30) },
+      cohorts,
+      subs: { status, paying: status.active || 0, trialing: status.trialing || 0, mrrMinor: mrr, conversion: counted ? Math.round(((status.active || 0) / counted) * 1000) / 10 : null },
+      engagement: { completion7: null, checkIns7: null, moods7: { good: 0, ok: 0, hard: 0 }, weighIns7: rows.filter((u) => u.daysSinceWeighIn != null && u.daysSinceWeighIn < 7).length },
+      trajectory: traj,
+      attention: attention.slice(0, 25),
+    };
+  }
+
+  function legacyQuery(rows, q, attentionIds) {
+    const today = dayN(new Date().toISOString());
+    const text = (q.q || "").trim().toLowerCase();
+    const recent = (u) => u.lastActive != null && today - dayN(u.lastActive) < 7;
+    const test = {
+      accounts: (u) => !u.anonymous, anonymous: (u) => u.anonymous, paying: (u) => u.status === "active",
+      trialing: (u) => u.status === "trialing", free: (u) => u.status !== "active" && u.status !== "trialing",
+      active7: recent, inactive: (u) => !recent(u), attention: (u) => attentionIds.has(u.id),
+    }[q.filter] || (() => true);
+    const order = ["on-track", "slow", "fast", "stalled", "off-track", "no-data"];
+    const key = {
+      lastActive: (u) => u.lastActive, email: (u) => (u.email || "").toLowerCase() || null, status: (u) => u.status,
+      trajectory: (u) => order.indexOf(u.trajectory), perWeek: (u) => u.perWeek, completion7: (u) => u.completion7,
+    }[q.sort] || ((u) => u.createdAt);
+    const dir = q.dir === "asc" ? 1 : -1;
+    const list = rows
+      .filter((u) => (!text || (u.email || "").toLowerCase().includes(text) || u.id.toLowerCase().startsWith(text)) && test(u))
+      .sort((a, b) => {
+        const x = key(a), y = key(b);
+        if (x == null && y == null) return a.id.localeCompare(b.id);
+        if (x == null) return 1;
+        if (y == null) return -1;
+        return (x < y ? -dir : x > y ? dir : 0) || a.id.localeCompare(b.id);
+      });
+    const perPage = q.perPage || 50;
+    const pages = Math.max(1, Math.ceil(list.length / perPage));
+    const page = Math.min(pages, Math.max(1, q.page || 1));
+    return { total: list.length, page, pages, perPage, rows: list.slice((page - 1) * perPage, page * perPage), all: list };
+  }
+
+  function csvOf(rows) {
+    const cell = (v) => {
+      let x = v == null ? "" : String(v);
+      if (/^[=+\-@\t\r]/.test(x)) x = "'" + x;
+      return '"' + x.replace(/"/g, '""') + '"';
+    };
+    const head = ["id", "email", "anonymous", "created", "last_signin", "status", "plan", "trajectory", "kg_per_week", "weigh_ins"];
+    return [head.join(","), ...rows.map((u) => [u.id, u.email, u.anonymous, String(u.createdAt).slice(0, 10), u.lastSignInAt, u.status, u.planId, u.trajectory, u.perWeek, u.weighIns].map(cell).join(","))].join("\n");
+  }
+
+  async function legacyAnswer(action, extra) {
+    const rows = await legacyRows();
+    if (action === "dashboard") return legacyDashboard(rows);
+    const attention = new Set(legacyDashboard(rows).attention.map((a) => a.id));
+    if (action === "users") return legacyQuery(rows, extra, attention);
+    if (action === "export") {
+      const all = legacyQuery(rows, { ...extra, page: 1, perPage: 1e9 }, attention).all;
+      return { filename: `apex-users-${new Date().toISOString().slice(0, 10)}.csv`, csv: csvOf(all), count: all.length };
+    }
+    if (action === "user") {
+      const summary = rows.find((u) => u.id === extra.id);
+      if (!summary) throw new Error("לא נמצא");
+      return { summary, weighIns: [], activity: [], moods: [], habits: { active: null, archived: 0 }, events: [], limited: true };
+    }
+    const err = new Error("השרת עוד לא תומך בפעולה הזו");
+    err.code = "not-yet";
+    throw err;
+  }
+
   function showError(e) {
     $("banner").textContent = "משהו לא נטען: " + (e && e.message ? e.message : "נסה שוב");
     $("banner").hidden = false;
@@ -517,7 +694,7 @@
 
   async function loadOverview() {
     try {
-      const d = await call("dashboard");
+      const d = await api("dashboard");
       clearError();
       renderOverview(d);
       $("refreshInfo").textContent = "עודכן " + new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
@@ -563,7 +740,7 @@
     const seq = ++usersSeq;
     $("usersMeta").textContent = "טוען…";
     try {
-      const res = await call("users", { ...uq, perPage: 50 });
+      const res = await api("users", { ...uq, perPage: 50 });
       if (seq !== usersSeq) return;
       clearError();
       renderUsers(res);
@@ -583,7 +760,7 @@
   $("export").addEventListener("click", async () => {
     $("export").disabled = true;
     try {
-      const res = await call("export", uq);
+      const res = await api("export", uq);
       // A byte-order mark so a spreadsheet reads the Hebrew as UTF-8.
       const blob = new Blob(["﻿" + res.csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -651,7 +828,7 @@
     $("dClose").focus();
     let u;
     try {
-      u = await call("user", { id });
+      u = await api("user", { id });
     } catch (e) {
       $("dTitle").textContent = "לא נטען";
       $("dBody").replaceChildren(el("p", { class: "err" }, e && e.message ? e.message : "שגיאה"));
@@ -670,13 +847,13 @@
       const n = Number(days.value);
       if (!confirm(`להעניק ל־${who(s)} גישה חינם ל־${n} ימים?`)) return;
       grant.disabled = true;
-      try { await call("comp", { id: s.id, days: n }); await openUser(s.id); }
-      catch (e) { msg.textContent = e.code === "has-stripe" ? "יש לו מנוי פעיל ב־Stripe — לא נוגעים בו." : "נכשל: " + e.message; grant.disabled = false; }
+      try { await api("comp", { id: s.id, days: n }); await openUser(s.id); }
+      catch (e) { msg.textContent = e.code === "has-stripe" ? "יש לו מנוי פעיל ב־Stripe — לא נוגעים בו." : e.code === "not-yet" ? e.message : "נכשל: " + e.message; grant.disabled = false; }
     } }, "תן גישה חינם");
     const revoke = el("button", { class: "danger", onclick: async () => {
       if (!confirm(`לבטל את הגישה החינמית של ${who(s)}?`)) return;
       revoke.disabled = true;
-      try { await call("uncomp", { id: s.id }); await openUser(s.id); }
+      try { await api("uncomp", { id: s.id }); await openUser(s.id); }
       catch (e) { msg.textContent = "נכשל: " + e.message; revoke.disabled = false; }
     } }, "בטל גישה חינם");
     const plan = s.planId === "yearly" ? "שנתי" : s.planId === "monthly" ? "חודשי" : s.planId;
@@ -696,6 +873,7 @@
         fact("שקילה אחרונה", s.daysSinceWeighIn == null ? "—" : s.daysSinceWeighIn === 0 ? "היום" : `לפני ${s.daysSinceWeighIn} ימים`),
         fact("הרגלים", `${nf(u.habits.active)} פעילים${u.habits.archived ? ` · ${nf(u.habits.archived)} בארכיון` : ""}`),
         fact("ביצוע הרגלים 7 ימים", s.completion7 == null ? "—" : pct(Math.round(s.completion7 * 100)))),
+      u.limited ? el("p", { class: "muted" }, "גרף המשקל, הפעילות ומצב הרוח יופיעו כשהשרת יתעדכן.") : null,
       el("h3", null, "משקל"), weightChart(u.weighIns),
       el("h3", null, "ימי פעילות — 12 שבועות"), heatmap(u.activity),
       el("h3", null, "מצב רוח בסיכומים — 30 ימים"),
