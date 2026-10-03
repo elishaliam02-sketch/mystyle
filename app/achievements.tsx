@@ -8,6 +8,7 @@ import { computeAchievements, unlockedCount, type Achievement } from "@/achievem
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 export default function AchievementsScreen() {
   const { t } = useI18n();
@@ -25,7 +26,7 @@ export default function AchievementsScreen() {
       subtitle={t.achievements.body}
       aside={
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => leave(router)}
           accessibilityRole="button"
           accessibilityLabel={t.common.close}
           hitSlop={10}

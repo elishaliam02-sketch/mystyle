@@ -18,6 +18,7 @@ import { PillButton } from "@/components/PillButton";
 import { useI18n } from "@/i18n";
 import { HELP_STARTERS, answerHelp, topicById, type HelpTopic } from "@/help";
 import { useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 type Turn =
   | { id: string; from: "you"; text: string }
@@ -109,7 +110,7 @@ export default function HelpScreen() {
             <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{t.help.body}</Text>
           </View>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => leave(router)}
             accessibilityRole="button"
             accessibilityLabel={t.common.close}
             hitSlop={8}

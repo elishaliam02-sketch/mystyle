@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -15,6 +15,7 @@ import { MUSCLES, type Equipment, type Muscle } from "@/workout/exercises";
 import { countByMuscle, equipmentKinds, filterExercises } from "@/workout/library";
 import { difficulty } from "@/workout/difficulty";
 import { SelectTile } from "@/components/SelectTile";
+import { leave } from "@/ui/nav";
 
 /**
  * The whole exercise catalogue, browsable — the Hevy screen.
@@ -79,6 +80,14 @@ export default function LibraryScreen() {
   );
   const total = useMemo(() => filterExercises({ custom }).length, [custom]);
 
+  // A page at a time: every row carries a picture fetched from the network,
+  // and drawing the whole catalogue at once meant two hundred downloads before
+  // the first scroll. Narrowing starts the page over.
+  const PAGE = 30;
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [query, muscle, kit, level]);
+  const visible = rows.slice(0, limit);
+
   function addOwn() {
     const name = ownName.trim();
     if (!name) return;
@@ -122,7 +131,7 @@ export default function LibraryScreen() {
         subtitle={t.library.body}
         aside={
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => leave(router)}
             accessibilityRole="button"
             accessibilityLabel={t.common.close}
             hitSlop={10}
@@ -198,7 +207,7 @@ export default function LibraryScreen() {
           </Card>
         ) : (
           <View style={{ gap: 6 }}>
-            {rows.map((ex) => {
+            {visible.map((ex) => {
               const already = chosen.includes(ex.id);
               const name = locale === "he" ? ex.he : ex.en;
               return (
@@ -241,6 +250,14 @@ export default function LibraryScreen() {
                 </Pressable>
               );
             })}
+            {rows.length > visible.length ? (
+              <Button
+                tone="quiet"
+                icon="chevron-down"
+                label={fill(t.library.more, { n: Math.min(PAGE, rows.length - visible.length) })}
+                onPress={() => setLimit(limit + PAGE)}
+              />
+            ) : null}
           </View>
         )}
 

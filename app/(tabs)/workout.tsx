@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
-import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View, type ImageSourcePropType } from "react-native";
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, Vibration, View, type ImageSourcePropType } from "react-native";
 import { Button } from "@/components/Button";
 import { PillButton } from "@/components/PillButton";
 import { SelectTile } from "@/components/SelectTile";
@@ -1005,28 +1005,57 @@ function RestTimer() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const [total, setTotal] = useState(0);
-  const [left, setLeft] = useState(0);
+  // When the rest ends, as a moment in time. Counting down by subtracting a
+  // second per tick stopped whenever the screen locked or the browser put the
+  // tab to sleep, so a 90-second rest could read 60 after two minutes away.
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
   const [preset, setPreset] = useState(90);
-  const running = left > 0;
+  // "Rest's over" stays up for a few seconds, so a glance at the phone
+  // between breaths says it rather than showing an idle row of buttons.
+  const [over, setOver] = useState(false);
+  const left = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0;
+  const running = endsAt !== null && left > 0;
+
+  const begin = (sec: number) => {
+    setTotal(sec);
+    setNow(Date.now());
+    setEndsAt(Date.now() + sec * 1000);
+    setOver(false);
+  };
 
   useEffect(() => {
-    const go = () => {
-      setTotal(preset);
-      setLeft(preset);
-    };
+    const go = () => begin(preset);
     restListeners.add(go);
     return () => {
       restListeners.delete(go);
     };
   }, [preset]);
 
-  // One ticking interval lives only while the clock is counting; it tears down
-  // the moment it hits zero or the screen leaves.
+  // One ticking interval lives only while the clock is counting.
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1000);
+    if (endsAt === null) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
-  }, [running]);
+  }, [endsAt]);
+
+  // The end is felt, not only seen: the phone is usually face down on a bench.
+  useEffect(() => {
+    if (endsAt === null || left > 0) return;
+    setEndsAt(null);
+    setOver(true);
+    try {
+      Vibration.vibrate([0, 300, 150, 300]);
+    } catch {
+      // No vibration on this device or browser — the words below still say it.
+    }
+  }, [endsAt, left]);
+
+  useEffect(() => {
+    if (!over) return;
+    const id = setTimeout(() => setOver(false), 6000);
+    return () => clearTimeout(id);
+  }, [over]);
 
   const mm = String(Math.floor(left / 60)).padStart(1, "0");
   const ss = String(left % 60).padStart(2, "0");
@@ -1042,7 +1071,10 @@ function RestTimer() {
               {mm}:{ss}
             </Text>
             <Pressable
-              onPress={() => setLeft(0)}
+              onPress={() => {
+                setEndsAt(null);
+                setOver(false);
+              }}
               accessibilityRole="button"
               hitSlop={8}
               style={{
@@ -1071,14 +1103,19 @@ function RestTimer() {
           </View>
         </View>
       ) : (
+        <View style={{ gap: space.sm }}>
+        {over ? (
+          <Text style={[type.bodyStrong, { color: metricInk(colors, "rest") }]} accessibilityLiveRegion="polite">
+            {t.workout.restOver}
+          </Text>
+        ) : null}
         <View style={{ flexDirection: "row", gap: space.sm }}>
           {REST_PRESETS.map((sec) => (
             <Pressable
               key={sec}
               onPress={() => {
                 setPreset(sec);
-                setTotal(sec);
-                setLeft(sec);
+                begin(sec);
               }}
               accessibilityRole="button"
               style={{
@@ -1089,10 +1126,11 @@ function RestTimer() {
                 backgroundColor: colors.surfaceAlt,
               }}
             >
-              <Text style={[type.title, { color: colors.ink }]}>{sec}</Text>
+              <Text style={[type.title, { color: preset === sec ? colors.accent : colors.ink }]}>{sec}</Text>
               <Text style={[type.small, { color: colors.inkFaint }]}>{t.workout.restSec}</Text>
             </Pressable>
           ))}
+        </View>
         </View>
       )}
     </Card>

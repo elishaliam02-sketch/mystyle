@@ -1314,7 +1314,9 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
 {
   const hctx = await browser.newContext({ viewport:{width:412,height:915} });
   for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await hctx.route(h, r=>r.abort());
-  await hctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
+  const pastSession = {id:"w1",date:dayAgo(3),day:0,dayType:"push",startedAt:Date.now()-3*86400000,durationSec:3000,volumeKg:5200,sets:15,exercises:5,prs:1,kcal:310};
+  await hctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({ ...seed, training:{ ...seed.training, history:[pastSession] } }));
   const hp = await hctx.newPage();
   const herr=[]; hp.on("pageerror",e=>herr.push(String(e).slice(0,140)));
   const hgo = async (route)=>{ await hp.goto(`http://localhost:${PORT}${route}`,{waitUntil:"load"}); await hp.waitForTimeout(1600); };
@@ -1343,6 +1345,14 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   { const s=await hst(); check("a habit can be ticked from its own page",
       s.completions.some(c=>c.habitId==="h1"&&c.date===today&&c.done===true)); }
   check("and the button says it is done", await hp.getByRole("button",{name:/נעשה היום/}).first().isVisible().catch(()=>false));
+
+  // changing the plan keeps every workout already done
+  await hgo("/workout");
+  await hp.getByRole("button",{name:"שנה תוכנית"}).first().click(); await hp.waitForTimeout(600);
+  await hp.getByRole("radio",{name:"60"}).first().click().catch(()=>{});
+  await hp.getByRole("button",{name:"בנה לי תוכנית"}).first().click(); await hp.waitForTimeout(800);
+  { const s=await hst(); check("re-tuning the plan keeps the workout history",
+      (s.training?.history??[]).length===1 && s.training.history[0].id==="w1", JSON.stringify(s.training?.history)); }
 
   await hgo("/progress");
   const chooser = hp.waitForEvent("filechooser",{timeout:8000}).catch(()=>null);

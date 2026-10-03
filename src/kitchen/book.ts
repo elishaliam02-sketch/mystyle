@@ -5,6 +5,7 @@
  */
 import { FOODS, MEALS, mealAmount, type Food, type Meal, type MealSlot } from "./data";
 import { dietList, dietOk, foodsDietOk } from "./index";
+import { missingFor } from "./menu";
 import { RECIPES, type Recipe, type RecipeTag } from "./recipes";
 
 export type BookFilter = RecipeTag | "protein" | "veggie";
@@ -16,6 +17,11 @@ export type BookQuery = {
   /** The person's diet setting ("kosher,vegetarian"), applied unless `anyDiet`. */
   diet?: string | null;
   anyDiet?: boolean;
+  /** Narrow to the starred dishes, or to what the kitchen can make right now. */
+  only?: "starred" | "canMake" | null;
+  favorites?: readonly string[];
+  /** Food ids in the kitchen, staples included — what "can make" reads. */
+  have?: ReadonlySet<string> | null;
 };
 
 const SLOT_ORDER: Record<MealSlot, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
@@ -64,6 +70,9 @@ export function searchBook(q: BookQuery): Meal[] {
     .filter((m) => !q.slot || q.slot === "all" || m.slot === q.slot)
     .filter((m) => !q.filter || matchesFilter(m, q.filter))
     .filter((m) => q.anyDiet || dietOk(m, q.diet))
+    .filter((m) => q.only !== "starred" || (q.favorites ?? []).includes(m.id))
+    // Makeable as the menu means it: everything there, or a stand-in for it.
+    .filter((m) => q.only !== "canMake" || !q.have || missingFor(m, q.have)?.length === 0)
     .filter((m) => {
       if (words.length === 0) return true;
       const hay = HAY.get(m.id) ?? "";

@@ -23,6 +23,7 @@ import { mentionsAmount, parseEaten } from "@/coach/logfood";
 import { fill, useI18n } from "@/i18n";
 import { useStore } from "@/store";
 import { ON_HERO, useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 /**
  * The calorie calculator.
@@ -136,7 +137,7 @@ export default function CalcScreen() {
         subtitle={t.kitchen.calcBody}
         aside={
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => leave(router)}
             accessibilityRole="button"
             accessibilityLabel={t.common.close}
             hitSlop={8}

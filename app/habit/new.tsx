@@ -11,6 +11,7 @@ import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
 import { cleanTitle, useStore, type Habit } from "@/store";
 import { useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
 
@@ -53,7 +54,7 @@ export default function NewHabit() {
     if (id) {
       router.replace(`/habit/${id}`);
     } else {
-      router.back();
+      leave(router);
     }
   }
 
@@ -164,7 +165,7 @@ export default function NewHabit() {
           )}
           {/* Never gated: leaving is how someone gets back to the habits they
               already have. */}
-          <Button label={t.habit.cancel} tone="quiet" onPress={() => router.back()} />
+          <Button label={t.habit.cancel} tone="quiet" onPress={() => leave(router)} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -9,12 +9,13 @@ import { MAX_CONTENT, ScreenBand } from "@/components/Screen";
 import { SelectTile } from "@/components/SelectTile";
 import { TextField } from "@/components/TextField";
 import { fill, useI18n } from "@/i18n";
-import { dietList, type Meal, type MealSlot } from "@/kitchen";
+import { dietList, readPantry, STAPLES, type Meal, type MealSlot } from "@/kitchen";
 import { BUNDLED_MEAL_PHOTOS } from "@/kitchen/mealPhotoAssets";
 import { bookSize, foodsOf, searchBook, type BookFilter } from "@/kitchen/book";
 import { RECIPES } from "@/kitchen/recipes";
 import { useStore } from "@/store";
 import { metricInk, useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 /**
  * The recipe book: every dish in the kitchen, searchable by name or by what is
@@ -35,10 +36,18 @@ export default function RecipeBookScreen() {
   const [slot, setSlot] = useState<MealSlot | "all">("all");
   const [filter, setFilter] = useState<BookFilter | null>(null);
   const [anyDiet, setAnyDiet] = useState(false);
+  const [only, setOnly] = useState<"starred" | "canMake" | null>(null);
+
+  // What is in the kitchen, as the daily menu reads it — so "what can I make
+  // now" here agrees with the menu, staples and stand-ins included.
+  const have = useMemo(
+    () => (state.pantry?.trim() ? new Set([...readPantry(state.pantry).map((f) => f.id), ...STAPLES]) : null),
+    [state.pantry],
+  );
 
   const rows = useMemo(
-    () => searchBook({ query, slot, filter, diet, anyDiet }),
-    [query, slot, filter, diet, anyDiet],
+    () => searchBook({ query, slot, filter, diet, anyDiet, only, favorites, have }),
+    [query, slot, filter, diet, anyDiet, only, favorites, have],
   );
   const total = useMemo(() => bookSize(anyDiet ? null : diet), [diet, anyDiet]);
 
@@ -101,7 +110,7 @@ export default function RecipeBookScreen() {
         subtitle={t.recipes.body}
         aside={
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => leave(router)}
             accessibilityRole="button"
             accessibilityLabel={t.common.close}
             hitSlop={10}
@@ -135,6 +144,27 @@ export default function RecipeBookScreen() {
             <Filter key={f} label={filterLabel[f]} on={filter === f} onPress={() => setFilter(filter === f ? null : f)} />
           ))}
         </View>
+
+        {/* from my kitchen, and my favourites — the two ways a person
+            actually decides what to cook tonight */}
+        {have || favorites.length > 0 ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+            {have ? (
+              <Filter
+                label={t.recipes.canMake}
+                on={only === "canMake"}
+                onPress={() => setOnly(only === "canMake" ? null : "canMake")}
+              />
+            ) : null}
+            {favorites.length > 0 ? (
+              <Filter
+                label={fill(t.recipes.starred, { n: favorites.length })}
+                on={only === "starred"}
+                onPress={() => setOnly(only === "starred" ? null : "starred")}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {diets.length > 0 ? (
           <Pressable onPress={() => setAnyDiet(!anyDiet)} accessibilityRole="button">

@@ -14,6 +14,7 @@ import { Button } from "@/components/Button";
 import { today, useStore } from "@/store";
 import type { Difficulty } from "@/tasks/difficulty";
 import { useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 /**
  * The reward board: what the tasks this person set themselves have added up to.
@@ -66,7 +67,7 @@ export default function RewardsScreen() {
       subtitle={t.rewards.body}
       aside={
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => leave(router)}
           accessibilityRole="button"
           hitSlop={10}
           style={{

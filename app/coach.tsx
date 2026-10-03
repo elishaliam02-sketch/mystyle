@@ -26,6 +26,7 @@ import { ProGate, ProRemaining } from "@/components/ProGate";
 import { bodyFatPercent, weeklyChange, type Sex } from "@/health/composition";
 import { today, useStore } from "@/store";
 import { useTheme } from "@/theme";
+import { leave } from "@/ui/nav";
 
 type Turn = { id: string; from: "you" | "coach"; text: string; route?: string };
 
@@ -242,7 +243,7 @@ export default function CoachScreen() {
             <Text style={[type.smallStrong, { color: colors.bandInkSoft }]}>{t.coach.body}</Text>
           </View>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => leave(router)}
             accessibilityRole="button"
             accessibilityLabel={t.common.close}
             hitSlop={8}

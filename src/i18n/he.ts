@@ -560,6 +560,7 @@ export const he = {
   },
 
   library: {
+    more: "הצג עוד {n}",
     alreadyMine: "כבר יש לך תרגיל בשם הזה.",
     addedOwn: "נוסף — ונכנס לאימון של היום.",
     removeToday: "הסר מהאימון של היום",
@@ -1092,6 +1093,7 @@ export const he = {
     stale: "האימון רץ כבר יותר מ־4 שעות — שכחת לסיים?",
     dayDone: "האימון הושלם ✅",
     restSkip: "דלג",
+    restOver: "המנוחה נגמרה — לסט הבא 💪",
     restSec: "שנ׳",
     muscleChest: "חזה",
     muscleBack: "גב",
@@ -1385,6 +1387,8 @@ export const he = {
     tagBudget: "חסכוני",
     tagProtein: "עתיר חלבון",
     tagVeggie: "צמחוני",
+    canMake: "מה אפשר להכין עכשיו",
+    starred: "★ מועדפים ({n})",
     showing: "{n} מתכונים",
     none: "לא נמצא מתכון כזה. נסה מילה אחרת או הסר סינון.",
     dietNote: "לפי ההגדרות שלך מוצגים רק מתכונים: {diets}",

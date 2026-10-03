@@ -546,6 +546,7 @@ export const en: typeof he = {
   },
 
   library: {
+    more: "Show {n} more",
     alreadyMine: "You already have an exercise with that name.",
     addedOwn: "Added — and put in today\u2019s session.",
     removeToday: "Remove from today\u2019s session",
@@ -1078,6 +1079,7 @@ export const en: typeof he = {
     stale: "This workout has run over 4 hours — forgot to finish?",
     dayDone: "Session complete ✅",
     restSkip: "Skip",
+    restOver: "Rest is over — next set 💪",
     restSec: "s",
     muscleChest: "Chest",
     muscleBack: "Back",
@@ -1371,6 +1373,8 @@ export const en: typeof he = {
     tagBudget: "Budget",
     tagProtein: "High protein",
     tagVeggie: "Vegetarian",
+    canMake: "What I can make now",
+    starred: "★ Favourites ({n})",
     showing: "{n} recipes",
     none: "No recipe like that. Try another word or clear a filter.",
     dietNote: "Per your settings, only recipes that are: {diets}",

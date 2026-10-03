@@ -612,9 +612,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         goal === (s.goal ?? s.nutritionGoal) && s.goalSince
           ? s.goalSince
           : trustedStamp(s).date,
-      training: s.training
-        ? { ...s.training, goal, planSeed: newId() }
-        : s.training,
+      // A new goal re-rolls the plan's moves; tapping the goal already chosen
+      // must not, or every exercise — and the weights remembered for it — is
+      // swapped out by a tap that changed nothing.
+      training:
+        s.training && s.training.goal !== goal
+          ? { ...s.training, goal, planSeed: newId() }
+          : s.training,
     }));
   }, []);
 
@@ -803,6 +807,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           goalSince:
             goal === (s.goal ?? s.nutritionGoal) && s.goalSince ? s.goalSince : trustedStamp(s).date,
           training: {
+            // Everything not re-tuned here is carried over as it was — the
+            // workout history and a workout in progress among it. Listing the
+            // kept fields one by one is how both were once dropped, so a plan
+            // change wiped every past session and the one running.
+            ...s.training,
             goal,
             days,
             minutes,
@@ -818,8 +827,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             log: s.training?.log ?? {},
             custom: s.training?.custom ?? [],
             weights: s.training?.weights ?? {},
-            setLog: s.training?.setLog,
-            extra: s.training?.extra,
           },
         };
       });

@@ -29,6 +29,7 @@ import {
   type PlanId,
   type ProUnlock,
 } from "@/billing/plans";
+import { leave } from "@/ui/nav";
 
 /**
  * The pricing screen.
@@ -285,7 +286,7 @@ export default function PaywallScreen() {
       subtitle={c.subtitle}
       aside={
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => leave(router)}
           accessibilityRole="button"
           accessibilityLabel={t.common.close}
           hitSlop={10}

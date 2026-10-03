@@ -5,6 +5,7 @@
 import { MEALS } from "./data";
 import { RECIPES, stepMinutes } from "./recipes";
 import { bookSize, dietWarnings, matchesFilter, scaledGrams, searchBook, shareText } from "./book";
+import { readPantry, STAPLES } from "./index";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -84,6 +85,26 @@ const ids = (ms: { id: string }[]) => ms.map((m) => m.id);
   check("a step's minutes become a timer", stepMinutes("אופים 25 דקות עד שהתפוח רך.") === 25 && stepMinutes("Bake 18–20 minutes, turning") === 20);
   check("a step with no time has no timer", stepMinutes("חותכים עגבנייה") === null && stepMinutes("Cut the apple") === null);
   check("a ranged time uses the longer end", stepMinutes("מבשלים 5–6 דקות") === 6);
+}
+
+// --- what I can make now, and my favourites
+{
+  const all = searchBook({});
+  const fav = all.slice(0, 3).map((m) => m.id);
+  const starred = searchBook({ only: "starred", favorites: fav });
+  check("favourites show only the starred dishes", starred.length === 3 && starred.every((m) => fav.includes(m.id)),
+    starred.map((m) => m.id).join());
+  check("no favourites, nothing starred", searchBook({ only: "starred", favorites: [] }).length === 0);
+
+  const kitchen = "חזה עוף, אורז, ביצים, עגבנייה, מלפפון, יוגורט יווני, בננה, לחם, טונה, חסה, שמן זית";
+  const have = new Set([...readPantry(kitchen).map((f) => f.id), ...STAPLES]);
+  const can = searchBook({ only: "canMake", have });
+  check("a stocked kitchen can make something", can.length > 0, String(can.length));
+  check("but not the whole book", can.length < all.length, `${can.length}/${all.length}`);
+  const empty = searchBook({ only: "canMake", have: new Set(STAPLES) });
+  check("staples alone make less than a stocked kitchen", empty.length < can.length, `${empty.length} vs ${can.length}`);
+  check("no kitchen given means no narrowing", searchBook({ only: "canMake", have: null }).length === all.length);
+  check("filters combine with the meal", searchBook({ only: "canMake", have, slot: "breakfast" }).every((m) => m.slot === "breakfast"));
 }
 
 const failed = results.filter(([, ok]) => !ok);
