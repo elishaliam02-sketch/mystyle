@@ -182,6 +182,8 @@ try {
     // Users
     await page.click("#tabbtn-users");
     await page.waitForSelector("#usersBody tr");
+    // The list may still be the filtered one from "show all" until "all" lands.
+    await page.waitForFunction((n) => document.querySelector("#usersMeta").textContent.startsWith(String(n)), summaries.length, { timeout: 5000 }).catch(() => {});
     check("the users tab lists a page of people", (await page.locator("#usersBody tr").count()) === 50);
     check("and says how many there are", (await page.innerText("#usersMeta")).includes("80"));
     await page.click("#next");
