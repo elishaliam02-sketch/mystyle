@@ -291,6 +291,10 @@ export type AppState = {
    * the moment it was switched on, so a session forgotten overnight does not
    * leave the app grey forever. Device-local; never synced. */
   focusSince?: string;
+  /** Whether this browser takes reminders by Web Push. Device-local and never
+   * synced: the phone app's switch is profile.reminders, and one device's
+   * answer must not turn another's off. */
+  webPush?: boolean;
   /** How hard the daily challenge should be. Chosen in the intro, changed
    * whenever they like; undefined means the intro has not asked yet. */
   challengeLevel?: "easy" | "moderate" | "hard";
@@ -427,6 +431,7 @@ export function migrateState(raw: unknown): AppState {
     legal: s.legal,
     consent: s.consent,
     focusSince: s.focusSince,
+    webPush: s.webPush === true ? true : undefined,
     challengeLevel: s.challengeLevel,
     challengesDone: s.challengesDone,
   };

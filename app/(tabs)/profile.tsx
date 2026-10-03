@@ -306,21 +306,39 @@ export default function ProfileScreen() {
               ) : null}
               {reminders.denied ? (
                 <Text style={[type.small, { color: colors.orangeInk, marginTop: space.xs }]}>
-                  {t.profile.notificationsDenied}
+                  {reminders.web ? t.profile.notificationsDeniedWeb : t.profile.notificationsDenied}
+                </Text>
+              ) : null}
+              {reminders.failed ? (
+                <Text style={[type.small, { color: colors.orangeInk, marginTop: space.xs }]}>
+                  {t.profile.notificationsFailed}
+                </Text>
+              ) : null}
+              {/* What turning it on sends where, said before the tap. */}
+              {reminders.web ? (
+                <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>
+                  {t.profile.notificationsWebNote}
                 </Text>
               ) : null}
               <Button
                 icon={reminders.enabled ? "notifications-off-outline" : "notifications-outline"}
                 label={
-                  reminders.enabled
-                    ? t.profile.notificationsDisable
-                    : t.profile.notificationsEnable
+                  reminders.busy
+                    ? t.profile.notificationsBusy
+                    : reminders.enabled
+                      ? t.profile.notificationsDisable
+                      : t.profile.notificationsEnable
                 }
                 tone={reminders.enabled ? "quiet" : "primary"}
+                disabled={reminders.busy}
                 onPress={() => void reminders.toggle()}
                 style={{ marginTop: space.md }}
               />
             </>
+          ) : reminders.needsInstall ? (
+            <Text style={[type.small, { color: colors.ink, marginTop: space.sm }]}>
+              {t.profile.notificationsInstall}
+            </Text>
           ) : (
             <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>
               {t.profile.notificationsWeb}

@@ -1406,6 +1406,88 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await hctx.close();
 }
 
+// --- reminders in the browser: Web Push, with the push service and the server
+// stood in for. What has to hold: the words stay in the browser, the server
+// hears ids and times only.
+{
+  // The full Chromium, not the headless shell: the shell has no working
+  // service workers, so push could never be switched on in it.
+  const fullBrowser = await chromium.launch({ headless: true, channel: "chromium" });
+  const pctx = await fullBrowser.newContext({ viewport:{width:412,height:915} });
+  await pctx.exposeBinding("__cspViolation",(_src,v)=>cspViolations.push(String(v).slice(0,200)));
+  await pctx.addInitScript(()=>document.addEventListener("securitypolicyviolation",e=>window.__cspViolation(`${e.violatedDirective} ${e.blockedURI}`)));
+  await pctx.grantPermissions(["notifications"], { origin: `http://localhost:${PORT}` });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await pctx.route(h, r=>r.abort());
+  const calls = [];
+  const pub = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 7)]).toString("base64url");
+  await pctx.route("**/functions/v1/push", async (r) => {
+    const body = JSON.parse(r.request().postData() || "{}");
+    calls.push({ body, auth: r.request().headers()["authorization"] || "" });
+    await r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify(body.action === "key" ? { publicKey: pub } : { ok: true }) });
+  });
+  const exp = Math.floor(Date.now()/1000) + 3600;
+  await pctx.route("**/auth/v1/**", r => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+    body: JSON.stringify({ access_token: "e2e-token", token_type: "bearer", expires_in: 3600, expires_at: exp, refresh_token: "e2e-refresh",
+      user: { id: "00000000-0000-4000-8000-0000000000aa", aud: "authenticated", role: "authenticated", is_anonymous: true,
+        app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() } }) }));
+  await pctx.addInitScript(() => {
+    // headless Chromium has no push service to subscribe to
+    const fake = { endpoint: "https://web.push.apple.com/e2e-fake",
+      toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "B" + "A".repeat(86), auth: "A".repeat(22) } }; },
+      unsubscribe: async () => true };
+    if (window.PushManager) {
+      PushManager.prototype.subscribe = async function () { return fake; };
+      PushManager.prototype.getSubscription = async function () { return null; };
+    }
+  });
+  await pctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({ ...seed, habits:[{ id:"h9", title:"לקרוא 10 דקות", slot:"evening", createdAt:dayAgo(3), archived:false, updatedAt:now.toISOString() }] }));
+  const pp = await pctx.newPage();
+  const perr=[]; pp.on("pageerror",e=>perr.push(String(e).slice(0,140)));
+  // The first open of a right-to-left page reloads once to flip direction;
+  // wait for the page to stop navigating before pressing anything.
+  let navs = 0; pp.on("framenavigated", f => { if (f === pp.mainFrame()) navs++; });
+  await pp.goto(`http://localhost:${PORT}/profile`,{waitUntil:"load"});
+  for (let quiet = 0, last = -1, i = 0; quiet < 3 && i < 30; i++) { await pp.waitForTimeout(500); quiet = navs === last ? quiet + 1 : 0; last = navs; }
+  await pp.waitForTimeout(800);
+  check("the browser offers reminders", await pp.getByRole("button",{name:"הפעל תזכורות"}).first().isVisible().catch(()=>false));
+  check("and says what the server will and will not see", (await pp.locator("body").innerText()).includes("לא את המילים"));
+  await pp.getByRole("button",{name:"הפעל תזכורות"}).first().click();
+  for (let i = 0; i < 30 && !calls.some(c=>c.body.action==="schedule"); i++) await pp.waitForTimeout(500);
+  await pp.waitForTimeout(500);
+  const st9 = JSON.parse(await pp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("reminders turn on in this browser", st9.webPush === true, String(st9.webPush));
+  check("the profile's synced switch is left alone", st9.profile.reminders !== true);
+  const sub = calls.find(c=>c.body.action==="subscribe");
+  check("the browser's push address goes to the server, signed in", !!sub && sub.body.subscription?.endpoint === "https://web.push.apple.com/e2e-fake" && sub.auth === "Bearer e2e-token",
+    JSON.stringify(calls.map(c=>c.body.action)));
+  const sched = calls.filter(c=>c.body.action==="schedule").at(-1);
+  check("the schedule goes up", !!sched && Array.isArray(sched.body.items) && sched.body.items.length > 0, String(JSON.stringify(sched?.body)).slice(0,200) + " calls=" + JSON.stringify(calls.map(c=>c.body.action)));
+  check("as ids and times only — no words", !!sched && sched.body.items.every(i => Object.keys(i).sort().join() === "at,id")
+    && !JSON.stringify(sched.body).includes("לקרוא"));
+  const texts = await pp.evaluate(() => new Promise((resolve) => {
+    const req = indexedDB.open("apex-reminders", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("texts");
+    req.onsuccess = () => { const tx = req.result.transaction("texts","readonly"); const all = tx.objectStore("texts").getAll(); const keys = tx.objectStore("texts").getAllKeys();
+      tx.oncomplete = () => resolve({ keys: keys.result, values: all.result }); };
+    req.onerror = () => resolve(null);
+  })).catch(() => null);
+  check("the words wait in the browser's own storage", !!texts && texts.values.some(v => (v.body||"").includes("לקרוא 10 דקות")),
+    JSON.stringify(texts).slice(0,200));
+  check("each one knows where a tap should open", !!texts && texts.values.every(v => typeof v.url === "string" && v.url.startsWith("/")));
+  const swOk = await pp.evaluate(async () => !!(await navigator.serviceWorker.getRegistration("/sw.js")));
+  check("the service worker is registered", swOk);
+  await pp.getByRole("button",{name:"כבה תזכורות"}).first().click().catch(()=>{});
+  await pp.waitForTimeout(1500);
+  const st10 = JSON.parse(await pp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("turning them off tells the server to forget", st10.webPush !== true && calls.some(c=>c.body.action==="unsubscribe"),
+    JSON.stringify(calls.map(c=>c.body.action)));
+  check("web reminders raise no page errors", perr.length===0, perr.join(" | "));
+  await pctx.close();
+  await fullBrowser.close();
+}
+
 check("the served page carries the Content-Security-Policy",
   /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
 // One refusal is expected and harmless: the "long" library inside TensorFlow

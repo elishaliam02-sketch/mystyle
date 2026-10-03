@@ -14,9 +14,9 @@ export const LEGAL = {
   /** The address for privacy requests, deletion, and complaints. */
   contactEmail: "danielzanzuri1301@gmail.com",
   /** Bump this when the documents change materially. */
-  version: 2,
+  version: 3,
   /** The date the current version took effect (YYYY-MM-DD). */
-  effective: "2026-09-23",
+  effective: "2026-10-03",
 } as const;
 
 /** Whether a recorded acceptance still covers the documents as they stand. */

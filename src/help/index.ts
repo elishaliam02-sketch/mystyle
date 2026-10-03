@@ -304,14 +304,14 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: "reminders",
     route: "/profile",
-    keys: ["תזכורת", "תזכורות", "התראה", "התראות", "notification", "notifications", "reminder", "reminders"],
+    keys: ["תזכורת", "תזכורות", "התראה", "התראות", "התראות באייפון", "notification", "notifications", "reminder", "reminders", "push"],
     he: {
       title: "תזכורות",
-      answer: "בלשונית \"פרופיל\", בכרטיס \"תזכורות\", מפעילים או מכבים. אם ביטלת הרשאה בטלפון, צריך להחזיר אותה בהגדרות הטלפון.",
+      answer: "בלשונית \"פרופיל\", בכרטיס \"תזכורות\", מפעילים או מכבים. באייפון, דרך האתר: קודם מוסיפים את האפליקציה למסך הבית (שיתוף ← \"הוסף למסך הבית\"), פותחים אותה מהאייקון, ואז מפעילים. אם ביטלת הרשאה, צריך להחזיר אותה בהגדרות הטלפון.",
     },
     en: {
       title: "Reminders",
-      answer: "On the Profile tab, in Reminders, turn them on or off. If you denied the permission, re-allow it in the phone's settings.",
+      answer: "On the Profile tab, in Reminders, turn them on or off. On an iPhone, through the website: first add the app to the home screen (Share → \"Add to Home Screen\"), open it from the icon, then turn them on. If you denied the permission, re-allow it in the phone's settings.",
     },
   },
   {

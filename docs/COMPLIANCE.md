@@ -55,6 +55,7 @@ places data can leave the phone, and withdrawing it stops them.
 | Terms + privacy | must accept | the app itself | `app/legal/consent.tsx`, enforced by the gate in `app/_layout.tsx` |
 | Cloud backup and sync | **off** | every network round in `useCloud` — sync, account, backup | `src/cloud/useCloud.ts` |
 | AI coach and photo scan | **off** | every model call, including meal photos | `src/ai/server.ts` via `aiConsentGiven()` |
+| Reminders in the browser | **off** | the push subscription and the reminder queue (ids and times only) | `src/notifications/webpush.ts`; the switch is device-local (`state.webPush`), never synced |
 
 Both optional switches are separate from the acceptance, and separate from each
 other: bundled consent is not consent. The app is fully usable with both off —
@@ -153,8 +154,18 @@ contact. The email above works for support.
 | Expo (EAS Update) | IP and basic device details on an update check | every launch, if updates are configured |
 | YouTube | IP, when a demo thumbnail loads or a video opens | when the training screen is used |
 | Wikimedia (`commons.wikimedia.org`, `upload.wikimedia.org`) | IP, and the dish or ingredient name from the app's own cookbook | when the kitchen shows meals, unless the photos switch is off |
+| The browser's push service (Apple, Google, Mozilla) | that an encrypted message was sent to a browser, and when | only with reminders turned on in the web version |
 
-All five are named in the privacy policy. The Gemini free tier's terms allow
+All six are named in the privacy policy (version 3 added the last).
+
+Web reminders are built to tell the server as little as possible. It stores the
+browser's push address and, per coming reminder, an id and a time
+(`water@2026-10-03`, 15:00) — never the words; the app writes those into the
+browser's IndexedDB and the service worker (`public/sw.js`) reads them when the
+push arrives. The push itself is encrypted for that browser alone (RFC 8291,
+`supabase/functions/_shared/webpush.ts`, checked against the RFC's worked
+example in `src/push/webpushtest.ts`). Turning reminders off deletes the address
+and the queue; deleting the account cascades to both. The Gemini free tier's terms allow
 human review of submitted content, and the policy says so plainly rather than
 implying otherwise — that sentence is deliberate, not an oversight.
 

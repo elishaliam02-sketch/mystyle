@@ -174,6 +174,8 @@ type Store = {
   measurementSeries: (part: string) => Reading[];
   /** Sets the person's sex, for the body-fat estimate. */
   setSex: (sex: "male" | "female") => void;
+  /** Whether this browser takes reminders by Web Push (device-local). */
+  setWebPush: (on: boolean) => void;
   /** Adds a progress photo with the day's numbers frozen beside it. */
   addPhoto: (uri: string, kg?: number, bf?: number) => void;
   /** Removes a progress photo. */
@@ -932,6 +934,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   // Sex, for the body-fat estimate. Guarded to the two values the formula knows.
+  const setWebPush = useCallback((on: boolean) => {
+    setState((s) => ({ ...s, webPush: on ? true : undefined }));
+  }, []);
+
   const setSex = useCallback((sex: "male" | "female") => {
     setState((s) => ({ ...s, profile: { ...s.profile, sex, updatedAt: now() } }));
   }, []);
@@ -1579,6 +1585,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addMeasurement,
       measurementSeries,
       setSex,
+      setWebPush,
       addPhoto,
       removePhoto,
       configureTraining,
@@ -1642,7 +1649,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       trustedDaysAgo,state, ready, saveProfile, addHabit, archiveHabit, updateHabit, streak,
      toggleCompletion, isDone, addWeighIn, editWeighIn, removeWeighIn, addCheckIn, weeklyConsistency,
      readyForAnotherHabit, setPantry, goal, setGoal, setNutritionGoal, setDietFilter, toggleFavorite, isFavorite, logMeal, removeMeal, intakeOn, logMealOn, removeMealOn, wishes, addWish, removeWish, todayIntake,
-     addWater, todayWater, waterGoal, waterLog, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
+     addWater, todayWater, waterGoal, waterLog, setWaterGoal, cupMl, setCupMl, addMeasurement, measurementSeries, setSex, setWebPush, addPhoto, removePhoto, configureTraining, regeneratePlan, setTrainingMode,
      addToDay, removeFromDay, dayEdits, planSeed, removeExerciseToday,
      entitlement, allowance, noteUsed, setSubscription,
      toggleExerciseDone, isExerciseDone, addCustomExercise, noteServerTime,
