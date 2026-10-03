@@ -125,7 +125,9 @@ async function classifyNative(uri: string, lib: Tflite, m: Manipulator, onStage:
 
 /** The JavaScript model's weights, loaded the first time a photo is read. */
 async function jsModel() {
-  data ??= require("./foodModelData") as typeof import("./foodModelData");
+  // An async import, so the web build ships the 7 MB of weights as their own
+  // file, fetched the first time a photo is read — not with the app itself.
+  data ??= await import("./foodModelData");
   const bytes = base64Bytes(data.WEIGHTS_B64);
   return {
     modelJson: data.MODEL_JSON as never,
@@ -138,7 +140,7 @@ async function classifyJs(uri: string, m: Manipulator): Promise<Guess[]> {
   const b64 = await squareJpeg(uri, m);
   // TensorFlow is loaded the first time a photo is read, never at app start:
   // nothing about it can slow or break opening the app.
-  const { classifyJpeg } = require("./foodvision") as typeof import("./foodvision");
+  const { classifyJpeg } = await import("./foodvision");
   return classifyJpeg(b64, jsModel, 8);
 }
 
@@ -258,7 +260,7 @@ export async function recognizePhoto(
       }
       if (!guesses) {
         onStage("small");
-        const { classifyPixels } = require("./foodvision") as typeof import("./foodvision");
+        const { classifyPixels } = await import("./foodvision");
         guesses = await classifyPixels(pixels.data, pixels.width, pixels.height, jsModel, 8);
       }
     }

@@ -1285,9 +1285,38 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await rctx.close();
 }
 
+// 25) A MEAL PHOTO ON THE WEB — read in the browser, model fetched only then.
+{
+  const vctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await vctx.route(h, r=>r.abort());
+  await vctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify({ ...seed, intake:{}, menu:{} }));
+  const vp = await vctx.newPage();
+  const verr=[]; vp.on("pageerror",e=>verr.push(String(e).slice(0,140)));
+  const chunks=[]; vp.on("request",r=>{ const u=r.url(); if (/foodModelData|foodvision/.test(u)) chunks.push(u); });
+  await vp.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"}); await vp.waitForTimeout(2000);
+  check("opening the app does not download the food model", chunks.length===0, chunks.join(" "));
+  const chooser = vp.waitForEvent("filechooser",{timeout:8000}).catch(()=>null);
+  await vp.getByRole("button",{name:"מהגלריה"}).first().click();
+  const fc = await chooser;
+  check("the gallery button opens a file picker", !!fc);
+  if (fc) {
+    await fc.setFiles(path.resolve("assets/meals/chicken-shawarma-plate.jpg"));
+    await vp.getByText(/נראה כמו…|בחר את המנה הנכונה|לא הצלחתי לזהות/).first().waitFor({ timeout: 60000 }).catch(()=>{});
+    check("a food photo is read in the browser", await vp.getByText(/נראה כמו…|בחר את המנה הנכונה/).first().isVisible().catch(()=>false));
+    check("the model was fetched for it, then", chunks.some((u)=>/foodModelData/.test(u)), chunks.join(" "));
+  }
+  check("the photo scan raises no page errors", verr.length===0, verr.join(" | "));
+  await vctx.close();
+}
+
 check("the served page carries the Content-Security-Policy",
   /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
-check("the Content-Security-Policy refused nothing the app did", cspViolations.length===0, cspViolations[0]);
+// One refusal is expected and harmless: the "long" library inside TensorFlow
+// (loaded only for a meal photo) probes for WebAssembly in a try/catch and
+// falls back to JavaScript when the policy says no. The policy stays strict
+// rather than allowing wasm for a probe; anything else still fails here.
+const realViolations = cspViolations.filter((v)=>!/^script-src wasm-eval/.test(v));
+check("the Content-Security-Policy refused nothing the app did", realViolations.length===0, realViolations[0]);
 await browser.close(); server.close();
 report();
 
