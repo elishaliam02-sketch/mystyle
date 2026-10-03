@@ -1,0 +1,30 @@
+name: Site probe
+
+# Read-only: asks the hosted site what it serves at a few addresses and prints
+# the status, content type and page title of each. Runs when this file
+# changes, or by hand. Changes nothing anywhere.
+
+on:
+  push:
+    branches: [claude/daily-routine-app-rgxm42]
+    paths: [".github/workflows/site-probe.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: What the site serves
+        run: |
+          for path in /admin.html /admin /admin/ /admin/index.html /console.html /legal/privacy; do
+            curl -s -o body -D head "https://mystyle.expo.app$path" || true
+            code=$(head -1 head | tr -d '\r')
+            type=$(grep -i '^content-type' head | tr -d '\r')
+            loc=$(grep -i '^location' head | tr -d '\r')
+            title=$(grep -o '<title>[^<]*' body | head -1)
+            echo "$path -> $code | $type | $loc | $title | $(wc -c < body) bytes"
+          done
