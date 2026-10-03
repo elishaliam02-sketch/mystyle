@@ -58,10 +58,18 @@ const cors = {
   "Access-Control-Max-Age": "86400",
 };
 
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+// The hosted web app (and the owner console served beside it) is always let
+// in; the ALLOWED_ORIGINS secret adds to it rather than replacing it. Left to
+// the secret alone, a project where it was never set answered only localhost,
+// so the web app's AI, checkout and console calls were all refused.
+const APP_ORIGINS = ["https://mystyle.expo.app"];
+const ALLOWED_ORIGINS = [
+  ...APP_ORIGINS,
+  ...(Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
 
 /** Echoes the Origin back only when it is on ALLOWED_ORIGINS (a function
  * secret). Native apps send no Origin; the console must be served from a listed origin. */

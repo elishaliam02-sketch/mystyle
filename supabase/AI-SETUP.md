@@ -35,9 +35,9 @@ instructions it gives the model, `supabase/functions/ai/prompts.ts`.
 - From the dashboard: **Edge Functions** → **Deploy a new function** → name it
   exactly `ai` → add both files with those names and paste each one in.
 
-If the app also runs on the web, add a secret `ALLOWED_ORIGINS` with the web
-app's address (for example `https://app.example.com`; several are separated
-by commas). The phone apps need nothing here.
+The hosted web app, `https://mystyle.expo.app`, is always allowed by the
+functions' code. Only an extra web address needs a secret `ALLOWED_ORIGINS`
+(several are separated by commas). The phone apps need nothing here.
 
 That's it. The app finds it on its own.
 

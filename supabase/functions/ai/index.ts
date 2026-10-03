@@ -47,10 +47,18 @@ const PER_DAY = limit("AI_PER_DAY", 60);
 const PER_DAY_ANONYMOUS = limit("AI_PER_DAY_ANONYMOUS", 30);
 const GLOBAL_PER_DAY = limit("AI_GLOBAL_PER_DAY", 2000);
 
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+// The hosted web app (and the owner console served beside it) is always let
+// in; the ALLOWED_ORIGINS secret adds to it rather than replacing it. Left to
+// the secret alone, a project where it was never set answered only localhost,
+// so the web app's AI, checkout and console calls were all refused.
+const APP_ORIGINS = ["https://mystyle.expo.app"];
+const ALLOWED_ORIGINS = [
+  ...APP_ORIGINS,
+  ...(Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:8081,http://localhost:19006")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
 
 const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
