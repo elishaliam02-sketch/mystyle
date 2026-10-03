@@ -1154,6 +1154,7 @@ export const he = {
 
   achievements: {
     heading: "הישגים",
+    earned: "הושג",
     body: "כל צעד קטן — נספר.",
     unlocked: "{done} מתוך {total} נפתחו",
     progress: "{progress}/{target}",
@@ -1224,6 +1225,8 @@ export const he = {
     errGeneric: "משהו השתבש. נסה שוב.",
   },
   authScreen: {
+    confirmedSignIn: "אישרתי את המייל — כניסה",
+    otherEmail: "להירשם עם כתובת אחרת",
     eyebrow: "APEX",
     title: "התחברות",
     subtitle: "התחבר או צור חשבון כדי להמשיך.",

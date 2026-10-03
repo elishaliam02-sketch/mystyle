@@ -16,7 +16,21 @@ export default function AchievementsScreen() {
   const { state } = useStore();
   const router = useRouter();
 
-  const list = useMemo(() => computeAchievements(state), [state]);
+  // Earned first, then the ones closest to earning — "two more days" is the
+  // line that brings someone back tomorrow, and it was lost in the grid.
+  const list = useMemo(
+    () =>
+      computeAchievements(state)
+        .map((a, i) => ({ a, i }))
+        .sort(
+          (x, y) =>
+            Number(y.a.unlocked) - Number(x.a.unlocked) ||
+            (x.a.unlocked ? 0 : y.a.progress / y.a.target - x.a.progress / x.a.target) ||
+            x.i - y.i,
+        )
+        .map(({ a }) => a),
+    [state],
+  );
   const done = unlockedCount(list);
 
   return (
@@ -113,7 +127,7 @@ function Badge({ a }: { a: Achievement }) {
           }}
         >
           <Ionicons name="checkmark" size={12} color={colors.accent} />
-          <Text style={[type.label, { color: colors.accent }]}>{pct}%</Text>
+          <Text style={[type.label, { color: colors.accent }]}>{t.achievements.earned}</Text>
         </View>
       ) : (
         <View style={{ width: "100%", gap: 2, alignItems: "center" }}>

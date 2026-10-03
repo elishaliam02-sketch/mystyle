@@ -11,7 +11,7 @@ import { computeRewards, earnings, scoredTasks, STREAK_DAYS, todayOnOffer } from
 import { shareSubject, shareText } from "@/rewards/share";
 import { deliverShare } from "@/rewards/deliverShare";
 import { Button } from "@/components/Button";
-import { today, useStore } from "@/store";
+import { useStore } from "@/store";
 import type { Difficulty } from "@/tasks/difficulty";
 import { useTheme } from "@/theme";
 import { leave } from "@/ui/nav";
@@ -27,10 +27,11 @@ import { leave } from "@/ui/nav";
 export default function RewardsScreen() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state, streak } = useStore();
+  const { state, streak, todayKey } = useStore();
   const router = useRouter();
 
-  const day = today();
+  // The same guarded clock the ticks are stamped with.
+  const day = todayKey();
   const reward = useMemo(() => computeRewards(state, day), [state, day]);
   const offer = useMemo(() => todayOnOffer(state, day), [state, day]);
   const tasks = useMemo(() => scoredTasks(state), [state]);

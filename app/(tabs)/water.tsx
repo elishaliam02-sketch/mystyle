@@ -348,6 +348,7 @@ export default function WaterScreen() {
       ) : null}
 
       <Card label={t.water.weekTitle}>
+        {/* oldest on the left, like every chart in the app */}
         <View
           style={{
             flexDirection: "row",
@@ -355,6 +356,7 @@ export default function WaterScreen() {
             gap: space.sm,
             height: 110,
             marginTop: space.xs,
+            direction: "ltr",
           }}
         >
           {week.map((d) => (

@@ -957,6 +957,28 @@ function AccountCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         {note ? (
           <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>{note}</Text>
         ) : null}
+        <Button
+          icon="log-in-outline"
+          label={t.authScreen.confirmedSignIn}
+          onPress={() => {
+            setEmail(awaiting);
+            setAwaiting(null);
+            setMode("in");
+            setNote(null);
+          }}
+          style={{ marginTop: space.md }}
+        />
+        <Button
+          label={t.authScreen.otherEmail}
+          tone="quiet"
+          onPress={() => {
+            setEmail("");
+            setAwaiting(null);
+            setMode("up");
+            setNote(null);
+          }}
+          style={{ marginTop: space.sm }}
+        />
       </Card>
     );
   }

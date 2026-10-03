@@ -1140,6 +1140,7 @@ export const en: typeof he = {
 
   achievements: {
     heading: "Achievements",
+    earned: "Earned",
     body: "Every small step — counted.",
     unlocked: "{done} of {total} unlocked",
     progress: "{progress}/{target}",
@@ -1210,6 +1211,8 @@ export const en: typeof he = {
     errGeneric: "Something went wrong. Try again.",
   },
   authScreen: {
+    confirmedSignIn: "I've confirmed — sign in",
+    otherEmail: "Use a different email",
     eyebrow: "APEX",
     title: "Sign in",
     subtitle: "Sign in or create an account to continue.",

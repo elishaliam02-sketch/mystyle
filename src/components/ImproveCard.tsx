@@ -5,7 +5,7 @@ import { Card } from "@/components/Card";
 import { fill, useI18n } from "@/i18n";
 import type { Dict } from "@/i18n/dict";
 import { improvements, type ImproveArea, type Reading } from "@/insight/improve";
-import { today, useStore } from "@/store";
+import { useStore } from "@/store";
 import { useTheme } from "@/theme";
 
 /** The word, the sentence and the fix for each area, from the string table. */
@@ -34,9 +34,10 @@ function copy(t: Dict, area: ImproveArea) {
 export function ImproveCard() {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { state } = useStore();
+  const { state, todayKey } = useStore();
 
-  const day = today();
+  // The same guarded clock the ticks are stamped with.
+  const day = todayKey();
   const reading = useMemo(() => improvements(state, day), [state, day]);
 
   if (reading.all.length === 0) {

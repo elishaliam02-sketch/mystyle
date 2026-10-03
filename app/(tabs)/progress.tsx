@@ -622,7 +622,8 @@ function StepsCard() {
         {streak > 0 ? ` · ${fill(t.steps.streak, { days: streak })}` : ""}
       </Text>
 
-      {/* the last seven days, zeros included */}
+      {/* the last seven days, zeros included — oldest on the left, like
+          every other chart in the app */}
       <View
         style={{
           flexDirection: "row",
@@ -630,6 +631,7 @@ function StepsCard() {
           gap: 5,
           height: 54,
           marginTop: space.md,
+          direction: "ltr",
         }}
       >
         {week.map((d) => (
@@ -815,7 +817,10 @@ function WeeklyAverageCard() {
         // Each week's own number above its bar and the week's first day under
         // it: a bar with no value on it is a shape, not a reading.
         // Six weeks at most: eight columns cut every date to "21/…" on a phone.
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: space.md }} accessibilityRole="image">
+        // Time runs left to right here as in the weight chart above it, in
+        // both languages — two charts on one screen running opposite ways read
+        // as a trend reversed.
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: space.md, direction: "ltr" }} accessibilityRole="image">
           {weeks.slice(-6).map((w, i, arr) => {
             const last = i === arr.length - 1;
             return (
@@ -1344,7 +1349,7 @@ function MeasureSparkline({ values }: { values: number[] }) {
   const max = Math.max(...values);
   const range = max - min || 1;
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 40 }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 40, direction: "ltr" }}>
       {values.map((v, i) => (
         <View
           key={i}

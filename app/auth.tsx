@@ -111,6 +111,30 @@ export default function Auth() {
           {note ? (
             <Text style={[type.small, { color: colors.inkSoft, marginTop: space.sm }]}>{note}</Text>
           ) : null}
+          {/* Two ways out of the waiting room: the link is clicked, or the
+              address had a typo. Without them this screen was a dead end. */}
+          <Button
+            icon="log-in-outline"
+            label={t.authScreen.confirmedSignIn}
+            onPress={() => {
+              setEmail(awaiting);
+              setAwaiting(null);
+              setMode("in");
+              setNote(null);
+            }}
+            style={{ marginTop: space.md }}
+          />
+          <Button
+            label={t.authScreen.otherEmail}
+            tone="quiet"
+            onPress={() => {
+              setEmail("");
+              setAwaiting(null);
+              setMode("up");
+              setNote(null);
+            }}
+            style={{ marginTop: space.sm }}
+          />
         </Card>
       </Screen>
     );
