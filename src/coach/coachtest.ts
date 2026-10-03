@@ -225,6 +225,18 @@ check("medical answer carries no calorie number", !/\d{3,}/.test(coachReply("א�
 const over = coachReply("אכלתי יותר מדי", { goal: "cut", kcalTarget: 1700, kcalEaten: 2300 }, "he").text;
 check("overeating names the gap and says not to skip meals", over.includes("600") && over.includes("לא לדלג"), over.slice(0, 80));
 
+// What the words mean in a sentence, not the food's standard portion.
+{
+  const kcal = (q: string) => parseEaten(q, "he")?.kcal ?? 0;
+  check("half a pizza is half a pizza, not half a slice", kcal("אכלתי חצי פיצה") > 900, String(kcal("אכלתי חצי פיצה")));
+  check("2 triangles of pizza are two slices", kcal("אכלתי 2 משולשי פיצה") > 500 && kcal("אכלתי 2 משולשי פיצה") < 700, String(kcal("אכלתי 2 משולשי פיצה")));
+  check("one slice stays one slice", kcal("אכלתי משולש פיצה") < 350);
+  check("milk in coffee is a splash", kcal("שתיתי קפה עם חלב") < 60, String(kcal("שתיתי קפה עם חלב")));
+  check("a glass of milk is a glass", kcal("שתיתי כוס חלב") > 100);
+  check("a plate of hummus is a hummusia plate", kcal("אכלתי צלחת חומוס") > 350, String(kcal("אכלתי צלחת חומוס")));
+  check("two spoons of hummus are two spoons", kcal("אכלתי 2 כפות חומוס") < 120, String(kcal("אכלתי 2 כפות חומוס")));
+}
+
 const failed = results.filter(([, ok]) => !ok);
 for (const [n, ok, d] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${n}${ok ? "" : `  ← ${d ?? ""}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

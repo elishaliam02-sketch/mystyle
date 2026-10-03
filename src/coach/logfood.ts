@@ -86,7 +86,8 @@ export type Unit =
  * prefixes only, so nothing is built from what was typed. */
 export function unitOf(token: string): Unit | null {
   const w = token.length > 2 && /^[וה]/.test(token) ? token.slice(1) : token;
-  if (w.startsWith("פרוס") || /^slices?$/.test(w)) return "slice";
+  // A triangle is how a slice of pizza is said: "2 משולשי פיצה".
+  if (w.startsWith("פרוס") || w.startsWith("משולש") || /^slices?$/.test(w)) return "slice";
   if (w === "כוס" || w === "כוסות" || /^(cups?|glass(es)?)$/.test(w)) return "cup";
   if (w === "כפית" || w === "כפיות" || /^(tsp|teaspoons?)$/.test(w)) return "tsp";
   if (w === "כף" || w === "כפות" || /^(tbsp|tablespoons?|spoons?)$/.test(w)) return "tbsp";
@@ -168,6 +169,29 @@ const COOKED_TWIN: Record<string, string> = { rice: "cookedRice", pasta: "cooked
  * the library is recognised — the coach then answers in words instead of
  * logging a guess.
  */
+/**
+ * How a few foods are meant when no exact amount is given — what the words
+ * mean in a real sentence, not the food's standard portion:
+ * - "חצי פיצה", "פיצה שלמה", "מגש פיצה" is a pizza, not a slice: half a pizza
+ *   was being logged as half a slice (146 kcal for ~1,100);
+ * - milk in a coffee is a splash, not a glass (122 kcal for ~30);
+ * - "צלחת חומוס", "חומוס עם פיתה" is a hummus-place plate, not two spoons.
+ * Returns grams, or a slice count for pizza, or null to use the normal rules.
+ */
+const PIZZA_SLICES = 8;
+function inContext(foodId: string, lower: string, hasAmount: boolean): { grams?: number; slices?: number } | null {
+  if (foodId === "pizza" && !/(משולש|פרוס|slice)/.test(lower)) {
+    if (/(רבע פיצה|quarter (of )?(a )?pizza)/.test(lower)) return { slices: PIZZA_SLICES / 4 };
+    if (/(חצי פיצה|חצי מגש|half (a |of a )?pizza)/.test(lower)) return { slices: PIZZA_SLICES / 2 };
+    if (/(פיצה שלמה|מגש פיצה|פיצה משפחתית|whole pizza|entire pizza)/.test(lower)) return { slices: PIZZA_SLICES };
+  }
+  // "צלחת חומוס" reads "plate" as a measure; the plate is the point.
+  if (foodId === "hummusSpread" && !/\d/.test(lower) && /(צלחת חומוס|מנת חומוס|חומוס עם פיתה|חומוס ופיתה|חומוסיה|plate of hummus|hummus plate|hummus with pita)/.test(lower)) return { grams: 250 };
+  if (hasAmount) return null;
+  if (foodId === "milk" && /(קפה|נס|הפוך|cappuccino|coffee|latte|tea|תה)/.test(lower) && !/(כוס חלב|glass of milk)/.test(lower)) return { grams: 50 };
+  return null;
+}
+
 export function parseEaten(text: string, locale: "he" | "en" = "he"): EatenMeal | null {
   const lower = text.toLowerCase();
   const saysDry = /(יבש|לא מבושל|\bdry\b|\braw\b|\buncooked\b)/.test(lower);
@@ -205,7 +229,16 @@ export function parseEaten(text: string, locale: "he" | "en" = "he"): EatenMeal 
     let count: number;
     let label: string;
     const weighed = gramsBefore(lower, terms) ?? gramsAfter(lower, terms);
-    if (weighed !== null) {
+    const context = weighed === null ? inContext(food.id, lower, amountBefore(tokens, terms) !== null) : null;
+    if (context?.slices) {
+      count = context.slices;
+      grams = Math.round(count * unitG);
+      label = `${count}× ${name}`;
+    } else if (context?.grams) {
+      grams = context.grams;
+      count = Math.round((grams / unitG) * 10) / 10;
+      label = name;
+    } else if (weighed !== null) {
       grams = weighed;
       count = Math.round((grams / unitG) * 10) / 10;
       label = `${name} · ${grams} ${locale === "he" ? "ג'" : "g"}`;
