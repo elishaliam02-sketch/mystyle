@@ -862,6 +862,8 @@ export const en: typeof he = {
     a11yWaterAdd: "Add a glass of water",
     a11yWaterRemove: "Remove a glass of water",
     a11yRemoveItem: "Remove from the diary",
+    removedItem: "Removed: {label}",
+    undo: "Undo",
     a11yFavorite: "Star this meal",
     favTitle: "Meals you love",
     favEmpty: "No favourites yet. Tap the star on a meal.",

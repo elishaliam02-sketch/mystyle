@@ -399,6 +399,8 @@ function ScoreRing({ score, onHero = false }: { score: number; onHero?: boolean 
   );
 }
 
+const SLOT_RANK: Record<string, number> = { morning: 0, noon: 1, evening: 2, any: 3 };
+
 export default function TodayScreen() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
@@ -408,7 +410,15 @@ export default function TodayScreen() {
   // place and calling useCloud here would start a rival copy of it.
   const net = useConnectivity(consent().cloud);
 
-  const habits = state.habits.filter((h) => !h.archived);
+  // In the order the day runs — morning, noon, evening, then whenever — so the
+  // list reads like the day instead of like the order things were added.
+  // Stable: habits in the same part of the day keep their own order, and a
+  // tick never moves a row out from under the thumb.
+  const habits = state.habits
+    .filter((h) => !h.archived)
+    .map((h, i) => ({ h, i }))
+    .sort((a, b) => SLOT_RANK[a.h.slot ?? "any"] - SLOT_RANK[b.h.slot ?? "any"] || a.i - b.i)
+    .map(({ h }) => h);
   const doneCount = habits.filter((h) => isDone(h.id)).length;
 
   // A daily app should say which day it is; without it every screen looks the

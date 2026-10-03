@@ -636,8 +636,16 @@ function HeroBar({ pct }: { pct: number }) {
 function TodayCard(_: { goal: Goal }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { todayIntake, removeMeal } = useStore();
+  const { todayIntake, removeMeal, logMeal } = useStore();
   const eaten = todayIntake();
+  // The last item taken off, for a few seconds: the × sits a thumb's width
+  // from the row, and one stray tap used to delete a meal for good.
+  const [removed, setRemoved] = useState<{ id: string; label: string; kcal: number; protein: number } | null>(null);
+  useEffect(() => {
+    if (!removed) return;
+    const id = setTimeout(() => setRemoved(null), 7000);
+    return () => clearTimeout(id);
+  }, [removed]);
 
   return (
     <>
@@ -660,9 +668,12 @@ function TodayCard(_: { goal: Goal }) {
                 {t.kitchen.grams}
               </Text>
               <Pressable
-                onPress={() => removeMeal(it.id)}
+                onPress={() => {
+                  setRemoved({ id: it.id, label: it.label, kcal: it.kcal, protein: it.protein });
+                  removeMeal(it.id);
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={t.kitchen.a11yRemoveItem}
+                accessibilityLabel={`${t.kitchen.a11yRemoveItem} ${it.label}`}
                 hitSlop={8}
               >
                 <Ionicons name="close-circle" size={18} color={colors.inkFaint} />
@@ -670,6 +681,34 @@ function TodayCard(_: { goal: Goal }) {
             </View>
           ))
         )}
+        {removed ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              marginTop: 4,
+              paddingVertical: 6,
+              paddingHorizontal: space.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surfaceAlt,
+            }}
+          >
+            <Text style={[type.small, { color: colors.inkSoft, flex: 1 }]} numberOfLines={1}>
+              {fill(t.kitchen.removedItem, { label: removed.label })}
+            </Text>
+            <Pressable
+              onPress={() => {
+                logMeal(removed.label, removed.kcal, removed.protein, removed.id);
+                setRemoved(null);
+              }}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text style={[type.smallStrong, { color: colors.accent }]}>{t.kitchen.undo}</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Card>
     </>

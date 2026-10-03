@@ -876,6 +876,8 @@ export const he = {
     a11yWaterAdd: "הוסף כוס מים",
     a11yWaterRemove: "הורד כוס מים",
     a11yRemoveItem: "הסר מהיומן",
+    removedItem: "הוסר: {label}",
+    undo: "בטל",
     a11yFavorite: "סמן מנה אהובה",
     favTitle: "המנות שאהבת",
     favEmpty: "עוד לא סימנת מנות אהובות. לחץ על הכוכב במנה.",

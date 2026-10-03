@@ -190,6 +190,9 @@ await page.getByRole("button",{name:"אכלתי את זה"}).first().click(); aw
    JSON.stringify(s.intake?.[today])); }
 await page.getByLabel("הסר מהיומן").first().click(); await settle();
 { const s=await st(); check("removing a logged meal empties the diary", (s.intake?.[today]??[]).length===0); }
+await page.getByRole("button",{name:"בטל",exact:true}).first().click(); await settle();
+{ const s=await st(); check("a removed meal can be brought back with undo", (s.intake?.[today]??[]).length===1); }
+await page.getByLabel("הסר מהיומן").first().click(); await settle();
 
 // 5b) KITCHEN — quick-log: search a food, say how much, and it is in the diary
 await page.getByPlaceholder(/מה אכלת/).first().fill("אורז"); await settle();
