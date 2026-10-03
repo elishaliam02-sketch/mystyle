@@ -290,6 +290,11 @@ type Store = {
 
 const StoreContext = createContext<Store | null>(null);
 
+/** One line, single-spaced — how a habit title is shown everywhere. */
+export function cleanTitle(title: string): string {
+  return title.replace(/\s+/g, " ").trim();
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(EMPTY_STATE);
   const [ready, setReady] = useState(false);
@@ -369,7 +374,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addHabit = useCallback((title: string, slot?: Habit["slot"]) => {
-    const clean = title.trim();
+    // The field is multiline, so Enter on a keyboard can put a line break in
+    // the middle of a title that is shown on one line everywhere else.
+    const clean = cleanTitle(title);
     if (!clean) return null;
     const id = newId();
     setState((s) => ({
@@ -403,7 +410,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         habits: s.habits.map((h) =>
-          h.id === id ? { ...h, ...patch, updatedAt: now() } : h,
+          h.id === id
+            ? {
+                ...h,
+                ...patch,
+                // An edit that empties the title keeps the old one rather than
+                // leaving a habit with nothing to call it.
+                ...(patch.title !== undefined ? { title: cleanTitle(patch.title) || h.title } : {}),
+                updatedAt: now(),
+              }
+            : h,
         ),
       }));
     },

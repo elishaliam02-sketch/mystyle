@@ -44,7 +44,7 @@ import {
   MIN_AGE,
   MAX_AGE,
 } from "@/health";
-import { useI18n, type Locale, fill } from "@/i18n";
+import { useI18n, type Locale, fill, formatStamp, formatTime } from "@/i18n";
 import { useReminders } from "@/notifications/useReminders";
 import { useStore } from "@/store";
 import { useTheme } from "@/theme";
@@ -299,9 +299,9 @@ export default function ProfileScreen() {
               >
                 {reminders.enabled ? t.profile.notificationsOn : t.profile.notificationsOff}
               </Text>
-              {reminders.enabled && reminders.count > 0 ? (
+              {reminders.next ? (
                 <Text style={[type.small, { color: colors.inkFaint }]}>
-                  {fill(t.profile.notificationsCount, { count: reminders.count })}
+                  {fill(t.profile.notificationsNext, reminders.next)}
                 </Text>
               ) : null}
               {reminders.denied ? (
@@ -387,10 +387,7 @@ export default function ProfileScreen() {
           {cloud.lastSync ? (
             <Text style={[type.small, { color: colors.inkFaint }]}>
               {fill(t.profile.cloudLastSync, {
-                time: cloud.lastSync.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
+                time: formatTime(cloud.lastSync),
               })}
             </Text>
           ) : null}
@@ -732,14 +729,14 @@ function UpdatesCard() {
       .then((raw) => {
         if (!raw) return;
         const { stage, at } = JSON.parse(raw) as { stage: string; at: number };
-        setLastScanStop(`${stage} · ${new Date(at).toLocaleString()}`);
+        setLastScanStop(`${stage} · ${formatStamp(new Date(at))}`);
       })
       .catch(() => {});
     AsyncStorage.getItem(LAST_ERROR_KEY)
       .then((raw) => {
         if (!raw) return;
         const { where, message, at } = JSON.parse(raw) as { where: string; message: string; at: number };
-        setLastError(`${where} · ${new Date(at).toLocaleString()} · ${message}`);
+        setLastError(`${where} · ${formatStamp(new Date(at))} · ${message}`);
       })
       .catch(() => {});
   }, []);
@@ -769,12 +766,7 @@ function UpdatesCard() {
       {update.running.publishedAt ? (
         <Text style={[type.small, { color: colors.inkSoft }]}>
           {fill(t.updates.publishedAt, {
-            date: update.running.publishedAt.toLocaleString(locale === "he" ? "he-IL" : "en-GB", {
-              day: "numeric",
-              month: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
+            date: formatStamp(update.running.publishedAt),
           })}
         </Text>
       ) : null}

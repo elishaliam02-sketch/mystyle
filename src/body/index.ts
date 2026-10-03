@@ -62,3 +62,25 @@ export function measureChange(series: Reading[]): Change {
     count: sorted.length,
   };
 }
+
+/**
+ * Whether a change in one measurement is good news for this goal.
+ *
+ * Down is not always the good direction: a waist shrinking on a cut is the
+ * point, but an arm growing on a bulk is the point too, and painting that
+ * orange told someone their training was failing. Waist and hips track fat,
+ * so they read against fat loss; arms, chest, shoulders and thighs track
+ * muscle, so they read against growth — and where a goal does not care which
+ * way a part moves (a little muscle lost on a cut), the change is neutral.
+ */
+export function measureTone(part: BodyPart, delta: number, goal: string): "good" | "bad" | "neutral" {
+  if (delta === 0) return "neutral";
+  const fatPart = part === "waist" || part === "hips";
+  if (fatPart) {
+    if (goal === "bulk") return delta > 0 ? "neutral" : "good";
+    return delta < 0 ? "good" : "bad";
+  }
+  if (goal === "bulk" || goal === "recomp") return delta > 0 ? "good" : "bad";
+  if (goal === "cut") return delta > 0 ? "good" : "neutral";
+  return "neutral";
+}

@@ -1309,6 +1309,57 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await vctx.close();
 }
 
+// --- habits: starting from an idea, no twins, and a time of day that can change;
+// progress photos that work in the browser too
+{
+  const hctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await hctx.route(h, r=>r.abort());
+  await hctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
+  const hp = await hctx.newPage();
+  const herr=[]; hp.on("pageerror",e=>herr.push(String(e).slice(0,140)));
+  const hgo = async (route)=>{ await hp.goto(`http://localhost:${PORT}${route}`,{waitUntil:"load"}); await hp.waitForTimeout(1600); };
+  const hst = async ()=> JSON.parse(await hp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+
+  await hgo("/habit/new");
+  const idea = hp.getByRole("button",{name:"לצאת להליכה של 10 דקות"}).first();
+  check("a new habit offers ideas to start from", await idea.isVisible().catch(()=>false));
+  await idea.click(); await hp.waitForTimeout(500);
+  check("an idea fills the field",
+    (await hp.locator("textarea:visible").first().inputValue().catch(()=>"")) === "לצאת להליכה של 10 דקות");
+  await hp.getByRole("button",{name:"הוסף"}).last().click(); await hp.waitForTimeout(900);
+  { const s=await hst(); const h=s.habits.find(x=>x.title==="לצאת להליכה של 10 דקות");
+    check("an idea also picks its time of day", h?.slot==="evening", JSON.stringify(h)); }
+
+  await hgo("/habit/new");
+  await hp.locator("textarea:visible").first().fill("לשתות  מים");
+  await hp.waitForTimeout(400);
+  check("a habit that already exists is called out", (await hp.locator("body").innerText()).includes("כבר יש לך הרגל בשם הזה"));
+  check("and cannot be added twice", await hp.getByRole("button",{name:"הוסף"}).last().isDisabled().catch(()=>false));
+
+  await hgo("/habit/h1");
+  await hp.getByRole("radio",{name:"ערב"}).first().click(); await hp.waitForTimeout(500);
+  { const s=await hst(); check("a habit's time of day can be changed later", s.habits.find(x=>x.id==="h1")?.slot==="evening"); }
+  await hp.getByRole("button",{name:"סמן שעשיתי היום"}).first().click(); await hp.waitForTimeout(500);
+  { const s=await hst(); check("a habit can be ticked from its own page",
+      s.completions.some(c=>c.habitId==="h1"&&c.date===today&&c.done===true)); }
+  check("and the button says it is done", await hp.getByRole("button",{name:/נעשה היום/}).first().isVisible().catch(()=>false));
+
+  await hgo("/progress");
+  const chooser = hp.waitForEvent("filechooser",{timeout:8000}).catch(()=>null);
+  await hp.getByRole("button",{name:"הוסף תמונה"}).first().click();
+  const fc = await chooser;
+  check("a progress photo can be picked in the browser", !!fc);
+  if (fc) {
+    await fc.setFiles(path.resolve("assets/meals/chicken-shawarma-plate.jpg"));
+    await hp.waitForTimeout(2500);
+    const s=await hst(); const p=(s.photos??[])[0];
+    check("it is kept on the device as a small image",
+      !!p && p.uri.startsWith("data:image/jpeg") && p.uri.length < 250000, p ? `${p.uri.slice(0,30)} ${p.uri.length}` : "none");
+  }
+  check("habits and photos raise no page errors", herr.length===0, herr.join(" | "));
+  await hctx.close();
+}
+
 check("the served page carries the Content-Security-Policy",
   /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
 // One refusal is expected and harmless: the "long" library inside TensorFlow

@@ -9,14 +9,16 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-10-02",
+  id: "2026-10-03",
   he: [
-    "התפריט היומי מתחלף באמת: כל ארוחה עוברת על כל המנות שמתאימות לך לפני שמנה חוזרת. גם עם מעט מצרכים — מנה שחסר לה מוצר אחד מסומנת, ובלחיצה הוא נכנס לרשימת המטבח.",
-    "חדש בדף היום — \"עכשיו\": מה הכי שווה לעשות בשעה הזו. כוס מים כשאתה מאחור, ההרגל של החלק הזה ביום, שקילה שבועית, אימון כשהשבוע צריך אותו וסיכום ערב — עם כפתור שעושה את זה במקום.",
+    "התפריט היומי מתחלף באמת: כל ארוחה עוברת על כל המנות שמתאימות לך לפני שמנה חוזרת. מנה שחסר לה מוצר אחד מסומנת, ובלחיצה הוא נכנס לרשימת המטבח.",
+    "תזכורות חכמות יותר: מה שכבר עשית היום — מים שהשלמת, אימון שרשמת, הרגל שסימנת — לא מזכירים לך. נגיעה בתזכורת פותחת את המסך שלה.",
+    "הרגלים: רעיונות מוכנים כשמוסיפים הרגל, אפשר לשנות לכל הרגל את שעת היום ולסמן אותו מהדף שלו. תמונות התקדמות עובדות עכשיו גם בדפדפן.",
   ],
   en: [
-    "The daily menu really changes now: each meal goes through every dish that suits you before one comes back. Even with a few groceries — a dish one thing short is marked, and one tap adds it to your kitchen list.",
-    "New on Today — \"Right now\": what's most worth doing at this hour. A cup of water when you're behind, this part of the day's habit, the weekly weigh-in, a workout when the week needs one and the evening recap — with a button that does it on the spot.",
+    "The daily menu really changes now: each meal goes through every dish that suits you before one comes back. A dish one thing short is marked, and one tap adds it to your kitchen list.",
+    "Smarter reminders: anything already done today — water finished, a workout logged, a habit ticked — is not reminded about. Tapping a reminder opens its screen.",
+    "Habits: ready-made ideas when you add one, a time of day you can change for each habit, and a tick right from its page. Progress photos now work in the browser too.",
   ],
 };
 

@@ -12,10 +12,12 @@ import { fill, useI18n } from "@/i18n";
 import { askHabitSupport } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge, AiNote } from "@/components/AiNote";
-import { useStore } from "@/store";
+import { useStore, type Habit } from "@/store";
 import { detectCategory, getSupport } from "@/support";
 import { useTheme } from "@/theme";
 import { confirm } from "@/ui/confirm";
+
+const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
 
 /** What a "make it smaller" choice hangs off the title with. */
 const SMALLER_JOIN = " — ";
@@ -115,7 +117,7 @@ export default function HabitDetail() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const router = useRouter();
-  const { state, streak, updateHabit, archiveHabit } = useStore();
+  const { state, streak, updateHabit, archiveHabit, isDone, toggleCompletion } = useStore();
 
   const habit = state.habits.find((h) => h.id === id && !h.archived);
   const [customAnchor, setCustomAnchor] = useState("");
@@ -238,6 +240,30 @@ export default function HabitDetail() {
 
         {/* what the app made of this task, and what each tick of it pays */}
         <TaskScanPanel title={habit.title} />
+
+        {/* Ticking it here as well as on the home list: someone reading the
+            tips right after doing the thing should not have to go back to say so. */}
+        <Button
+          icon={isDone(habit.id) ? "checkmark-circle" : "ellipse-outline"}
+          label={isDone(habit.id) ? t.detail.doneToday : t.detail.markDone}
+          tone={isDone(habit.id) ? "quiet" : "primary"}
+          onPress={() => toggleCompletion(habit.id)}
+        />
+
+        {/* The time of day can change after the habit is made — it decides
+            when its reminder comes and where it sits on the home list. */}
+        <Card label={t.habit.when}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {SLOTS.map((s) => (
+              <Chip
+                key={s ?? "any"}
+                label={s ? t.slots[s] : t.slots.any}
+                selected={habit.slot === s}
+                onPress={() => updateHabit(habit.id, { slot: s })}
+              />
+            ))}
+          </View>
+        </Card>
 
         <Card label={t.detail.streakTitle} tone={days > 0 ? "accent" : "default"}>
           <Text style={[type.title, { color: colors.ink }]}>

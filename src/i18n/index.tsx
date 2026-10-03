@@ -16,7 +16,7 @@ import { en } from "./en";
 import { he } from "./he";
 import { isolateDeep } from "./bidi";
 
-export { formatDate } from "./date";
+export { formatDate, formatShortDate, formatStamp, formatTime } from "./date";
 
 export type Locale = "he" | "en";
 export type Dict = typeof he;

@@ -1,4 +1,5 @@
 import { comparePhotos, photoDue, photoWeeks, photoWeight } from "./journey";
+import { fitsBudget, fitWithin, WEB_PHOTO_SIDE, WEB_STATE_BUDGET } from "./webPhoto";
 /**
  * Tests for the body-number guards. The headline case is the real one that
  * started this: someone weighing 71 kg setting a target of 20 kg, and the app
@@ -378,6 +379,19 @@ function check(name: string, pass: boolean, detail?: string) {
   check("an ml goal is kept as is", goalMlOf({ waterGoalMl: 2750 }) === 2750);
   check("no goal reads as none", goalMlOf({}) === null);
   check("litres read naturally", litres(2500) === "2.5" && litres(3000) === "3" && litres(0) === "0");
+}
+
+// --- progress photos kept in a browser
+{
+  const tall = fitWithin(3024, 4032);
+  check("a phone photo is drawn with its longest side at the cap", tall.height === WEB_PHOTO_SIDE && tall.width === 540,
+    `${tall.width}x${tall.height}`);
+  const wide = fitWithin(4000, 3000);
+  check("a landscape one too", wide.width === WEB_PHOTO_SIDE && wide.height === 540, `${wide.width}x${wide.height}`);
+  check("a small photo is never enlarged", fitWithin(300, 200).width === 300);
+  check("a broken size draws nothing", fitWithin(0, 100).width === 0 && fitWithin(NaN, 100).width === 0);
+  check("a photo that fits is kept", fitsBudget(1_000_000, 60_000));
+  check("one that would overflow the saved state is refused", !fitsBudget(WEB_STATE_BUDGET - 10_000, 60_000));
 }
 
 const failed = results.filter(([, ok]) => !ok);

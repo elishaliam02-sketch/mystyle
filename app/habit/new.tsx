@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
@@ -9,20 +9,38 @@ import { SupportPreview } from "@/components/SupportPreview";
 import { TaskScanPanel } from "@/components/TaskScan";
 import { TextField } from "@/components/TextField";
 import { useI18n } from "@/i18n";
-import { useStore, type Habit } from "@/store";
+import { cleanTitle, useStore, type Habit } from "@/store";
 import { useTheme } from "@/theme";
 
 const SLOTS: (Habit["slot"] | undefined)[] = ["morning", "noon", "evening", undefined];
+
+/** The part of the day each starter idea naturally belongs to, so picking one
+ * also answers "when?" — a glass of water on waking is a morning habit. */
+const IDEA_SLOT: Record<string, Habit["slot"]> = {
+  water: "morning",
+  walk: "evening",
+  breakfast: "morning",
+  stairs: undefined,
+  screens: "evening",
+  veg: "noon",
+};
 
 export default function NewHabit() {
   const { t, locale } = useI18n();
   const { colors, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { addHabit, allowance } = useStore();
+  const { state, addHabit, allowance } = useStore();
 
   const [title, setTitle] = useState("");
   const [slot, setSlot] = useState<Habit["slot"]>();
+
+  // The same starters onboarding offers, minus the ones already on the list —
+  // an empty box is the hardest place to start from.
+  const have = new Set(state.habits.filter((h) => !h.archived).map((h) => cleanTitle(h.title).toLowerCase()));
+  const ideas = Object.entries(t.onboarding.ideas).filter(([, idea]) => !have.has(idea.toLowerCase()));
+  // Two of the same habit would split one streak into two half-streaks.
+  const duplicate = have.has(cleanTitle(title).toLowerCase());
 
   // This screen is reachable by its own URL, so the limit has to be answered
   // here too — otherwise someone fills in the whole form and then finds out.
@@ -68,6 +86,36 @@ export default function NewHabit() {
           maxLength={80}
         />
 
+        {!title.trim() && ideas.length > 0 ? (
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.label, { color: colors.inkFaint }]}>{t.onboarding.step3Ideas}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+              {ideas.map(([key, idea]) => (
+                <Pressable
+                  key={key}
+                  onPress={() => {
+                    setTitle(idea);
+                    setSlot(IDEA_SLOT[key]);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={idea}
+                  style={({ pressed }) => ({
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.rule,
+                    borderRadius: radius.md,
+                    paddingVertical: space.sm + 2,
+                    paddingHorizontal: space.md,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text style={[type.small, { color: colors.ink }]}>{idea}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* read back before it is even saved: how hard this task looks and
             what ticking it will pay */}
         <TaskScanPanel title={title} />
@@ -99,8 +147,17 @@ export default function NewHabit() {
                 <Text style={[type.small, { color: colors.inkFaint, textAlign: "center" }]}>
                   {t.onboarding.step3NeedOne}
                 </Text>
+              ) : duplicate ? (
+                <Text style={[type.small, { color: colors.orangeInk, textAlign: "center" }]}>
+                  {t.habit.duplicate}
+                </Text>
               ) : null}
-              <Button icon="checkmark" label={t.habit.save} onPress={save} disabled={!title.trim()} />
+              <Button
+                icon="checkmark"
+                label={t.habit.save}
+                onPress={save}
+                disabled={!title.trim() || duplicate}
+              />
             </>
           ) : (
             <ProGate feature="habits" />

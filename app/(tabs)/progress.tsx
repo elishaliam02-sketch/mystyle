@@ -11,7 +11,7 @@ import { SelectTile } from "@/components/SelectTile";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
-import { BODY_PARTS, MAX_CM, measureChange, MIN_CM, rangeOf, type BodyPart } from "@/body";
+import { BODY_PARTS, MAX_CM, measureChange, measureTone, MIN_CM, rangeOf, type BodyPart } from "@/body";
 import {
   bodyFatPercent,
   bodyFatTarget,
@@ -23,13 +23,14 @@ import {
   type Sex,
 } from "@/health/composition";
 import { useAutoSteps } from "@/health/pedometer";
+import { fitsBudget, shrinkPhoto } from "@/health/webPhoto";
 import { comparePhotos, photoDue, photoWeeks, photoWeight } from "@/health/journey";
 import { askWeekInsight } from "@/ai/prompts";
 import { useAi } from "@/ai/useAi";
 import { AiBadge } from "@/components/AiNote";
 import { computeAchievements, unlockedCount } from "@/achievements";
 import { ImproveCard } from "@/components/ImproveCard";
-import { fill, useI18n } from "@/i18n";
+import { fill, formatShortDate, useI18n } from "@/i18n";
 import { weekReading } from "@/insight";
 import { checkWeight } from "@/store/weight";
 import { projectGoal } from "@/store/projection";
@@ -49,22 +50,36 @@ import { metricFill, metricInk, useTheme } from "@/theme";
 function Heatmap() {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
-  const { state } = useStore();
+  const { state, dayKeyAgo } = useStore();
 
-  // How many habits were completed on each of the last 30 days — the grid is
-  // read newest-last, so the bottom-right is today.
+  // How much of each of the last 30 days' list was done. A share rather than
+  // a count: two ticks is a full day for someone with two habits and a thin
+  // one for someone with six, and the grid used to paint both the same.
   const counts = new Map<string, number>();
   for (const c of state.completions) {
     if (c.done) counts.set(c.date, (counts.get(c.date) ?? 0) + 1);
   }
-  const days = Array.from({ length: 30 }, (_, i) => daysAgo(29 - i));
+  const active = state.habits.filter((h) => !h.archived);
+  // The same clock the ticks were written with.
+  const days = Array.from({ length: 30 }, (_, i) => dayKeyAgo(29 - i));
+  const todayKey = days[days.length - 1];
+  const share = (d: string) => {
+    const done = counts.get(d) ?? 0;
+    const owed = active.filter((h) => h.createdAt <= d).length;
+    return done === 0 ? 0 : Math.min(1, done / Math.max(1, owed));
+  };
 
-  const shade = (n: number) =>
-    n === 0 ? colors.surfaceAlt : n === 1 ? colors.chartBar : colors.accent;
+  const shade = (f: number) =>
+    f === 0 ? colors.surfaceAlt : f < 1 ? colors.chartBar : colors.accent;
+  const full = days.filter((d) => share(d) >= 1).length;
 
   return (
     <Card label={t.heatmap.title}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: space.xs }}>
+      <View
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: space.xs }}
+        accessibilityRole="image"
+        accessibilityLabel={fill(t.heatmap.a11y, { full, total: days.length })}
+      >
         {days.map((d) => (
           <View
             key={d}
@@ -72,9 +87,10 @@ function Heatmap() {
               width: 26,
               height: 26,
               borderRadius: 6,
-              backgroundColor: shade(counts.get(d) ?? 0),
-              borderWidth: 1,
-              borderColor: colors.rule,
+              backgroundColor: shade(share(d)),
+              // today is outlined, so the grid can be read from where you stand
+              borderWidth: d === todayKey ? 2 : 1,
+              borderColor: d === todayKey ? colors.ink : colors.rule,
             }}
           />
         ))}
@@ -159,12 +175,9 @@ function WeighLog() {
   const [all, setAll] = useState(false);
   const rows = [...state.weighIns].reverse();
   const shown = all ? rows.slice(0, 60) : rows.slice(0, 5);
-  const dateOf = (d: string) =>
-    new Date(`${d}T12:00:00`).toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "numeric",
-    });
+  // Not toLocaleDateString: on a phone's engine without locale data that
+  // renders as nothing, and the list becomes numbers with no dates.
+  const dateOf = (d: string) => formatShortDate(d, t);
   return (
     <View style={{ marginTop: space.lg, gap: 2 }}>
       <Text style={[type.label, { color: colors.inkFaint, textTransform: "uppercase" }]}>{t.progress.logTitle}</Text>
@@ -988,7 +1001,7 @@ function PhotosCard() {
     waistCm: waist,
     sex: state.profile.sex as Sex | undefined,
   });
-  const canPick = Platform.OS !== "web";
+  const onWeb = Platform.OS === "web";
   const due = photoDue(photos, today());
 
   const pick = async (fromCamera: boolean) => {
@@ -999,6 +1012,25 @@ function PhotosCard() {
       return;
     }
     try {
+      if (onWeb) {
+        // The browser's own file sheet, which on a phone also offers the
+        // camera; the photo is then kept small enough to live on this device.
+        const res = fromCamera
+          ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"] })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"] });
+        if (res.canceled || !res.assets[0]) return;
+        const small = await shrinkPhoto(res.assets[0].uri);
+        if (!small) {
+          setNote(t.progress.photoUnreadable);
+          return;
+        }
+        if (!fitsBudget(JSON.stringify(state).length, small.length)) {
+          setNote(t.progress.photoFull);
+          return;
+        }
+        addPhoto(small, latestKg, bf ?? undefined);
+        return;
+      }
       if (fromCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         // Once the OS remembers a refusal it stops even asking, so silence here
@@ -1067,14 +1099,13 @@ function PhotosCard() {
         </Text>
       </View>
 
-      {canPick ? (
-        <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-          <PillButton icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
-          <PillButton tone="soft" icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
-        </View>
-      ) : (
-        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.progress.photosUnavailable}</Text>
-      )}
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+        <PillButton icon="camera" label={t.progress.photosCamera} onPress={() => pick(true)} style={{ flex: 1 }} />
+        <PillButton tone="soft" icon="images" label={t.progress.photosAdd} onPress={() => pick(false)} style={{ flex: 1 }} />
+      </View>
+      {onWeb ? (
+        <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.progress.photosWebNote}</Text>
+      ) : null}
       <Text style={[type.small, { color: colors.inkFaint, marginTop: space.sm }]}>{t.progress.journeyTip}</Text>
 
       {note ? <Text style={[type.small, { color: colors.orangeInk, marginTop: space.sm }]}>{note}</Text> : null}
@@ -1332,7 +1363,7 @@ function MeasureSparkline({ values }: { values: number[] }) {
 function PartCard({ part }: { part: BodyPart }) {
   const { t } = useI18n();
   const { colors, space, radius, type } = useTheme();
-  const { addMeasurement, measurementSeries } = useStore();
+  const { addMeasurement, measurementSeries, goal } = useStore();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -1352,8 +1383,8 @@ function PartCard({ part }: { part: BodyPart }) {
     setError(null);
   }
 
-  const down = change.delta < 0;
   const up = change.delta > 0;
+  const tone = measureTone(part, change.delta, goal());
 
   return (
     <View style={{ borderRadius: radius.md, backgroundColor: colors.surfaceAlt, padding: space.md, gap: space.xs }}>
@@ -1370,7 +1401,7 @@ function PartCard({ part }: { part: BodyPart }) {
           {change.count > 1 ? (
             <View>
               <Text style={[type.label, { color: colors.inkFaint }]}>{t.body.change}</Text>
-              <Text style={[type.bodyStrong, { color: down ? colors.accent : up ? colors.orangeInk : colors.inkSoft }]}>
+              <Text style={[type.bodyStrong, { color: tone === "good" ? colors.accent : tone === "bad" ? colors.orangeInk : colors.inkSoft }]}>
                 {up ? "+" : ""}
                 {change.delta} {t.body.cm}
               </Text>

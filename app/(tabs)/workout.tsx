@@ -16,7 +16,7 @@ import { FocusCard } from "@/components/FocusCard";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { isolateRanges } from "@/i18n/bidi";
-import { fill, useI18n } from "@/i18n";
+import { fill, formatShortDate, useI18n } from "@/i18n";
 import type { Goal } from "@/kitchen";
 import { useStore } from "@/store";
 import { metricFill, metricInk, onMetric, ON_HERO, ON_HERO_SOFT, useTheme } from "@/theme";
@@ -1845,12 +1845,9 @@ function HistoryCard({ records, dayLabel }: { records: WorkoutRecord[]; dayLabel
   const { t, locale } = useI18n();
   const { colors, space, type } = useTheme();
   if (records.length === 0) return null;
-  const dateOf = (d: string) =>
-    new Date(`${d}T12:00:00`).toLocaleDateString(locale === "he" ? "he-IL" : "en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "numeric",
-    });
+  // Not toLocaleDateString: on a phone's engine without locale data that
+  // renders as nothing, and the list becomes numbers with no dates.
+  const dateOf = (d: string) => formatShortDate(d, t);
   return (
     <Card label={t.workout.history}>
       <View style={{ gap: space.md }}>

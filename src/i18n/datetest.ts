@@ -1,5 +1,5 @@
 /** The date must render on any engine, so it is formatted from our own names. */
-import { formatDate } from "./date";
+import { formatDate, formatShortDate, formatStamp, formatTime } from "./date";
 import { en } from "./en";
 import { he } from "./he";
 
@@ -24,6 +24,12 @@ check("English names the month", enSat.includes("August"));
 check("no leftover placeholders", !heSat.includes("{") && !enSat.includes("{"));
 check("January maps to the first month", formatDate(thursday, he).includes("ינואר"));
 check("Thursday maps correctly", formatDate(thursday, he).includes("חמישי"));
+
+check("a short date names the weekday and day/month", formatShortDate("2026-08-29", he) === "ש׳ 29/8");
+check("in English too", formatShortDate("2026-01-01", en) === "Th 1/1");
+check("a broken date falls back to itself", formatShortDate("not-a-date", he) === "not-a-date");
+check("time is 24-hour and padded", formatTime(new Date(2026, 0, 1, 7, 5)) === "07:05");
+check("a stamp is day/month then time", formatStamp(new Date(2026, 9, 3, 21, 30)) === "3/10 21:30");
 
 // Every day of a week must produce a distinct, non-empty label.
 const week = new Set<string>();

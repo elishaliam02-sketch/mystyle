@@ -10,6 +10,7 @@ import {
 } from "@expo-google-fonts/heebo";
 import { useFonts } from "expo-font";
 import { configure as configureNotifications } from "@/notifications";
+import { ReminderSync } from "@/notifications/useReminders";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -200,6 +201,7 @@ function Shell() {
         <Stack.Screen name="legal/licenses" options={{ presentation: "modal" }} />
       </Stack>
       <UpdatedToast />
+      <ReminderSync />
     </View>
   );
 }

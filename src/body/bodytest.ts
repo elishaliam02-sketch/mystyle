@@ -1,4 +1,4 @@
-import { BODY_PARTS, isStorableCm, measureChange, type Reading } from "./index";
+import { BODY_PARTS, isStorableCm, measureChange, measureTone, type Reading } from "./index";
 
 const results: [string, boolean, string?][] = [];
 const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
@@ -52,6 +52,21 @@ const check = (n: string, p: boolean, d?: string) => results.push([n, p, d]);
     { date: "2026-02-01", cm: 41.25 },
   ]);
   check("delta rounds to one decimal", c.delta === 1.3, String(c.delta));
+}
+
+// whether a change is good news depends on the part and the goal
+{
+  check("a smaller waist on a cut is good", measureTone("waist", -2, "cut") === "good");
+  check("a bigger waist on a cut is bad", measureTone("waist", 2, "cut") === "bad");
+  check("a bigger arm on a bulk is good, not a warning", measureTone("arm", 1, "bulk") === "good");
+  check("a smaller arm on a bulk is bad", measureTone("arm", -1, "bulk") === "bad");
+  check("a bigger arm on a cut is good", measureTone("arm", 0.5, "cut") === "good");
+  check("a slightly smaller arm on a cut is not alarming", measureTone("arm", -0.5, "cut") === "neutral");
+  check("a waist growing a little on a bulk is expected", measureTone("waist", 1, "bulk") === "neutral");
+  check("recomp wants the chest up", measureTone("chest", 1, "recomp") === "good");
+  check("recomp wants the waist down", measureTone("waist", -1, "recomp") === "good");
+  check("no change is neutral", measureTone("waist", 0, "cut") === "neutral");
+  check("maintenance does not judge muscle", measureTone("thigh", 1, "maintain") === "neutral");
 }
 
 const failed = results.filter(([, ok]) => !ok);

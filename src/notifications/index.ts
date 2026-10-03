@@ -1,7 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { AppState } from "@/store/types";
-import { planReminders, type ReminderCopy } from "./plan";
+import { diffSchedule, identifierOf, routeOf, type DatedReminder } from "./plan";
 
 /**
  * Local reminders. Not push: everything is scheduled on the device from the
@@ -47,46 +46,64 @@ export async function hasPermission(): Promise<boolean> {
   }
 }
 
-/**
- * Rebuilds the whole schedule from the current state. Called after any change
- * to habits or the setting — cancelling everything first is what stops a
- * removed habit, or a feature someone stopped using, from going on firing.
- */
-export async function reschedule(state: AppState, copy: ReminderCopy, enabled: boolean) {
-  if (!available()) return;
-  try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    if (!enabled) return;
+// One rebuild at a time, in the order asked: two overlapping diffs could each
+// cancel what the other had just written.
+let queue: Promise<void> = Promise.resolve();
 
-    for (const r of planReminders(state, copy)) {
-      await Notifications.scheduleNotificationAsync({
-        content: { title: r.title, body: r.body },
-        trigger:
-          r.weekday === undefined
-            ? {
-                type: Notifications.SchedulableTriggerInputTypes.DAILY,
-                hour: r.hour,
-                minute: r.minute,
-              }
-            : {
-                type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-                weekday: r.weekday,
-                hour: r.hour,
-                minute: r.minute,
-              },
-      });
+/**
+ * Brings the phone's schedule in line with `want`. Only the difference is
+ * touched — ticking a habit cancels the one reminder it made pointless rather
+ * than rewriting the lot — and anything pending that is not wanted goes,
+ * which is what stops a removed habit, or a feature someone stopped using,
+ * from going on firing.
+ */
+export function reschedule(want: DatedReminder[], enabled: boolean): Promise<void> {
+  if (!available()) return Promise.resolve();
+  queue = queue.then(async () => {
+    try {
+      if (!enabled) {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        return;
+      }
+      const pending = (await Notifications.getAllScheduledNotificationsAsync()).map((n) => n.identifier);
+      const { cancel, add } = diffSchedule(pending, want);
+      for (const id of cancel) await Notifications.cancelScheduledNotificationAsync(id);
+      for (const r of add) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: identifierOf(r),
+          content: { title: r.title, body: r.body, data: { url: routeOf(r.id) } },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.at },
+        });
+      }
+    } catch {
+      // A device that refuses to schedule is not a reason to break the screen.
     }
-  } catch {
-    // A device that refuses to schedule is not a reason to break the screen.
-  }
+  });
+  return queue;
 }
 
-/** How many reminders are currently set — shown in settings so it is checkable. */
-export async function scheduledCount(): Promise<number> {
-  if (!available()) return 0;
+/**
+ * Opens the screen a tapped reminder was about — the water tracker from the
+ * water reminder, the recap from the recap — including when the tap is what
+ * started the app. Returns the unsubscribe.
+ */
+export function onReminderTap(open: (url: string) => void): () => void {
+  if (!available()) return () => {};
+  let last = "";
+  const handle = (response: Notifications.NotificationResponse | null) => {
+    if (!response) return;
+    const key = `${response.notification.request.identifier}|${response.notification.date}`;
+    if (key === last) return;
+    last = key;
+    const url = response.notification.request.content.data?.url;
+    if (typeof url === "string" && url.startsWith("/")) open(url);
+  };
   try {
-    return (await Notifications.getAllScheduledNotificationsAsync()).length;
+    handle(Notifications.getLastNotificationResponse());
+    Notifications.clearLastNotificationResponse();
   } catch {
-    return 0;
+    // Older native module: the listener below still covers taps while running.
   }
+  const sub = Notifications.addNotificationResponseReceivedListener(handle);
+  return () => sub.remove();
 }

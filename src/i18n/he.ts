@@ -167,6 +167,8 @@ export const he = {
   },
 
   detail: {
+    markDone: "סמן שעשיתי היום",
+    doneToday: "נעשה היום · נגיעה מבטלת",
     gone: "ההרגל הזה כבר לא קיים.",
     smallerApplied: "עודכן ✓",
     anchorSave: "שמור עוגן",
@@ -196,6 +198,7 @@ export const he = {
 
   habit: {
     newTitle: "הרגל חדש",
+    duplicate: "כבר יש לך הרגל בשם הזה — אפשר לנסח אחרת או לחזור אליו מהמסך הראשי.",
     newBody: "במילים שלך. ככל שזה יותר קטן וקונקרטי, כך הסיכוי גדול יותר.",
     placeholder: "מה אתה רוצה לעשות?",
     when: "מתי בערך?",
@@ -601,7 +604,7 @@ export const he = {
     autoAsking: "מבקש הרשאה לספירת צעדים…",
     autoOff: "כאן אין ספירת צעדים אוטומטית — הצעדים נספרים באפליקציה בטלפון עם חיישן צעדים.",
     fixByHand: "לתקן את המספר ידנית",
-    note: "הטלפון סופר בשבילך. אם הלכת בלי הטלפון בכיס — אפשר להוסיף ידנית.",
+    note: "הטלפון סופר בשבילך כל עוד הוא איתך — הליכה בלי הטלפון בכיס לא נספרת.",
   },
   progress: {
     fatNeedHeight: "הוסף גובה בפרופיל כדי לראות אחוז שומן.",
@@ -705,7 +708,9 @@ export const he = {
     photosEmpty: "עוד אין תמונות. צלם את הראשונה — זו נקודת ההשוואה שלך.",
     photosCompare: "התחלה מול עכשיו",
     photoRemove: "מחק תמונה",
-    photosUnavailable: "צילום זמין באפליקציה בטלפון.",
+    photosWebNote: "התמונות נשמרות רק בדפדפן הזה, בגודל מוקטן. ניקוי נתוני האתר מוחק אותן.",
+    photoUnreadable: "לא הצלחתי לקרוא את התמונה. נסה תמונה אחרת.",
+    photoFull: "אין מקום לעוד תמונה בדפדפן הזה. מחק תמונה ישנה ונסה שוב.",
   },
 
   /** "Can I eat this?" — a food, priced out of ten. */
@@ -1139,7 +1144,8 @@ export const he = {
 
   heatmap: {
     title: "30 הימים האחרונים",
-    subtitle: "כל ריבוע = יום. מלא = השלמת הרגל.",
+    subtitle: "כל ריבוע = יום. בהיר = חלק מההרגלים, מלא = כולם. היום מסומן במסגרת.",
+    a11y: "{full} מתוך {total} הימים האחרונים הושלמו במלואם",
   },
 
   achievements: {
@@ -1245,12 +1251,12 @@ export const he = {
     languageNote: "החלפת שפה מפעילה את האפליקציה מחדש כדי להחליף כיוון כתיבה.",
     saved: "נשמר",
     notificationsTitle: "תזכורות",
-    notificationsBody: "תזכורת שקטה לכל חלק ביום שיש בו הרגל, ואחת בערב לסיכום.",
+    notificationsBody: "תזכורת שקטה לכל חלק ביום שיש בו הרגל, ואחת בערב לסיכום. מה שכבר עשית היום — לא מזכירים לך. נגיעה בתזכורת פותחת את המסך שלה.",
     notificationsOn: "תזכורות פעילות",
     notificationsOff: "תזכורות כבויות",
     notificationsEnable: "הפעל תזכורות",
     notificationsDisable: "כבה תזכורות",
-    notificationsCount: "{count} תזכורות מתוזמנות",
+    notificationsNext: "הבאה: {title} · {when}",
     notificationsDenied: "חסמת התראות ברמת המכשיר. צריך לאשר בהגדרות.",
     notificationsWeb: "תזכורות עובדות רק באפליקציה המותקנת, לא בדפדפן.",
     dangerTitle: "מחיקת כל הנתונים",
@@ -1279,7 +1285,10 @@ export const he = {
   },
 
   reminders: {
+    today: "היום",
+    tomorrow: "מחר",
     slotTitle: "{count} דברים מחכים לך",
+    slotOneTitle: "דבר אחד מחכה לך",
     recapTitle: "דקה לסכם את היום",
     recapBody: "איך היה? זה לוקח פחות מדקה.",
     trainTitle: "אימון היום",

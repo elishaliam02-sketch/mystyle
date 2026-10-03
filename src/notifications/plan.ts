@@ -13,6 +13,8 @@
  * permission is to spend it.
  */
 import type { AppState } from "@/store/types";
+import { defaultGoalMl, goalMlOf, waterMlLog } from "@/health/water";
+import { DEFAULT_STEP_GOAL } from "@/health/steps";
 
 export type Reminder = {
   /** Stable id, so a schedule can be compared in a test. */
@@ -23,10 +25,15 @@ export type Reminder = {
   body: string;
   /** 1 = Sunday … 7 = Saturday. Absent means every day. */
   weekday?: number;
+  /** For a habit group: the habits it is about, so today's copy can drop the
+   * ones already ticked. */
+  habitIds?: string[];
 };
 
 export type ReminderCopy = {
   slotTitle: string;
+  /** The title when only one habit is waiting — "1 things" reads as a bug. */
+  slotOneTitle: string;
   recapTitle: string;
   recapBody: string;
   trainTitle: string;
@@ -76,6 +83,10 @@ export function trainingWeekdays(days: number): number[] {
   return [...new Set(out.map((d) => (d > 7 ? d - 7 : d)))].sort((a, b) => a - b);
 }
 
+function slotTitle(copy: ReminderCopy, count: number): string {
+  return count === 1 ? copy.slotOneTitle : copy.slotTitle.replace("{count}", String(count));
+}
+
 /** Has this person used a part of the app enough to want reminding about it? */
 function used(map: Record<string, unknown> | undefined, days = 1): boolean {
   return Object.keys(map ?? {}).length >= days;
@@ -93,17 +104,20 @@ export function planReminders(state: AppState, copy: ReminderCopy): Reminder[] {
   // habits, grouped by part of the day — one nudge per group, not per habit
   const active = state.habits.filter((h) => !h.archived);
   const groups = new Map<number, string[]>();
+  const ids = new Map<number, string[]>();
   for (const habit of active) {
     const hour = habit.slot ? SLOT_HOUR[habit.slot] : DEFAULT_HOUR;
     groups.set(hour, [...(groups.get(hour) ?? []), habit.title]);
+    ids.set(hour, [...(ids.get(hour) ?? []), habit.id]);
   }
   for (const [hour, titles] of [...groups].sort((a, b) => a[0] - b[0])) {
     daily.push({
       id: `habits-${hour}`,
       hour,
       minute: 0,
-      title: copy.slotTitle.replace("{count}", String(titles.length)),
+      title: slotTitle(copy, titles.length),
       body: titles.join(" · ").slice(0, 140),
+      habitIds: ids.get(hour),
     });
   }
 
@@ -176,4 +190,164 @@ export function planReminders(state: AppState, copy: ReminderCopy): Reminder[] {
       : [...daily.filter((r) => r.id !== "recap").slice(0, MAX_DAILY - 1), daily[daily.length - 1]!];
 
   return [...trimmed.sort((a, b) => a.hour - b.hour || a.minute - b.minute), ...weekly];
+}
+
+/** One reminder on one date — what is actually handed to the phone. */
+export type DatedReminder = {
+  /** Template id and local date, e.g. "water@2026-10-03". */
+  id: string;
+  at: Date;
+  title: string;
+  body: string;
+};
+
+/**
+ * How many reminders are written ahead. iOS keeps the 64 soonest and drops the
+ * rest without a word, so this stays under it with room to spare.
+ */
+export const MAX_PENDING = 60;
+/** How many days ahead the schedule reaches, at most. */
+export const HORIZON_DAYS = 21;
+
+/** Local YYYY-MM-DD for a date — never UTC, or an evening reminder lands on tomorrow. */
+export function localKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Today's version of a reminder, or null when there is nothing left to remind
+ * about. A "drink water" after the bottle is already full, or "how was your
+ * day" after the recap is written, teaches people that the notification is
+ * not worth reading — and then the one that mattered is swiped away unread.
+ */
+function forToday(state: AppState, r: Reminder, date: string, copy: ReminderCopy): { title: string; body: string } | null {
+  if (r.habitIds) {
+    const done = new Set(
+      state.completions.filter((c) => c.date === date && c.done).map((c) => c.habitId),
+    );
+    const left = state.habits.filter((h) => r.habitIds!.includes(h.id) && !h.archived && !done.has(h.id));
+    if (left.length === 0) return null;
+    return {
+      title: slotTitle(copy, left.length),
+      body: left.map((h) => h.title).join(" · ").slice(0, 140),
+    };
+  }
+  const keep = { title: r.title, body: r.body };
+  if (r.id === "food") return (state.intake?.[date]?.length ?? 0) > 0 ? null : keep;
+  if (r.id === "water") {
+    const drunk = waterMlLog(state)[date] ?? 0;
+    const latest = [...state.weighIns].sort((a, b) => a.date.localeCompare(b.date)).pop();
+    const goal = goalMlOf(state) ?? defaultGoalMl(latest?.kg ?? state.profile.startKg);
+    return drunk >= goal ? null : keep;
+  }
+  if (r.id.startsWith("train-")) {
+    const ticked = (state.training?.log?.[date]?.length ?? 0) > 0;
+    const sets = Object.values(state.training?.setLog?.[date] ?? {}).some((list) => list.some((x) => x.done));
+    return ticked || sets ? null : keep;
+  }
+  if (r.id === "steps") {
+    return (state.steps?.[date] ?? 0) >= (state.stepGoal ?? DEFAULT_STEP_GOAL) ? null : keep;
+  }
+  if (r.id === "recap") return state.checkIns.some((c) => c.date === date) ? null : keep;
+  if (r.id === "weigh") return state.weighIns.some((w) => w.date === date) ? null : keep;
+  if (r.id === "measure") {
+    return Object.values(state.measurements ?? {}).some((list) => list.some((m) => m.date === date))
+      ? null
+      : keep;
+  }
+  return keep;
+}
+
+/**
+ * The schedule as dated, one-off reminders rather than repeating ones.
+ *
+ * A repeating "every day at 15:00" cannot know that today's water is already
+ * drunk; a reminder written for today's date can simply not be written. So the
+ * schedule is laid out day by day from now, today's entries checked against
+ * what has been done, and rebuilt whenever that changes or the app is opened.
+ * Someone who stops opening the app gets the reminders already written and
+ * then quiet — about three weeks for a light user, a week and a bit for
+ * someone using everything — rather than the same nudge forever.
+ */
+export function datedReminders(state: AppState, copy: ReminderCopy, now: Date): DatedReminder[] {
+  const plan = planReminders(state, copy);
+  const out: DatedReminder[] = [];
+  for (let d = 0; d < HORIZON_DAYS; d++) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);
+    const date = localKey(day);
+    const weekday = day.getDay() + 1;
+    for (const r of plan) {
+      if (r.weekday !== undefined && r.weekday !== weekday) continue;
+      const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), r.hour, r.minute);
+      if (at.getTime() <= now.getTime()) continue;
+      const text = d === 0 ? forToday(state, r, date, copy) : { title: r.title, body: r.body };
+      if (!text) continue;
+      out.push({ id: `${r.id}@${date}`, at, ...text });
+    }
+  }
+  return out.sort((a, b) => a.at.getTime() - b.at.getTime()).slice(0, MAX_PENDING);
+}
+
+/** Every identifier this app writes starts with this, so a diff never touches anyone else's. */
+export const ID_PREFIX = "apex:";
+
+/**
+ * The identifier a reminder is scheduled under. It carries a short hash of the
+ * words, so a renamed habit or a switched language reads as a different
+ * reminder and is rewritten, while an unchanged one is left alone.
+ */
+export function identifierOf(r: DatedReminder): string {
+  let h = 2166136261;
+  for (const ch of `${r.title}\n${r.body}`) {
+    h ^= ch.codePointAt(0)!;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return `${ID_PREFIX}${r.id}#${h.toString(36)}`;
+}
+
+/**
+ * What to cancel and what to add to turn the phone's schedule into the wanted
+ * one. Ticking one habit then cancels one notification, instead of tearing
+ * down and rewriting sixty. Anything already pending that is not wanted goes —
+ * including the repeating reminders older builds wrote, which carry no prefix.
+ */
+export function diffSchedule(pending: string[], want: DatedReminder[]): { cancel: string[]; add: DatedReminder[] } {
+  const wanted = new Map(want.map((r) => [identifierOf(r), r]));
+  const have = new Set(pending);
+  return {
+    cancel: pending.filter((id) => !wanted.has(id)),
+    add: [...wanted].filter(([id]) => !have.has(id)).map(([, r]) => r),
+  };
+}
+
+/** Where tapping a reminder takes the person: the screen it is asking about. */
+export function routeOf(id: string): string {
+  const base = id.split("@")[0]!;
+  if (base.startsWith("habits-")) return "/";
+  if (base.startsWith("train-")) return "/workout";
+  const routes: Record<string, string> = {
+    food: "/kitchen",
+    water: "/water",
+    steps: "/progress",
+    recap: "/checkin",
+    weigh: "/progress",
+    measure: "/progress",
+  };
+  return routes[base] ?? "/";
+}
+
+/** "today 15:00", "tomorrow 08:30", "Sunday 08:30" — when the next one fires. */
+export function whenLabel(
+  at: Date,
+  now: Date,
+  names: { today: string; tomorrow: string; weekdays: readonly string[] },
+): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  const day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day1 = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+  const days = Math.round((day1 - day0) / 86400000);
+  const label = days <= 0 ? names.today : days === 1 ? names.tomorrow : names.weekdays[at.getDay()]!;
+  return `${label} ${time}`;
 }

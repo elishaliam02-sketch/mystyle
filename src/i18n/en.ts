@@ -165,6 +165,8 @@ export const en: typeof he = {
   },
 
   detail: {
+    markDone: "Mark done today",
+    doneToday: "Done today · tap to undo",
     gone: "That habit no longer exists.",
     smallerApplied: "Updated ✓",
     anchorSave: "Save anchor",
@@ -194,6 +196,7 @@ export const en: typeof he = {
 
   habit: {
     newTitle: "New habit",
+    duplicate: "You already have a habit with this name — reword it, or find it on the home screen.",
     newBody: "In your own words. The smaller and more concrete, the better the odds.",
     placeholder: "What do you want to do?",
     when: "Roughly when?",
@@ -585,9 +588,9 @@ export const en: typeof he = {
     goalRange: "A step goal must be between {min} and {max}.",
     autoOn: "Counting automatically",
     autoAsking: "Asking permission to count steps…",
-    autoOff: "This phone can't count automatically — you can add steps by hand.",
+    autoOff: "No automatic step counting here — steps are counted by the app on a phone with a step sensor.",
     fixByHand: "Correct the number by hand",
-    note: "Your phone counts for you. Walked without it in your pocket? Add those steps by hand.",
+    note: "Your phone counts for you while it is with you — a walk without it in your pocket is not counted.",
   },
   progress: {
     fatNeedHeight: "Add your height in Profile to see body fat.",
@@ -691,7 +694,9 @@ export const en: typeof he = {
     photosEmpty: "No photos yet. Take the first — it's your comparison point.",
     photosCompare: "Start vs now",
     photoRemove: "Delete photo",
-    photosUnavailable: "Photos are available in the phone app.",
+    photosWebNote: "Photos are kept only in this browser, at a reduced size. Clearing the site's data deletes them.",
+    photoUnreadable: "Couldn't read that photo. Try another one.",
+    photoFull: "No room for another photo in this browser. Delete an old one and try again.",
   },
 
   /** "Can I eat this?" — a food, priced out of ten. */
@@ -1125,7 +1130,8 @@ export const en: typeof he = {
 
   heatmap: {
     title: "The last 30 days",
-    subtitle: "Each square = a day. Filled = a habit completed.",
+    subtitle: "Each square = a day. Light = some habits, full = all of them. Today is outlined.",
+    a11y: "{full} of the last {total} days fully done",
   },
 
   achievements: {
@@ -1231,12 +1237,12 @@ export const en: typeof he = {
     languageNote: "Switching language restarts the app to change writing direction.",
     saved: "Saved",
     notificationsTitle: "Reminders",
-    notificationsBody: "One quiet reminder for each part of the day you have a habit in, and one at night for the recap.",
+    notificationsBody: "One quiet reminder for each part of the day you have a habit in, and one at night for the recap. Anything you have already done today is skipped. Tapping a reminder opens its screen.",
     notificationsOn: "Reminders on",
     notificationsOff: "Reminders off",
     notificationsEnable: "Turn on reminders",
     notificationsDisable: "Turn off reminders",
-    notificationsCount: "{count} reminders scheduled",
+    notificationsNext: "Next: {title} · {when}",
     notificationsDenied: "Notifications are blocked at the device level. Allow them in settings.",
     notificationsWeb: "Reminders only work in the installed app, not in a browser.",
     dangerTitle: "Delete all data",
@@ -1265,7 +1271,10 @@ export const en: typeof he = {
   },
 
   reminders: {
+    today: "today",
+    tomorrow: "tomorrow",
     slotTitle: "{count} things waiting",
+    slotOneTitle: "One thing waiting",
     recapTitle: "A minute to close the day",
     recapBody: "How did it go? Under a minute.",
     trainTitle: "Training today",
