@@ -12,6 +12,13 @@
 import { execSync } from "node:child_process";
 
 const EXCUSED = {
+  "GHSA-vfj7-8cjw-p6xm": {
+    until: "2026-12-31",
+    why:
+      "braces <=3.0.3 (stack exhaustion on deeply nested patterns). No fixed release exists yet. It is " +
+      "Metro's file-map matcher inside Expo's CLI — it runs on the build machine over the project's own " +
+      "file patterns, never in the app. The bundle carries only its licence line.",
+  },
   "GHSA-86w9-cpqp-85rv": {
     until: "2026-12-31",
     why:
