@@ -14,7 +14,7 @@ import { ReminderSync } from "@/notifications/useReminders";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { accessForAccount } from "@/billing/access";
 import { SUBSCRIPTION_REQUIRED } from "@/billing/launch";
@@ -209,7 +209,7 @@ function Shell() {
 export default function RootLayout() {
   // The whole type scale names these families, so rendering before they load
   // would flash a system-font version of every screen.
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Heebo_400Regular,
     Heebo_500Medium,
     Heebo_700Bold,
@@ -217,12 +217,25 @@ export default function RootLayout() {
     FrankRuhlLibre_500Medium,
     FrankRuhlLibre_800ExtraBold,
   });
+  // A font that fails or stalls (no signal, a slow network) used to leave the
+  // whole app blank for good. The system font is better than nothing: after
+  // a failure, or a few seconds' wait, the app draws anyway.
+  const [fontWait, setFontWait] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setFontWait(false), 4000);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     configureNotifications();
+    // On the web, the service worker keeps the app itself on the device, so
+    // the home-screen app opens with no signal — the data was always local.
+    if (Platform.OS === "web" && !__DEV__ && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && !fontError && fontWait) return null;
 
   return (
     <SafeAreaProvider>

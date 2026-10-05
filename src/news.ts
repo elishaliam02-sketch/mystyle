@@ -9,18 +9,16 @@
 export type News = { id: string; he: string[]; en: string[] };
 
 export const NEWS: News = {
-  id: "2026-10-03d",
+  id: "2026-10-05",
   he: [
-    "חדש: לכל הרגל אפשר לבחור באילו ימים הוא — \"חדר כושר א׳ ג׳ ה׳\". ימי המנוחה לא שוברים את הרצף, לא נספרים כפספוס ולא שולחים תזכורת.",
-    "תזכורות גם באייפון, דרך האתר: מוסיפים את האפליקציה למסך הבית, ומפעילים בפרופיל. מה שכבר עשית היום — לא מזכירים לך, ונגיעה בתזכורת פותחת את המסך שלה.",
-    "הרגלים: רעיונות מוכנים כשמוסיפים הרגל, אפשר לשנות לכל הרגל את שעת היום ולסמן אותו מהדף שלו. תמונות התקדמות עובדות עכשיו גם בדפדפן.",
-    "אימון: שינוי תוכנית כבר לא מוחק את היסטוריית האימונים, וטיימר המנוחה מדויק גם כשהמסך כבוי — ורוטט כשהמנוחה נגמרת. בספר המתכונים: \"מה אפשר להכין עכשיו\" ומועדפים.",
+    "האפליקציה נפתחת ועובדת גם בלי אינטרנט — במטוס, במרתף או בקליטה חלשה. כל מה שרושמים נשמר במכשיר.",
+    "תזכורות בלחיצה אחת מדף הבית. באייפון: מוסיפים את האפליקציה למסך הבית (שיתוף ← \"הוסף למסך הבית\"), ומפעילים.",
+    "לכל הרגל אפשר לבחור באילו ימים הוא — ימי מנוחה לא שוברים את הרצף. ויומן האוכל מגיע עד שבוע אחורה.",
   ],
   en: [
-    "New: choose which days each habit is on — \"the gym, Sun/Tue/Thu\". Rest days don't break the streak, don't count as a miss and don't send a reminder.",
-    "Reminders on iPhone too, through the website: add the app to the home screen and turn them on in Profile. Anything already done today is skipped, and tapping a reminder opens its screen.",
-    "Habits: ready-made ideas when you add one, a time of day you can change for each habit, and a tick right from its page. Progress photos now work in the browser too.",
-    "Training: changing your plan no longer erases your workout history, and the rest timer keeps true time with the screen off — and buzzes when rest is over. In the recipe book: \"What I can make now\" and favourites.",
+    "The app opens and works with no internet — on a plane, in a basement, on a weak signal. Everything you log stays on the device.",
+    "Reminders in one tap from the home screen. On iPhone: add the app to the home screen (Share → \"Add to Home Screen\"), then turn them on.",
+    "Choose the days each habit is on — rest days don't break the streak. And the food diary reaches back a week.",
   ],
 };
 

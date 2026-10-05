@@ -1496,6 +1496,49 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await fullBrowser.close();
 }
 
+// --- a font that cannot load must not leave the app blank
+{
+  const fctx = await browser.newContext({ viewport:{width:412,height:915} });
+  await fctx.route(/\.(ttf|otf|woff2?)(\?|$)/, r => r.abort());
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await fctx.route(h, r=>r.abort());
+  await fctx.addInitScript(s=>{try{ localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
+  const fp = await fctx.newPage();
+  await fp.goto(`http://localhost:${PORT}/`,{waitUntil:"load"}); await fp.waitForTimeout(6500);
+  check("with its fonts blocked the app still draws, in the system font", await fp.getByText("ההרגלים שלך").first().isVisible().catch(()=>false));
+  await fctx.close();
+}
+
+// --- offline: the home-screen app opens with no signal, from the kept copy
+{
+  const ob = await chromium.launch({ headless: true, channel: "chromium" });
+  const octx = await ob.newContext({ viewport:{width:412,height:915} });
+  await octx.exposeBinding("__cspViolation",(_src,v)=>cspViolations.push(String(v).slice(0,200)));
+  await octx.addInitScript(()=>document.addEventListener("securitypolicyviolation",e=>window.__cspViolation(`${e.violatedDirective} ${e.blockedURI}`)));
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await octx.route(h, r=>r.abort());
+  await octx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(seed));
+  const op = await octx.newPage();
+  const oerr=[]; op.on("pageerror",e=>oerr.push(String(e).slice(0,140)));
+  await op.goto(`http://localhost:${PORT}/`,{waitUntil:"load"});
+  const controlled = await op.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    for (let i = 0; i < 40 && !navigator.serviceWorker.controller; i++) await new Promise(r => setTimeout(r, 250));
+    return !!navigator.serviceWorker.controller;
+  }).catch(() => false);
+  check("the app's service worker takes charge of the page", controlled);
+  // one more online visit, as anyone would make, then the signal goes
+  await op.reload({ waitUntil: "load" }); await op.waitForTimeout(2500);
+  await octx.setOffline(true);
+  await op.reload({ waitUntil: "load" }).catch(()=>{}); await op.waitForTimeout(3500);
+  check("with no signal, the app still opens", await op.getByText("ההרגלים שלך").first().isVisible().catch(()=>false));
+  await op.getByRole("checkbox").first().click().catch(()=>{}); await op.waitForTimeout(600);
+  const ost = JSON.parse(await op.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+  check("and works: a tick offline is kept", ost.completions.some(c=>c.habitId==="h1"&&c.date===today&&c.done));
+  await op.goto(`http://localhost:${PORT}/kitchen`,{waitUntil:"load"}).catch(()=>{}); await op.waitForTimeout(3000);
+  check("another screen opens offline too", await op.getByText("המטבח").first().isVisible().catch(()=>false));
+  check("offline raises no page errors", oerr.length===0, oerr.join(" | "));
+  await ob.close();
+}
+
 check("the served page carries the Content-Security-Policy",
   /http-equiv="Content-Security-Policy"/.test(fs.readFileSync(path.join(DIST,"index.html"),"utf8")));
 // One refusal is expected and harmless: the "long" library inside TensorFlow
