@@ -41,8 +41,12 @@ try {
   if (!token) throw new Error(`anonymous sign-in refused: ${signup.status} ${JSON.stringify(session).slice(0, 200)}`);
   step("anonymous test account made");
 
-  browser = await chromium.launch({ channel: "chrome", headless: false });
-  const ctx = await browser.newContext();
+  // A real profile: Chrome turns push off in incognito-style contexts, which
+  // is what a plain new context is.
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const ctx = await chromium.launchPersistentContext(mkdtempSync(`${tmpdir()}/apex-smoke-`), { channel: "chrome", headless: false });
+  browser = ctx;
   await ctx.grantPermissions(["notifications"], { origin: SITE });
   const page = await ctx.newPage();
   await page.goto(`${SITE}/legal/privacy`, { waitUntil: "load" });
