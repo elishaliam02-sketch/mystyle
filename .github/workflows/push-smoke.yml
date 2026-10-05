@@ -22,9 +22,13 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - name: Playwright (the runner's own Chrome is used)
-        run: npm install --no-save --no-package-lock playwright@1.63.0
+      # Installed beside the script, away from the app's own dependency tree;
+      # the runner's installed Chrome is the browser.
+      - name: Playwright
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke" && cp scripts/push-smoke.mjs "$RUNNER_TEMP/smoke/"
+          cd "$RUNNER_TEMP/smoke" && npm init -y > /dev/null && npm install --silent playwright@1.63.0
       - name: A real push, end to end
         run: |
           sudo apt-get install -y -qq xvfb > /dev/null
-          xvfb-run -a node scripts/push-smoke.mjs
+          cd "$RUNNER_TEMP/smoke" && xvfb-run -a node push-smoke.mjs
