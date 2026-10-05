@@ -1,0 +1,41 @@
+name: Server health
+
+# Read-only: aggregate counts from the database — no row, no name, no email
+# is ever printed — to see whether what shipped is actually working: syncs
+# arriving, backups written, the reminder sender running, pushes going out.
+# Runs when this file changes, or by hand.
+
+on:
+  push:
+    branches: [claude/daily-routine-app-rgxm42]
+    paths: [".github/workflows/server-health.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PROJECT_REF: vesdfboxetdwymsulpsc
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Counts
+        run: |
+          ask() {
+            node -e 'process.stdout.write(JSON.stringify({ query: process.argv[1] }))' "$2" > body.json
+            echo "== $1"
+            curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @body.json
+            echo
+          }
+          ask "accounts" "select count(*) as total, count(*) filter (where is_anonymous) as anonymous, count(*) filter (where created_at > now() - interval '7 days') as new_7d, count(*) filter (where last_sign_in_at > now() - interval '7 days') as signed_in_7d from auth.users"
+          ask "sync rows written, last 7 days" "select (select count(*) from public.habits where synced_at > now() - interval '7 days') as habits, (select count(*) from public.completions where synced_at > now() - interval '7 days') as completions, (select count(*) from public.weigh_ins where synced_at > now() - interval '7 days') as weigh_ins, (select count(*) from public.check_ins where synced_at > now() - interval '7 days') as check_ins, (select count(*) from public.habits where days is not null) as habits_with_days"
+          ask "backups" "select count(*) as total, count(*) filter (where updated_at > now() - interval '7 days') as written_7d, max(octet_length(data::text)) as largest_bytes from public.backups"
+          ask "web push" "select (select count(*) from public.push_subscriptions) as browsers, (select count(*) from public.push_queue where sent_at is null) as waiting, (select count(*) from public.push_queue where sent_at > now() - interval '2 days') as sent_2d"
+          ask "reminder sender, last 24h" "select count(*) filter (where status = 'succeeded') as ok, count(*) filter (where status <> 'succeeded') as failed from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'push-send') and start_time > now() - interval '24 hours'"
+          ask "push function answers, last 6h" "select status_code, count(*) from net._http_response where created > now() - interval '6 hours' group by status_code order by 2 desc"
+          ask "ai usage, last 7 days" "select count(*) as calls from public.ai_usage where created_at > now() - interval '7 days'"
+          rm -f body.json
