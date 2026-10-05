@@ -1,0 +1,30 @@
+name: Push smoke test
+
+# One real reminder through production and Google's push service into a real
+# Chrome, then everything it made is deleted. By hand, or when this file or
+# the script changes.
+
+on:
+  push:
+    branches: [claude/daily-routine-app-rgxm42]
+    paths: [".github/workflows/push-smoke.yml", "scripts/push-smoke.mjs"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Playwright (the runner's own Chrome is used)
+        run: npm install --no-save --no-package-lock playwright@1.63.0
+      - name: A real push, end to end
+        run: |
+          sudo apt-get install -y -qq xvfb > /dev/null
+          xvfb-run -a node scripts/push-smoke.mjs
