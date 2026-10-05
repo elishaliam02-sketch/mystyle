@@ -1496,6 +1496,47 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   await fullBrowser.close();
 }
 
+// --- moving device without cloud backup: download the data, restore it elsewhere
+{
+  const actx = await browser.newContext({ viewport:{width:412,height:915}, acceptDownloads: true });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await actx.route(h, r=>r.abort());
+  const mine = { ...seed, habits:[{ id:"r1", title:"לרוץ 20 דקות", slot:"evening", createdAt:dayAgo(5), archived:false, updatedAt:now.toISOString() }],
+    completions:[{ habitId:"r1", date:dayAgo(1), done:true, updatedAt:now.toISOString() }] };
+  await actx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}}, JSON.stringify(mine));
+  const ap = await actx.newPage();
+  await ap.goto(`http://localhost:${PORT}/profile`,{waitUntil:"load"}); await ap.waitForTimeout(1800);
+  const dl = ap.waitForEvent("download",{timeout:10000}).catch(()=>null);
+  await ap.getByRole("button",{name:"הורד את המידע שלי"}).first().click();
+  const d = await dl;
+  // kept outside the context: its downloads are deleted when it closes
+  const file = d ? path.join(fs.mkdtempSync(path.join((await import("node:os")).tmpdir(), "apex-export-")), d.suggestedFilename()) : null;
+  if (d && file) await d.saveAs(file);
+  check("the data downloads as a file", !!file && fs.existsSync(file), d?.suggestedFilename());
+  await actx.close();
+
+  const bctx = await browser.newContext({ viewport:{width:412,height:915} });
+  for (const h of ["**://cdn.jsdelivr.net/**","**://commons.wikimedia.org/**","**://upload.wikimedia.org/**"]) await bctx.route(h, r=>r.abort());
+  await bctx.addInitScript(s=>{try{ if (!localStorage.getItem("mystyle.state.v1")) localStorage.setItem("mystyle.state.v1",s); localStorage.setItem("mystyle.locale","he");}catch{}},
+    JSON.stringify({ ...seed, habits:[], completions:[] }));
+  const bp = await bctx.newPage();
+  bp.on("dialog", (dlg) => dlg.accept());
+  await bp.goto(`http://localhost:${PORT}/profile`,{waitUntil:"load"}); await bp.waitForTimeout(1800);
+  if (file) {
+    const chooser = bp.waitForEvent("filechooser",{timeout:8000}).catch(()=>null);
+    await bp.getByRole("button",{name:"שחזור מקובץ"}).first().click();
+    const fc = await chooser;
+    check("restore opens a file picker", !!fc);
+    if (fc) {
+      await fc.setFiles(file); await bp.waitForTimeout(1500);
+      const s2 = JSON.parse(await bp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
+      check("the other device gets the habits and ticks back", s2.habits.some(h=>h.id==="r1") && s2.completions.some(c=>c.habitId==="r1"),
+        JSON.stringify(s2.habits.map(h=>h.title)));
+      check("and says so", await bp.getByText("השחזור הושלם.").first().isVisible().catch(()=>false));
+    }
+  }
+  await bctx.close();
+}
+
 // --- a font that cannot load must not leave the app blank
 {
   const fctx = await browser.newContext({ viewport:{width:412,height:915} });

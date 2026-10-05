@@ -52,6 +52,7 @@ import { useAppUpdate } from "@/updates";
 import { canOpenNetworkSettings, openNetworkSettings } from "@/net";
 import { LEGAL } from "@/legal";
 import { buildExport, exportFilename, serializeExport } from "@/legal/export";
+import { readRestore } from "@/legal/restore";
 import { deliverExport } from "@/legal/deliver";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { confirm } from "@/ui/confirm";
@@ -543,7 +544,7 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
   const { t } = useI18n();
   const { colors, space, type } = useTheme();
   const router = useRouter();
-  const { state, consent, setConsent, reset, allowance } = useStore();
+  const { state, consent, setConsent, reset, allowance, replaceAll } = useStore();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
@@ -610,6 +611,41 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
     );
     setBusy(false);
     setNote(ok ? fill(t.legal.exportDone, { file }) : t.legal.exportFailed);
+  }
+
+  /**
+   * The way back for someone with no cloud backup: the file "download my
+   * data" made, read back in. The browser's own file picker; the file is
+   * checked, and what replaces this device's data is said before it does.
+   */
+  function restoreFromFile() {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setNote(null);
+      const result = readRestore(await file.text(), state);
+      if (!result.ok) {
+        setNote(result.reason === "empty" ? t.legal.restoreEmpty : t.legal.restoreNotOurs);
+        return;
+      }
+      const date = result.summary.exportedAt ? formatStamp(new Date(result.summary.exportedAt)) : "—";
+      confirm({
+        title: t.legal.restoreTitle,
+        message: fill(t.legal.restoreConfirm, { date, habits: result.summary.habits, days: result.summary.days }),
+        confirmLabel: t.legal.restoreYes,
+        cancelLabel: t.common.cancel,
+        destructive: true,
+        onConfirm: () => {
+          replaceAll(result.state);
+          setNote(t.legal.restoreDone);
+        },
+      });
+    };
+    input.click();
   }
 
   return (
@@ -695,6 +731,19 @@ function PrivacyCard({ cloud }: { cloud: ReturnType<typeof useCloud> }) {
         onPress={() => void exportData()}
         style={{ marginTop: space.md }}
       />
+      {Platform.OS === "web" ? (
+        <>
+          <Button
+            icon="push-outline"
+            label={t.legal.restoreCta}
+            tone="quiet"
+            disabled={busy}
+            onPress={restoreFromFile}
+            style={{ marginTop: space.sm }}
+          />
+          <Text style={[type.small, { color: colors.inkFaint, marginTop: space.xs }]}>{t.legal.restoreBody}</Text>
+        </>
+      ) : null}
 
       <Text style={[type.label, { color: colors.inkFaint, marginTop: space.lg }]}>
         {t.legal.deleteTitle}

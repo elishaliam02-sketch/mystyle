@@ -233,6 +233,12 @@ export default function RootLayout() {
     if (Platform.OS === "web" && !__DEV__ && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    // Everything a person logs on the web lives in this site's storage, which
+    // a browser short of space may clear. Asking for it to be kept is free;
+    // Safari and Chrome grant it to an installed app.
+    if (Platform.OS === "web" && typeof navigator !== "undefined") {
+      navigator.storage?.persist?.().catch(() => {});
+    }
   }, []);
 
   if (!fontsLoaded && !fontError && fontWait) return null;

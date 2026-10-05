@@ -1,4 +1,5 @@
 import { buildExport, exportFilename, serializeExport } from "./export";
+import { readRestore } from "./restore";
 import { LEGAL } from "./config";
 import { EMPTY_STATE, type AppState } from "@/store/types";
 
@@ -60,6 +61,44 @@ const state: AppState = {
   check("the filename carries the date", name.includes("2026-09-09"), name);
   check("the filename is a .json", name.endsWith(".json"), name);
   check("the filename has no spaces or slashes", !/[\s/\\]/.test(name), name);
+}
+
+// --- a downloaded file reads back, and only the person's data comes with it
+{
+  const mine: AppState = {
+    ...EMPTY_STATE,
+    profile: { name: "Dana", onboarded: true, startKg: 80 },
+    habits: [{ id: "h1", title: "walk", createdAt: "2026-09-01", archived: false, updatedAt: "2026-09-01T00:00:00.000Z" }],
+    completions: [{ habitId: "h1", date: "2026-09-02", done: true, updatedAt: "x" }],
+    intake: { "2026-09-03": [{ id: "i", label: "rice", kcal: 300, protein: 6 }] },
+    subscription: { status: "active", plan: "yearly" } as never,
+    usage: { "2026-09": { coach: 0 } },
+    consent: { cloud: true, ai: true, photos: true, updatedAt: "old" },
+    lastSyncAt: "another-device",
+  };
+  const file = serializeExport(buildExport(mine));
+  const here: AppState = {
+    ...EMPTY_STATE,
+    legal: { version: LEGAL.version, acceptedAt: "here" },
+    consent: { cloud: false, ai: false, photos: true, updatedAt: "here" },
+    usage: { "2026-10": { coach: 5 } },
+    clockHighWaterMs: 5,
+  };
+  const r = readRestore(file, here);
+  check("a downloaded file reads back", r.ok);
+  if (r.ok) {
+    check("habits, ticks and meals come back", r.state.habits.length === 1 && r.state.completions.length === 1 && !!r.state.intake?.["2026-09-03"]);
+    check("the name comes back", r.state.profile.name === "Dana");
+    check("this device's consent is kept, not the file's", r.state.consent?.cloud === false && r.state.consent?.updatedAt === "here");
+    check("so is its acceptance of the terms", r.state.legal?.acceptedAt === "here");
+    check("a file cannot grant a subscription", r.state.subscription === undefined);
+    check("nor reset the usage counts", r.state.usage?.["2026-10"]?.coach === 5 && !r.state.usage?.["2026-09"]);
+    check("another device's sync cursor is not adopted", r.state.lastSyncAt === undefined);
+    check("the summary counts what came back", r.summary.habits === 1 && r.summary.days === 2, JSON.stringify(r.summary));
+  }
+  check("not JSON is refused", readRestore("{oops", here).ok === false);
+  check("someone else's JSON is refused", readRestore(JSON.stringify({ meta: { app: "Other" }, data: {} }), here).ok === false);
+  check("an empty export is refused rather than wiping the device", readRestore(serializeExport(buildExport(EMPTY_STATE)), here).ok === false);
 }
 
 const failed = results.filter(([, ok]) => !ok);
