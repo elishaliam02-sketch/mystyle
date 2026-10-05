@@ -1,6 +1,7 @@
 import { litres } from "@/health/water";
 import { HelpEntry } from "@/components/HelpEntry";
 import { WhatsNew } from "@/components/WhatsNew";
+import { SetupCard } from "@/components/SetupCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chevron } from "@/components/Chevron";
 import { useRouter } from "expo-router";
@@ -457,6 +458,7 @@ export default function TodayScreen() {
     return (
       <Screen eyebrow={dateLabel} title={title}>
         <NowCard />
+        <SetupCard />
         <Rise>
           <DayCalories />
         </Rise>
@@ -502,6 +504,8 @@ export default function TodayScreen() {
 
       {/* what to do at this hour — the one block that changes through the day */}
       <NowCard />
+
+      <SetupCard />
 
       <WhatsNew />
 

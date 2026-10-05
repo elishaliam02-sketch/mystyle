@@ -1297,6 +1297,18 @@ export const en: typeof he = {
     unavailable: "These are the app's written tips. Tips written for you personally arrive once the server is connected.",
   },
 
+
+  setup: {
+    installTitle: "Reminders on iPhone",
+    installBody: "For the app to remind you, install it: in Safari tap Share ⬆︎, choose \"Add to Home Screen\", and open APEX from the new icon.",
+    remindersTitle: "Let the app remind you",
+    remindersBody: "A quiet nudge for your habits, water and the evening recap — and only for what you haven't done yet today.",
+    backupTitle: "So nothing gets lost",
+    backupBody: "Everything you've logged lives only on this device. A cloud backup keeps it if you change phones or the data is cleared.",
+    backupGo: "Turn on backup",
+    later: "Not now",
+    gotIt: "Got it",
+  },
   reminders: {
     today: "today",
     tomorrow: "tomorrow",

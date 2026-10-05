@@ -1342,6 +1342,14 @@ check("the paywall raises no page errors", crashes.length===0, crashes.join(" | 
   const hgo = async (route)=>{ await hp.goto(`http://localhost:${PORT}${route}`,{waitUntil:"load"}); await hp.waitForTimeout(1600); };
   const hst = async ()=> JSON.parse(await hp.evaluate(()=>localStorage.getItem("mystyle.state.v1")));
 
+  // the next setup step is offered on the home screen, and "not now" holds
+  await hgo("/");
+  check("home offers the next setup step", await hp.getByText("שהאפליקציה תזכיר לך").first().isVisible().catch(()=>false));
+  await hp.getByRole("button",{name:"לא עכשיו"}).first().click(); await hp.waitForTimeout(500);
+  check("\"not now\" puts it away", !(await hp.getByText("שהאפליקציה תזכיר לך").first().isVisible().catch(()=>false)));
+  await hgo("/");
+  check("and it stays away after a reload", !(await hp.getByText("שהאפליקציה תזכיר לך").first().isVisible().catch(()=>false)));
+
   await hgo("/habit/new");
   const idea = hp.getByRole("button",{name:"לצאת להליכה של 10 דקות"}).first();
   check("a new habit offers ideas to start from", await idea.isVisible().catch(()=>false));

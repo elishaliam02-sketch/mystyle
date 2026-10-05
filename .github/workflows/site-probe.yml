@@ -33,7 +33,7 @@ jobs:
       # address: the browser refuses the call unless the answer names it.
       - name: Can the site reach the functions
         run: |
-          for fn in admin ai billing; do
+          for fn in admin ai billing push; do
             o=$(curl -s -o /dev/null -D - -X OPTIONS "https://vesdfboxetdwymsulpsc.supabase.co/functions/v1/$fn" \
               -H "Origin: https://mystyle.expo.app" -H "Access-Control-Request-Method: POST" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
             echo "$fn: ${o:-no Access-Control-Allow-Origin for https://mystyle.expo.app}"

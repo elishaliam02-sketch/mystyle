@@ -82,6 +82,7 @@
     "test:health": "node scripts/run-health-tests.mjs",
     "test:reminders": "node scripts/run-reminder-tests.mjs",
     "test:schedule": "node scripts/run-schedule-tests.mjs",
+    "test:setup": "node scripts/run-setup-tests.mjs",
     "test:webpush": "node scripts/run-webpush-tests.mjs",
     "test:pushplan": "node scripts/run-pushplan-tests.mjs",
     "test:cardio": "node scripts/run-cardio-tests.mjs",

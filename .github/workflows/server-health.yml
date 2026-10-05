@@ -37,5 +37,12 @@ jobs:
           ask "web push" "select (select count(*) from public.push_subscriptions) as browsers, (select count(*) from public.push_queue where sent_at is null) as waiting, (select count(*) from public.push_queue where sent_at > now() - interval '2 days') as sent_2d"
           ask "reminder sender, last 24h" "select count(*) filter (where status = 'succeeded') as ok, count(*) filter (where status <> 'succeeded') as failed from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'push-send') and start_time > now() - interval '24 hours'"
           ask "push function answers, last 6h" "select status_code, count(*) from net._http_response where created > now() - interval '6 hours' group by status_code order by 2 desc"
-          ask "ai usage, last 7 days" "select count(*) as calls from public.ai_usage where created_at > now() - interval '7 days'"
+          ask "ai usage, current windows" "select count(*) as keys, coalesce(sum(n), 0) as calls from public.ai_usage where expires_at > now()"
           rm -f body.json
+
+      # Which features have what they need — the names of the function
+      # secrets, never their values (the CLI prints a name and a digest).
+      - name: Configured secrets (names only)
+        run: |
+          npx --yes supabase@2.117.0 secrets list --project-ref "$PROJECT_REF" 2>/dev/null \
+            | awk -F'|' 'NR>2 && NF>1 { gsub(/ /, "", $1); if ($1 != "") print $1 }' | sort
