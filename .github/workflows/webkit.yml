@@ -1,0 +1,31 @@
+name: Safari engine (WebKit)
+
+# Every screen in WebKit with an iPhone's screen and touch — the engine every
+# iPhone browser uses. By hand, or when the suite changes.
+
+on:
+  push:
+    branches: [claude/daily-routine-app-rgxm42]
+    paths: [".github/workflows/webkit.yml", "scripts/webkit-smoke.mjs"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx expo export --platform web
+      - name: WebKit
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps webkit
+      - run: node scripts/webkit-smoke.mjs
