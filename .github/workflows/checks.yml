@@ -83,6 +83,13 @@ jobs:
       - name: Admin console
         run: node scripts/admin-e2e.mjs
 
+      # The people on the web app are on iPhones, where every browser is
+      # WebKit: every screen, and the taps a day is made of, in that engine.
+      - name: Safari engine (WebKit)
+        run: |
+          npx playwright install --with-deps webkit
+          node scripts/webkit-smoke.mjs
+
   # Static security analysis, in parallel with the job above. Same script as
   # `npm run sast` locally; the rules are pinned inside it.
   sast:
